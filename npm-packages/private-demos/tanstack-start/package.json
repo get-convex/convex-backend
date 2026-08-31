@@ -21,14 +21,14 @@
     "@tanstack/react-router-ssr-query": "^1.167.0",
     "@tanstack/react-start": "^1.168.10",
     "convex": "workspace:*",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "workspace:*",
     "@tanstack/eslint-config": "^0.4.0",
-    "@types/react": "^18.2.65",
-    "@types/react-dom": "^18.2.21",
+    "@types/react": "^19.2.4",
+    "@types/react-dom": "^19.2.3",
     "@typescript-eslint/parser": "^8.0.0",
     "@vitejs/plugin-react": "^4.2.1",
     "eslint": "^9.37.0",

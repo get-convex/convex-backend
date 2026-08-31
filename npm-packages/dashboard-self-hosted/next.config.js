@@ -1,5 +1,3 @@
-const path = require("path");
-
 const ContentSecurityPolicy = `
   frame-ancestors 'self';
 `;
@@ -90,15 +88,6 @@ const nextConfig = {
       test: /\.svg$/,
       use: ["@svgr/webpack"],
     });
-
-    // The convex workspace package's devDependencies put a second react copy
-    // in convex/node_modules, which would ship two reacts in the bundle while
-    // this app and convex are on different react majors.
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      react: path.dirname(require.resolve("react/package.json")),
-      "react-dom": path.dirname(require.resolve("react-dom/package.json")),
-    };
 
     config.resolve.symlinks = true; // Ensure Webpack follows symlinks
     // Force Webpack to watch changes in the src directory of local packages

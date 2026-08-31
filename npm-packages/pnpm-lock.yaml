@@ -566,7 +566,7 @@ importers:
     dependencies:
       '@clerk/clerk-react':
         specifier: ^5.61.6
-        version: 5.61.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       esbuild:
         specifier: 0.27.0
         version: 0.27.0
@@ -579,7 +579,7 @@ importers:
     devDependencies:
       '@auth0/auth0-react':
         specifier: 2.15.1
-        version: 2.15.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@babel/code-frame':
         specifier: ^7.27.1
         version: 7.29.0
@@ -591,7 +591,7 @@ importers:
         version: 7.28.5
       '@clerk/react':
         specifier: ^6.4.3
-        version: 6.4.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 6.4.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@commander-js/extra-typings':
         specifier: ^14.0.0
         version: 14.0.0(commander@14.0.3)
@@ -639,7 +639,7 @@ importers:
         version: 1.15.8(@swc/helpers@0.5.15)
       '@testing-library/react':
         specifier: ~16.3.0
-        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@types/babel__code-frame':
         specifier: ^7.0.6
         version: 7.0.6
@@ -650,11 +650,11 @@ importers:
         specifier: ^18.17.0
         version: 18.19.130
       '@types/react':
-        specifier: ^18.0.0
-        version: 18.3.26
+        specifier: ^19.2.4
+        version: 19.2.8
       '@types/react-dom':
-        specifier: ^18.0.0
-        version: 18.3.7(@types/react@18.3.26)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.8)
       '@types/semver':
         specifier: ^7.3.13
         version: 7.7.1
@@ -755,11 +755,11 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0
       react:
-        specifier: ^18.0.0
-        version: 18.3.1
+        specifier: ^19.2.4
+        version: 19.2.4
       react-dom:
-        specifier: ^18.0.0
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
       semver:
         specifier: ^7.6.0
         version: 7.7.3
@@ -1919,13 +1919,13 @@ importers:
         version: link:../../convex
       next:
         specifier: ^15.5.24
-        version: 15.5.24(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(babel-plugin-react-compiler@1.0.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(sass@1.94.0)
+        version: 15.5.24(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0)
       react:
-        specifier: ^18.0.0
-        version: 18.3.1
+        specifier: ^19.2.4
+        version: 19.2.4
       react-dom:
-        specifier: ^18.0.0
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
     devDependencies:
       '@convex-dev/eslint-plugin':
         specifier: workspace:*
@@ -1938,7 +1938,7 @@ importers:
         version: 9.39.1
       '@radix-ui/react-slot':
         specifier: ^1.0.2
-        version: 1.2.4(@types/react@18.3.26)(react@18.3.1)
+        version: 1.2.4(@types/react@19.2.8)(react@19.2.4)
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
@@ -1946,11 +1946,11 @@ importers:
         specifier: ^18.17.0
         version: 18.19.130
       '@types/react':
-        specifier: ^18.0.0
-        version: 18.3.26
+        specifier: ^19.2.4
+        version: 19.2.8
       '@types/react-dom':
-        specifier: ^18.0.0
-        version: 18.3.7(@types/react@18.3.26)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.8)
       class-variance-authority:
         specifier: ^0.7.0
         version: 0.7.1
@@ -2810,13 +2810,13 @@ importers:
         version: link:../../convex
       convex-helpers:
         specifier: ^0.1.105
-        version: 0.1.105(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.12.34)(react@18.3.1)(typescript@5.9.3)(zod@3.25.76)
+        version: 0.1.105(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.12.34)(react@19.2.4)(typescript@5.9.3)(zod@3.25.76)
       react:
-        specifier: ^18.0.0
-        version: 18.3.1
+        specifier: ^19.2.4
+        version: 19.2.4
       react-dom:
-        specifier: ^18.0.0
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
       zod:
         specifier: ^3.25.0
         version: 3.25.76
@@ -2828,11 +2828,11 @@ importers:
         specifier: ^18.17.0
         version: 18.19.130
       '@types/react':
-        specifier: ^18.0.0
-        version: 18.3.26
+        specifier: ^19.2.4
+        version: 19.2.8
       '@types/react-dom':
-        specifier: ^18.0.0
-        version: 18.3.7(@types/react@18.3.26)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.8)
       '@vitejs/plugin-react':
         specifier: ^4.2.1
         version: 4.7.0(vite@6.4.3(@types/node@18.19.130)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
@@ -3798,7 +3798,7 @@ importers:
         version: link:../../convex
       next:
         specifier: ^15.5.24
-        version: 15.5.24(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0)
+        version: 15.5.24(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0)
       postcss:
         specifier: ^8.5.18
         version: 8.5.23
@@ -3825,11 +3825,11 @@ importers:
         specifier: ^20
         version: 20.19.25
       '@types/react':
-        specifier: ^18.3.17
-        version: 18.3.26
+        specifier: ^19.2.4
+        version: 19.2.8
       '@types/react-dom':
-        specifier: ^18.3.1
-        version: 18.3.7(@types/react@18.3.26)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.8)
       eslint:
         specifier: ^9.37.0
         version: 9.39.1(jiti@2.7.0)(supports-color@10.2.2)
@@ -4113,7 +4113,7 @@ importers:
         version: 10.1.0
       '@heroicons/react':
         specifier: 2.2.0
-        version: 2.2.0(@types/react@18.3.26)(react@18.3.1)
+        version: 2.2.0(@types/react@19.2.8)(react@19.2.4)
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -4121,11 +4121,11 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       react:
-        specifier: ^18.3.1
-        version: 18.3.1
+        specifier: ^19.2.4
+        version: 19.2.4
       react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.4.0
@@ -4140,11 +4140,11 @@ importers:
         specifier: ^18.17.0
         version: 18.19.130
       '@types/react':
-        specifier: ^18.0.0
-        version: 18.3.26
+        specifier: ^19.2.4
+        version: 19.2.8
       '@types/react-dom':
-        specifier: ^18.0.0
-        version: 18.3.7(@types/react@18.3.26)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.8)
       '@vitejs/plugin-react':
         specifier: ^4.3.1
         version: 4.7.0(vite@6.4.3(@types/node@18.19.130)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
@@ -4691,35 +4691,35 @@ importers:
         version: link:../../../@convex-dev/react-query
       '@tanstack/react-query':
         specifier: ^5.100.11
-        version: 5.100.11(react@18.3.1)
+        version: 5.100.11(react@19.2.4)
       '@tanstack/react-router':
         specifier: ^1.170.7
-        version: 1.170.7(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tanstack/react-router-ssr-query':
         specifier: ^1.167.0
-        version: 1.167.0(@tanstack/query-core@5.100.11)(@tanstack/react-query@5.100.11(react@18.3.1))(@tanstack/react-router@1.170.7(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.171.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.167.0(@tanstack/query-core@5.100.11)(@tanstack/react-query@5.100.11(react@19.2.4))(@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-core@1.171.5)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tanstack/react-start':
         specifier: ^1.168.10
-        version: 1.168.10(@types/react@18.3.26)(crossws@0.4.5(srvx@0.11.22))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)
+        version: 1.168.10(@types/react@19.2.8)(crossws@0.4.5(srvx@0.11.22))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)
       convex:
         specifier: workspace:*
         version: link:../../../convex
       react:
-        specifier: ^18.0.0
-        version: 18.3.1
+        specifier: ^19.2.4
+        version: 19.2.4
       react-dom:
-        specifier: ^18.0.0
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
       '@types/react':
-        specifier: ^18.0.0
-        version: 18.3.26
+        specifier: ^19.2.4
+        version: 19.2.8
       '@types/react-dom':
-        specifier: ^18.0.0
-        version: 18.3.7(@types/react@18.3.26)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.8)
       '@vitejs/plugin-react':
         specifier: ^5.0.3
         version: 5.2.0(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
@@ -4933,25 +4933,25 @@ importers:
         version: link:../../@convex-dev/react-query
       '@tanstack/react-query':
         specifier: ^5.100.11
-        version: 5.100.11(react@18.3.1)
+        version: 5.100.11(react@19.2.4)
       '@tanstack/react-router':
         specifier: ^1.170.7
-        version: 1.170.7(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tanstack/react-router-ssr-query':
         specifier: ^1.167.0
-        version: 1.167.0(@tanstack/query-core@5.100.11)(@tanstack/react-query@5.100.11(react@18.3.1))(@tanstack/react-router@1.170.7(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@tanstack/router-core@1.171.5)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.167.0(@tanstack/query-core@5.100.11)(@tanstack/react-query@5.100.11(react@19.2.4))(@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-core@1.171.5)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tanstack/react-start':
         specifier: ^1.168.10
-        version: 1.168.10(@types/react@18.3.26)(crossws@0.4.5(srvx@0.11.22))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)
+        version: 1.168.10(@types/react@19.2.8)(crossws@0.4.5(srvx@0.11.22))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)
       convex:
         specifier: workspace:*
         version: link:../../convex
       react:
-        specifier: ^18.3.1
-        version: 18.3.1
+        specifier: ^19.2.4
+        version: 19.2.4
       react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
     devDependencies:
       '@convex-dev/eslint-plugin':
         specifier: workspace:*
@@ -4960,11 +4960,11 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(@typescript-eslint/utils@8.58.2(eslint@9.39.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3))(eslint-import-resolver-node@0.3.9(supports-color@10.2.2))(eslint@9.39.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3)
       '@types/react':
-        specifier: ^18.2.65
-        version: 18.3.26
+        specifier: ^19.2.4
+        version: 19.2.8
       '@types/react-dom':
-        specifier: ^18.2.21
-        version: 18.3.7(@types/react@18.3.26)
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.8)
       '@typescript-eslint/parser':
         specifier: ^8.0.0
         version: 8.46.4(eslint@9.39.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3)
@@ -5845,11 +5845,11 @@ importers:
         specifier: ~0.11.0
         version: 0.11.1
       react:
-        specifier: ^18.0.0
-        version: 18.3.1
+        specifier: ^19.2.4
+        version: 19.2.4
       react-dom:
-        specifier: ^18.0.0
-        version: 18.3.1(react@18.3.1)
+        specifier: ^19.2.4
+        version: 19.2.4(react@19.2.4)
     devDependencies:
       '@babel/preset-env':
         specifier: ^7.27.1
@@ -5859,7 +5859,7 @@ importers:
         version: 30.2.0
       '@testing-library/react':
         specifier: ~16.3.0
-        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -5870,8 +5870,8 @@ importers:
         specifier: ^2.6.1
         version: 2.6.13
       '@types/react':
-        specifier: ^18.0.0
-        version: 18.3.26
+        specifier: ^19.2.4
+        version: 19.2.8
       '@types/ws':
         specifier: ^8.5.13
         version: 8.18.1
@@ -28912,6 +28912,12 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
+  '@auth0/auth0-react@2.15.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@auth0/auth0-spa-js': 2.19.1
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+
   '@auth0/auth0-spa-js@2.19.1':
     dependencies:
       '@auth0/auth0-auth-js': 1.6.0
@@ -30785,6 +30791,14 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       tslib: 2.8.1
+    optional: true
+
+  '@clerk/clerk-react@5.61.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@clerk/shared': 3.47.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      tslib: 2.8.1
 
   '@clerk/nextjs@7.2.4(next@15.5.24(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.59.1)(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(sass@1.94.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
@@ -30841,6 +30855,7 @@ snapshots:
     optionalDependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
+    optional: true
 
   '@clerk/shared@3.47.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
@@ -33562,12 +33577,6 @@ snapshots:
       use-sync-external-store: 1.6.0(react@19.2.4)
     optionalDependencies:
       '@types/react': 19.2.8
-
-  '@heroicons/react@2.2.0(@types/react@18.3.26)(react@18.3.1)':
-    dependencies:
-      react: 18.3.1
-    optionalDependencies:
-      '@types/react': 18.3.26
 
   '@heroicons/react@2.2.0(@types/react@19.2.8)(react@19.2.4)':
     dependencies:
@@ -38962,6 +38971,17 @@ snapshots:
     transitivePeerDependencies:
       - '@tanstack/router-core'
 
+  '@tanstack/react-router-ssr-query@1.167.0(@tanstack/query-core@5.100.11)(@tanstack/react-query@5.100.11(react@19.2.4))(@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@tanstack/router-core@1.171.5)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@tanstack/query-core': 5.100.11
+      '@tanstack/react-query': 5.100.11(react@19.2.4)
+      '@tanstack/react-router': 1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/router-ssr-query-core': 1.169.0(@tanstack/query-core@5.100.11)(@tanstack/router-core@1.171.5)
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+    transitivePeerDependencies:
+      - '@tanstack/router-core'
+
   '@tanstack/react-router@1.170.7(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/history': 1.162.0
@@ -38973,6 +38993,17 @@ snapshots:
     optionalDependencies:
       '@types/react': 18.3.26
 
+  '@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@tanstack/history': 1.162.0
+      '@tanstack/react-store': 0.9.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/router-core': 1.171.5
+      isbot: 5.1.32
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+    optionalDependencies:
+      '@types/react': 19.2.8
+
   '@tanstack/react-start-client@1.168.2(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/react-router': 1.170.7(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -38980,6 +39011,16 @@ snapshots:
       '@tanstack/start-client-core': 1.170.2
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
+    transitivePeerDependencies:
+      - '@types/react'
+
+  '@tanstack/react-start-client@1.168.2(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@tanstack/react-router': 1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/router-core': 1.171.5
+      '@tanstack/start-client-core': 1.170.2
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
     transitivePeerDependencies:
       - '@types/react'
 
@@ -39029,6 +39070,29 @@ snapshots:
       - vite-plugin-solid
       - webpack
 
+  '@tanstack/react-start-rsc@0.1.10(@types/react@19.2.8)(crossws@0.4.5(srvx@0.11.22))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)':
+    dependencies:
+      '@tanstack/react-router': 1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/react-start-server': 1.167.7(@types/react@19.2.8)(crossws@0.4.5(srvx@0.11.22))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/router-core': 1.171.5
+      '@tanstack/router-utils': 1.162.1(supports-color@10.2.2)
+      '@tanstack/start-client-core': 1.170.2
+      '@tanstack/start-fn-stubs': 1.162.0
+      '@tanstack/start-plugin-core': 1.171.3(@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(crossws@0.4.5(srvx@0.11.22))(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)
+      '@tanstack/start-server-core': 1.169.2(crossws@0.4.5(srvx@0.11.22))
+      '@tanstack/start-storage-context': 1.167.7
+      pathe: 2.0.3
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+    transitivePeerDependencies:
+      - '@rsbuild/core'
+      - '@types/react'
+      - crossws
+      - supports-color
+      - vite
+      - vite-plugin-solid
+      - webpack
+
   '@tanstack/react-start-server@1.167.7(@types/react@18.3.26)(crossws@0.4.5(srvx@0.11.22))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/history': 1.162.0
@@ -39038,6 +39102,19 @@ snapshots:
       '@tanstack/start-server-core': 1.169.2(crossws@0.4.5(srvx@0.11.22))
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
+    transitivePeerDependencies:
+      - '@types/react'
+      - crossws
+
+  '@tanstack/react-start-server@1.167.7(@types/react@19.2.8)(crossws@0.4.5(srvx@0.11.22))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@tanstack/history': 1.162.0
+      '@tanstack/react-router': 1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/router-core': 1.171.5
+      '@tanstack/start-client-core': 1.170.2
+      '@tanstack/start-server-core': 1.169.2(crossws@0.4.5(srvx@0.11.22))
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
     transitivePeerDependencies:
       - '@types/react'
       - crossws
@@ -39090,12 +39167,43 @@ snapshots:
       - vite-plugin-solid
       - webpack
 
+  '@tanstack/react-start@1.168.10(@types/react@19.2.8)(crossws@0.4.5(srvx@0.11.22))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)':
+    dependencies:
+      '@tanstack/react-router': 1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/react-start-client': 1.168.2(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/react-start-rsc': 0.1.10(@types/react@19.2.8)(crossws@0.4.5(srvx@0.11.22))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)
+      '@tanstack/react-start-server': 1.167.7(@types/react@19.2.8)(crossws@0.4.5(srvx@0.11.22))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/router-utils': 1.162.1(supports-color@10.2.2)
+      '@tanstack/start-client-core': 1.170.2
+      '@tanstack/start-plugin-core': 1.171.3(@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(crossws@0.4.5(srvx@0.11.22))(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)
+      '@tanstack/start-server-core': 1.169.2(crossws@0.4.5(srvx@0.11.22))
+      pathe: 2.0.3
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+    optionalDependencies:
+      '@types/react': 19.2.8
+      vite: 7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0)
+    transitivePeerDependencies:
+      - '@rspack/core'
+      - crossws
+      - react-server-dom-rspack
+      - supports-color
+      - vite-plugin-solid
+      - webpack
+
   '@tanstack/react-store@0.9.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@tanstack/store': 0.9.3
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       use-sync-external-store: 1.6.0(react@18.3.1)
+
+  '@tanstack/react-store@0.9.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@tanstack/store': 0.9.3
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      use-sync-external-store: 1.6.0(react@19.2.4)
 
   '@tanstack/react-table@8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
@@ -39182,6 +39290,28 @@ snapshots:
       zod: 4.4.3
     optionalDependencies:
       '@tanstack/react-router': 1.170.7(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      vite: 7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0)
+      webpack: 5.105.4(@swc/core@1.15.8)(esbuild@0.28.1)(uglify-js@3.19.3)(webpack-cli@4.10.0)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@tanstack/router-plugin@1.168.10(@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)':
+    dependencies:
+      '@babel/core': 7.29.7(supports-color@10.2.2)
+      '@babel/plugin-syntax-jsx': 7.27.1(@babel/core@7.29.7(supports-color@10.2.2))
+      '@babel/plugin-syntax-typescript': 7.28.6(@babel/core@7.29.7(supports-color@10.2.2))
+      '@babel/template': 7.28.6
+      '@babel/traverse': 7.29.0(supports-color@10.2.2)
+      '@babel/types': 7.29.7
+      '@tanstack/router-core': 1.171.5
+      '@tanstack/router-generator': 1.167.9(supports-color@10.2.2)
+      '@tanstack/router-utils': 1.162.1(supports-color@10.2.2)
+      '@tanstack/virtual-file-routes': 1.162.0
+      chokidar: 5.0.0
+      unplugin: 3.0.0
+      zod: 4.4.3
+    optionalDependencies:
+      '@tanstack/react-router': 1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       vite: 7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0)
       webpack: 5.105.4(@swc/core@1.15.8)(esbuild@0.28.1)(uglify-js@3.19.3)(webpack-cli@4.10.0)
     transitivePeerDependencies:
@@ -39283,6 +39413,40 @@ snapshots:
       - vite-plugin-solid
       - webpack
 
+  '@tanstack/start-plugin-core@1.171.3(@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(crossws@0.4.5(srvx@0.11.22))(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)':
+    dependencies:
+      '@babel/code-frame': 7.27.1
+      '@babel/core': 7.29.7(supports-color@10.2.2)
+      '@babel/types': 7.29.7
+      '@rolldown/pluginutils': 1.0.1
+      '@tanstack/router-core': 1.171.5
+      '@tanstack/router-generator': 1.167.9(supports-color@10.2.2)
+      '@tanstack/router-plugin': 1.168.10(@tanstack/react-router@1.170.7(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(supports-color@10.2.2)(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))(webpack@5.105.4)
+      '@tanstack/router-utils': 1.162.1(supports-color@10.2.2)
+      '@tanstack/start-client-core': 1.170.2
+      '@tanstack/start-server-core': 1.169.2(crossws@0.4.5(srvx@0.11.22))
+      cheerio: 1.1.2
+      exsolve: 1.0.8
+      lightningcss: 1.32.0
+      pathe: 2.0.3
+      picomatch: 4.0.5
+      seroval: 1.5.4
+      source-map: 0.7.6
+      srvx: 0.11.15
+      tinyglobby: 0.2.17
+      ufo: 1.6.4
+      vitefu: 1.1.1(vite@7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
+      xmlbuilder2: 4.0.3
+      zod: 4.4.3
+    optionalDependencies:
+      vite: 7.3.5(@types/node@22.19.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0)
+    transitivePeerDependencies:
+      - '@tanstack/react-router'
+      - crossws
+      - supports-color
+      - vite-plugin-solid
+      - webpack
+
   '@tanstack/start-server-core@1.169.2(crossws@0.4.5(srvx@0.11.22))':
     dependencies:
       '@tanstack/history': 1.162.0
@@ -39343,26 +39507,6 @@ snapshots:
       dom-accessibility-api: 0.6.3
       picocolors: 1.1.1
       redent: 3.0.0
-
-  '@testing-library/react@16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      '@babel/runtime': 7.28.4
-      '@testing-library/dom': 10.4.1
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-    optionalDependencies:
-      '@types/react': 18.3.26
-      '@types/react-dom': 18.3.7(@types/react@18.3.26)
-
-  '@testing-library/react@16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      '@babel/runtime': 7.28.4
-      '@testing-library/dom': 10.4.1
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-    optionalDependencies:
-      '@types/react': 18.3.26
-      '@types/react-dom': 19.2.3(@types/react@18.3.26)
 
   '@testing-library/react@16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
@@ -39779,11 +39923,6 @@ snapshots:
   '@types/react-dom@18.3.7(@types/react@18.3.26)':
     dependencies:
       '@types/react': 18.3.26
-
-  '@types/react-dom@19.2.3(@types/react@18.3.26)':
-    dependencies:
-      '@types/react': 18.3.26
-    optional: true
 
   '@types/react-dom@19.2.3(@types/react@19.2.8)':
     dependencies:
@@ -43839,16 +43978,6 @@ snapshots:
       typescript: 5.0.4
       zod: 4.4.3
 
-  convex-helpers@0.1.105(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.12.34)(react@18.3.1)(typescript@5.9.3)(zod@3.25.76):
-    dependencies:
-      convex: link:convex
-    optionalDependencies:
-      '@standard-schema/spec': 1.1.0
-      hono: 4.12.34
-      react: 18.3.1
-      typescript: 5.9.3
-      zod: 3.25.76
-
   convex-helpers@0.1.105(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.12.34)(react@19.2.4)(typescript@5.0.4)(zod@4.4.3):
     dependencies:
       convex: link:convex
@@ -43858,6 +43987,16 @@ snapshots:
       react: 19.2.4
       typescript: 5.0.4
       zod: 4.4.3
+
+  convex-helpers@0.1.105(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.12.34)(react@19.2.4)(typescript@5.9.3)(zod@3.25.76):
+    dependencies:
+      convex: link:convex
+    optionalDependencies:
+      '@standard-schema/spec': 1.1.0
+      hono: 4.12.34
+      react: 19.2.4
+      typescript: 5.9.3
+      zod: 3.25.76
 
   convex-helpers@0.1.123(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.12.34)(react@19.2.4)(typescript@5.9.3)(zod@4.4.3):
     dependencies:
@@ -56612,6 +56751,7 @@ snapshots:
       dequal: 2.0.3
       react: 18.3.1
       use-sync-external-store: 1.6.0(react@18.3.1)
+    optional: true
 
   swr@2.3.4(react@19.2.4):
     dependencies:

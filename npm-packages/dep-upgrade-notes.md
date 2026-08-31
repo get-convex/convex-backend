@@ -40,13 +40,10 @@ their current semver spec. See notes below for these libraries.
 
 ### react and react-dom
 
-We may need to support React 17 for a long time because React 18 includes
-significant implementation changes.
-
-We can upgrade to 18, but we should create a test project that uses 17.
-
-React 19 has been released. For types, keep using React 18 to ensure our code is
-compatible. Clerk does something like this.
+The `react` peerDependency spans 18 and 19 (React 17 is no longer supported).
+The `react` devDependency is on 19, so the emitted `.d.ts` files are checked
+against the React 19 types only; anything React-18-incompatible has to be caught
+by the React 18 workspace demos rather than by convex's own type check.
 
 ### TypeScript
 

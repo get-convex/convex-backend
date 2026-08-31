@@ -1,4 +1,3 @@
-const path = require("path");
 const { withSentryConfig } = require("@sentry/nextjs");
 const { DefinePlugin } = require("webpack");
 
@@ -125,15 +124,6 @@ const nextConfig = {
     if (!dev && !isServer) {
       config.cache = false;
     }
-
-    // The convex workspace package's devDependencies put a second react copy
-    // in convex/node_modules, which would ship two reacts in the bundle while
-    // this app and convex are on different react majors.
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      react: path.dirname(require.resolve("react/package.json")),
-      "react-dom": path.dirname(require.resolve("react-dom/package.json")),
-    };
 
     config.resolve.symlinks = true; // Ensure Webpack follows symlinks
     // Force Webpack to watch changes in the src directory of local packages
