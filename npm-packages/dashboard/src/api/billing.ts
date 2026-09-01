@@ -251,16 +251,18 @@ export function useGetCurrentSpend(
   return { status: "ok", data: { totalCents: data?.totalCents } };
 }
 
-export function useListCredits(
-  teamId: number | null,
-): Permissioned<CreditResponse[]> {
+type CreditsResult = Permissioned<CreditResponse[]> & {
+  refreshCredits: () => Promise<void>;
+};
+
+export function useListCredits(teamId: number | null): CreditsResult {
   const canView = useHasCustomRolePermission(
     teamId ?? undefined,
     "billing:view",
     BILLING_RESOURCE,
     true,
   );
-  const { data, isLoading } = useBBQuery({
+  const { data, isLoading, mutate } = useBBQuery({
     path: "/teams/{team_id}/list_credits",
     pathParams: {
       team_id: canView === true ? (teamId?.toString() ?? "") : "",
@@ -269,13 +271,26 @@ export function useListCredits(
     // view, so don't poll Orb for them.
     swrOptions: { refreshInterval: 0 },
   });
-  if (canView === undefined) return { status: "loading" };
-  if (canView === false) {
-    return { status: "denied", deniedAction: "billing:view" };
+  const refreshCredits = async () => {
+    await mutate();
+  };
+  if (canView === undefined) {
+    return { status: "loading", refreshCredits } as const;
   }
-  if (isLoading) return { status: "loading" };
+  if (canView === false) {
+    return {
+      status: "denied",
+      deniedAction: "billing:view",
+      refreshCredits,
+    } as const;
+  }
+  if (isLoading) return { status: "loading", refreshCredits } as const;
   // The response is paged-shaped, but the server returns every credit today.
-  return { status: "ok", data: data?.items ?? [] };
+  return {
+    status: "ok",
+    data: data?.items ?? [],
+    refreshCredits,
+  } as const;
 }
 
 export type SpendingLimits = {

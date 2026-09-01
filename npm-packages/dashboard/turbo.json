@@ -15,6 +15,7 @@
       // Baked into the build by next.config.js / server bundles.
       "env": [
         "BIG_BRAIN_URL",
+        "PROMOS_URL",
         "WORKOS_LOGIN_URL",
         "ANALYZE",
         "VERCEL*",

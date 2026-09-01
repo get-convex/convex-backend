@@ -21,13 +21,18 @@ type Story = StoryObj<typeof meta>;
 const NOVEMBER_2026 = new Date("2026-11-06T00:00:00Z").getTime();
 const JANUARY_2027 = new Date("2027-01-06T00:00:00Z").getTime();
 
-// Renders nothing when the team has no credits, which is the common case.
 export const Empty: Story = {
-  args: { credits: [] },
+  args: {
+    credits: [],
+    teamId: 1,
+    onPromoRedeemed: () => Promise.resolve(),
+  },
 };
 
 export const PartiallyConsumed: Story = {
   args: {
+    teamId: 1,
+    onPromoRedeemed: () => Promise.resolve(),
     credits: [
       {
         id: "block_1",
@@ -43,6 +48,8 @@ export const PartiallyConsumed: Story = {
 
 export const SeveralCredits: Story = {
   args: {
+    teamId: 1,
+    onPromoRedeemed: () => Promise.resolve(),
     credits: [
       // Fully drawn down, but not expired yet.
       {

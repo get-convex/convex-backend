@@ -243,16 +243,20 @@ export function SubscriptionOverview({
   );
 }
 
-// Renders nothing for teams without credits, which is most of them, so the
-// section stays out of the way until there's something to report.
 function PrepaidCreditsContainer({ team }: { team: TeamResponse }) {
   const { promos } = useLaunchDarkly();
   // A null team id pauses the query, so an unflagged team costs no Orb call.
   const creditsResult = useListCredits(promos ? team.id : null);
-  if (!promos || creditsResult.status !== "ok") {
+  if (!promos) {
     return null;
   }
-  return <PrepaidCredits credits={creditsResult.data} />;
+  return (
+    <PrepaidCredits
+      credits={creditsResult.status === "ok" ? creditsResult.data : []}
+      teamId={team.id}
+      onPromoRedeemed={creditsResult.refreshCredits}
+    />
+  );
 }
 
 function SpendingLimitsSectionContainer({
