@@ -85,6 +85,25 @@ export function useCancelImport(): (
   );
 }
 
+export function useCancelExport(): (id: Id<"_exports">) => Promise<void> {
+  const deploymentUrl = useDeploymentUrl();
+  const authHeader = useDeploymentAuthHeader();
+  return useCallback(
+    async (id: Id<"_exports">) => {
+      const res = await fetch(`${deploymentUrl}/api/export/cancel/${id}`, {
+        method: "POST",
+        headers: { Authorization: authHeader },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        reportHttpError("POST", res.url, err);
+        toast("error", err.message);
+      }
+    },
+    [deploymentUrl, authHeader],
+  );
+}
+
 export function useConfirmImport(): (
   id: Id<"_snapshot_imports">,
 ) => Promise<void> {

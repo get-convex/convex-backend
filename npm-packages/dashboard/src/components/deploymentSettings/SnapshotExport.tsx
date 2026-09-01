@@ -4,12 +4,51 @@ import { Button } from "@ui/Button";
 import { Spinner } from "@ui/Spinner";
 import { Callout } from "@ui/Callout";
 import { Sheet } from "@ui/Sheet";
-import { useDownloadZipExport } from "hooks/deploymentApi";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { useCancelExport, useDownloadZipExport } from "hooks/deploymentApi";
+import { useIsOperationAllowed } from "hooks/useDeploymentPermissions";
 import { Fragment, useState } from "react";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { useCurrentDeployment } from "api/deployments";
 import { CompletedExport } from "system-udfs/convex/_system/frontend/common";
+import { Id } from "system-udfs/convex/_generated/dataModel";
+import { permissionDeniedTip } from "elements/permissionDeniedTip";
+
+function CancelExportButton({ snapshotId }: { snapshotId: Id<"_exports"> }) {
+  const [showDialog, setShowDialog] = useState(false);
+  const cancelExport = useCancelExport();
+  const canCancel = useIsOperationAllowed("ImportBackups");
+
+  return (
+    <>
+      {showDialog && (
+        <ConfirmationDialog
+          confirmText="Cancel export"
+          dialogTitle="Cancel export"
+          dialogBody="Canceling this export will discard its progress. You will need to start a new export to try again."
+          onConfirm={() => cancelExport(snapshotId)}
+          onClose={() => setShowDialog(false)}
+        />
+      )}
+      <Button
+        variant="danger"
+        disabled={!canCancel}
+        tip={
+          !canCancel
+            ? permissionDeniedTip(
+                "You do not have permission to cancel snapshot exports.",
+                "deployment:backups:import",
+              )
+            : undefined
+        }
+        onClick={() => setShowDialog(true)}
+      >
+        Cancel
+      </Button>
+    </>
+  );
+}
 
 function LatestSnapshot({
   existingExport,
@@ -43,7 +82,7 @@ function LatestSnapshot({
               Number(existingExport.start_ts / BigInt(1000000)),
             ).toLocaleString()}{" "}
           </div>
-          <div className="truncate text-content-errorSecondary">
+          <div className="truncate text-content-error">
             Expires{" "}
             {new Date(
               Number(existingExport.expiration_ts / BigInt(1000000)),
@@ -98,6 +137,7 @@ export function SnapshotExport() {
           ) ? (
             <div className="float-left flex items-center gap-2">
               <Spinner /> Export in progress
+              <CancelExportButton snapshotId={existingExport._id} />
             </div>
           ) : existingExport.state === "failed" ? (
             <Callout variant="error">
@@ -109,6 +149,10 @@ export function SnapshotExport() {
                 </Link>
               </div>
             </Callout>
+          ) : existingExport.state === "canceled" ? (
+            <span className="text-content-secondary">
+              Latest snapshot export was canceled.
+            </span>
           ) : existingExport.state === "completed" &&
             Date.now() <
               Number(existingExport.expiration_ts / BigInt(1000000)) ? (
