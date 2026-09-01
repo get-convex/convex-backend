@@ -89,7 +89,12 @@ pub fn packages_dir() -> anyhow::Result<PathBuf> {
 pub fn pnpm_install() -> anyhow::Result<()> {
     run_js_tool(
         JsTool::Pnpm,
-        &["install", "--frozen-lockfile", "--ignore-scripts"],
+        &[
+            "install",
+            "--frozen-lockfile",
+            "--ignore-scripts",
+            "--config.confirmModulesPurge=false",
+        ],
     )
 }
 
