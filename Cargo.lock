@@ -433,9 +433,12 @@ dependencies = [
 
 [[package]]
 name = "arc-swap"
-version = "1.7.1"
+version = "1.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69f7f8c3906b62b754cd5326047894316021dcfe5a194c8ea52bdd94934a3457"
+checksum = "c049c0be4daef0b145cb3555416b3b8ef5b7888a38aea1a3a155801fe7b0810b"
+dependencies = [
+ "rustversion",
+]
 
 [[package]]
 name = "archery"
@@ -6576,22 +6579,24 @@ dependencies = [
 
 [[package]]
 name = "mysql_async"
-version = "0.36.1"
-source = "git+https://github.com/get-convex/mysql_async?rev=deac775566d62246248a48fd3df58d6b5c03b729#deac775566d62246248a48fd3df58d6b5c03b729"
+version = "0.37.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40d11da0e2d9fad4640c9f9198ee431c6d68444568f83ef1f10f3367270071e4"
 dependencies = [
+ "arc-swap",
  "bytes",
  "crossbeam-queue",
+ "crossbeam-utils",
  "flate2",
  "futures-core",
  "futures-sink",
  "futures-util",
  "keyed_priority_queue",
- "lru 0.16.4",
+ "lru 0.18.0",
  "mysql_common",
  "percent-encoding",
  "rand 0.10.2",
  "rustls",
- "rustls-pemfile",
  "serde",
  "socket2 0.6.5",
  "thiserror 2.0.17",

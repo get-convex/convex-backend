@@ -3,7 +3,6 @@ use std::{
     mem,
     path::PathBuf,
     str::FromStr,
-    sync::Arc,
     time::Duration,
 };
 
@@ -633,7 +632,7 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
         let ssl_opts = opts.ssl_opts().cloned();
         let mut opts = OptsBuilder::from_opts(opts).pool_opts(pool_opts);
         if require_leader {
-            opts = opts.after_connect(Arc::new(|conn| {
+            opts = opts.after_connect(|conn| {
                 async move {
                     let readonly: Option<(bool,)> = conn
                         .query_first("SELECT @@global.innodb_read_only OR @@global.read_only")
@@ -652,7 +651,7 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
                     Ok(())
                 }
                 .boxed()
-            }));
+            });
         }
         // The MYSQL_CA_FILE environment variable implicitly enables TLS unless
         // the URL specifies require_ssl=false

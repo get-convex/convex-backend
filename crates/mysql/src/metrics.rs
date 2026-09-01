@@ -549,6 +549,11 @@ register_convex_gauge!(
     &["cluster_name"],
 );
 register_convex_gauge!(
+    MYSQL_POOL_CONNECTIONS_IN_USE_INFO,
+    "Gauge of connections currently checked out from the pool and owned by the application.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
     MYSQL_POOL_ACTIVE_WAIT_REQUESTS_INFO,
     "Gauge of GetConn requests that are currently active.",
     &["cluster_name"],
@@ -607,6 +612,7 @@ pub fn log_pool_metrics(cluster_name: &str, metrics: &mysql_async::Metrics) {
     }
     mysql_metric!(connection_count, MYSQL_POOL_CONNECTION_COUNT_INFO);
     mysql_metric!(connections_in_pool, MYSQL_POOL_CONNECTIONS_IN_POOL_INFO);
+    mysql_metric!(connections_in_use, MYSQL_POOL_CONNECTIONS_IN_USE_INFO);
     mysql_metric!(active_wait_requests, MYSQL_POOL_ACTIVE_WAIT_REQUESTS_INFO);
     mysql_metric!(create_failed, MYSQL_POOL_CREATE_FAILED_TOTAL);
     mysql_metric!(
