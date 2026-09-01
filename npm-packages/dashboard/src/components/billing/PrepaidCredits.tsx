@@ -148,16 +148,14 @@ function PromoCodeForm({
     <form
       ref={formRef}
       className={cn(
-        "flex max-w-md scroll-m-6 items-start gap-2 rounded-md transition-shadow duration-500",
-        isPrefilled &&
-          "ring-2 ring-util-accent ring-offset-4 ring-offset-background-secondary",
+        "flex max-w-md scroll-m-6 items-start gap-2 rounded-md",
+        isPrefilled && "border bg-background-highlight p-2",
       )}
       onSubmit={redeemPromo}
     >
       <TextInput
         id="promoCode"
         label="Promo code"
-        labelHidden
         placeholder="Enter promo code"
         value={code}
         onChange={(event) => {
@@ -170,6 +168,7 @@ function PromoCodeForm({
       />
       <Button
         ref={redeemButtonRef}
+        className="mt-6"
         type="submit"
         loading={isSubmitting}
         disabled={!code.trim()}
