@@ -134,7 +134,7 @@ overrides:
   yaml@>=1.0.0 <1.10.3: ^1.10.3
   yaml@>=2.0.0 <2.8.3: ^2.8.3
 
-packageExtensionsChecksum: sha256-yXtmqNMy6cT7Tao2aImJ9GjLE52fGIzShygEiKMVqfQ=
+packageExtensionsChecksum: sha256-BU27jBVskKbU63KqLWxYsloa6vd+MQuO6OTf51BQBxg=
 
 importers:
 
@@ -950,7 +950,7 @@ importers:
         version: 0.17.0
       posthog-js:
         specifier: ~1.404.0
-        version: 1.404.1(preact-render-to-string@6.5.11)
+        version: 1.404.1(preact-render-to-string@6.5.11)(react@19.2.4)
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -2913,7 +2913,7 @@ importers:
         version: 8.5.23
       posthog-js:
         specifier: ~1.404.0
-        version: 1.404.1(preact-render-to-string@6.5.11)
+        version: 1.404.1(preact-render-to-string@6.5.11)(react@18.3.1)
       prism-react-renderer:
         specifier: ~2.4.1
         version: 2.4.1(react@18.3.1)
@@ -24251,6 +24251,11 @@ packages:
 
   posthog-js@1.404.1:
     resolution: {integrity: sha512-ck/HOMKuZ6yefUk5OX+h2s9mUWBsnu0mGDUAWjIwAmQQrloZPShzOhOWuEuZQuMnCKORBFRVGsBAuzsl66cBJA==}
+    peerDependencies:
+      react: '*'
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   postman-code-generators@2.1.0:
     resolution: {integrity: sha512-PCptfRoq6pyyqeB9qw87MfjpIZEZIykIna7Api9euhYftyrad/kCkIyXfWF6GrkcHv0nYid05xoRPWPX9JHkZg==}
@@ -53898,7 +53903,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-js@1.404.1(preact-render-to-string@6.5.11):
+  posthog-js@1.404.1(preact-render-to-string@6.5.11)(react@18.3.1):
     dependencies:
       '@posthog/core': 1.46.9
       '@posthog/types': 1.402.2
@@ -53908,6 +53913,23 @@ snapshots:
       preact: 10.29.8(preact-render-to-string@6.5.11)
       query-selector-shadow-dom: 1.0.1
       web-vitals: 5.3.0
+    optionalDependencies:
+      react: 18.3.1
+    transitivePeerDependencies:
+      - preact-render-to-string
+
+  posthog-js@1.404.1(preact-render-to-string@6.5.11)(react@19.2.4):
+    dependencies:
+      '@posthog/core': 1.46.9
+      '@posthog/types': 1.402.2
+      core-js: 3.50.0
+      dompurify: 3.4.13
+      fflate: 0.4.8
+      preact: 10.29.8(preact-render-to-string@6.5.11)
+      query-selector-shadow-dom: 1.0.1
+      web-vitals: 5.3.0
+    optionalDependencies:
+      react: 19.2.4
     transitivePeerDependencies:
       - preact-render-to-string
 

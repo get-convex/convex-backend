@@ -172,6 +172,20 @@ minimumReleaseAgeExclude:
   # The brace-expansion overrides below pin the DoS fixes, which are newer than
   # the age gate on every maintenance branch.
   - brace-expansion
+
+# Keep react and react-dom out of pnpm's hoisted fallback layer. The workspace
+# has both React 18 (the demos) and React 19 (the dashboards), and
+# node_modules/.pnpm/node_modules holds a single global copy of each package:
+# whichever major an install puts there wins for every package that resolves
+# react without declaring a dependency on it, including Next's server-side
+# require() during prerendering. pnpm never reconciles that slot on later
+# installs, so a node_modules tree carried across the React 18 -> 19 upgrade
+# keeps serving React 18 and mixes the two majors at build time.
+hoistPattern:
+  - "*"
+  - "!react"
+  - "!react-dom"
+
 # These packages' .d.ts files import "react" without declaring @types/react,
 # so tsc resolves whichever @types/react pnpm happened to hoist into
 # node_modules/.pnpm/node_modules — a single global winner. With both React 18
@@ -226,6 +240,16 @@ packageExtensions:
       "@types/react": "*"
     peerDependenciesMeta:
       "@types/react":
+        optional: true
+  # posthog-js/react require()s "react" but posthog-js declares no react
+  # dependency at all, so it only ever resolved through the hoisted fallback.
+  # Declaring react as an optional peer links the consumer's own React next to
+  # each posthog-js instance instead.
+  posthog-js:
+    peerDependencies:
+      react: "*"
+    peerDependenciesMeta:
+      react:
         optional: true
 
 overrides:
