@@ -4,7 +4,11 @@ import {
   WrenchIcon,
 } from "@heroicons/react/24/outline";
 import { CaretSortIcon, GearIcon, Pencil2Icon } from "@radix-ui/react-icons";
-import { useCurrentDeployment } from "api/deployments";
+import {
+  useCurrentDeployment,
+  useDeploymentByName,
+  useDeployments,
+} from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useProfile } from "api/profile";
 import { useRememberLastViewedDeploymentForProject } from "hooks/useLastViewed";
@@ -91,7 +95,26 @@ function DeploymentLabelWrapper({
 export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
   const router = useRouter();
 
-  const deployment = useCurrentDeployment();
+  const deploymentName =
+    typeof router.query.deploymentName === "string"
+      ? router.query.deploymentName
+      : undefined;
+  // The project's whole deployment list is what the switcher menu needs; this
+  // label only needs the deployment the URL names, so fetch that one directly
+  // rather than leaving the header empty until the list lands. The by-name
+  // endpoint only serves cloud deployments, so local ones wait for the list.
+  const { deployments } = useDeployments(project.id);
+  const fetchByName =
+    deployments === undefined && !deploymentName?.startsWith("local-");
+  const deploymentFromName = useDeploymentByName(
+    fetchByName ? deploymentName : undefined,
+  );
+  const fallbackDeployment =
+    deploymentFromName?.projectId === project.id &&
+    deploymentFromName?.name === deploymentName
+      ? deploymentFromName
+      : undefined;
+  const deployment = useCurrentDeployment() ?? fallbackDeployment;
   const member = useProfile();
 
   useRememberLastViewedDeploymentForProject(project.slug, deployment?.name);
