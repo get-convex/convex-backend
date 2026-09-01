@@ -137,6 +137,11 @@ function Billing({ team }: { team: TeamResponse }) {
                     team={team}
                     hasAdminPermissions={hasAdminPermissions}
                     subscription={isOrbSubLoading ? undefined : orbSub}
+                    initialPromoCode={
+                      typeof router.query.promoCode === "string"
+                        ? router.query.promoCode
+                        : undefined
+                    }
                   />
                   <LocalDevCallout
                     tipText="Tip: Run this to enable audit logs locally:"

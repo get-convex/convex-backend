@@ -7,18 +7,21 @@ import { Donut } from "@ui/Donut";
 import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
 import { Loading } from "@ui/Loading";
-import { type FormEvent, useState } from "react";
+import { cn } from "@ui/cn";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 export function PrepaidCredits({
   credits,
   isLoading,
   teamId,
   onPromoRedeemed,
+  initialPromoCode,
 }: {
   credits: CreditResponse[];
   isLoading: boolean;
   teamId: number;
   onPromoRedeemed: () => Promise<void>;
+  initialPromoCode?: string;
 }) {
   return (
     <>
@@ -42,7 +45,11 @@ export function PrepaidCredits({
             ))}
           </div>
         ) : null}
-        <PromoCodeForm teamId={teamId} onPromoRedeemed={onPromoRedeemed} />
+        <PromoCodeForm
+          teamId={teamId}
+          onPromoRedeemed={onPromoRedeemed}
+          initialPromoCode={initialPromoCode}
+        />
       </div>
       <hr />
     </>
@@ -68,13 +75,29 @@ function CreditSkeleton() {
 function PromoCodeForm({
   teamId,
   onPromoRedeemed,
+  initialPromoCode,
 }: {
   teamId: number;
   onPromoRedeemed: () => Promise<void>;
+  initialPromoCode?: string;
 }) {
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(initialPromoCode ?? "");
   const [error, setError] = useState<string>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const redeemButtonRef = useRef<HTMLElement>(null);
+  const isPrefilled = initialPromoCode !== undefined;
+
+  useEffect(() => {
+    if (!isPrefilled) {
+      return;
+    }
+    formRef.current?.scrollIntoView?.({
+      behavior: "smooth",
+      block: "center",
+    });
+    redeemButtonRef.current?.focus({ preventScroll: true });
+  }, [isPrefilled]);
 
   const redeemPromo = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -122,7 +145,15 @@ function PromoCodeForm({
   };
 
   return (
-    <form className="flex max-w-md items-start gap-2" onSubmit={redeemPromo}>
+    <form
+      ref={formRef}
+      className={cn(
+        "flex max-w-md scroll-m-6 items-start gap-2 rounded-md transition-shadow duration-500",
+        isPrefilled &&
+          "ring-2 ring-util-accent ring-offset-4 ring-offset-background-secondary",
+      )}
+      onSubmit={redeemPromo}
+    >
       <TextInput
         id="promoCode"
         label="Promo code"
@@ -137,7 +168,12 @@ function PromoCodeForm({
         disabled={isSubmitting}
         autoComplete="off"
       />
-      <Button type="submit" loading={isSubmitting} disabled={!code.trim()}>
+      <Button
+        ref={redeemButtonRef}
+        type="submit"
+        loading={isSubmitting}
+        disabled={!code.trim()}
+      >
         Redeem
       </Button>
     </form>

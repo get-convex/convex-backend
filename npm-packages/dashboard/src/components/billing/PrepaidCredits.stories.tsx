@@ -30,6 +30,16 @@ export const Empty: Story = {
   },
 };
 
+export const Prefilled: Story = {
+  args: {
+    credits: [],
+    isLoading: false,
+    teamId: 1,
+    onPromoRedeemed: () => Promise.resolve(),
+    initialPromoCode: "CONVEX2026",
+  },
+};
+
 export const Loading: Story = {
   args: {
     credits: [],
