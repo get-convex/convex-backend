@@ -1385,6 +1385,8 @@ pub static FUNRUN_MAX_CPU_PRESSURE: LazyLock<f64> =
 /// larger than (N / 15) where N is the number of instances with lambdas.
 ///
 /// You can check go/num-instances-with-lambdas
+///
+/// NOTE: the true value of this is overridden in big brain knob overrides
 pub static AWS_LAMBDA_DEPLOY_SPLAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 32400)));
 
