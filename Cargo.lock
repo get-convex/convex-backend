@@ -2982,7 +2982,7 @@ dependencies = [
  "futures",
  "futures-async-stream",
  "governor",
- "hashlink 0.11.0",
+ "hashlink 0.12.1",
  "humansize",
  "imbl",
  "indexing",
@@ -4517,11 +4517,11 @@ dependencies = [
 
 [[package]]
 name = "hashlink"
-version = "0.11.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea0b22561a9c04a7cb1a302c013e0259cd3b4bb619f145b32f72b8b4bcbed230"
+checksum = "32069d97bb81e38fa67eab65e3393bf804bb85969f2bc06bf13f64aef5aba248"
 dependencies = [
- "hashbrown 0.16.1",
+ "hashbrown 0.17.0",
 ]
 
 [[package]]
