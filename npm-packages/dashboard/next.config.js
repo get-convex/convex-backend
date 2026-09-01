@@ -49,6 +49,9 @@ const securityHeaders = [
 const nextConfig = {
   transpilePackages: [],
   reactStrictMode: true,
+  // Next 16 writes an AGENTS.md and a CLAUDE.md into the package on every
+  // dev/build run; this repo keeps those files under its own conventions.
+  agentRules: false,
   async rewrites() {
     return [
       {
@@ -110,15 +113,26 @@ const nextConfig = {
     ];
   },
   images: {
-    domains:
+    remotePatterns:
       process.env.VERCEL_ENV === "production"
-        ? undefined
-        : ["127.0.0.1", "workoscdn.com"],
-    remotePatterns: allowedImageDomains,
+        ? allowedImageDomains
+        : [
+            ...allowedImageDomains,
+            {
+              protocol: "http",
+              hostname: "127.0.0.1",
+              pathname: "/api/storage/**",
+            },
+          ],
+    // The image optimizer refuses local IPs by default. Local deployments
+    // serve storage from 127.0.0.1, which is only used outside of production.
+    dangerouslyAllowLocalIP: process.env.VERCEL_ENV !== "production",
   },
   experimental: {
     webpackBuildWorker: true,
   },
+  // TODO(nicolas) Update to Turbopack: this webpack config is why the
+  // dev/build scripts pass --webpack.
   // from https://github.com/vercel/next.js/blob/c110dfd57c754f88cb239dc154a4b7d49e5696a3/examples/with-webassembly/next.config.js
   webpack(config, { isServer, dev }) {
     if (!dev && !isServer) {
@@ -177,10 +191,6 @@ const nextConfig = {
     );
 
     return config;
-  },
-  eslint: {
-    // eslint is run in a separate step during CI, so don't fail the build on lint errors
-    ignoreDuringBuilds: true,
   },
   env: {
     NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || "",

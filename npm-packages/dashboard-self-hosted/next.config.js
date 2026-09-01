@@ -68,10 +68,15 @@ const optionsForBuild = {
 const nextConfig = {
   transpilePackages: [],
   reactStrictMode: true,
+  // Next 16 writes an AGENTS.md and a CLAUDE.md into the package on every
+  // dev/build run; this repo keeps those files under its own conventions.
+  agentRules: false,
   ...(process.env.BUILD_TYPE === "export" ? optionsForExport : optionsForBuild),
   experimental: {
     webpackBuildWorker: true,
   },
+  // TODO(nicolas) Update to Turbopack: this webpack config is why the
+  // dev/build scripts pass --webpack.
   webpack(config, { isServer, dev }) {
     if (!dev && !isServer) {
       config.cache = false;
