@@ -90,6 +90,7 @@ multer = { workspace = true }
 must-let = { workspace = true, optional = true }
 openssl = { workspace = true }
 parking_lot = { workspace = true }
+paste = { workspace = true }
 pb = { workspace = true }
 phf = { workspace = true }
 pkcs8 = { workspace = true }

@@ -14,9 +14,10 @@ use super::V8OpProvider;
 // NOTE: not using `v8_op` macro because we want to handle serde ourselves.
 pub fn op_structured_clone<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
-    value: v8::Local<v8::Value>,
+    args: v8::FunctionCallbackArguments,
     mut rv: v8::ReturnValue,
 ) -> anyhow::Result<()> {
+    let value = args.get(1);
     let data = op_serialize(&mut provider.scope(), value)?;
     let value = op_deserialize(&mut provider.scope(), data)?;
     rv.set(value);

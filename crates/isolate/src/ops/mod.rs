@@ -3,6 +3,7 @@
 //! environment, but the environment may decide not to implement their
 //! functionality, causing a runtime error.
 
+pub mod call;
 mod console;
 mod crypto;
 mod database;
@@ -27,6 +28,11 @@ use std::{
 use ::errors::ErrorMetadata;
 use anyhow::anyhow;
 use bytes::Bytes;
+use call::{
+    OpCall,
+    V8Call,
+    WasmCall,
+};
 use common::{
     log_lines::LogLevel,
     runtime::{
@@ -65,7 +71,7 @@ use self::{
         op_crypto_random_uuid,
     },
     database::op_get_table_mapping,
-    environment_variables::op_environment_variables_get,
+    environment_variables::op_environment_variables_get_call,
     errors::{
         op_error_stack,
         op_throw_uncatchable_developer_error,
@@ -80,7 +86,7 @@ use self::{
         op_url_stringify_url_search_params,
         op_url_update_url_info,
     },
-    random::op_random,
+    random::op_random_call,
     storage::{
         async_op_storage_get,
         async_op_storage_store,
@@ -124,8 +130,9 @@ use crate::{
     },
 };
 
-/// [`OpProvider`] plus V8 itself, and the state that lives in the isolate's
-/// request scope rather than in the environment behind it.
+/// [`OpProvider`] plus V8 itself, for an op that handles V8 values directly or
+/// owns state living in the isolate's request scope. Only [`run_v8_op`] can
+/// reach these.
 pub trait V8OpProvider<'b>: OpProvider {
     fn scope(&mut self) -> v8::PinScope<'_, 'b>;
     fn lookup_source_map(
@@ -305,90 +312,137 @@ impl<'a, 's: 'a, 'i, RT: Runtime, E: V8IsolateEnvironment<RT>> V8OpProvider<'i>
     }
 }
 
-pub fn run_op<'b, P: V8OpProvider<'b>>(
-    provider: &mut P,
-    args: v8::FunctionCallbackArguments,
-    rv: v8::ReturnValue,
-) -> anyhow::Result<()> {
-    if args.length() < 1 {
-        // This must be a bug in our `udf-runtime` code, not a developer error.
-        anyhow::bail!("op(op_name, ...) takes at least one argument");
-    }
-    let op_name: v8::Local<v8::String> = args.get(0).try_into()?;
-    let op_name = to_rust_string(&provider.scope(), &op_name)?;
+/// The op table, and the dispatchers generated from it.
+///
+/// Every op is named once. `dual` ops carry the [`OpCall`]-generic wrapper
+/// [`macro@convex_macro::op`] emits, so one arm serves both runtimes; `v8` ops
+/// handle V8 values themselves and only `run_v8_op` can call them. Listing an
+/// op in the wrong section is a compile error rather than a runtime surprise,
+/// and neither runtime can quietly fall behind the other.
+macro_rules! op_table {
+    (
+        dual: { $($dual_name:literal => $dual_op:ident,)* },
+        v8: { $($v8_name:literal => $v8_op:path,)* },
+    ) => {
+        fn dispatch<P: OpProvider, M: OpCall<P>>(
+            provider: &mut P,
+            op_name: &str,
+            op_call: M,
+        ) -> anyhow::Result<M::Output> {
+            match op_name {
+                $($dual_name => ::paste::paste!([<$dual_op _call>])(provider, op_call),)*
+                _ => {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "UnknownOperation",
+                        format!("Unknown operation {op_name}")
+                    ));
+                },
+            }
+        }
 
-    let timer = metrics::op_timer(&op_name);
-    match &op_name[..] {
-        "throwUncatchableDeveloperError" => {
-            op_throw_uncatchable_developer_error(provider, args, rv)?
-        },
-        "console/message" => op_console_message(provider, args, rv)?,
-        "console/trace" => op_console_trace(provider, args, rv)?,
-        "console/timeStart" => op_console_time_start(provider, args, rv)?,
-        "console/timeLog" => op_console_time_log(provider, args, rv)?,
-        "console/timeEnd" => op_console_time_end(provider, args, rv)?,
-        "error/stack" => op_error_stack(provider, args, rv)?,
-        "random" => op_random(provider, args, rv)?,
-        "now" => op_now(provider, args, rv)?,
-        "performance_now" => op_performance_now(provider, args, rv)?,
-        "performance_time_origin" => op_performance_time_origin(provider, args, rv)?,
-        "url/getUrlInfo" => op_url_get_url_info(provider, args, rv)?,
-        "url/getUrlSearchParamPairs" => op_url_get_url_search_param_pairs(provider, args, rv)?,
-        "url/stringifyUrlSearchParams" => op_url_stringify_url_search_params(provider, args, rv)?,
-        "url/updateUrlInfo" => op_url_update_url_info(provider, args, rv)?,
-        "headers/getMimeType" => op_headers_get_mime_type(provider, args, rv)?,
-        "headers/normalizeName" => op_headers_normalize_name(provider, args, rv)?,
-        "stream/create" => op_stream_create(provider, args, rv)?,
-        "stream/extend" => op_stream_extend(provider, args, rv)?,
-        "textEncoder/encode" => op_text_encoder_encode(provider, args, rv)?,
-        "textEncoder/encodeInto" => op_text_encoder_encode_into(provider, args, rv)?,
-        "textEncoder/decodeSingle" => op_text_encoder_decode_single(provider, args, rv)?,
-        "textEncoder/decode" => op_text_encoder_decode(provider, args, rv)?,
-        "textEncoder/newDecoder" => op_text_encoder_new_decoder(provider, args, rv)?,
-        "textEncoder/normalizeLabel" => op_text_encoder_normalize_label(provider, args, rv)?,
-        "atob" => op_atob(provider, args, rv)?,
-        "btoa" => op_btoa(provider, args, rv)?,
-        "structuredClone" => op_structured_clone(provider, args.get(1), rv)?,
-        "environmentVariables/get" => op_environment_variables_get(provider, args, rv)?,
-        "getTableMapping" => op_get_table_mapping(provider, args, rv)?,
-        "validateArgs" => op_validate_args(provider, args, rv)?,
-        "validateReturns" => op_validate_returns(provider, args, rv)?,
+        fn is_v8_only(op_name: &str) -> bool {
+            matches!(op_name, $($v8_name)|*)
+        }
 
-        "crypto/randomUUID" => op_crypto_random_uuid(provider, args, rv)?,
-        "crypto/getRandomValues" => op_crypto_get_random_values(provider, args, rv)?,
-        "crypto/subtle/decrypt" => subtle_crypto::op_crypto_subtle_decrypt(provider, args, rv)?,
-        "crypto/subtle/deriveBits" => {
-            subtle_crypto::op_crypto_subtle_derive_bits(provider, args, rv)?
-        },
-        "crypto/subtle/deriveKey" => {
-            subtle_crypto::op_crypto_subtle_derive_key(provider, args, rv)?
-        },
-        "crypto/subtle/digest" => subtle_crypto::op_crypto_subtle_digest(provider, args, rv)?,
-        "crypto/subtle/encrypt" => subtle_crypto::op_crypto_subtle_encrypt(provider, args, rv)?,
-        "crypto/subtle/exportKey" => {
-            subtle_crypto::op_crypto_subtle_export_key(provider, args, rv)?
-        },
-        "crypto/subtle/generateKey" => {
-            subtle_crypto::op_crypto_subtle_generate_key(provider, args, rv)?
-        },
-        "crypto/subtle/importKey" => {
-            subtle_crypto::op_crypto_subtle_import_key(provider, args, rv)?
-        },
-        "crypto/subtle/sign" => subtle_crypto::op_crypto_subtle_sign(provider, args, rv)?,
-        "crypto/subtle/unwrapKey" => {
-            subtle_crypto::op_crypto_subtle_unwrap_key(provider, args, rv)?
-        },
-        "crypto/subtle/verify" => subtle_crypto::op_crypto_subtle_verify(provider, args, rv)?,
-        "crypto/subtle/wrapKey" => subtle_crypto::op_crypto_subtle_wrap_key(provider, args, rv)?,
-        _ => {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "UnknownOperation",
-                format!("Unknown operation {op_name}")
-            ));
-        },
-    }
-    timer.finish();
-    Ok(())
+        pub fn run_v8_op<'b, P: V8OpProvider<'b>>(
+            provider: &mut P,
+            args: v8::FunctionCallbackArguments,
+            rv: v8::ReturnValue,
+        ) -> anyhow::Result<()> {
+            if args.length() < 1 {
+                // This must be a bug in our `udf-runtime` code, not a developer error.
+                anyhow::bail!("op(op_name, ...) takes at least one argument");
+            }
+            let op_name: v8::Local<v8::String> = args.get(0).try_into()?;
+            let op_name = to_rust_string(&provider.scope(), &op_name)?;
+
+            let timer = metrics::op_timer(&op_name);
+            match &op_name[..] {
+                $($v8_name => $v8_op(provider, args, rv)?,)*
+                _ => dispatch(provider, &op_name, V8Call::new(args, rv))?,
+            }
+            timer.finish();
+            Ok(())
+        }
+
+        /// `run_v8_op` for a runtime with no V8: `args` is the text of the
+        /// positional argument array `performOp` sends, and the answer comes
+        /// back as text rather than through a `v8::ReturnValue`. What that text
+        /// is encoded as is [`WasmCall`]'s business, not an op's.
+        ///
+        /// An op this cannot serve reports itself as unimplemented rather than
+        /// unknown, because the name is one the V8 runtime does answer.
+        pub fn run_wasm_op<P: OpProvider>(
+            provider: &mut P,
+            op_name: &str,
+            args: &str,
+        ) -> anyhow::Result<String> {
+            anyhow::ensure!(
+                !is_v8_only(op_name),
+                ErrorMetadata::bad_request(
+                    "OperationNotImplemented",
+                    format!("The op `{op_name}` is not implemented in the wasm runtime yet")
+                )
+            );
+            let timer = metrics::op_timer(op_name);
+            let value = dispatch(provider, op_name, WasmCall::new(args)?)?;
+            timer.finish();
+            Ok(value)
+        }
+    };
+}
+
+op_table! {
+    dual: {
+        "random" => op_random,
+        "environmentVariables/get" => op_environment_variables_get,
+    },
+    v8: {
+        "throwUncatchableDeveloperError" => op_throw_uncatchable_developer_error,
+        "console/message" => op_console_message,
+        "console/trace" => op_console_trace,
+        "console/timeStart" => op_console_time_start,
+        "console/timeLog" => op_console_time_log,
+        "console/timeEnd" => op_console_time_end,
+        "error/stack" => op_error_stack,
+        "now" => op_now,
+        "performance_now" => op_performance_now,
+        "performance_time_origin" => op_performance_time_origin,
+        "crypto/randomUUID" => op_crypto_random_uuid,
+        "crypto/getRandomValues" => op_crypto_get_random_values,
+        "url/getUrlInfo" => op_url_get_url_info,
+        "url/getUrlSearchParamPairs" => op_url_get_url_search_param_pairs,
+        "url/stringifyUrlSearchParams" => op_url_stringify_url_search_params,
+        "url/updateUrlInfo" => op_url_update_url_info,
+        "headers/getMimeType" => op_headers_get_mime_type,
+        "headers/normalizeName" => op_headers_normalize_name,
+        "stream/create" => op_stream_create,
+        "stream/extend" => op_stream_extend,
+        "textEncoder/encode" => op_text_encoder_encode,
+        "textEncoder/encodeInto" => op_text_encoder_encode_into,
+        "textEncoder/decodeSingle" => op_text_encoder_decode_single,
+        "textEncoder/decode" => op_text_encoder_decode,
+        "textEncoder/newDecoder" => op_text_encoder_new_decoder,
+        "textEncoder/normalizeLabel" => op_text_encoder_normalize_label,
+        "atob" => op_atob,
+        "btoa" => op_btoa,
+        "structuredClone" => op_structured_clone,
+        "getTableMapping" => op_get_table_mapping,
+        "validateArgs" => op_validate_args,
+        "validateReturns" => op_validate_returns,
+        "crypto/subtle/decrypt" => subtle_crypto::op_crypto_subtle_decrypt,
+        "crypto/subtle/deriveBits" => subtle_crypto::op_crypto_subtle_derive_bits,
+        "crypto/subtle/deriveKey" => subtle_crypto::op_crypto_subtle_derive_key,
+        "crypto/subtle/digest" => subtle_crypto::op_crypto_subtle_digest,
+        "crypto/subtle/encrypt" => subtle_crypto::op_crypto_subtle_encrypt,
+        "crypto/subtle/exportKey" => subtle_crypto::op_crypto_subtle_export_key,
+        "crypto/subtle/generateKey" => subtle_crypto::op_crypto_subtle_generate_key,
+        "crypto/subtle/importKey" => subtle_crypto::op_crypto_subtle_import_key,
+        "crypto/subtle/sign" => subtle_crypto::op_crypto_subtle_sign,
+        "crypto/subtle/unwrapKey" => subtle_crypto::op_crypto_subtle_unwrap_key,
+        "crypto/subtle/verify" => subtle_crypto::op_crypto_subtle_verify,
+        "crypto/subtle/wrapKey" => subtle_crypto::op_crypto_subtle_wrap_key,
+    },
 }
 
 pub fn start_async_op<'b, P: V8OpProvider<'b>>(

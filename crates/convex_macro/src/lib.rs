@@ -1,5 +1,8 @@
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{
+    format_ident,
+    quote,
+};
 use syn::{
     FnArg,
     GenericArgument,
@@ -45,6 +48,88 @@ pub fn instrument_future(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 #ident,
                 #block
             )
+        }
+    };
+    r#gen.into()
+}
+
+/// Use as #[convex_macro::op] for an op whose only use of V8 is converting its
+/// arguments and its result, which is nearly all of them.
+///
+/// Emits the function as written -- the one place the op's logic lives -- plus
+/// a wrapper generic over `OpCall`, so the V8 and wasm dispatchers share it and
+/// neither runtime's conversions are repeated per op.
+///
+/// The function must be generic over `P: OpProvider`, under that name. An op
+/// that handles V8 values itself stays on [`macro@v8_op`].
+#[proc_macro_attribute]
+pub fn op(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let ast: ItemFn = syn::parse(item).unwrap();
+    let ItemFn {
+        ref attrs,
+        ref vis,
+        ref sig,
+        ..
+    } = ast;
+
+    let Signature {
+        ident,
+        generics,
+        inputs,
+        ..
+    } = sig;
+
+    let Some(FnArg::Typed(first_pat_type)) = inputs.first() else {
+        panic!("op should take a first argument for its op provider");
+    };
+    let Pat::Ident(first_pat_ident) = &*first_pat_type.pat else {
+        panic!("op's first argument should be a plain identifier");
+    };
+    let provider_ident = &first_pat_ident.ident;
+
+    let op_name = ident.to_string();
+    let arg_idents: Vec<_> = (0..inputs.len() - 1)
+        .map(|index| format_ident!("__arg{index}"))
+        .collect();
+    let arg_types = inputs.iter().skip(1).map(|input| {
+        let FnArg::Typed(pat) = input else {
+            panic!("input must be typed")
+        };
+        &*pat.ty
+    });
+
+    // Read as one tuple, not one call per argument: a V8 call opens a handle
+    // scope to do it, and the op's own body needs the provider back afterwards.
+    // An op with no arguments skips the scope entirely.
+    let read_args = if arg_idents.is_empty() {
+        quote! {}
+    } else {
+        quote! {
+            let ( #(#arg_idents,)* ) = crate::ops::call::OpCall::args::<
+                ( #(#arg_types,)* ),
+            >(&mut __call, #provider_ident, #op_name)?;
+        }
+    };
+
+    let call_name = format_ident!("{ident}_call");
+    let (_, _, where_clause) = generics.split_for_impl();
+    let generic_params = generics.params.iter();
+
+    let r#gen = quote! {
+        #ast
+
+        #(#attrs)*
+        #vis fn #call_name <
+            #(#generic_params,)*
+            __C: crate::ops::call::OpCall<P>,
+        >(
+            #first_pat_type,
+            mut __call: __C,
+        ) -> ::anyhow::Result<__C::Output> #where_clause {
+            #read_args
+            #[allow(clippy::unused_unit)]
+            let __result = #ident(#provider_ident, #(#arg_idents,)*)?;
+            crate::ops::call::OpCall::finish(__call, #provider_ident, __result)
         }
     };
     r#gen.into()

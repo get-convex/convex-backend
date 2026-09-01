@@ -5420,6 +5420,7 @@ dependencies = [
  "must-let",
  "openssl",
  "parking_lot",
+ "paste",
  "pb",
  "phf 0.13.1",
  "pkcs8",

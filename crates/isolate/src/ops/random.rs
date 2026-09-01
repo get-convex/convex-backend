@@ -1,10 +1,10 @@
 use rand::Rng;
 use serde_json::value::Number as JsonNumber;
 
-use super::V8OpProvider;
+use super::OpProvider;
 
-#[convex_macro::v8_op]
-pub fn op_random<'b, P: V8OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNumber> {
+#[convex_macro::op]
+pub fn op_random<P: OpProvider>(provider: &mut P) -> anyhow::Result<JsonNumber> {
     let rng = provider.rng()?;
     let n =
         JsonNumber::from_f64(rng.random()).expect("f64's distribution returned a NaN or infinity?");

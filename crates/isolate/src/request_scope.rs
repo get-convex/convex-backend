@@ -64,7 +64,7 @@ use crate::{
     },
     module_map::ModuleMap,
     ops::{
-        run_op,
+        run_v8_op,
         start_async_op,
     },
     strings,
@@ -295,7 +295,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
         rv: v8::ReturnValue,
     ) {
         let mut scope = ExecutionScope::<RT, E>::new(scope);
-        if let Err(e) = run_op(&mut scope, args, rv) {
+        if let Err(e) = run_v8_op(&mut scope, args, rv) {
             Self::handle_syscall_or_op_error(&mut scope, e)
         }
     }
