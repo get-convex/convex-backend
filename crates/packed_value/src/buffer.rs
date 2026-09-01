@@ -44,6 +44,12 @@ impl ByteBuffer {
     pub fn new(inner: Bytes) -> Self {
         Self { inner }
     }
+
+    pub fn shrink(self) -> Self {
+        let mut buf = Vec::from(self.inner);
+        buf.shrink_to_fit();
+        Self::new(buf.into())
+    }
 }
 
 impl Deref for ByteBuffer {

@@ -124,6 +124,12 @@ where
 }
 
 impl PackedValue<ByteBuffer> {
+    pub fn shrink(self) -> Self {
+        Self {
+            buf: self.buf.shrink(),
+        }
+    }
+
     pub fn pack(value: &ConvexValue) -> Self {
         let mut builder = Builder::default();
         Self::_pack(value, &mut builder);

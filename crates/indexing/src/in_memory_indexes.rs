@@ -487,7 +487,7 @@ struct MemoryDocumentInner {
 impl MemoryDocument {
     pub fn new(packed_document: PackedDocument) -> Self {
         Self(Arc::new(MemoryDocumentInner {
-            packed_document,
+            packed_document: packed_document.shrink(),
             cached_system_document: SystemDocument::new(),
         }))
     }

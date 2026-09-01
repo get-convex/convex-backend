@@ -1107,6 +1107,14 @@ impl PackedDocument {
         Self { value, id, size }
     }
 
+    pub fn shrink(self) -> Self {
+        Self {
+            value: self.value.shrink(),
+            id: self.id,
+            size: self.size,
+        }
+    }
+
     pub fn unpack(&self) -> ResolvedDocument {
         let value =
             ConvexValue::try_from(self.value.as_ref()).expect("Couldn't unpack packed value");
