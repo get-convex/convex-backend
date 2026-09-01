@@ -50,7 +50,7 @@ function Credit({ credit }: { credit: CreditResponse }) {
       <div className="flex min-w-0 grow flex-col gap-0.5">
         <CreditTitle credit={credit} />
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
-          <span className="font-semibold">{usedLabel}</span>
+          <span>{usedLabel}</span>
           <span className="text-content-secondary">
             <CreditStatus credit={credit} />
           </span>
