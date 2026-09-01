@@ -542,14 +542,14 @@ pub static SCHEDULED_JOB_RETENTION: LazyLock<Duration> = LazyLock::new(|| {
 
 /// Maximum number of scheduled jobs to garbage collect in a single transaction
 pub static SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE", 1000));
+    LazyLock::new(|| env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE", 100));
 
 /// Delay between runs of the scheduled job garbage collector.
 /// If too low, the garbage collector will run frequently with small batches,
 /// which is less efficient. If too high, the garbage collector might fall
 /// behind.
 pub static SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY", 10)));
+    LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY", 1)));
 
 /// Exclusive upper bound, in seconds, for the stable random offset applied to
 /// cron runs so jobs sharing a schedule don't all fire at once and spike load.
