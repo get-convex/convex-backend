@@ -52,7 +52,7 @@ use rand_chacha::ChaCha12Rng;
 use sourcemap::SourceMap;
 use structured_clone::op_structured_clone;
 use uuid::Uuid;
-use validate_returns::op_validate_returns;
+use validate_returns::op_validate_returns_call;
 use value::{
     heap_size::WithHeapSize,
     NamespacedTableMapping,
@@ -70,7 +70,7 @@ use self::{
         op_crypto_get_random_values,
         op_crypto_random_uuid,
     },
-    database::op_get_table_mapping,
+    database::op_get_table_mapping_call,
     environment_variables::op_environment_variables_get_call,
     errors::{
         op_error_stack,
@@ -112,7 +112,7 @@ use self::{
         op_performance_now,
         op_performance_time_origin,
     },
-    validate_args::op_validate_args,
+    validate_args::op_validate_args_call,
 };
 use crate::{
     environment::{
@@ -396,6 +396,9 @@ op_table! {
     dual: {
         "random" => op_random,
         "environmentVariables/get" => op_environment_variables_get,
+        "getTableMapping" => op_get_table_mapping,
+        "validateArgs" => op_validate_args,
+        "validateReturns" => op_validate_returns,
     },
     v8: {
         "throwUncatchableDeveloperError" => op_throw_uncatchable_developer_error,
@@ -427,9 +430,6 @@ op_table! {
         "atob" => op_atob,
         "btoa" => op_btoa,
         "structuredClone" => op_structured_clone,
-        "getTableMapping" => op_get_table_mapping,
-        "validateArgs" => op_validate_args,
-        "validateReturns" => op_validate_returns,
         "crypto/subtle/decrypt" => subtle_crypto::op_crypto_subtle_decrypt,
         "crypto/subtle/deriveBits" => subtle_crypto::op_crypto_subtle_derive_bits,
         "crypto/subtle/deriveKey" => subtle_crypto::op_crypto_subtle_derive_key,
