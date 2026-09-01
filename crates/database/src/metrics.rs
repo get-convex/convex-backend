@@ -203,7 +203,7 @@ pub fn log_write_tx(tx: &FinalTransaction) {
     );
     log_distribution(
         &DATABASE_SYSTEM_WRITE_TX_NUM_WRITES_TOTAL,
-        user_size.num_writes as f64,
+        system_size.num_writes as f64,
     );
 }
 
