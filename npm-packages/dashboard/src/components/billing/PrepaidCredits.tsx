@@ -6,14 +6,17 @@ import { Tooltip } from "@ui/Tooltip";
 import { Donut } from "@ui/Donut";
 import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
+import { Loading } from "@ui/Loading";
 import { type FormEvent, useState } from "react";
 
 export function PrepaidCredits({
   credits,
+  isLoading,
   teamId,
   onPromoRedeemed,
 }: {
   credits: CreditResponse[];
+  isLoading: boolean;
   teamId: number;
   onPromoRedeemed: () => Promise<void>;
 }) {
@@ -30,17 +33,35 @@ export function PrepaidCredits({
             </HelpTooltip>
           )}
         </div>
-        {credits.length > 0 && (
+        {isLoading ? (
+          <CreditSkeleton />
+        ) : credits.length > 0 ? (
           <div className="flex flex-col gap-3">
             {credits.map((credit) => (
               <Credit key={credit.id} credit={credit} />
             ))}
           </div>
-        )}
+        ) : null}
         <PromoCodeForm teamId={teamId} onPromoRedeemed={onPromoRedeemed} />
       </div>
       <hr />
     </>
+  );
+}
+
+function CreditSkeleton() {
+  return (
+    <Loading className="flex items-center gap-3" fullHeight={false}>
+      <span className="sr-only">Loading credits</span>
+      <div className="size-6 shrink-0 rounded-full bg-neutral-8/30 dark:bg-neutral-3/20" />
+      <div className="flex min-w-0 grow flex-col gap-2 py-0.5">
+        <div className="h-3 w-40 rounded-sm bg-neutral-8/30 dark:bg-neutral-3/20" />
+        <div className="flex justify-between gap-4">
+          <div className="h-3 w-32 rounded-sm bg-neutral-8/30 dark:bg-neutral-3/20" />
+          <div className="h-3 w-24 rounded-sm bg-neutral-8/30 dark:bg-neutral-3/20" />
+        </div>
+      </div>
+    </Loading>
   );
 }
 

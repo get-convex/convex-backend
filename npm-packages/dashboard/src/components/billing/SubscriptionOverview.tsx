@@ -253,6 +253,7 @@ function PrepaidCreditsContainer({ team }: { team: TeamResponse }) {
   return (
     <PrepaidCredits
       credits={creditsResult.status === "ok" ? creditsResult.data : []}
+      isLoading={creditsResult.status === "loading"}
       teamId={team.id}
       onPromoRedeemed={creditsResult.refreshCredits}
     />
