@@ -17,6 +17,7 @@ const RequestBodySchema = z.object({
   code: z.string().trim().min(1).max(1024),
   teamId: z.number().int(),
 });
+const PROMO_REDEMPTION_TIMEOUT_MS = 30_000;
 
 export default async function handler(
   req: NextApiRequest,
@@ -45,6 +46,7 @@ export default async function handler(
         authorization: `Bearer ${session.accessToken}`,
       },
       body: JSON.stringify({ code, team_id: teamId }),
+      signal: AbortSignal.timeout(PROMO_REDEMPTION_TIMEOUT_MS),
     });
     const responseBody = (await promoResponse.json()) as ResponseData;
     return res.status(promoResponse.status).json(responseBody);
