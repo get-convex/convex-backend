@@ -422,6 +422,7 @@ pub trait WorkOSClient: Send + Sync {
     async fn find_user_id_by_email(&self, email: &str) -> anyhow::Result<Option<String>>;
     async fn delete_user(&self, user_id: &str) -> anyhow::Result<()>;
     async fn update_user_metadata(&self, user_id: &str, member_id: MemberId) -> anyhow::Result<()>;
+    async fn update_user_email(&self, user_id: &str, email: &str) -> anyhow::Result<()>;
 
     // Organization methods
     async fn create_organization(
@@ -590,6 +591,10 @@ where
 
     async fn update_user_metadata(&self, user_id: &str, member_id: MemberId) -> anyhow::Result<()> {
         update_workos_user_metadata(&self.api_key, user_id, member_id, &*self.http_client).await
+    }
+
+    async fn update_user_email(&self, user_id: &str, email: &str) -> anyhow::Result<()> {
+        update_workos_user_email(&self.api_key, user_id, email, &*self.http_client).await
     }
 
     async fn create_organization(
@@ -840,6 +845,10 @@ impl WorkOSClient for MockWorkOSClient {
         _user_id: &str,
         _member_id: MemberId,
     ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn update_user_email(&self, _user_id: &str, _email: &str) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -1690,6 +1699,58 @@ where
         let status = response.status();
         let response_body = response.into_body();
         anyhow::bail!(WorkOSApiError::new("update user", status, &response_body));
+    }
+
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct WorkOSUserEmailUpdate<'a> {
+    email: &'a str,
+    /// WorkOS resets `email_verified` to false whenever the email changes, so
+    /// it has to be reasserted here. Callers only reach this after Big Brain
+    /// has verified the address through its own code flow.
+    email_verified: bool,
+}
+
+pub async fn update_workos_user_email<F, E>(
+    api_key: &str,
+    user_id: &str,
+    email: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<()>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    let url = format!("https://api.workos.com/user_management/users/{user_id}");
+
+    let request_body = serde_json::to_vec(&WorkOSUserEmailUpdate {
+        email,
+        email_verified: true,
+    })
+    .context("Failed to serialize WorkOS user email update")?;
+
+    let request = http::Request::builder()
+        .uri(&url)
+        .method(http::Method::PUT)
+        .header(http::header::AUTHORIZATION, format!("Bearer {api_key}"))
+        .header(http::header::ACCEPT, APPLICATION_JSON)
+        .header(http::header::CONTENT_TYPE, APPLICATION_JSON)
+        .body(request_body)?;
+
+    let response = http_client(request)
+        .await
+        .context("Could not update WorkOS user email")?;
+
+    if response.status() != http::StatusCode::OK {
+        let status = response.status();
+        let response_body = response.into_body();
+        anyhow::bail!(WorkOSApiError::new(
+            "update user email",
+            status,
+            &response_body
+        ));
     }
 
     Ok(())
