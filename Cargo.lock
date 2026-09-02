@@ -2418,7 +2418,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "quote",
- "syn 2.0.118",
+ "syn 3.0.3",
 ]
 
 [[package]]

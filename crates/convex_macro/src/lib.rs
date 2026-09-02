@@ -11,6 +11,7 @@ use syn::{
     PathArguments,
     PathSegment,
     ReturnType,
+    Safety,
     Signature,
     Type,
 };
@@ -18,20 +19,25 @@ use syn::{
 #[proc_macro_attribute]
 pub fn instrument_future(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let ItemFn {
-        ref attrs,
-        ref vis,
-        ref sig,
-        ref block,
+        attrs,
+        vis,
+        sig,
+        block,
+        modifiers,
     } = syn::parse(item).unwrap();
 
     assert!(sig.constness.is_none(), "Can't instrument const fn");
     assert!(sig.asyncness.is_some(), "Can only instrument async fn");
-    assert!(sig.unsafety.is_none(), "Can't instrument unsafe fn");
+    assert!(
+        !matches!(sig.safety, Safety::Unsafe(_)),
+        "Can't instrument unsafe fn"
+    );
     assert!(sig.abi.is_none(), "Can't instrument fn with explicit ABI");
     assert!(
         sig.variadic.is_none(),
         "Can't instrument fn with variadic arguments"
     );
+    modifiers.require_empty().unwrap();
 
     let Signature {
         ident,
@@ -151,20 +157,25 @@ pub fn op(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let ItemFn {
-        ref attrs,
-        ref vis,
-        ref sig,
-        ref block,
+        attrs,
+        vis,
+        sig,
+        block,
+        modifiers,
     } = syn::parse(item).unwrap();
 
     assert!(sig.constness.is_none(), "const fn cannot be op");
     assert!(sig.asyncness.is_none(), "async fn cannot be op");
-    assert!(sig.unsafety.is_none(), "unsafe fn cannot be op");
+    assert!(
+        !matches!(sig.safety, Safety::Unsafe(_)),
+        "unsafe fn cannot be op"
+    );
     assert!(sig.abi.is_none(), "fn with explicit ABI cannot be op");
     assert!(
         sig.variadic.is_none(),
         "fn with variadic arguments cannot be op"
     );
+    modifiers.require_empty().unwrap();
 
     let Signature {
         ident,
@@ -221,7 +232,7 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let ReturnType::Type(_, return_type) = output else {
+    let ReturnType::Type(_, return_type) = &output else {
         panic!("op needs return type");
     };
     let Type::Path(rtype_path) = &**return_type else {

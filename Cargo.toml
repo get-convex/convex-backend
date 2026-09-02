@@ -215,7 +215,7 @@ storage_zip_reader = { path = "crates/storage_zip_reader" }
 streaming_export = { path = "crates/streaming_export" }
 strum = { version = "0.28", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
-syn = { version = "2.0", features = [ "full" ] }
+syn = { version = "3.0", features = [ "full" ] }
 sync = { path = "crates/sync" }
 sync_types = { package = "convex_sync_types", path = "crates/convex/sync_types" }
 table_iteration = { path = "crates/table_iteration" }
