@@ -73,6 +73,7 @@ static RUN_PERIOD: LazyLock<Duration> =
 #[derive(Clone)]
 pub struct UsageGaugesTrackingWorker {
     worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    latest_file_storage_size: Arc<Mutex<Option<u64>>>,
 }
 
 struct UsageGaugesTrackingWorkerInner<RT: Runtime> {
@@ -85,6 +86,7 @@ struct UsageGaugesTrackingWorkerInner<RT: Runtime> {
     /// Retained across runs so each run only syncs `_file_storage` changes
     /// since the previous one.
     file_storage_size: FileStorageSizeTracker<RT>,
+    latest_file_storage_size: Arc<Mutex<Option<u64>>>,
 }
 
 impl UsageGaugesTrackingWorker {
@@ -97,6 +99,7 @@ impl UsageGaugesTrackingWorker {
     ) -> anyhow::Result<Self> {
         let file_storage_size =
             FileStorageSizeTracker::new(database.latest_database_snapshot()?.data_sync_iterator()?);
+        let latest_file_storage_size = Arc::new(Mutex::new(None));
         let mut worker = UsageGaugesTrackingWorkerInner {
             runtime: runtime.clone(),
             database,
@@ -105,6 +108,7 @@ impl UsageGaugesTrackingWorker {
             log_sender,
             instance_name: instance_name.clone(),
             file_storage_size,
+            latest_file_storage_size: latest_file_storage_size.clone(),
         };
         let worker_handle = Arc::new(Mutex::new(Some(runtime.spawn(
             "usage_gauges_tracking_worker",
@@ -123,7 +127,19 @@ impl UsageGaugesTrackingWorker {
         ))));
         Ok(Self {
             worker: worker_handle,
+            latest_file_storage_size,
         })
+    }
+
+    /// Returns the most recently computed total file storage size, in bytes.
+    ///
+    /// The value is `None` until the first successful gauge cycle. Thereafter,
+    /// it is a cached observation from the most recently completed cycle and
+    /// may be higher or lower than the current total. Reading it never triggers
+    /// a refresh, so callers requiring a current value must compute one
+    /// separately.
+    pub fn latest_file_storage_size(&self) -> Option<u64> {
+        *self.latest_file_storage_size.lock()
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
@@ -167,6 +183,7 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
             &mut self.file_storage_size,
         )
         .await?;
+        *self.latest_file_storage_size.lock() = Some(gauge_metrics.storage_total_size);
 
         self.send_usage_events(gauge_metrics).await;
         let duration = timer.finish();

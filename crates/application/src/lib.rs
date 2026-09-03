@@ -647,6 +647,22 @@ pub async fn create_storage<RT: Runtime>(
 const DEFAULT_AUDIT_LOG_LIMIT: usize = 15;
 const MAX_AUDIT_LOG_LIMIT: usize = 100;
 
+fn ensure_export_file_storage_within_limit(
+    format: ExportFormat,
+    latest_file_storage_size: Option<u64>,
+) -> anyhow::Result<()> {
+    if matches!(
+        format,
+        ExportFormat::Zip {
+            include_storage: true
+        }
+    ) && let Some(file_storage_size) = latest_file_storage_size
+    {
+        ::exports::ensure_file_storage_export_size(file_storage_size)?;
+    }
+    Ok(())
+}
+
 impl<RT: Runtime> Application<RT> {
     pub async fn initialize_storage(
         runtime: RT,
@@ -1633,6 +1649,12 @@ impl<RT: Runtime> Application<RT> {
         expiration_ts_ns: Option<u64>,
     ) -> anyhow::Result<DeveloperDocumentId> {
         identity.require_operation(DeploymentOp::CreateBackups)?;
+        ensure_export_file_storage_within_limit(
+            format,
+            self.workers
+                .usage_gauges_tracking_worker
+                .latest_file_storage_size(),
+        )?;
         if let Some(expiration_ts_ns) = expiration_ts_ns {
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
