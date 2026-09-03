@@ -84,8 +84,7 @@ GitHub pull requests.
 
 ## Bundle size
 
-You can analyze the bundle size of the dashboard by running
-`ANALYZE=true npm run build`.
+You can analyze the bundle size of the dashboard by running `npm run analyze`.
 
 ## Storybook
 

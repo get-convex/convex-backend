@@ -1,5 +1,4 @@
 const { withSentryConfig } = require("@sentry/nextjs");
-const { DefinePlugin } = require("webpack");
 
 const ContentSecurityPolicy = `
   frame-ancestors 'self';
@@ -128,78 +127,25 @@ const nextConfig = {
     // serve storage from 127.0.0.1, which is only used outside of production.
     dangerouslyAllowLocalIP: process.env.VERCEL_ENV !== "production",
   },
-  experimental: {
-    webpackBuildWorker: true,
-  },
-  // TODO(nicolas) Update to Turbopack: this webpack config is why the
-  // dev/build scripts pass --webpack.
-  // from https://github.com/vercel/next.js/blob/c110dfd57c754f88cb239dc154a4b7d49e5696a3/examples/with-webassembly/next.config.js
-  webpack(config, { isServer, dev }) {
-    if (!dev && !isServer) {
-      config.cache = false;
-    }
-
-    config.resolve.symlinks = true; // Ensure Webpack follows symlinks
-    // Force Webpack to watch changes in the src directory of local packages
-    config.watchOptions = {
-      ignored: [
-        "**/node_modules/**", // Ignore other node_modules
-        "!**/node_modules/dashboard-common/src/**", // But watch src/
-      ],
-    };
-
-    // next.config.js
-    config.module.rules.push({
-      test: /\.(mp3|wav|m4a)$/,
-      use: {
-        loader: "file-loader",
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
       },
-    });
-    // Use the client static directory in the server bundle and prod mode
-    // Fixes `Error occurred prerendering page "/"`
-    config.output.webassemblyModuleFilename =
-      isServer && !dev
-        ? "../static/wasm/[modulehash].wasm"
-        : "static/wasm/[modulehash].wasm";
-
-    config.module.rules.push({
-      test: /\.svg$/,
-      use: ["@svgr/webpack"],
-    });
-
-    // Since Webpack 5 doesn't enable WebAssembly by default, we should do it manually
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
-    // Fix warnings for async functions in the browser (https://github.com/vercel/next.js/issues/64792)
-    // We only use this on the client so we don't care about the server environment
-    // not supporting it.
-    if (!isServer) {
-      config.output.environment = {
-        ...config.output.environment,
-        asyncFunction: true,
-      };
-    }
-
-    config.resolve.extensions.push(".js", ".jsx", ".ts", ".tsx");
-
-    config.plugins.push(
-      new DefinePlugin({
-        __SENTRY_DEBUG__: false,
-        // Consider turning off __SENTRY_TRACING__
-        // if we don't care much about web vitals
-        // __SENTRY_TRACING__: false,
-      }),
-    );
-
-    return config;
+    },
+  },
+  compiler: {
+    define: {
+      // Consider also defining __SENTRY_TRACING__ as false if we stop caring
+      // about web vitals.
+      __SENTRY_DEBUG__: false,
+    },
   },
   env: {
     NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || "",
   },
 };
-
-const withBundleAnalyzer = require("@next/bundle-analyzer")({
-  enabled: process.env.ANALYZE === "true",
-});
 
 // Uploading sourcemaps requires a Sentry auth token. In this monorepo all
 // builds are production builds, so restrict it to the only real deployment of
@@ -207,19 +153,17 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 const uploadSourceMaps =
   !!process.env.VERCEL && process.env.VERCEL_ENV === "production";
 
-module.exports = withBundleAnalyzer(
-  withSentryConfig(nextConfig, {
-    org: "convex-dev",
-    project: "dashboard",
-    release: {
-      name: process.env.VERCEL_GIT_COMMIT_SHA,
-      create: uploadSourceMaps,
-      finalize: uploadSourceMaps,
-    },
-    sourcemaps: {
-      disable: !uploadSourceMaps,
-    },
-    silent: true,
-    widenClientFileUpload: true,
-  }),
-);
+module.exports = withSentryConfig(nextConfig, {
+  org: "convex-dev",
+  project: "dashboard",
+  release: {
+    name: process.env.VERCEL_GIT_COMMIT_SHA,
+    create: uploadSourceMaps,
+    finalize: uploadSourceMaps,
+  },
+  sourcemaps: {
+    disable: !uploadSourceMaps,
+  },
+  silent: true,
+  widenClientFileUpload: true,
+});
