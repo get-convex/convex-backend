@@ -401,6 +401,8 @@ overrides:
 # Workspace scripts run after an explicit install. Avoid pnpm 11 racing installs
 # from concurrent Turbo tasks when it detects transient node_modules changes.
 verifyDepsBeforeRun: false
+# We use git dependencies, in particular get-convex/saffron
+blockExoticSubdeps: false
 # pnpm 10 denied dependency lifecycle scripts by default. Keep that policy
 # explicit under pnpm 11, which otherwise fails and scaffolds undecided entries.
 allowBuilds:
