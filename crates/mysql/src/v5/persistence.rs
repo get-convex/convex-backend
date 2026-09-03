@@ -97,6 +97,7 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use mysql_async::{
+    IsolationLevel,
     Row,
     Value,
 };
@@ -1568,9 +1569,36 @@ impl<RT: Runtime> Lease<RT> {
     where
         F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
     {
+        self.transact_with_isolation(None, f).await
+    }
+
+    /// Like [`Self::transact`], but runs at READ COMMITTED instead of the
+    /// InnoDB session default (REPEATABLE READ). Index retention deletes use
+    /// this so their DELETEs take only record locks, sparing concurrent index
+    /// writers the next-key/gap locks REPEATABLE READ adds.
+    #[fastrace::trace]
+    pub(super) async fn transact_read_committed<F, T>(&self, f: F) -> anyhow::Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
+    {
+        self.transact_with_isolation(Some(IsolationLevel::ReadCommitted), f)
+            .await
+    }
+
+    #[fastrace::trace]
+    async fn transact_with_isolation<F, T>(
+        &self,
+        isolation: Option<IsolationLevel>,
+        f: F,
+    ) -> anyhow::Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
+    {
         let mut client = self.pool.acquire("transact", &self.db_name).await?;
         let r = try_anyhow!({
-            let mut tx = client.transaction(self.pool.cluster_name()).await?;
+            let mut tx = client
+                .transaction(self.pool.cluster_name(), isolation)
+                .await?;
 
             let timer = metrics::lease_precond_timer(self.pool.cluster_name());
             let mut params = vec![mysql_async::Value::Int(self.lease_ts)];

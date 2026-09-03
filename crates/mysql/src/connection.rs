@@ -56,6 +56,7 @@ use mysql_async::{
     prelude::Queryable,
     Conn,
     DriverError,
+    IsolationLevel,
     Opts,
     OptsBuilder,
     Params,
@@ -492,10 +493,15 @@ impl<RT: Runtime> MySqlConnection<'_, RT> {
     pub async fn transaction(
         &mut self,
         db_cluster_name: &str,
+        isolation: Option<IsolationLevel>,
     ) -> anyhow::Result<MySqlTransaction<'_>> {
         let timer = begin_transaction_timer(db_cluster_name);
         log_transaction(self.labels.clone());
-        let inner = with_timeout(self.conn.start_transaction(TxOpts::new())).await?;
+        let mut tx_opts = TxOpts::new();
+        if let Some(isolation) = isolation {
+            tx_opts.with_isolation_level(isolation);
+        }
+        let inner = with_timeout(self.conn.start_transaction(tx_opts)).await?;
         timer.finish();
         Ok(MySqlTransaction {
             inner,
