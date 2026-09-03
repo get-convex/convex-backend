@@ -4,7 +4,6 @@ import { Link } from "@ui/Link";
 import { Menu, MenuItem } from "@ui/Menu";
 import {
   useDeleteProfileEmail,
-  useMfaStatus,
   useResendProfileEmailVerification,
   useUpdatePrimaryProfileEmail,
 } from "api/profile";
@@ -43,9 +42,6 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
   const deleteEmail = useDeleteProfileEmail();
   const updatePrimaryEmail = useUpdatePrimaryProfileEmail();
   const resentEmailVerification = useResendProfileEmailVerification();
-  // Changing the primary email moves which identity MFA is enforced against, so
-  // it's blocked (client- and server-side) while MFA is enabled.
-  const mfaEnabled = useMfaStatus()?.enabled ?? false;
 
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [error, setError] = useState<string>();
@@ -73,15 +69,13 @@ export function EmailListItem({ email }: { email: MemberEmailResponse }) {
       >
         <MenuItem
           action={() => updatePrimaryEmail({ email: email.email })}
-          disabled={!email.isVerified || email.isPrimary || mfaEnabled}
+          disabled={!email.isVerified || email.isPrimary}
           tip={
             !email.isVerified
               ? "This email is not verified."
               : email.isPrimary
                 ? "This is already your primary email."
-                : mfaEnabled
-                  ? "Disable multi-factor authentication to change your primary email. You can re-enable it afterward."
-                  : undefined
+                : undefined
           }
           tipSide="right"
         >

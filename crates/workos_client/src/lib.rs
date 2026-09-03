@@ -1,7 +1,10 @@
 // These APIs are informally documented in https://convexdev.slack.com/archives/C071SS99WLA/p1776902623741739?thread_ts=1776900543.948619&cid=C071SS99WLA
 
 use std::{
-    collections::HashMap,
+    collections::{
+        HashMap,
+        HashSet,
+    },
     fmt,
     future::Future,
     sync::Arc,
@@ -715,6 +718,7 @@ where
 pub struct MockWorkOSClient {
     /// Configured `find_user_id_by_email` responses, keyed by lowercased email.
     email_to_user_id: HashMap<String, String>,
+    mfa_emails: HashSet<String>,
     directories: Vec<Directory>,
     directory_groups: HashMap<String, Vec<DirectoryGroup>>,
     directory_users: HashMap<String, Vec<DirectoryUser>>,
@@ -761,6 +765,11 @@ impl MockWorkOSClient {
             domain: domain.to_string(),
             state,
         });
+        self
+    }
+
+    pub fn with_mfa_enrolled(mut self, email: &str) -> Self {
+        self.mfa_emails.insert(email.to_lowercase());
         self
     }
 
@@ -828,8 +837,8 @@ impl WorkOSClient for MockWorkOSClient {
         })
     }
 
-    async fn email_has_enrolled_mfa(&self, _email: &str) -> anyhow::Result<bool> {
-        Ok(false)
+    async fn email_has_enrolled_mfa(&self, email: &str) -> anyhow::Result<bool> {
+        Ok(self.mfa_emails.contains(&email.to_lowercase()))
     }
 
     async fn find_user_id_by_email(&self, email: &str) -> anyhow::Result<Option<String>> {
