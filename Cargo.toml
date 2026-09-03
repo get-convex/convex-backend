@@ -233,7 +233,7 @@ tokio = { version = "1.53.1", features = [ "full" ] }
 tokio-metrics = { version = "0.4.0" }
 tokio-metrics-collector = { version = "0.3.1" }
 tokio-postgres = { version = "0.7.13", features = [ "with-serde_json-1" ] }
-tokio-postgres-rustls = { version = "0.13" }
+tokio-postgres-rustls = { version = "0.14" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = "0.28.0"
 tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util", "join-map" ] }
@@ -280,8 +280,6 @@ strip = "debuginfo"
 [patch.crates-io]
 v8 = { git = "https://github.com/get-convex/rusty_v8", rev = "b7ac4f83d113b6f2533cab1f5b9a08742e91355e" }
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "367f80d0d3678ed7989814fd5864598746a3b946" }
-tokio-postgres = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }
-postgres-protocol = { git = "https://github.com/get-convex/rust-postgres", rev = "5751201b0fe9f8b1f0a1812fb04e21c5469ad0c6" }
 tungstenite = { git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
 moka = { git = "https://github.com/get-convex/moka", rev = "abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04" }
 validator_derive = { git = "https://github.com/Keats/validator", rev = "598ad83024529a2ff57da44d398533e3d4528490" }
