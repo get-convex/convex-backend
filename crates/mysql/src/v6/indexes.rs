@@ -6,6 +6,7 @@ use std::{
     ops::Bound,
 };
 
+use anyhow::Context as _;
 use common::{
     index::{
         SplitKey,
@@ -94,9 +95,36 @@ impl LogBucket {
     pub(crate) fn from_table_name(table_name: &str) -> anyhow::Result<Self> {
         let bucket = table_name
             .strip_prefix("indexes_log_")
-            .ok_or_else(|| anyhow::anyhow!("not a V6 index log table: {table_name}"))?
-            .parse()?;
+            .with_context(|| format!("not a V6 index log table: {table_name}"))?
+            .parse()
+            .with_context(|| format!("V6 index log table has no bucket: {table_name}"))?;
         Ok(Self(bucket))
+    }
+
+    /// The bucket `buckets` positions after this one. Fallible so that an
+    /// absurd lookahead surfaces as an error rather than a wrapped bucket that
+    /// names a table on the wrong side of the timeline.
+    pub(crate) fn offset(self, buckets: i64) -> anyhow::Result<Self> {
+        let bucket = self
+            .0
+            .checked_add(buckets)
+            .with_context(|| format!("log bucket {} + {buckets} overflows", self.0))?;
+        Ok(Self(bucket))
+    }
+
+    /// The lowest `successor_ts` this bucket holds.
+    pub(crate) fn start_ts(self) -> anyhow::Result<Timestamp> {
+        let nanos = self
+            .0
+            .checked_mul(LOG_BUCKET_SIZE_NANOS)
+            .with_context(|| format!("log bucket {} overflows a timestamp", self.0))?;
+        Timestamp::try_from(nanos)
+    }
+
+    /// One past the highest `successor_ts` this bucket holds, so a snapshot
+    /// read at or after it never needs the bucket.
+    pub(crate) fn end_ts(self) -> anyhow::Result<Timestamp> {
+        self.offset(1)?.start_ts()
     }
 }
 
