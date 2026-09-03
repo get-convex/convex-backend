@@ -151,6 +151,9 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
             skip_index_creation: false,
         },
         &config.name(),
+        // No control plane hands a self-hosted backend a deployment ID; a
+        // layout that keys on one rejects the connection.
+        None,
         runtime.clone(),
         preempt_signal.clone(),
     )

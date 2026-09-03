@@ -22,7 +22,10 @@ use common::{
     },
     runtime::Runtime,
     shutdown::ShutdownSignal,
-    types::PersistenceVersion,
+    types::{
+        DeploymentId,
+        PersistenceVersion,
+    },
 };
 pub use connection::ConvexMySqlPool;
 
@@ -68,6 +71,7 @@ pub struct MySqlOptions {
     pub version: PersistenceVersion,
     pub instance_name: MySqlInstanceName,
     pub multitenant: bool,
+    pub deployment_id: Option<DeploymentId>,
 }
 
 #[derive(Debug)]
@@ -76,6 +80,7 @@ pub struct MySqlReaderOptions {
     pub version: PersistenceVersion,
     pub instance_name: MySqlInstanceName,
     pub multitenant: bool,
+    pub deployment_id: Option<DeploymentId>,
 }
 
 pub async fn connect_persistence<RT: Runtime>(

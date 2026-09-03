@@ -17,6 +17,7 @@ use common::{
     },
     runtime::Runtime,
     shutdown::ShutdownSignal,
+    types::DeploymentId,
 };
 use mysql::{
     ConvexMySqlPool,
@@ -58,6 +59,7 @@ pub fn persistence_seed<RT: Runtime>(
     db_spec: &str,
     flags: ConnectPersistenceFlags,
     deployment_name: &str,
+    deployment_id: Option<DeploymentId>,
     runtime: RT,
 ) -> anyhow::Result<PersistenceSeed<RT>> {
     match db {
@@ -116,6 +118,7 @@ pub fn persistence_seed<RT: Runtime>(
                         version,
                         multitenant,
                         instance_name: deployment_name.into(),
+                        deployment_id,
                     };
                     Ok(PersistenceSeed::MySql {
                         pool: Arc::new(ConvexMySqlPool::new(
@@ -139,10 +142,11 @@ pub async fn connect_persistence<RT: Runtime>(
     db_spec: &str,
     flags: ConnectPersistenceFlags,
     deployment_name: &str,
+    deployment_id: Option<DeploymentId>,
     runtime: RT,
     shutdown_signal: ShutdownSignal,
 ) -> anyhow::Result<Arc<dyn Persistence>> {
-    match persistence_seed(db, db_spec, flags, deployment_name, runtime)? {
+    match persistence_seed(db, db_spec, flags, deployment_name, deployment_id, runtime)? {
         PersistenceSeed::Sqlite { db_spec } => {
             let persistence = Arc::new(SqlitePersistence::new(&db_spec)?);
             tracing::info!("Connected to SQLite at {db_spec}");
@@ -178,6 +182,7 @@ pub async fn connect_persistence_reader<RT: Runtime>(
     require_ssl: bool,
     db_should_be_leader: bool,
     deployment_name: &str,
+    deployment_id: Option<DeploymentId>,
     runtime: RT,
 ) -> anyhow::Result<Arc<dyn PersistenceReader>> {
     match persistence_seed(
@@ -189,6 +194,7 @@ pub async fn connect_persistence_reader<RT: Runtime>(
             skip_index_creation: false,
         },
         deployment_name,
+        deployment_id,
         runtime,
     )? {
         PersistenceSeed::Sqlite { db_spec } => {
@@ -220,6 +226,7 @@ pub async fn connect_persistence_reader<RT: Runtime>(
                 version: options.version,
                 multitenant: options.multitenant,
                 instance_name: options.instance_name,
+                deployment_id: options.deployment_id,
             };
             mysql::connect_persistence_reader(pool, db_name, options)
         },
@@ -231,10 +238,11 @@ pub async fn set_read_only<RT: Runtime>(
     db_spec: &str,
     flags: ConnectPersistenceFlags,
     instance_name: &str,
+    deployment_id: Option<DeploymentId>,
     runtime: RT,
     read_only: bool,
 ) -> anyhow::Result<()> {
-    match persistence_seed(db, db_spec, flags, instance_name, runtime)? {
+    match persistence_seed(db, db_spec, flags, instance_name, deployment_id, runtime)? {
         PersistenceSeed::Postgres { config, options } => {
             let pool = PostgresPersistence::create_pool(config)?;
             PostgresPersistence::set_read_only(pool, options, read_only).await?;
