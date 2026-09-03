@@ -1,181 +1,33 @@
 import { CreditResponse } from "generatedApi";
 import { formatUtcDate } from "@common/lib/format";
-import { formatUsd, toast } from "@common/lib/utils";
+import { formatUsd } from "@common/lib/utils";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import { Tooltip } from "@ui/Tooltip";
 import { Donut } from "@ui/Donut";
-import { TextInput } from "@ui/TextInput";
-import { Button } from "@ui/Button";
-import { Loading } from "@ui/Loading";
-import { cn } from "@ui/cn";
-import { type FormEvent, useEffect, useRef, useState } from "react";
 
-export function PrepaidCredits({
-  credits,
-  isLoading,
-  teamId,
-  onPromoRedeemed,
-  initialPromoCode,
-}: {
-  credits: CreditResponse[];
-  isLoading: boolean;
-  teamId: number;
-  onPromoRedeemed: () => Promise<void>;
-  initialPromoCode?: string;
-}) {
+export function PrepaidCredits({ credits }: { credits: CreditResponse[] }) {
+  if (credits.length === 0) {
+    return null;
+  }
   return (
     <>
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-1">
           <h4>Credits</h4>
-          {credits.length > 0 && (
-            <HelpTooltip tipSide="right">
-              Credits are applied to your invoices before your payment method is
-              charged. They're spent soonest-expiring first, and any balance
-              left over when a credit expires is forfeited.
-            </HelpTooltip>
-          )}
+          <HelpTooltip tipSide="right">
+            Credits are applied to your invoices before your payment method is
+            charged. They're spent soonest-expiring first, and any balance left
+            over when a credit expires is forfeited.
+          </HelpTooltip>
         </div>
-        {isLoading ? (
-          <CreditSkeleton />
-        ) : credits.length > 0 ? (
-          <div className="flex flex-col gap-3">
-            {credits.map((credit) => (
-              <Credit key={credit.id} credit={credit} />
-            ))}
-          </div>
-        ) : null}
-        <PromoCodeForm
-          teamId={teamId}
-          onPromoRedeemed={onPromoRedeemed}
-          initialPromoCode={initialPromoCode}
-        />
+        <div className="flex flex-col gap-3">
+          {credits.map((credit) => (
+            <Credit key={credit.id} credit={credit} />
+          ))}
+        </div>
       </div>
       <hr />
     </>
-  );
-}
-
-function CreditSkeleton() {
-  return (
-    <Loading className="flex items-center gap-3" fullHeight={false}>
-      <span className="sr-only">Loading credits</span>
-      <div className="size-6 shrink-0 rounded-full bg-neutral-8/30 dark:bg-neutral-3/20" />
-      <div className="flex min-w-0 grow flex-col gap-2 py-0.5">
-        <div className="h-3 w-40 rounded-sm bg-neutral-8/30 dark:bg-neutral-3/20" />
-        <div className="flex justify-between gap-4">
-          <div className="h-3 w-32 rounded-sm bg-neutral-8/30 dark:bg-neutral-3/20" />
-          <div className="h-3 w-24 rounded-sm bg-neutral-8/30 dark:bg-neutral-3/20" />
-        </div>
-      </div>
-    </Loading>
-  );
-}
-
-function PromoCodeForm({
-  teamId,
-  onPromoRedeemed,
-  initialPromoCode,
-}: {
-  teamId: number;
-  onPromoRedeemed: () => Promise<void>;
-  initialPromoCode?: string;
-}) {
-  const [code, setCode] = useState(initialPromoCode ?? "");
-  const [error, setError] = useState<string>();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
-  const redeemButtonRef = useRef<HTMLElement>(null);
-  const isPrefilled = initialPromoCode !== undefined;
-
-  useEffect(() => {
-    if (!isPrefilled) {
-      return;
-    }
-    formRef.current?.scrollIntoView?.({
-      behavior: "smooth",
-      block: "center",
-    });
-    redeemButtonRef.current?.focus({ preventScroll: true });
-  }, [isPrefilled]);
-
-  const redeemPromo = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmedCode = code.trim();
-    if (!trimmedCode) {
-      setError("Enter a promo code.");
-      return;
-    }
-
-    setError(undefined);
-    setIsSubmitting(true);
-    try {
-      const response = await fetch("/api/redeem-promo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: trimmedCode, teamId }),
-      });
-      const result = (await response.json()) as {
-        error?: string;
-        credit_amount: number;
-      };
-      if (!response.ok) {
-        setError(result.error ?? "Unable to redeem this promo code.");
-        return;
-      }
-
-      setCode("");
-      toast(
-        "success",
-        `${formatUsd(result.credit_amount)} in credits added to your team.`,
-      );
-      try {
-        await onPromoRedeemed();
-      } catch {
-        toast(
-          "error",
-          "Credits were added, but the credit list could not be refreshed.",
-        );
-      }
-    } catch {
-      setError("Unable to redeem the promo code. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <form
-      ref={formRef}
-      className={cn(
-        "flex max-w-md scroll-m-6 items-start gap-2 rounded-md",
-        isPrefilled && "border bg-background-highlight p-2",
-      )}
-      onSubmit={redeemPromo}
-    >
-      <TextInput
-        id="promoCode"
-        label="Promo code"
-        placeholder="Enter promo code"
-        value={code}
-        onChange={(event) => {
-          setCode(event.target.value);
-          setError(undefined);
-        }}
-        error={error}
-        disabled={isSubmitting}
-        autoComplete="off"
-      />
-      <Button
-        ref={redeemButtonRef}
-        className="mt-6"
-        type="submit"
-        loading={isSubmitting}
-        disabled={!code.trim()}
-      >
-        Redeem
-      </Button>
-    </form>
   );
 }
 

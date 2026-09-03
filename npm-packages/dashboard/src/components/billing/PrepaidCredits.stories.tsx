@@ -21,39 +21,8 @@ type Story = StoryObj<typeof meta>;
 const NOVEMBER_2026 = new Date("2026-11-06T00:00:00Z").getTime();
 const JANUARY_2027 = new Date("2027-01-06T00:00:00Z").getTime();
 
-export const Empty: Story = {
-  args: {
-    credits: [],
-    isLoading: false,
-    teamId: 1,
-    onPromoRedeemed: () => Promise.resolve(),
-  },
-};
-
-export const Prefilled: Story = {
-  args: {
-    credits: [],
-    isLoading: false,
-    teamId: 1,
-    onPromoRedeemed: () => Promise.resolve(),
-    initialPromoCode: "CONVEX2026",
-  },
-};
-
-export const Loading: Story = {
-  args: {
-    credits: [],
-    isLoading: true,
-    teamId: 1,
-    onPromoRedeemed: () => Promise.resolve(),
-  },
-};
-
 export const PartiallyConsumed: Story = {
   args: {
-    teamId: 1,
-    isLoading: false,
-    onPromoRedeemed: () => Promise.resolve(),
     credits: [
       {
         id: "block_1",
@@ -69,9 +38,6 @@ export const PartiallyConsumed: Story = {
 
 export const SeveralCredits: Story = {
   args: {
-    teamId: 1,
-    isLoading: false,
-    onPromoRedeemed: () => Promise.resolve(),
     credits: [
       // Fully drawn down, but not expired yet.
       {

@@ -55,12 +55,10 @@ export function SubscriptionOverview({
   team,
   hasAdminPermissions,
   subscription,
-  initialPromoCode,
 }: {
   team: TeamResponse;
   hasAdminPermissions: boolean;
   subscription?: OrbSubscriptionResponse | null;
-  initialPromoCode?: string;
 }) {
   const isLoading = subscription === undefined;
   const resumeSubscription = useResumeSubscription(team.id);
@@ -160,10 +158,7 @@ export function SubscriptionOverview({
             <SubscriptionCredits accountBalance={subscription.accountBalance} />
           )}
           <hr />
-          <PrepaidCreditsContainer
-            team={team}
-            initialPromoCode={initialPromoCode}
-          />
+          <PrepaidCreditsContainer team={team} />
           <SpendingLimitsSectionContainer
             subscription={subscription}
             team={team}
@@ -218,9 +213,6 @@ export function SubscriptionOverview({
           )}
         </Sheet>
       )}
-      {subscription === null && initialPromoCode !== undefined && (
-        <PromoCodeFreePlanCallout />
-      )}
       {team.managedBy !== "vercel" && invoicesResult.status === "denied" && (
         <Sheet className="flex w-full flex-col gap-4">
           <h3>Invoices</h3>
@@ -251,42 +243,18 @@ export function SubscriptionOverview({
   );
 }
 
-export function PromoCodeFreePlanCallout() {
-  const ref = useRef<HTMLDivElement>(null);
-  useMount(() => {
-    ref.current?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-  });
-  return (
-    <div ref={ref} className="scroll-m-6">
-      <Callout variant="upsell">
-        Promo codes for account credit can only be applied on Starter or higher
-      </Callout>
-    </div>
-  );
-}
-
-function PrepaidCreditsContainer({
-  team,
-  initialPromoCode,
-}: {
-  team: TeamResponse;
-  initialPromoCode?: string;
-}) {
+function PrepaidCreditsContainer({ team }: { team: TeamResponse }) {
   const { promos } = useLaunchDarkly();
   // A null team id pauses the query, so an unflagged team costs no Orb call.
   const creditsResult = useListCredits(promos ? team.id : null);
-  if (!promos) {
+  if (
+    !promos ||
+    creditsResult.status !== "ok" ||
+    creditsResult.data.length === 0
+  ) {
     return null;
   }
-  return (
-    <PrepaidCredits
-      credits={creditsResult.status === "ok" ? creditsResult.data : []}
-      isLoading={creditsResult.status === "loading"}
-      teamId={team.id}
-      onPromoRedeemed={creditsResult.refreshCredits}
-      initialPromoCode={initialPromoCode}
-    />
-  );
+  return <PrepaidCredits credits={creditsResult.data} />;
 }
 
 function SpendingLimitsSectionContainer({
