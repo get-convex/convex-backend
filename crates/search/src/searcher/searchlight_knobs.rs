@@ -54,6 +54,17 @@ pub static MAX_CONCURRENT_SEGMENT_COMPACTIONS: LazyLock<usize> =
 pub static MAX_CONCURRENT_SEGMENT_FETCHES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_CONCURRENT_SEGMENT_FETCHES", 8));
 
+/// The maximum size, in MiB, of the on-disk cache of extracted search
+/// indexes (`ArchiveCacheManager`).
+///
+/// The cache evicts by total size, and evicting an entry deletes the
+/// directory it was extracted into, so this bounds the disk footprint of the
+/// searcher's local storage path. Deployments whose working set of segments
+/// exceeds this limit will re-fetch and re-extract segments continuously;
+/// raise it to trade disk for fetch traffic.
+pub static SEARCHLIGHT_DISK_CACHE_MIB: LazyLock<u64> =
+    LazyLock::new(|| env_config("SEARCHLIGHT_DISK_CACHE_MIB", 500));
+
 /// The maximum number of concurrent vector searches we'll run at once,
 /// based on a very rough estimate of memory used per search.
 ///

@@ -39,6 +39,7 @@ use tantivy::{
     Index,
     IndexReader,
     IndexWriter,
+    ReloadPolicy,
 };
 use tokio::{
     fs,
@@ -84,7 +85,18 @@ pub async fn index_reader_for_directory<P: AsRef<Path>>(
     index
         .tokenizers()
         .register(CONVEX_EN_TOKENIZER, convex_en());
-    let reader = index.reader()?;
+    // These directories hold an immutable snapshot of a single already-committed
+    // segment, and nothing in this process ever commits to them, so there is
+    // never a new version to pick up. The default `ReloadPolicy::OnCommit`
+    // would spawn a thread that polls `meta.json` every 500ms for as long as
+    // the reader is alive, and readers outlive the directory they were opened
+    // from: the archive cache deletes the extracted directory when its entry is
+    // evicted while the text segment cache still holds the reader, and the
+    // poller then warns about the missing meta file twice a second forever.
+    let reader = index
+        .reader_builder()
+        .reload_policy(ReloadPolicy::Manual)
+        .try_into()?;
     timer.finish();
     Ok(reader)
 }
@@ -372,4 +384,97 @@ async fn zip_single_file<R: AsyncBufRead + Unpin, W: AsyncWrite + Unpin>(
     tokio::io::copy_buf(reader, &mut stream).await?;
     stream.close().await?;
     Ok(())
+}
+
+// Every assertion in here reads thread names out of /proc.
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use std::{
+        path::Path,
+        time::Duration,
+    };
+
+    use tantivy::{
+        doc,
+        schema::{
+            Schema,
+            TEXT,
+        },
+        Index,
+    };
+    use tempfile::TempDir;
+
+    use super::index_reader_for_directory;
+
+    /// Writes the shape `index_reader_for_directory` is always pointed at: a
+    /// directory holding one committed segment.
+    fn write_single_segment_index(directory: &Path) -> anyhow::Result<()> {
+        let mut schema_builder = Schema::builder();
+        let body = schema_builder.add_text_field("body", TEXT);
+        let index = Index::create_in_dir(directory, schema_builder.build())?;
+        let mut writer = index.writer_with_num_threads(1, 15_000_000)?;
+        writer.add_document(doc!(body => "hello world"))?;
+        writer.commit()?;
+        Ok(())
+    }
+
+    /// tantivy names its poller "thread-tantivy-meta-file-watcher"; Linux
+    /// truncates `comm` to 15 bytes.
+    fn meta_file_watcher_threads() -> usize {
+        std::fs::read_dir("/proc/self/task")
+            .expect("Failed to list this process's threads")
+            .filter_map(|entry| std::fs::read_to_string(entry.ok()?.path().join("comm")).ok())
+            .filter(|comm| comm.trim_end() == "thread-tantivy-")
+            .count()
+    }
+
+    /// A spawned thread names itself once it starts running, so the count only
+    /// converges shortly after `spawn` returns.
+    fn wait_for_watcher_threads(expected: usize) -> bool {
+        for _ in 0..100 {
+            if meta_file_watcher_threads() == expected {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        false
+    }
+
+    /// Readers opened by `index_reader_for_directory` outlive the directory
+    /// they were opened from, so they must not leave a `meta.json` poller
+    /// behind.
+    #[tokio::test]
+    async fn index_reader_for_directory_spawns_no_meta_file_watcher() -> anyhow::Result<()> {
+        let tmpdir = TempDir::new()?;
+        write_single_segment_index(tmpdir.path())?;
+        let baseline = meta_file_watcher_threads();
+
+        // Positive control: tantivy's default policy does spawn a poller for
+        // this fixture, so the assertion below fails for the right reason.
+        {
+            let index = Index::open_in_dir(tmpdir.path())?;
+            let _reader = index.reader()?;
+            assert!(
+                wait_for_watcher_threads(baseline + 1),
+                "the default ReloadPolicy should have spawned a meta file watcher"
+            );
+        }
+        // The poller notices its owner is gone within one polling interval;
+        // wait for it so the two arms cannot contaminate each other.
+        assert!(
+            wait_for_watcher_threads(baseline),
+            "the control's meta file watcher outlived its reader"
+        );
+
+        let _reader = index_reader_for_directory(tmpdir.path()).await?;
+        // Give a would-be poller the same chance to appear that the control
+        // needed.
+        std::thread::sleep(Duration::from_secs(1));
+        assert_eq!(
+            meta_file_watcher_threads(),
+            baseline,
+            "index_reader_for_directory spawned a meta file watcher"
+        );
+        Ok(())
+    }
 }
