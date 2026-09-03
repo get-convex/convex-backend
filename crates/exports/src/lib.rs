@@ -103,7 +103,9 @@ pub fn ensure_file_storage_export_size(size: u64) -> anyhow::Result<()> {
         ErrorMetadata::bad_request(
             FILE_STORAGE_EXPORT_TOO_LARGE_SHORT_MSG,
             format!(
-                "File storage is too large to include in an export ({} > maximum size {}).",
+                "File storage is too large to include in this backup ({} > maximum size {}). You \
+                 can still create a tables-only backup. Restoring it replaces table data while \
+                 leaving the target deployment's current file storage unchanged.",
                 size.format_size(BINARY),
                 MAX_FILE_STORAGE_EXPORT_SIZE_BYTES.format_size(BINARY),
             ),
