@@ -57,6 +57,38 @@
 /* Apply the dark mode when [data-theme="dark"] is present */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
+/* Theme the @convex-internal/web-analytics consent banner. */
+.wa-banner {
+  --wa-banner-background-color: var(--color-neutral-n1);
+  --wa-banner-text-color: var(--color-neutral-n10);
+  --wa-banner-border-color: var(--color-neutral-n4);
+  --wa-banner-font-family: var(--ifm-font-family-base);
+  --wa-banner-border-radius: 0.5rem;
+  --wa-banner-box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --wa-banner-padding: 0.75rem;
+  --wa-banner-action-gap: 0.75rem;
+  --wa-banner-z-index: 100;
+  --wa-banner-button-border-radius: 9999px;
+  --wa-banner-button-padding: 0.75rem 1rem;
+  --wa-banner-button-min-height: auto;
+  --wa-banner-button-font-size: 0.875rem;
+  --wa-banner-button-font-weight: 500;
+  --wa-banner-button-line-height: 1;
+  --wa-banner-decline-background-color: var(--color-neutral-n4);
+  --wa-banner-decline-text-color: var(--color-neutral-n10);
+  --wa-banner-accept-background-color: var(--color-plum-p4);
+  --wa-banner-accept-text-color: var(--color-neutral-white);
+}
+
+[data-theme="dark"] .wa-banner {
+  --wa-banner-background-color: var(--color-neutral-n11);
+  --wa-banner-text-color: var(--color-neutral-white);
+  --wa-banner-border-color: var(--color-neutral-n10);
+  --wa-banner-box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+  --wa-banner-decline-background-color: var(--color-neutral-n10);
+  --wa-banner-decline-text-color: var(--color-neutral-white);
+}
+
 /**
  * Any CSS included here will be global. The classic template
  * bundles Infima by default. Infima is a CSS framework designed to

@@ -179,6 +179,9 @@ minimumReleaseAgeExclude:
   # after a release, which would otherwise fail the age gate whenever anything
   # re-resolves (e.g. `pnpm deploy`) during the 7 days after a convex release.
   - convex
+  # First-party analytics package; docs pins an exact version right after
+  # npm publish, which would otherwise fail the 7-day age gate on install.
+  - "@convex-internal/web-analytics"
   # The brace-expansion overrides below pin the DoS fixes, which are newer than
   # the age gate on every maintenance branch.
   - brace-expansion

@@ -49,11 +49,8 @@ const config: Config = {
   },
   customFields: {
     // Make these environment variables available to the docs site.
-    NODE_ENV: process.env.NODE_ENV,
     KAPA_AI_PROJECT: process.env.KAPA_AI_PROJECT,
     KAPA_AI_KEY: process.env.KAPA_AI_KEY,
-    POST_HOG_KEY: process.env.POST_HOG_KEY,
-    POST_HOG_HOST: process.env.POST_HOG_HOST,
   },
   themeConfig: {
     colorMode: {
@@ -178,9 +175,6 @@ const config: Config = {
     [
       "classic",
       {
-        gtag: {
-          trackingID: "G-BE1B7P7T72",
-        },
         docs: {
           sidebarPath: resolve("./sidebars.js"),
           docItemComponent: "@theme/ApiItem",
@@ -435,7 +429,6 @@ const config: Config = {
         },
       },
     ],
-    "./src/plugins/metrics",
     "./src/plugins/prefixIds",
     "./src/plugins/imageZoomPlugin",
     async function versionPlugin() {
@@ -466,17 +459,6 @@ const config: Config = {
     },
   ],
   themes: ["docusaurus-theme-openapi-docs"],
-  scripts: [
-    {
-      src: "https://plausible.io/js/script.js",
-      defer: true,
-      "data-domain": "docs.convex.dev",
-    },
-  ],
-  clientModules: [
-    resolve("./src/components/Analytics/analyticsModule.ts"),
-    resolve("./src/components/AIButton/kapaModule.ts"),
-  ],
 };
 
 export default config;
