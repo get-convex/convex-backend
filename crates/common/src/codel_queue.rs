@@ -112,9 +112,9 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
         log_codel_queue_time_since_empty(now - self.last_time_empty)
     }
 
-    pub fn push(&mut self, item: T) -> Result<(), QueueFull> {
+    pub fn push(&mut self, item: T) -> Result<(), (QueueFull, T)> {
         if self.len() >= self.capacity {
-            return Err(QueueFull);
+            return Err((QueueFull, item));
         }
         let now = self.rt.monotonic_now();
         self.update_last_time_empty(now);
@@ -267,6 +267,12 @@ impl<RT: Runtime, T> Drop for CoDelQueueSender<RT, T> {
 
 impl<RT: Runtime, T> CoDelQueueSender<RT, T> {
     pub fn try_send(&self, item: T) -> Result<(), QueueFull> {
+        // N.B.: on error, only drops `item` after releasing the lock
+        self.try_send_or_recover(item)
+            .map_err(|(QueueFull, _)| QueueFull)
+    }
+
+    pub fn try_send_or_recover(&self, item: T) -> Result<(), (QueueFull, T)> {
         let mut inner = self.inner.lock();
         inner.queue.push(item)?;
         inner.event.notify_additional(1);
