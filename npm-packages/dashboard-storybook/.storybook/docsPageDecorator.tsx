@@ -48,7 +48,6 @@ import {
   useDeploymentByName,
   useDeploymentRegions,
 } from "../../dashboard/src/api/deployments";
-import { deploymentAuth } from "../../dashboard/src/lib/deploymentAuth";
 import { useTeamUsageState } from "../../dashboard/src/api/usage";
 import { useReferralState } from "../../dashboard/src/api/referrals";
 import { usePostHog } from "../../dashboard/src/hooks/usePostHog";
@@ -361,13 +360,6 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
   mocked(useCurrentDeployment).mockReturnValue(
     shouldMockCurrentDeployment ? activeDeployment : undefined,
   );
-  mocked(deploymentAuth).mockImplementation(async (deploymentName) => {
-    return {
-      ok: true,
-      deploymentUrl: `https://${deploymentName}.convex.cloud`,
-      adminKey: "STORYBOOK-FAKE-KEY",
-    };
-  });
   mocked(useDeploymentByName).mockReturnValue(undefined);
   mocked(useDeploymentRegions).mockReturnValue({
     regions: [
@@ -556,8 +548,8 @@ function DocsShell({
 }
 
 // DeploymentInfoProvider renders children without the context on the first
-// render (before the async deploymentAuth resolves). Guard against calling
-// DeploymentDashboardLayout until the context is available.
+// render, before it has resolved the deployment's URL and admin key. Guard
+// against calling DeploymentDashboardLayout until the context is available.
 function DeploymentLayoutWhenReady({
   children,
 }: React.PropsWithChildren<object>) {

@@ -86,7 +86,12 @@ function DeploymentLabelWrapper({
   deploymentName: string;
 }) {
   return (
-    <DeploymentProvider deploymentName={deploymentName}>
+    <DeploymentProvider
+      deploymentName={deploymentName}
+      deploymentUrl={
+        deployment.kind === "cloud" ? deployment.deploymentUrl : undefined
+      }
+    >
       <DeploymentDomainInfo deployment={deployment} whoseName={whoseName} />
     </DeploymentProvider>
   );

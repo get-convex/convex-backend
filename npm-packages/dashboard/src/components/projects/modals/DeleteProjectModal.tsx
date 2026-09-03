@@ -45,7 +45,14 @@ export function DeleteProjectModal({
   );
 
   return deployments && defaultProdDeployment ? (
-    <DeploymentInfoProvider deploymentOverride={defaultProdDeployment.name}>
+    <DeploymentInfoProvider
+      deploymentOverride={defaultProdDeployment.name}
+      deploymentUrlOverride={
+        defaultProdDeployment.kind === "cloud"
+          ? defaultProdDeployment.deploymentUrl
+          : undefined
+      }
+    >
       <MaybeDeploymentApiProvider
         deploymentOverride={defaultProdDeployment.name}
       >

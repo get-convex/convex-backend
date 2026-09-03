@@ -9,11 +9,14 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/router";
 import { cn } from "@ui/cn";
 import { LoadingLogo } from "@ui/Loading";
+import { Button } from "@ui/Button";
+import { Callout } from "@ui/Callout";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { DeploymentOp } from "system-udfs/convex/_system/server";
@@ -398,6 +401,7 @@ type MaybeConnectedDeployment = {
   deploymentName?: string;
   loading: boolean;
   errorKind: "None" | "DoesNotExist" | "NotConnected";
+  errorMessage?: string;
 };
 
 export const ConnectedDeploymentContext = createContext<{
@@ -427,6 +431,90 @@ export function useMaybeConnectedDeployment():
   return useContext(MaybeConnectedDeploymentContext);
 }
 
+type ClientState =
+  | {
+      ok: true;
+      deployment: {
+        client: ConvexReactClient;
+        deploymentUrl: string;
+        deploymentName: string;
+      };
+    }
+  | {
+      ok: false;
+      errorCode: string;
+      errorMessage: string;
+      deployment: undefined;
+    };
+
+function useClientState({
+  deploymentName,
+  deploymentUrl,
+  adminKey,
+  errorCode,
+  errorMessage,
+}: {
+  deploymentName: string | undefined;
+  deploymentUrl: string | undefined;
+  adminKey: string | undefined;
+  errorCode: string | undefined;
+  errorMessage: string | undefined;
+}): ClientState | undefined {
+  const [state, setState] = useState<ClientState>();
+
+  // Read the key through a ref so rotating it doesn't rebuild the client: the
+  // effect in useConnectedDeployment pushes rotations over the open socket.
+  const adminKeyRef = useRef(adminKey);
+  useEffect(() => {
+    adminKeyRef.current = adminKey;
+  }, [adminKey]);
+
+  useEffect(() => {
+    if (
+      deploymentName === undefined ||
+      deploymentName === PROVISION_PROD_PAGE_NAME ||
+      deploymentName === PROVISION_DEV_PAGE_NAME
+    )
+      return undefined;
+
+    setState(undefined);
+
+    if (deploymentUrl === undefined) {
+      // Not connected: either still loading (no error) or the deployment failed
+      // to authenticate.
+      if (errorCode !== undefined) {
+        setState({
+          ok: false,
+          errorCode,
+          errorMessage: errorMessage ?? "",
+          deployment: undefined,
+        });
+      }
+      return undefined;
+    }
+
+    const client = new ConvexReactClient(deploymentUrl, {
+      reportDebugInfoToConvex: true,
+    });
+    if (adminKeyRef.current !== undefined) {
+      // Before publishing: descendant queries subscribe in the same commit this
+      // state update causes, and their effects run before this component's.
+      // An internal-only API
+      client.setAdminAuth(adminKeyRef.current);
+    }
+    setState({
+      ok: true,
+      deployment: { client, deploymentUrl, deploymentName },
+    });
+
+    return () => {
+      void client.close();
+    };
+  }, [deploymentUrl, deploymentName, errorCode, errorMessage]);
+
+  return state;
+}
+
 const useConnectedDeployment = (
   deploymentName: string | undefined,
 ):
@@ -438,95 +526,47 @@ const useConnectedDeployment = (
       deployment: undefined;
     }
   | undefined => {
-  // Use a single setState to batch updates.
-  const [state, setState] = useState<
-    | {
-        ok: true;
-        deployment: {
-          client: ConvexReactClient;
-          adminKey: string;
-          deploymentUrl: string;
-          deploymentName: string;
-        };
-      }
-    | {
-        ok: false;
-        errorCode: string;
-        errorMessage: string;
-        deployment: undefined;
-      }
-  >();
-
   const data = useContext(DeploymentInfoContext);
 
+  const deploymentUrl = data?.ok ? data.deploymentUrl : undefined;
+  const adminKey = data?.ok ? data.adminKey : undefined;
+  const errorCode = data && !data.ok ? data.errorCode : undefined;
+  const errorMessage = data && !data.ok ? data.errorMessage : undefined;
+
+  const state = useClientState({
+    deploymentName,
+    deploymentUrl,
+    adminKey,
+    errorCode,
+    errorMessage,
+  });
+
+  // Carries key rotations to a client that's already published, pushing the new
+  // key over the open socket instead of reconnecting. The initial key is
+  // installed at construction above, before anything can subscribe.
+  const client = state?.ok ? state.deployment.client : undefined;
   useEffect(() => {
-    if (
-      deploymentName === undefined ||
-      // TODO(ari): Refactor out of dashboard-common. This is only used in the cloud dashboard.
-      deploymentName === PROVISION_PROD_PAGE_NAME ||
-      deploymentName === PROVISION_DEV_PAGE_NAME
-    )
-      return;
-
-    setState(undefined);
-
-    let canceled = false;
-    let client: ConvexReactClient;
-    const getClient = async () => {
-      if (canceled) return;
-      if (data === undefined) {
-        return;
-      }
-      if (!data.ok) {
-        setState({
-          ok: false,
-          errorCode: data.errorCode,
-          errorMessage: data.errorMessage,
-          deployment: undefined,
-        });
-        return;
-      }
-      const { deploymentUrl, adminKey } = data;
-
-      client = new ConvexReactClient(deploymentUrl, {
-        reportDebugInfoToConvex: true,
-      });
-      // An internal-only API
-      client.setAdminAuth(adminKey);
-      setState({
-        ok: true,
-        deployment: { client, adminKey, deploymentUrl, deploymentName },
-      });
-    };
-    void getClient();
-
-    return () => {
-      canceled = true;
-      setState((prev) => {
-        if (prev?.deployment?.client) {
-          void prev.deployment.client.close();
-        }
-        return undefined;
-      });
-    };
-  }, [data, deploymentName]);
+    if (client === undefined || adminKey === undefined) return;
+    // An internal-only API
+    client.setAdminAuth(adminKey);
+  }, [client, adminKey]);
 
   return useMemo(() => {
     if (!state) return undefined;
     if (state.ok) {
-      const {
-        deployment: { deploymentUrl },
-      } = state;
       return {
         ok: true,
         deployment: {
-          httpClient: new ConvexHttpClient(deploymentUrl),
+          httpClient: new ConvexHttpClient(state.deployment.deploymentUrl),
           ...state.deployment,
+          // The admin key comes straight from context so the HTTP/SWR consumers
+          // always see the current (rotated) key.
+          adminKey: adminKey ?? "",
         },
       };
     }
     return state;
-  }, [state]);
+  }, [state, adminKey]);
 };
 
 export type DeploymentApiProviderProps = {
@@ -590,6 +630,15 @@ export function DeploymentApiProvider({
       `Can't connect to deployment ${connected?.errorCode} ${connected?.errorMessage}`,
       "warning",
     );
+    // Surface the failure rather than leaving `loading` set, which renders as a
+    // spinner that never resolves: nothing retries this on its own.
+    value = {
+      deployment: undefined,
+      deploymentName,
+      loading: false,
+      errorKind: "NotConnected",
+      errorMessage: connected.errorMessage,
+    };
   }
 
   return (
@@ -614,10 +663,26 @@ export function WaitForDeploymentApi({
     );
   }
 
-  const { deployment, loading, errorKind } = connected;
+  const { deployment, loading, errorKind, errorMessage } = connected;
   if (errorKind === "DoesNotExist") {
     void router.push("/404?reason=deployment_not_found");
     return null;
+  }
+  if (errorKind === "NotConnected") {
+    return (
+      <div
+        className={cn(
+          "flex size-full flex-col items-center justify-center gap-4",
+          sizeClass,
+        )}
+      >
+        <Callout variant="error" className="flex-col">
+          <p className="font-semibold">Could not connect to this deployment.</p>
+          {errorMessage && <p>{errorMessage}</p>}
+        </Callout>
+        <Button onClick={() => router.reload()}>Try again</Button>
+      </div>
+    );
   }
   if (loading) {
     return (

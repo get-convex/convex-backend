@@ -16,10 +16,19 @@ import {
 } from "./api";
 
 export function useCurrentProject() {
+  return useCurrentProjectWithStatus().project;
+}
+
+/**
+ * The current project plus whether it's still resolving, for callers that have
+ * to tell "not here yet" from "not there" — a distinction `useCurrentProject`
+ * erases by returning `undefined` for both.
+ */
+export function useCurrentProjectWithStatus() {
   const team = useCurrentTeam();
   const { query } = useRouter();
   const { project: projectSlug } = query;
-  return useProjectBySlug(team?.id, projectSlug as string);
+  return useProjectBySlugWithStatus(team?.id, projectSlug as string);
 }
 
 export function useProjectById(projectId: number | undefined) {
@@ -36,22 +45,31 @@ export function useProjectBySlug(
   teamId: number | undefined,
   projectSlug: string | undefined,
 ) {
-  const { data, isLoading } = useManagementApiQuery({
+  return useProjectBySlugWithStatus(teamId, projectSlug).project;
+}
+
+function useProjectBySlugWithStatus(
+  teamId: number | undefined,
+  projectSlug: string | undefined,
+) {
+  const { data, isLoading, isValidating } = useManagementApiQuery({
     path: "/teams/{team_id_or_slug}/projects/{project_slug}",
     pathParams: {
       team_id_or_slug: teamId?.toString() || "",
       project_slug: projectSlug || "",
     },
   });
-  if (isLoading) {
-    return undefined;
-  }
-  // Don't return stale data from keepPreviousData when the slug doesn't match
-  // to avoid race conditions with project/deployment 404s
-  if (data && data.slug !== projectSlug) {
-    return undefined;
-  }
-  return data;
+  // keepPreviousData hands back the previously viewed project while the new
+  // slug loads, and keeps handing it back if that request fails. Withhold it
+  // either way, since returning the wrong project races project/deployment
+  // 404s -- but only report loading while a request is actually in flight.
+  // Reporting the failure as loading would strand callers that wait for this to
+  // settle, since the retained project never starts matching the new slug.
+  const isStale = data !== undefined && data.slug !== projectSlug;
+  return {
+    project: isLoading || isStale ? undefined : data,
+    isLoading: isLoading || (isStale && isValidating),
+  };
 }
 
 export function usePaginatedProjects(

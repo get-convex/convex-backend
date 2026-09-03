@@ -17,7 +17,7 @@ import {
 import { LocalDeploymentDisconnectOverlay } from "@common/features/disconnectOverlay/LocalDeploymentDisconnectOverlay";
 import { CloudDisconnectOverlay } from "@common/features/disconnectOverlay/CloudDisconnectOverlay";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
-import { useCurrentDeployment } from "api/deployments";
+import { useCurrentDeployment, useDeployments } from "api/deployments";
 import { useHasProjectAdminPermissions } from "api/roles";
 import {
   useIsOperationAllowed,
@@ -33,7 +33,7 @@ import { Fallback } from "pages/500";
 import { useTeamUsageState } from "api/usage";
 import { useTeamOrbSubscription } from "api/billing";
 import { useProjectEnvironmentVariables } from "api/environmentVariables";
-import { useCurrentProject } from "api/projects";
+import { useCurrentProject, useCurrentProjectWithStatus } from "api/projects";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import {
   useDeploymentWorkOSEnvironment,
@@ -56,7 +56,7 @@ import {
 import { useSupportFormOpen } from "elements/SupportWidget";
 import { useConvexStatus } from "hooks/useConvexStatus";
 import { ConvexStatusWidget } from "lib/ConvexStatusWidget";
-import { deploymentAuth } from "lib/deploymentAuth";
+import { localDeploymentAuth } from "lib/deploymentAuth";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
@@ -118,9 +118,11 @@ function CloudDashboardDisconnectOverlay({
 export function DeploymentInfoProvider({
   children,
   deploymentOverride,
+  deploymentUrlOverride,
 }: {
   children: React.ReactNode;
   deploymentOverride?: string;
+  deploymentUrlOverride?: string;
 }): JSX.Element {
   const router = useRouter();
   const { deploymentName } = router.query;
@@ -136,6 +138,43 @@ export function DeploymentInfoProvider({
     accessTokenRef.current = accessToken;
   }, [accessToken]);
   const { connectionStateCheckIntervalMs } = useLaunchDarkly();
+
+  const { project: currentProject, isLoading: projectLoading } =
+    useCurrentProjectWithStatus();
+  const { deployments: projectDeployments, isLoading: deploymentsLoading } =
+    useDeployments(currentProject?.id);
+  const matchedDeployment =
+    !deploymentOverride && typeof deploymentName === "string"
+      ? projectDeployments?.find((d) => d.name === deploymentName)
+      : undefined;
+  const cloudDeploymentUrl =
+    deploymentUrlOverride ??
+    (matchedDeployment?.kind === "cloud"
+      ? matchedDeployment.deploymentUrl
+      : undefined);
+
+  // A cloud deployment's URL is only known from the project's deployments list,
+  // and both the project and the list stay undefined when their request fails,
+  // not just while it's in flight. So wait only while a lookup is genuinely
+  // outstanding, and report a failed one below: waiting on the data itself would
+  // leave the dashboard on a spinner for as long as the endpoint kept failing.
+  const isDeploymentLookupSettled =
+    deploymentOverride !== undefined ||
+    ((currentProject?.id !== undefined || !projectLoading) &&
+      (projectDeployments !== undefined || !deploymentsLoading));
+  // A local deployment is identified by its name alone and Big Brain returns its
+  // URL, so it never needs the lookups below.
+  const isLocalTarget = (
+    deploymentOverride ??
+    (typeof deploymentName === "string" ? deploymentName : "")
+  ).startsWith("local-");
+  // Whether the route's own deployments list came back, so a name missing from
+  // it really is missing. Overrides render outside that route, so their target
+  // isn't covered by this list.
+  const canProveDeploymentMissing =
+    deploymentOverride === undefined && projectDeployments !== undefined;
+  const authRefreshKey = cloudDeploymentUrl !== undefined ? accessToken : null;
+
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
   const teamsURI = `/t/${selectedTeamSlug}`;
@@ -144,10 +183,47 @@ export function DeploymentInfoProvider({
   useIsomorphicLayoutEffect(() => {
     const f = async () => {
       setDeploymentInfo(undefined);
-      const info = await deploymentAuth(
-        deploymentOverride || (deploymentName as string),
-        `Bearer ${accessTokenRef.current}`,
-      );
+      const token = accessTokenRef.current;
+      if (!token) {
+        return;
+      }
+      const target = deploymentOverride || (deploymentName as string);
+
+      let info:
+        | { deploymentUrl: string; adminKey: string; ok: true }
+        | { ok: false; errorMessage: string; errorCode: string };
+      if (!isLocalTarget && !isDeploymentLookupSettled) {
+        // A lookup is still in flight; a later run of this effect (once it
+        // resolves or fails) will authenticate.
+        return;
+      }
+      if (isLocalTarget) {
+        // A local deployment's URL is whatever the CLI registered, and its admin
+        // key is minted per deployment rather than derived from the session, so
+        // Big Brain has to hand us both.
+        info = await localDeploymentAuth(target, `Bearer ${token}`);
+      } else if (cloudDeploymentUrl !== undefined) {
+        info = {
+          ok: true,
+          deploymentUrl: cloudDeploymentUrl,
+          adminKey: authRefreshKey ?? token,
+        };
+      } else if (canProveDeploymentMissing) {
+        // The list loaded and this cloud deployment isn't in it. Matches the
+        // error code Big Brain used to return, which routes to the 404 page.
+        info = {
+          ok: false,
+          errorCode: "DeploymentNotFound",
+          errorMessage: `Deployment ${target} could not be found.`,
+        };
+      } else {
+        info = {
+          ok: false,
+          errorCode: "DeploymentUrlUnavailable",
+          errorMessage:
+            "Couldn't load this deployment's URL. Check your connection and try again.",
+        };
+      }
       setDeploymentInfo({
         ...info,
         addBreadcrumb,
@@ -222,16 +298,17 @@ export function DeploymentInfoProvider({
       void f();
     }
   }, [
-    // Note: accessToken is intentionally NOT in dependencies
-    // We don't want to re-authenticate to the deployment every time the dashboard
-    // access token refreshes (every 10 minutes). The deployment admin key is separate
-    // and doesn't need to be refreshed when the dashboard token changes.
     deploymentName,
     deploymentOverride,
     deploymentsURI,
     projectsURI,
     teamsURI,
     connectionStateCheckIntervalMs,
+    isDeploymentLookupSettled,
+    isLocalTarget,
+    canProveDeploymentMissing,
+    cloudDeploymentUrl,
+    authRefreshKey,
   ]);
 
   return deploymentInfo ? (

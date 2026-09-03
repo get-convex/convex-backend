@@ -752,7 +752,7 @@ export const ComponentDropdown: Story = {
  * Open a header trigger's anchored command palette menu.
  *
  * `DeploymentInfoProvider` moves its children from a fragment into a context
- * provider once `deploymentAuth` resolves, which makes React rebuild the page
+ * provider once deployment auth resolves, which makes React rebuild the page
  * subtree. A trigger looked up before that rebuild is detached by the time it
  * is clicked, and clicking a detached node dispatches events that reach no
  * handler — so re-look-up the trigger on every attempt and retry until the menu

@@ -76,12 +76,17 @@ export function CustomDomains({
 export function DeploymentProvider({
   children,
   deploymentName,
+  deploymentUrl,
 }: {
   children: ReactNode;
   deploymentName: string;
+  deploymentUrl?: string;
 }) {
   return (
-    <DeploymentInfoProvider deploymentOverride={deploymentName}>
+    <DeploymentInfoProvider
+      deploymentOverride={deploymentName}
+      deploymentUrlOverride={deploymentUrl}
+    >
       <MaybeDeploymentApiProvider deploymentOverride={deploymentName}>
         <WaitForDeploymentApi sizeClass="hidden">
           {children}
