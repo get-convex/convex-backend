@@ -2699,6 +2699,13 @@ impl<RT: Runtime> Application<RT> {
         caller: FunctionCaller,
         component: ComponentId,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        anyhow::ensure!(
+            module.environment == ModuleEnvironment::Isolate,
+            ErrorMetadata::bad_request(
+                "InvalidTestQueryEnvironment",
+                "Test queries must use the Convex runtime.",
+            ),
+        );
         let request_id = request_context.request_id.clone();
         let block_logging = self
             .log_visibility
