@@ -39,6 +39,7 @@ import {
   useFilterHistory,
   useTableFilters,
 } from "@common/features/data/lib/useTableFilters";
+import { FiltersAppliedProperties } from "@common/features/data/lib/filterAnalytics";
 import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
@@ -56,6 +57,7 @@ export function DataFilters({
   componentId,
   filters,
   onFiltersChange,
+  onFiltersApplied,
   dataFetchErrors,
   draftFilters,
   setDraftFilters,
@@ -77,6 +79,7 @@ export function DataFilters({
   componentId: string | null;
   filters?: FilterExpression;
   onFiltersChange(next: FilterExpression): void;
+  onFiltersApplied?: (properties: FiltersAppliedProperties) => void;
   dataFetchErrors?: FilterValidationError[];
   draftFilters?: FilterExpression;
   setDraftFilters(next: FilterExpression): void;
@@ -119,6 +122,7 @@ export function DataFilters({
     componentId,
     filters,
     onFiltersChange,
+    onFiltersApplied,
     draftFilters,
     setDraftFilters,
     activeSchema,
@@ -483,6 +487,7 @@ function useDataFilters({
   componentId,
   filters,
   onFiltersChange,
+  onFiltersApplied,
   draftFilters,
   setDraftFilters,
   activeSchema,
@@ -491,6 +496,7 @@ function useDataFilters({
   componentId: string | null;
   filters?: FilterExpression;
   onFiltersChange(next: FilterExpression): void;
+  onFiltersApplied?: (properties: FiltersAppliedProperties) => void;
   draftFilters?: FilterExpression;
   setDraftFilters(next: FilterExpression): void;
   activeSchema: SchemaJson | null;
@@ -668,7 +674,11 @@ function useDataFilters({
   );
 
   const { filterHistory } = useFilterHistory(tableName, componentId);
-  const { applyFiltersWithHistory } = useTableFilters(tableName, componentId);
+  const { applyFiltersWithHistory } = useTableFilters(
+    tableName,
+    componentId,
+    onFiltersApplied,
+  );
   const [currentIdx, setCurrentIdx] = useState(0);
   useEffect(() => {
     setCurrentIdx(0);

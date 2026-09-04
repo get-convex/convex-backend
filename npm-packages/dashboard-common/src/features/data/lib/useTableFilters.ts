@@ -11,6 +11,10 @@ import isEqual from "lodash/isEqual";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useFilterMap } from "@common/lib/useTableMetadata";
+import {
+  FiltersAppliedProperties,
+  summarizeFilters,
+} from "@common/features/data/lib/filterAnalytics";
 
 // An expression with no clauses, no index, and no explicit order carries no
 // selection and reads as "no filters". This mirrors the condition under which
@@ -54,6 +58,7 @@ export function filterParamForQuery(raw: string | null): string | null {
 export const useTableFilters = (
   tableName: string,
   componentId: string | null,
+  onFiltersApplied?: (properties: FiltersAppliedProperties) => void,
 ) => {
   const { query, replace } = useRouter();
   const { appendFilterHistory } = useFilterHistory(tableName, componentId);
@@ -66,6 +71,7 @@ export const useTableFilters = (
     filters,
     applyFiltersWithHistory: async (newFilters?: FilterExpression) => {
       if (newFilters) {
+        onFiltersApplied?.(summarizeFilters(newFilters));
         if (
           newFilters.clauses.length === 0 &&
           !newFilters.index &&

@@ -1,4 +1,6 @@
+import { useCallback, useRef } from "react";
 import { usePostHog as usePostHogOriginal } from "posthog-js/react";
+import { FiltersAppliedProperties } from "@common/features/data/lib/filterAnalytics";
 
 // Map of event names to their properties (use `never` if no properties).
 export type PostHogEventMap = {
@@ -43,6 +45,7 @@ export type PostHogEventMap = {
   command_palette_item_selected: {
     kind: string;
   };
+  data_filters_applied: FiltersAppliedProperties;
 };
 
 export type PostHogEvent = keyof PostHogEventMap;
@@ -51,16 +54,21 @@ export type PostHogEvent = keyof PostHogEventMap;
 // events with predefined event names and their specific properties.
 export function usePostHog() {
   const posthog = usePostHogOriginal();
+  const posthogRef = useRef(posthog);
+  posthogRef.current = posthog;
 
   // Captures a custom event by name, with properties as required.
-  function capture<E extends PostHogEvent>(
-    event: E,
-    ...args: PostHogEventMap[E] extends never
-      ? []
-      : [properties: PostHogEventMap[E]]
-  ) {
-    posthog?.capture(event, args[0]);
-  }
+  const capture = useCallback(
+    <E extends PostHogEvent>(
+      event: E,
+      ...args: PostHogEventMap[E] extends never
+        ? []
+        : [properties: PostHogEventMap[E]]
+    ) => {
+      posthogRef.current?.capture(event, args[0]);
+    },
+    [],
+  );
 
   return {
     capture,

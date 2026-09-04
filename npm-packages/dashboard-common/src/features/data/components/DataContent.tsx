@@ -24,6 +24,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useSelectionState } from "@common/features/data/lib/useSelectionState";
 import { useDataToolbarActions } from "@common/features/data/lib/useDataToolbarActions";
 import { useTableFilters } from "@common/features/data/lib/useTableFilters";
+import { FiltersAppliedProperties } from "@common/features/data/lib/filterAnalytics";
 import { useToolPopup } from "@common/features/data/lib/useToolPopup";
 import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthorization";
 import { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
@@ -64,15 +65,18 @@ export function DataContent({
   componentId,
   activeSchema,
   onDocumentsAdded,
+  onFiltersApplied,
 }: {
   tableName: string;
   componentId: string | null;
   activeSchema: SchemaJson | null;
   onDocumentsAdded?: (count: number) => void;
+  onFiltersApplied?: (properties: FiltersAppliedProperties) => void;
 }) {
   const { filters, applyFiltersWithHistory, hasFilters } = useTableFilters(
     tableName,
     componentId,
+    onFiltersApplied,
   );
 
   const [draftFilters, setDraftFilters] = useState(filters);
@@ -347,6 +351,7 @@ export function DataContent({
               defaultDocument={defaultDocument}
               filters={filters}
               onFiltersChange={applyFiltersWithHistory}
+              onFiltersApplied={onFiltersApplied}
               dataFetchErrors={errors}
               draftFilters={draftFilters}
               setDraftFilters={setDraftFilters}

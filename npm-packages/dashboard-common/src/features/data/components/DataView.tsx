@@ -23,14 +23,17 @@ import { SchemaJson } from "@common/lib/format";
 import { LoadingTransition } from "@ui/Loading";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { NoPermissionMessage } from "@common/elements/NoPermissionMessage";
+import { FiltersAppliedProperties } from "@common/features/data/lib/filterAnalytics";
 import { useDataPageSize } from "./Table/utils/useQueryFilteredTable";
 
 export function DataView({
   onTableCreated,
   onDocumentsAdded,
+  onFiltersApplied,
 }: {
   onTableCreated?: () => void;
   onDocumentsAdded?: (count: number) => void;
+  onFiltersApplied?: (properties: FiltersAppliedProperties) => void;
 }) {
   const { useCurrentDeployment, ErrorBoundary, deploymentsURI } = useContext(
     DeploymentInfoContext,
@@ -151,6 +154,7 @@ export function DataView({
                         componentId={componentId ?? null}
                         activeSchema={activeSchema}
                         onDocumentsAdded={onDocumentsAdded}
+                        onFiltersApplied={onFiltersApplied}
                       />
                     </ErrorBoundary>
                   )}
