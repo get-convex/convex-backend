@@ -170,6 +170,7 @@ macro_rules! db_schema {
                         vector_indexes: Default::default(),
                         staged_vector_indexes: Default::default(),
                         document_type: Some($document_schema),
+                        staged_document_type: None,
                     };
                     tables.insert(table_name, table_def);
                 )*
@@ -205,6 +206,7 @@ macro_rules! db_schema_not_validated {
                         vector_indexes: Default::default(),
                         staged_vector_indexes: Default::default(),
                         document_type: Some($document_schema),
+                        staged_document_type: None,
                     };
                     tables.insert(table_name, table_def);
                 )*
@@ -500,6 +502,11 @@ pub struct TableDefinition {
     pub document_type: Option<DocumentSchema>, /* FIXME: `Option` could be removed here, since
                                                 * `None` is handled the same way as
                                                 * `Some(DocumentSchema::Any)`. */
+    /// The proposed next validator for this table, validated in the
+    /// background while `document_type` remains the enforced validator.
+    /// Valid without a `document_type`: staging a table's first validator
+    /// checks existing documents while writes stay unenforced.
+    pub staged_document_type: Option<DocumentSchema>,
 }
 
 impl TableDefinition {

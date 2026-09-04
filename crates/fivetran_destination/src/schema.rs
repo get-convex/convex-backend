@@ -210,6 +210,7 @@ impl FivetranTableSchema {
             staged_text_indexes: Default::default(),
             vector_indexes: Default::default(),
             staged_vector_indexes: Default::default(),
+            staged_document_type: None,
         })
     }
 
@@ -668,6 +669,7 @@ impl FivetranTableSchema {
             vector_indexes: BTreeMap::new(),
             staged_vector_indexes: BTreeMap::new(),
             document_type: Some(document_schema),
+            staged_document_type: None,
         })
     }
 }

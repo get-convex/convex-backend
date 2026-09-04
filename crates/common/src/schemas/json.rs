@@ -122,6 +122,7 @@ pub struct TableDefinitionJson {
     vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
     staged_vector_indexes: Option<Vec<VectorIndexSchemaJson>>,
     document_type: Option<ValidatorJson>,
+    staged_document_type: Option<ValidatorJson>,
 }
 
 impl JsonForm for TableDefinition {
@@ -174,6 +175,7 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
         let staged_vector_indexes = j.staged_vector_indexes.unwrap_or_default();
 
         let document_type = j.document_type.map(|t| t.try_into()).transpose()?;
+        let staged_document_type = j.staged_document_type.map(|t| t.try_into()).transpose()?;
 
         let table_name: TableName = j
             .table_name
@@ -296,6 +298,7 @@ impl TryFrom<TableDefinitionJson> for TableDefinition {
             vector_indexes,
             staged_vector_indexes,
             document_type,
+            staged_document_type,
         })
     }
 }
@@ -313,6 +316,7 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
             vector_indexes,
             staged_vector_indexes,
             document_type,
+            staged_document_type,
         }: TableDefinition,
     ) -> anyhow::Result<Self> {
         let table_name = String::from(table_name);
@@ -339,6 +343,9 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
         let document_type = document_type.map(ValidatorJson::try_from).transpose()?;
+        let staged_document_type = staged_document_type
+            .map(ValidatorJson::try_from)
+            .transpose()?;
         let vector_indexes = Some(
             vector_indexes
                 .into_values()
@@ -360,6 +367,7 @@ impl TryFrom<TableDefinition> for TableDefinitionJson {
             vector_indexes,
             staged_vector_indexes,
             document_type,
+            staged_document_type,
         })
     }
 }
