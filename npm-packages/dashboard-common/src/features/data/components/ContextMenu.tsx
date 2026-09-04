@@ -394,7 +394,9 @@ function ContextMenuSubmenu({
     onOpenChange: setIsOpen,
     placement: "right-start",
     middleware: [
-      offset({ mainAxis: 0, alignmentAxis: 0 }),
+      // Pull the submenu up by its own top padding and border so its first
+      // item lines up with the parent item that opened it.
+      offset({ mainAxis: 0, alignmentAxis: -9 }),
       flip(),
       shift({ padding: 10 }),
     ],
