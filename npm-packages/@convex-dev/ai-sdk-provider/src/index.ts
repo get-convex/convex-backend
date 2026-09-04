@@ -6,6 +6,8 @@ import {
 } from "@ai-sdk/openai-compatible";
 import {
   defaultSettingsMiddleware,
+  type JSONValue,
+  type ProviderMetadata,
   wrapEmbeddingModel,
   wrapLanguageModel,
 } from "ai";
@@ -47,30 +49,19 @@ async function gatewayFetch(
   return globalThis.fetch(input, { ...init, headers });
 }
 
-/**
- * The gateway returns the authoritative dollar cost of each request in the
- * OpenAI-compatible `usage` object — `usage.cost` (total USD) plus a
- * `usage.cost_details` breakdown. The AI SDK's usage mapping doesn't carry
- * these, so surface them as provider metadata under the `convexGateway` key:
- *
- *   const { providerMetadata } = await generateText({ model: convexGateway(id), ... });
- *   providerMetadata?.convexGateway?.cost;         // e.g. 3.9e-6 (USD)
- *   providerMetadata?.convexGateway?.costDetails;  // per-part breakdown
- */
-type ProviderMetadata = Awaited<
-  ReturnType<MetadataExtractor["extractMetadata"]>
->;
-
-function convexGatewayUsageMetadata(usage: unknown): ProviderMetadata {
+// The SDK's standard usage mapping omits the gateway's dollar costs.
+function convexGatewayUsageMetadata(
+  usage: unknown,
+): ProviderMetadata | undefined {
   if (!usage || typeof usage !== "object") return undefined;
-  const u = usage as Record<string, unknown>;
-  const meta: Record<string, unknown> = {};
-  if (typeof u.cost === "number") meta.cost = u.cost;
-  if (u.cost_details && typeof u.cost_details === "object") {
-    meta.costDetails = u.cost_details;
+  const { cost, cost_details } = usage as Record<string, JSONValue>;
+  const metadata: ProviderMetadata[string] = {};
+  if (typeof cost === "number") metadata.cost = cost;
+  if (cost_details && typeof cost_details === "object") {
+    metadata.costDetails = cost_details;
   }
-  return Object.keys(meta).length > 0
-    ? ({ convexGateway: meta } as ProviderMetadata)
+  return Object.keys(metadata).length > 0
+    ? { convexGateway: metadata }
     : undefined;
 }
 
