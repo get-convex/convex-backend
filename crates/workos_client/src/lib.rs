@@ -485,6 +485,10 @@ pub trait WorkOSClient: Send + Sync {
         organization_id: &str,
         role_slug: &str,
     ) -> anyhow::Result<WorkOSOrganizationMembershipResponse>;
+    async fn list_organization_memberships(
+        &self,
+        user_id: &str,
+    ) -> anyhow::Result<Vec<WorkOSOrganizationMembershipResponse>>;
 
     // Portal link generation
     async fn generate_portal_link(
@@ -682,6 +686,13 @@ where
         delete_workos_organization(&self.api_key, organization_id, &*self.http_client).await
     }
 
+    async fn list_organization_memberships(
+        &self,
+        user_id: &str,
+    ) -> anyhow::Result<Vec<WorkOSOrganizationMembershipResponse>> {
+        list_workos_organization_memberships(&self.api_key, user_id, &*self.http_client).await
+    }
+
     async fn create_membership(
         &self,
         user_id: &str,
@@ -817,6 +828,7 @@ struct MockWorkOSState {
     /// Domains carried by the organizations [`get_organization_by_id`] returns,
     /// keyed by organization id.
     organization_domains: HashMap<String, Vec<WorkOSOrganizationDomain>>,
+    organization_memberships: HashMap<String, Vec<WorkOSOrganizationMembershipResponse>>,
     /// Distinguishes the ids handed out by successive `create_organization`
     /// calls.
     next_id: u64,
@@ -876,6 +888,34 @@ impl MockWorkOSClient {
             .entry(organization_id.to_string())
             .or_default()
             .push(connection);
+    }
+
+    pub fn with_organization_membership(
+        self,
+        user_id: &str,
+        organization_id: &str,
+        status: &str,
+    ) -> Self {
+        {
+            let mut guard = self.state.write();
+            let memberships = guard
+                .organization_memberships
+                .entry(user_id.to_string())
+                .or_default();
+            memberships.push(WorkOSOrganizationMembershipResponse {
+                object: "organization_membership".to_string(),
+                id: format!("om_mock{}", memberships.len()),
+                user_id: user_id.to_string(),
+                organization_id: organization_id.to_string(),
+                role: WorkOSOrganizationRole {
+                    slug: "member".to_string(),
+                },
+                status: status.to_string(),
+                created_at: "2024-01-01T00:00:00.000Z".to_string(),
+                updated_at: "2024-01-01T00:00:00.000Z".to_string(),
+            });
+        }
+        self
     }
 
     /// Inject the directories returned by
@@ -1095,7 +1135,24 @@ impl WorkOSClient for MockWorkOSClient {
         state.organization_domains.remove(organization_id);
         state.connections.remove(organization_id);
         state.directories.remove(organization_id);
+        state.organization_memberships.retain(|_, memberships| {
+            memberships.retain(|membership| membership.organization_id != organization_id);
+            !memberships.is_empty()
+        });
         Ok(())
+    }
+
+    async fn list_organization_memberships(
+        &self,
+        user_id: &str,
+    ) -> anyhow::Result<Vec<WorkOSOrganizationMembershipResponse>> {
+        Ok(self
+            .state
+            .read()
+            .organization_memberships
+            .get(user_id)
+            .cloned()
+            .unwrap_or_default())
     }
 
     async fn create_membership(
@@ -3076,6 +3133,25 @@ where
         "https://api.workos.com/directory_sync/groups",
         &[("user", directory_user_id)],
         "list directory groups for user",
+        http_client,
+    )
+    .await
+}
+
+pub async fn list_workos_organization_memberships<F, E>(
+    api_key: &str,
+    user_id: &str,
+    http_client: &(impl Fn(HttpRequest) -> F + 'static + ?Sized),
+) -> anyhow::Result<Vec<WorkOSOrganizationMembershipResponse>>
+where
+    F: Future<Output = Result<HttpResponse, E>>,
+    E: std::error::Error + 'static + Send + Sync,
+{
+    list_workos_paginated(
+        api_key,
+        "https://api.workos.com/user_management/organization_memberships",
+        &[("user_id", user_id)],
+        "list organization memberships",
         http_client,
     )
     .await
