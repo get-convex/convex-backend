@@ -333,6 +333,7 @@ async function deployToNewPreviewDeployment(
     liveComponentSources: false,
     pushAllModules: !!options.pushAllModules,
     largeIndexDeletionCheck: "no verification", // fine for preview deployments
+    warnOnSlowSchemaValidation: true,
     message: options.message,
   };
   showSpinner(`Deploying to ${previewUrl}...`);
