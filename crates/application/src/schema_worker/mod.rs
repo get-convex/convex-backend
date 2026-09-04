@@ -48,6 +48,7 @@ use keybroker::Identity;
 use metrics::{
     log_document_bytes,
     log_document_validated,
+    log_walk_ts_lag,
     schema_validation_timer,
 };
 use shape_inference::{
@@ -238,6 +239,22 @@ impl<RT: Runtime> SchemaWorker<RT> {
         })
     }
 
+    /// Validate tables by walking them at fresh timestamps rather than
+    /// reconstructing the snapshot at the schema's pending timestamp.
+    ///
+    /// Soundness: every document write while a schema is Pending (or
+    /// Validated) is checked against it in the writing transaction
+    /// (`SchemaModel::enforce_with_table_mapping`), and a violation marks the
+    /// schema Failed. So a document modified after the schema became pending
+    /// is already covered, and a document unchanged since then looks the same
+    /// at any timestamp in between — including each page's fresh timestamp.
+    /// Deletes need no validation. The OCC read on `_schemas.by_state` taken
+    /// by every write serializes those mark-Failed transitions with
+    /// `mark_validated` below.
+    ///
+    /// This avoids reconstructing the pending-timestamp snapshot in
+    /// `stream_documents_in_table`, which re-walks the instance's document
+    /// log once per page and grows with concurrent write traffic.
     async fn validate_tables(
         &self,
         tables_to_validate: BTreeSet<&TableName>,
@@ -268,79 +285,93 @@ impl<RT: Runtime> SchemaWorker<RT> {
             .into_iter()
             .map(|table_name| table_mapping.name_to_tablet()(table_name.clone()))
             .collect::<Result<Vec<_>, _>>()?;
-        let mut table_iterator = self
-            .database
-            .table_iterator(ts, 1000)
-            .multi(tablet_ids.clone());
-        for tablet_id in tablet_ids {
-            let stream = table_iterator.stream_documents_in_table(
-                tablet_id,
-                *by_id_indexes.get(&tablet_id).ok_or_else(|| {
-                    anyhow::anyhow!("Failed to find id index for table id {tablet_id}")
-                })?,
-                None,
-            );
-
+        let mut last_page_ts = ts;
+        'tables: for tablet_id in tablet_ids {
+            let by_id = *by_id_indexes.get(&tablet_id).ok_or_else(|| {
+                anyhow::anyhow!("Failed to find id index for table id {tablet_id}")
+            })?;
+            let stream = self
+                .database
+                .table_iterator(ts, 1000)
+                .stream_latest_documents_in_table(tablet_id, by_id);
+            pin_mut!(stream);
+            // The walk observes *current* documents, so it must validate with
+            // current table mappings (a snapshot import can replace a table
+            // mid-walk). Refresh once per page.
+            let mut current_page_ts = None;
+            let mut fresh_mapping = table_mapping.clone();
+            let mut table_name = fresh_mapping.tablet_name(tablet_id)?;
+            while let Some((LatestDocument { value: doc, .. }, page_ts)) = stream.try_next().await?
             {
-                pin_mut!(stream);
-                let table_name = table_mapping.tablet_name(tablet_id)?;
-                while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
-                    log_document_validated();
-                    log_document_bytes(doc.size());
-                    // If we finish with an error, we should delete progress. In all the
-                    // mark_failed, mark_success or whatever methods.
-                    if let Err(schema_error) = db_schema.check_existing_document(
-                        &doc,
-                        table_name.clone(),
-                        &table_mapping,
-                        &virtual_system_mapping,
-                    ) {
-                        let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
-                        while backoff.failures() < MAX_COMMIT_FAILURES {
-                            let mut tx = self.database.begin_system().await?;
-                            SchemaModel::new(&mut tx, namespace)
-                                .mark_failed(id, schema_error.clone())
-                                .await?;
-                            if let Err(e) = self
-                                .database
-                                .commit_with_write_source(tx, "schema_worker_mark_failed")
-                                .await
-                            {
-                                if e.is_occ() {
-                                    let delay = backoff.fail(&mut self.runtime.rng());
-                                    tracing::error!(
-                                        "Schema worker failed to commit ({e}), retrying after \
-                                         {delay:?}"
-                                    );
-                                    self.runtime.wait(delay).await;
-                                } else {
-                                    return Err(e);
-                                }
-                            } else {
-                                break;
-                            }
-                        }
-
-                        tracing::info!("Schema is invalid");
-                        timer.finish_developer_error();
-                        return Ok(());
-                    }
-                    // Update schema validation progress periodically, when we hit the
-                    // threshold.
-                    let progress_exists = schema_validation_progress_tracker
-                        .record_document_validated()
-                        .await?;
-                    // Return early if progress does not exist - this means the schema
-                    // validation has been canceled either by a document update that does
-                    // not match the pending schema or by the submission of a new pending
-                    // schema.
-                    if !progress_exists {
-                        return Ok(());
+                if current_page_ts != Some(page_ts) {
+                    current_page_ts = Some(page_ts);
+                    last_page_ts = page_ts;
+                    let snapshot = self.database.latest_snapshot()?;
+                    fresh_mapping = snapshot.table_mapping().namespace(namespace);
+                    match fresh_mapping.tablet_name(tablet_id) {
+                        Ok(name) => table_name = name,
+                        Err(_) => {
+                            // The table was deleted or replaced mid-walk. Its
+                            // documents no longer exist at current timestamps,
+                            // and a replacement table's documents were
+                            // validated at insert time.
+                            continue 'tables;
+                        },
                     }
                 }
+                log_document_validated();
+                log_document_bytes(doc.size());
+                if let Err(schema_error) = db_schema.check_existing_document(
+                    &doc,
+                    table_name.clone(),
+                    &fresh_mapping,
+                    &virtual_system_mapping,
+                ) {
+                    let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
+                    while backoff.failures() < MAX_COMMIT_FAILURES {
+                        let mut tx = self.database.begin_system().await?;
+                        SchemaModel::new(&mut tx, namespace)
+                            .mark_failed(id, schema_error.clone())
+                            .await?;
+                        if let Err(e) = self
+                            .database
+                            .commit_with_write_source(tx, "schema_worker_mark_failed")
+                            .await
+                        {
+                            if e.is_occ() {
+                                let delay = backoff.fail(&mut self.runtime.rng());
+                                tracing::error!(
+                                    "Schema worker failed to commit ({e}), retrying after \
+                                     {delay:?}"
+                                );
+                                self.runtime.wait(delay).await;
+                            } else {
+                                return Err(e);
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+
+                    tracing::info!("Schema is invalid");
+                    timer.finish_developer_error();
+                    return Ok(());
+                }
+                // Return early if progress does not exist - this means the
+                // schema validation has been canceled either by a document
+                // update that does not match the pending schema or by the
+                // submission of a new pending schema.
+                let progress_exists = schema_validation_progress_tracker
+                    .record_document_validated()
+                    .await?;
+                if !progress_exists {
+                    return Ok(());
+                }
             }
-            table_iterator.unregister_table(tablet_id)?;
         }
+        log_walk_ts_lag(Duration::from_nanos(
+            (i64::from(*last_page_ts) - i64::from(*ts)).max(0) as u64,
+        ));
         schema_validation_progress_tracker
             .record_validation_finished()
             .await?;

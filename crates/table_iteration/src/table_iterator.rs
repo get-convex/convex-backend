@@ -182,6 +182,31 @@ impl<RT: Runtime> TableIterator<RT> {
         self.inner.fetch_page(index_id, tablet_id, cursor).await
     }
 
+    /// Stream every document in the table, where each page is read at a fresh
+    /// repeatable timestamp (>= the constructor's `snapshot_ts`). Page
+    /// timestamps are weakly monotonic, but the stream as a whole is NOT a
+    /// consistent snapshot of the table: each document is its latest revision
+    /// as of its page's timestamp, and a document modified concurrently with
+    /// the walk may be observed at either revision (or, for an insert or
+    /// delete, in either state). Every document that exists unchanged for the
+    /// whole walk is yielded exactly once, in `by_id` order.
+    #[try_stream(ok = (LatestDocument, RepeatableTimestamp), error = anyhow::Error)]
+    pub async fn stream_latest_documents_in_table(self, tablet_id: TabletId, by_id: IndexId) {
+        let mut cursor = TableScanCursor::default();
+        loop {
+            let pause_client = self.inner.runtime.pause_client();
+            pause_client.wait("before_latest_page").await;
+            let (page, ts) = self.inner.fetch_page(by_id, tablet_id, &mut cursor).await?;
+            for (_, doc) in page {
+                tokio::task::consume_budget().await;
+                yield (doc, ts);
+            }
+            if matches!(cursor.index_key, Some(CursorPosition::End)) {
+                break;
+            }
+        }
+    }
+
     #[try_stream(ok = LatestDocument, error = anyhow::Error)]
     pub async fn stream_documents_in_table(
         self,
