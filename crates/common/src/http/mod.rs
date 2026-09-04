@@ -486,6 +486,17 @@ impl RouteMapper for NoopRouteMapper {
     }
 }
 
+fn concurrency_metric_name(service_name: &str, namespace: &str) -> String {
+    let name = format!(
+        "{}_http_service_concurrent_requests",
+        service_name.replace('-', "_")
+    );
+    // The registry already prefixes metrics with the executable name.
+    name.strip_prefix(&format!("{namespace}_"))
+        .unwrap_or(&name)
+        .to_owned()
+}
+
 /// Router + Middleware for a Convex service
 pub struct ConvexHttpService {
     router: Router,
@@ -511,10 +522,7 @@ impl ConvexHttpService {
         let semaphore = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
         let semaphore_ = semaphore.clone();
         let concurrency_gauge = PullingGauge::new(
-            format!(
-                "{}_http_service_concurrent_requests",
-                service_name.replace('-', "_")
-            ),
+            concurrency_metric_name(service_name, &SERVICE_NAME),
             "The number of currently outstanding requests on the ConvexHttpService",
             Box::new(move || (max_concurrency - semaphore_.available_permits()) as f64),
         )
