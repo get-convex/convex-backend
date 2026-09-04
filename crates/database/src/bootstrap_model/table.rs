@@ -262,19 +262,34 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         Ok(table_metadata.number)
     }
 
-    /// This method should only be called after all documents in the tablet have
-    /// been deleted by retention
+    /// Removes the `_tables` metadata document for a tablet whose documents
+    /// document retention has finished deleting, finalizing the drop.
+    ///
+    /// This must not gate on the table mapping. A tablet in `Deleting` state is
+    /// removed from the mapping in the commit that starts the drop and is never
+    /// re-added (bootstrap skips `Deleting` tablets), so
+    /// `table_mapping().tablet_id_exists(tablet_id)` is always false here and
+    /// gating on it makes the whole method a no-op. Resolve the `_tables`
+    /// document directly instead. A missing document means the tablet was
+    /// already finalized -- the cleanup worker can be handed the same tablet
+    /// more than once (e.g. re-swept by retention after a restart) -- which is a
+    /// no-op so the call stays idempotent.
+    ///
+    /// Only call this once document retention has emptied the tablet.
     pub async fn hard_delete_tablet_document(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
-        if self.tx.table_mapping().tablet_id_exists(tablet_id) {
-            let doc = self.get_table_metadata(tablet_id).await?;
-            anyhow::ensure!(
-                doc.state == TableState::Deleting,
-                "Cannot delete a tablet that is not in deleting state"
-            );
-            SystemMetadataModel::new(self.tx, TableNamespace::Global)
-                .delete(doc.id())
-                .await?;
-        }
+        let table_doc_id = self.tx.bootstrap_tables().table_resolved_doc_id(tablet_id);
+        let Some(doc) = self.tx.get(table_doc_id).await? else {
+            return Ok(());
+        };
+        let doc: ParsedDocument<TableMetadata> = doc.parse()?;
+        anyhow::ensure!(
+            doc.state == TableState::Deleting,
+            "Cannot hard-delete tablet {tablet_id} in state {:?}, expected Deleting",
+            doc.state,
+        );
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+            .delete(doc.id())
+            .await?;
         Ok(())
     }
 
@@ -574,5 +589,144 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             })
         }
     }
+}
 
+/// Regression tests for `hard_delete_tablet_document` (get-convex/convex-backend#515).
+///
+/// Gated on `feature = "testing"` (like `indexing`'s `shuttle_tests`) so the
+/// default `cargo test -p database` build stays unaffected. Requires Convex's
+/// internal test harness -- `DbFixtures`, `TestFacingModel` and
+/// `#[convex_macro::test_runtime]` -- which is compiled under that feature; see
+/// SPEC §C6.
+#[cfg(all(test, feature = "testing"))]
+mod tests {
+    use common::{
+        bootstrap_model::tables::{
+            TableMetadata,
+            TableState,
+        },
+        document::{
+            ParseDocument,
+            ParsedDocument,
+        },
+        types::TableName,
+    };
+    use keybroker::Identity;
+    use runtime::testing::TestRuntime;
+    use value::{
+        assert_obj,
+        TableNamespace,
+        TabletId,
+    };
+
+    use crate::{
+        test_helpers::DbFixtures,
+        TableModel,
+        TestFacingModel,
+        Transaction,
+    };
+
+    /// State of a tablet's `_tables` metadata document, or `None` once it has
+    /// been hard-deleted. Resolves the document directly, never via the table
+    /// mapping (which never contains `Deleting` tablets).
+    async fn tablet_doc_state(
+        tx: &mut Transaction<TestRuntime>,
+        tablet_id: TabletId,
+    ) -> anyhow::Result<Option<TableState>> {
+        let id = tx.bootstrap_tables().table_resolved_doc_id(tablet_id);
+        let Some(doc) = tx.get(id).await? else {
+            return Ok(None);
+        };
+        let doc: ParsedDocument<TableMetadata> = doc.parse()?;
+        Ok(Some(doc.state))
+    }
+
+    #[convex_macro::test_runtime]
+    async fn hard_delete_removes_deleting_tablet_metadata(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+        let ns = TableNamespace::test_user();
+        let table: TableName = "widgets".parse()?;
+
+        // Create the table with a couple of documents.
+        let mut tx = db.begin(Identity::system()).await?;
+        TestFacingModel::new(&mut tx)
+            .insert(&table, assert_obj!())
+            .await?;
+        TestFacingModel::new(&mut tx)
+            .insert(&table, assert_obj!())
+            .await?;
+        let tablet_id = tx.table_mapping().namespace(ns).id(&table)?.tablet_id;
+        db.commit(tx).await?;
+
+        // Drop it: the `_tables` doc moves to `Deleting` and the tablet is
+        // removed from the mapping in the same commit.
+        let mut tx = db.begin(Identity::system()).await?;
+        TableModel::new(&mut tx)
+            .delete_active_table(ns, table.clone())
+            .await?;
+        db.commit(tx).await?;
+
+        // The precondition that made the old `tablet_id_exists` guard a
+        // permanent no-op: tablet absent from the mapping, `_tables` doc still
+        // present in `Deleting`.
+        let mut tx = db.begin(Identity::system()).await?;
+        assert!(!tx.table_mapping().tablet_id_exists(tablet_id));
+        assert_eq!(
+            tablet_doc_state(&mut tx, tablet_id).await?,
+            Some(TableState::Deleting),
+        );
+        drop(tx);
+
+        // Finalize the drop -- what `SystemTableCleanupWorker` does once
+        // retention has emptied the tablet.
+        let mut tx = db.begin(Identity::system()).await?;
+        TableModel::new(&mut tx)
+            .hard_delete_tablet_document(tablet_id)
+            .await?;
+        db.commit(tx).await?;
+
+        // V1 / V5: the `_tables` doc is gone, so `tablets_to_delete()` no longer
+        // re-collects this tablet on the next boot.
+        let mut tx = db.begin(Identity::system()).await?;
+        assert_eq!(tablet_doc_state(&mut tx, tablet_id).await?, None);
+        drop(tx);
+
+        // V2: idempotent -- re-delivering the same tablet is a no-op, not an
+        // error.
+        let mut tx = db.begin(Identity::system()).await?;
+        TableModel::new(&mut tx)
+            .hard_delete_tablet_document(tablet_id)
+            .await?;
+        db.commit(tx).await?;
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn hard_delete_refuses_non_deleting_tablet(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+        let ns = TableNamespace::test_user();
+        let table: TableName = "gadgets".parse()?;
+
+        let mut tx = db.begin(Identity::system()).await?;
+        TestFacingModel::new(&mut tx)
+            .insert(&table, assert_obj!())
+            .await?;
+        let tablet_id = tx.table_mapping().namespace(ns).id(&table)?.tablet_id;
+        db.commit(tx).await?;
+
+        // V3: tablet is `Active`, not `Deleting` -- refuse rather than delete a
+        // live table's metadata document.
+        let mut tx = db.begin(Identity::system()).await?;
+        let err = TableModel::new(&mut tx)
+            .hard_delete_tablet_document(tablet_id)
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("expected Deleting"),
+            "unexpected error: {err}"
+        );
+
+        Ok(())
+    }
 }
