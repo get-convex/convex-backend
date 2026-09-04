@@ -212,6 +212,10 @@ pub enum RolePolicyAction {
     UpdateDeploymentType(DeploymentId),
     DeleteDeployment(DeploymentId),
     ViewDeployments(DeploymentId),
+    UseAiGateway {
+        project_id: ProjectId,
+        owner: MemberId,
+    },
     /// Read access to deployment-scoped integration metadata (e.g. WorkOS
     /// environment association). Granted to any team member.
     ViewDeploymentIntegrations(DeploymentId),
@@ -374,6 +378,11 @@ pub enum ActionResourcePath {
         deployment_type: DeploymentType,
         creator: Option<MemberId>,
     },
+    /// `[Project(loaded by id), LocalDeployment { owner }]`.
+    LocalDeploymentInProject {
+        project_id: ProjectId,
+        owner: MemberId,
+    },
     /// `[Team, Token(ConcreteToken { creator })]`.
     TeamToken { creator: Option<MemberId> },
     /// `[Project(loaded by id), Token(ConcreteToken { creator })]`.
@@ -479,6 +488,10 @@ impl RolePolicyAction {
             | P::DisablePeriodicBackups(id)
             | P::DeleteBackups(id)
             | P::ViewBackups(id) => Path::Deployment(*id),
+            P::UseAiGateway { project_id, owner } => Path::LocalDeploymentInProject {
+                project_id: *project_id,
+                owner: *owner,
+            },
             // Project create / receive — synthesize a proposed-project
             // segment on the destination team. Receive can't use
             // `Path::Project(id)` because the project still belongs to the
@@ -640,6 +653,7 @@ impl RolePolicyAction {
             P::ViewOAuthApplications => S::ViewOAuthApplications,
             P::GenerateOAuthClientSecret => S::GenerateOAuthClientSecret,
             P::ViewUsage => S::ViewUsage,
+            P::UseAiGateway { .. } => S::UseAiGateway,
             P::ViewInsights(_) => S::ViewInsights,
             P::CreateBackups(_) => S::CreateBackups,
             P::ImportBackups(_) => S::ImportBackups,
@@ -1361,6 +1375,11 @@ pub enum ConcreteSegment {
         deployment_type: DeploymentType,
         creator: Option<MemberId>,
     },
+    /// An existing local deployment. For role matching it behaves as a Dev
+    /// deployment, has no cloud deployment id, and is created by `owner`.
+    LocalDeployment {
+        owner: MemberId,
+    },
     Member,
     Token(ConcreteToken),
     CustomRole,
@@ -1379,9 +1398,9 @@ impl ConcreteSegment {
             ConcreteSegment::Project(_) | ConcreteSegment::ProposedProject { .. } => {
                 ResourceKind::Project
             },
-            ConcreteSegment::Deployment(_) | ConcreteSegment::ProposedDeployment { .. } => {
-                ResourceKind::Deployment
-            },
+            ConcreteSegment::Deployment(_)
+            | ConcreteSegment::ProposedDeployment { .. }
+            | ConcreteSegment::LocalDeployment { .. } => ResourceKind::Deployment,
             ConcreteSegment::Member => ResourceKind::Member,
             ConcreteSegment::Token(_) => ResourceKind::Token,
             ConcreteSegment::CustomRole => ResourceKind::CustomRole,
@@ -1425,6 +1444,9 @@ impl ConcreteSegment {
                     None => "none".to_string(),
                 };
                 Some(format!("type={deployment_type}, creator={creator}"))
+            },
+            ConcreteSegment::LocalDeployment { owner } => {
+                Some(format!("type=dev, creator={owner}"))
             },
             ConcreteSegment::Token(t) => {
                 let creator = match t.creator {

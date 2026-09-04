@@ -1,4 +1,7 @@
-use common::types::MemberId;
+use common::types::{
+    DeploymentType,
+    MemberId,
+};
 use errors::ErrorMetadata;
 use keybroker::{
     bad_admin_key_error,
@@ -93,6 +96,15 @@ impl ResourceSegment {
                 DeploymentSelector::Id(_) => false,
                 DeploymentSelector::Type(t) => t == deployment_type,
                 DeploymentSelector::Creator(c) => *creator == Some(c.resolve(actor)),
+            }),
+            (
+                ResourceSegment::Deployment(selectors),
+                ConcreteSegment::LocalDeployment { owner },
+            ) => selectors.iter().any(|s| match s {
+                DeploymentSelector::Any => true,
+                DeploymentSelector::Id(_) => false,
+                DeploymentSelector::Type(t) => *t == DeploymentType::Dev,
+                DeploymentSelector::Creator(c) => *owner == c.resolve(actor),
             }),
             (ResourceSegment::Member, ConcreteSegment::Member) => true,
             (ResourceSegment::Token(selectors), ConcreteSegment::Token(token)) => {
