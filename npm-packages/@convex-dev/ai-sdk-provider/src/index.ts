@@ -1,6 +1,9 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import {
+  createOpenAICompatible,
+  type MetadataExtractor,
+} from "@ai-sdk/openai-compatible";
 import {
   defaultSettingsMiddleware,
   wrapEmbeddingModel,
@@ -44,11 +47,57 @@ async function gatewayFetch(
   return globalThis.fetch(input, { ...init, headers });
 }
 
+/**
+ * The gateway returns the authoritative dollar cost of each request in the
+ * OpenAI-compatible `usage` object — `usage.cost` (total USD) plus a
+ * `usage.cost_details` breakdown. The AI SDK's usage mapping doesn't carry
+ * these, so surface them as provider metadata under the `convexGateway` key:
+ *
+ *   const { providerMetadata } = await generateText({ model: convexGateway(id), ... });
+ *   providerMetadata?.convexGateway?.cost;         // e.g. 3.9e-6 (USD)
+ *   providerMetadata?.convexGateway?.costDetails;  // per-part breakdown
+ */
+type ProviderMetadata = Awaited<
+  ReturnType<MetadataExtractor["extractMetadata"]>
+>;
+
+function convexGatewayUsageMetadata(usage: unknown): ProviderMetadata {
+  if (!usage || typeof usage !== "object") return undefined;
+  const u = usage as Record<string, unknown>;
+  const meta: Record<string, unknown> = {};
+  if (typeof u.cost === "number") meta.cost = u.cost;
+  if (u.cost_details && typeof u.cost_details === "object") {
+    meta.costDetails = u.cost_details;
+  }
+  return Object.keys(meta).length > 0
+    ? ({ convexGateway: meta } as ProviderMetadata)
+    : undefined;
+}
+
+const costMetadataExtractor: MetadataExtractor = {
+  extractMetadata: async ({ parsedBody }) =>
+    convexGatewayUsageMetadata(
+      (parsedBody as { usage?: unknown } | undefined)?.usage,
+    ),
+  createStreamExtractor: () => {
+    // Streamed responses deliver usage (incl. cost) on the final chunk.
+    let usage: unknown;
+    return {
+      processChunk(parsedChunk: unknown) {
+        const chunk = parsedChunk as { usage?: unknown } | undefined;
+        if (chunk?.usage) usage = chunk.usage;
+      },
+      buildMetadata: () => convexGatewayUsageMetadata(usage),
+    };
+  },
+};
+
 function createGatewayProvider(): Provider {
   return createOpenAICompatible({
     name: "convexGateway",
     baseURL: gatewayBaseURL(),
     fetch: gatewayFetch,
+    metadataExtractor: costMetadataExtractor,
     supportsStructuredOutputs: true,
     supportedUrls: () => ({ "image/*": [/^https?:\/\/.*$/] }),
   });
