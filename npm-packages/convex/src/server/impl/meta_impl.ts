@@ -8,7 +8,7 @@ import {
   TransactionMetrics,
   DeploymentMetadata,
 } from "../meta.js";
-import { performAsyncSyscall } from "./syscall.js";
+import { performAsyncSyscall, performSyscall } from "./syscall.js";
 
 async function getTransactionMetrics(): Promise<TransactionMetrics> {
   let syscallJSON;
@@ -53,6 +53,11 @@ async function getDeploymentMetadata(): Promise<DeploymentMetadata> {
   };
 }
 
+function getSnapshotTs(): bigint {
+  const syscallJSON = performSyscall("1.0/getSnapshotTs", {});
+  return jsonToConvex(syscallJSON) as bigint;
+}
+
 async function getRequestMetadata(): Promise<RequestMetadata> {
   const { ip, userAgent, requestId, scheduledFunctionId, authToken } =
     await performAsyncSyscall("1.0/getRequestMetadata", {});
@@ -85,6 +90,7 @@ export function setupMutationMeta(
     getTransactionMetrics,
     getDeploymentMetadata,
     getRequestMetadata,
+    getSnapshotTs,
   };
 }
 
