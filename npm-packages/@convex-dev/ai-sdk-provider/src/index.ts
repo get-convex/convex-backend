@@ -1,8 +1,13 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import {
+  createOpenAICompatible,
+  type MetadataExtractor,
+} from "@ai-sdk/openai-compatible";
 import {
   defaultSettingsMiddleware,
+  type JSONValue,
+  type ProviderMetadata,
   wrapEmbeddingModel,
   wrapLanguageModel,
 } from "ai";
@@ -44,11 +49,46 @@ async function gatewayFetch(
   return globalThis.fetch(input, { ...init, headers });
 }
 
+// The SDK's standard usage mapping omits the gateway's dollar costs.
+function convexGatewayUsageMetadata(
+  usage: unknown,
+): ProviderMetadata | undefined {
+  if (!usage || typeof usage !== "object") return undefined;
+  const { cost, cost_details } = usage as Record<string, JSONValue>;
+  const metadata: ProviderMetadata[string] = {};
+  if (typeof cost === "number") metadata.cost = cost;
+  if (cost_details && typeof cost_details === "object") {
+    metadata.costDetails = cost_details;
+  }
+  return Object.keys(metadata).length > 0
+    ? { convexGateway: metadata }
+    : undefined;
+}
+
+const costMetadataExtractor: MetadataExtractor = {
+  extractMetadata: async ({ parsedBody }) =>
+    convexGatewayUsageMetadata(
+      (parsedBody as { usage?: unknown } | undefined)?.usage,
+    ),
+  createStreamExtractor: () => {
+    // Streamed responses deliver usage (incl. cost) on the final chunk.
+    let usage: unknown;
+    return {
+      processChunk(parsedChunk: unknown) {
+        const chunk = parsedChunk as { usage?: unknown } | undefined;
+        if (chunk?.usage) usage = chunk.usage;
+      },
+      buildMetadata: () => convexGatewayUsageMetadata(usage),
+    };
+  },
+};
+
 function createGatewayProvider(): Provider {
   return createOpenAICompatible({
     name: "convexGateway",
     baseURL: gatewayBaseURL(),
     fetch: gatewayFetch,
+    metadataExtractor: costMetadataExtractor,
     supportsStructuredOutputs: true,
     supportedUrls: () => ({ "image/*": [/^https?:\/\/.*$/] }),
   });
