@@ -19,9 +19,9 @@ export function useTeamOrbSubscription(teamId?: number) {
     swrOptions: { refreshInterval: 0, keepPreviousData: false },
   });
   if (error) {
-    return { isLoading, subscription: null };
+    return { isLoading, subscription: null, hasError: true };
   }
-  return { isLoading, subscription };
+  return { isLoading, subscription, hasError: false };
 }
 
 export function useCreateSetupIntent(teamId: number) {

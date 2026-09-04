@@ -72,6 +72,10 @@ export const LoadingTeamPlan: Story = {
   args: { teamPlan: "loading" },
 };
 
+export const BillingStatusError: Story = {
+  args: { teamPlan: "error" },
+};
+
 export const AlreadyRedeemed: Story = {
   args: {
     promoState: {

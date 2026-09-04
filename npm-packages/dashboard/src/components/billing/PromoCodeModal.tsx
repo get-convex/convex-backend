@@ -28,7 +28,7 @@ export type PromoLookupState =
   | { status: "error"; error: string }
   | { status: "success"; promo: PromoDetails };
 
-type TeamPlan = "loading" | "free" | "paid";
+type TeamPlan = "loading" | "error" | "free" | "paid";
 
 export function PromoCodeModal({
   promoState,
@@ -144,6 +144,12 @@ function PromoRedemptionDetails({
         </Callout>
       )}
 
+      {selectedTeam && teamPlan === "error" && (
+        <Callout variant="error" className="m-0">
+          Unable to load this team&apos;s billing status. Please try again.
+        </Callout>
+      )}
+
       {selectedTeam && teamPlan === "free" && (
         <p className="text-sm text-content-secondary">
           Promo codes for account credit can only be applied on Starter or
@@ -177,7 +183,9 @@ function PromoRedemptionDetails({
             tip={
               teamPlan === "free"
                 ? "Upgrade this team to Starter or higher to redeem this credit."
-                : undefined
+                : teamPlan === "error"
+                  ? "Billing status must load successfully before this credit can be redeemed."
+                  : undefined
             }
           >
             Redeem {formatUsd(promo.creditAmount)} credit
@@ -207,15 +215,19 @@ export function PromoCodeModalContainer({
       (initialTeam.id === selectedTeamId ? initialTeam : null),
     [initialTeam, selectedTeamId, teams],
   );
-  const { subscription, isLoading: isSubscriptionLoading } =
-    useTeamOrbSubscription(selectedTeam?.id);
+  const {
+    subscription,
+    isLoading: isSubscriptionLoading,
+    hasError: hasSubscriptionError,
+  } = useTeamOrbSubscription(selectedTeam?.id);
   const { plans } = useListPlans(selectedTeam?.id);
   const creditsResult = useListCredits(selectedTeam?.id ?? null);
   const starterPlan = plans?.find(
     (plan) => plan.planType === "CONVEX_STARTER_PLUS",
   );
-  const teamPlan: TeamPlan =
-    isSubscriptionLoading || subscription === undefined
+  const teamPlan: TeamPlan = hasSubscriptionError
+    ? "error"
+    : isSubscriptionLoading || subscription === undefined
       ? "loading"
       : subscription === null
         ? "free"
@@ -234,7 +246,11 @@ export function PromoCodeModalContainer({
   };
 
   const redeem = async () => {
-    if (!selectedTeam || promoState.status !== "success") {
+    if (
+      !selectedTeam ||
+      promoState.status !== "success" ||
+      teamPlan !== "paid"
+    ) {
       return;
     }
     setRedemptionError(undefined);
