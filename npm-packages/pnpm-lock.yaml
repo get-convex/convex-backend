@@ -6105,6 +6105,9 @@ importers:
       udf-runtime:
         specifier: workspace:*
         version: link:../udf-runtime
+      web-streams-polyfill:
+        specifier: ~3.3.0
+        version: 3.3.3
 
 packages:
 

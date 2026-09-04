@@ -16,6 +16,7 @@ async function main() {
 
   await build({
     absWorkingDir: packageRoot,
+    mainFields: ["module", "main"],
     entryPoints: [path.join(packageRoot, "scripts", "web-globals.ts")],
     outfile: path.join(outDir, "web-globals.js"),
     bundle: true,
