@@ -14,6 +14,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
     slug: "team",
   }),
   useTeamMembers: () => [],
+  useMemberPreference: () => ({ value: undefined, set: async () => {} }),
   useTeamEntitlements: () => ({}),
   useCurrentUsageBanner: () => null,
   useCurrentProject: () => ({

@@ -35,6 +35,8 @@ import { useTeamOrbSubscription } from "api/billing";
 import { useProjectEnvironmentVariables } from "api/environmentVariables";
 import { useCurrentProject, useCurrentProjectWithStatus } from "api/projects";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { useMemberPreferences, useSetPreference } from "api/preferences";
+import { PreferenceName } from "generatedApi";
 import {
   useDeploymentWorkOSEnvironment,
   useTeamWorkOSIntegration,
@@ -137,7 +139,7 @@ export function DeploymentInfoProvider({
   useEffect(() => {
     accessTokenRef.current = accessToken;
   }, [accessToken]);
-  const { connectionStateCheckIntervalMs } = useLaunchDarkly();
+  const { connectionStateCheckIntervalMs, newDataFilters } = useLaunchDarkly();
 
   const { project: currentProject, isLoading: projectLoading } =
     useCurrentProjectWithStatus();
@@ -231,6 +233,16 @@ export function DeploymentInfoProvider({
         captureException,
         reportHttpError,
         useCurrentTeam,
+        useMemberPreference: (name: PreferenceName) => {
+          const preferences = useMemberPreferences();
+          const setPreference = useSetPreference();
+          return {
+            value: preferences?.[name] as boolean | undefined,
+            set: async (value: boolean) => {
+              await setPreference({ name, value });
+            },
+          };
+        },
         useCurrentProject,
         useCurrentUsageBanner,
         useTeamUsageState,
@@ -292,6 +304,7 @@ export function DeploymentInfoProvider({
         isSelfHosted: false,
         workosIntegrationEnabled: true,
         connectionStateCheckIntervalMs,
+        newDataFilters,
       });
     };
     if (accessTokenRef.current && (deploymentOverride || deploymentName)) {
@@ -304,6 +317,7 @@ export function DeploymentInfoProvider({
     projectsURI,
     teamsURI,
     connectionStateCheckIntervalMs,
+    newDataFilters,
     isDeploymentLookupSettled,
     isLocalTarget,
     canProveDeploymentMissing,

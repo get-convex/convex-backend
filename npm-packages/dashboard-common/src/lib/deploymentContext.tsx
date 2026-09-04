@@ -65,6 +65,10 @@ export type DeploymentInfo = (
   useTeamMembers(
     teamId?: number,
   ): { id: number; name?: string | null; email?: string }[] | undefined;
+  useMemberPreference(name: string): {
+    value: boolean | undefined;
+    set: (value: boolean) => Promise<void>;
+  };
   useTeamEntitlements(teamId?: number):
     | {
         auditLogRetentionDays?: number;
@@ -321,6 +325,7 @@ export type DeploymentInfo = (
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
+  newDataFilters?: boolean;
 };
 
 export const DeploymentInfoContext = createContext<DeploymentInfo>(
