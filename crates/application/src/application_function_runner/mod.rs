@@ -782,7 +782,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                  provider directly with your own API key."
             ));
         };
-        minter.mint(&self.deployment, attribution)
+        minter.mint(&self.deployment, attribution).await
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
