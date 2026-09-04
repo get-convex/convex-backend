@@ -6,7 +6,7 @@ import {
 } from "server/workos";
 import groupBy from "lodash/groupBy";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { TeamResponse, ProjectDetails } from "generatedApi";
+import { TeamResponse, ProjectDetails, MemberPreferences } from "generatedApi";
 import fetchRetryFactory from "fetch-retry";
 import { getGoogleAnalyticsClientId } from "hooks/fetching";
 
@@ -131,6 +131,7 @@ const getProps: GetServerSideProps<{
       projects,
       deployments,
       optInsToAccept,
+      preferences,
     }: {
       teams: TeamResponse[];
       projects: ProjectDetails[];
@@ -139,6 +140,7 @@ const getProps: GetServerSideProps<{
         optIn: string;
         message: string;
       }[];
+      preferences?: MemberPreferences;
     } = await resp.json();
     const { team, project, deploymentName } = query;
     if (team && !teams.find((t: TeamResponse) => t.slug === team.toString())) {
@@ -211,6 +213,7 @@ const getProps: GetServerSideProps<{
       ...initialProjectsByTeam,
       ...initialIndividualProjects,
       ...initialDeployments,
+      "/preferences": { preferences: preferences ?? {} },
     };
 
     if (optInsToAccept !== undefined) {

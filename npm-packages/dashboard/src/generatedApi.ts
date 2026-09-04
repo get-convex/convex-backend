@@ -68,6 +68,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_preferences"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profile": {
         parameters: {
             query?: never;
@@ -174,6 +190,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["delete_account"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/set_preference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set_preference"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2237,6 +2269,7 @@ export interface components {
             projects: components["schemas"]["ProjectDetails"][];
             deployments: components["schemas"]["PlatformDeploymentResponse"][];
             optInsToAccept: components["schemas"]["OptInToAccept"][];
+            preferences: components["schemas"]["MemberPreferences"];
         };
         /** Format: int64 */
         MemberEmailId: number;
@@ -2250,6 +2283,12 @@ export interface components {
         };
         /** Format: int64 */
         MemberId: number;
+        /** @description The preferences a member has set, keyed by preference name. A preference
+         *     the member has never set is absent, and the client falls back to its own
+         *     default. */
+        MemberPreferences: {
+            [key: string]: components["schemas"]["PreferenceValue"];
+        };
         MemberResponse: {
             id: components["schemas"]["MemberId"];
             email: string;
@@ -2436,6 +2475,19 @@ export interface components {
              *     dashboard stay in sync on pricing copy. */
             pricingNotice?: string | null;
         };
+        /**
+         * @description A dashboard preference a member can set. The variant name is what lands in
+         *     the `member_preferences.name` column, so renaming one orphans the rows
+         *     members have already written.
+         * @enum {string}
+         */
+        PreferenceName: "new_data_filters_opened" | "new_data_filters_optout";
+        /** @description The value of a preference. Serializes as a bare JSON scalar, matching how
+         *     it is stored. */
+        PreferenceValue: boolean | number | string;
+        PreferencesResponse: {
+            preferences: components["schemas"]["MemberPreferences"];
+        };
         PreviewDeploymentIdentifier: string;
         ProfileEmailArgs: {
             email: string;
@@ -2601,6 +2653,12 @@ export interface components {
             /** @description Custom role IDs. If provided, must be non-empty. Mutually exclusive with
              *     `role`. */
             customRoles?: components["schemas"]["CustomRoleId"][] | null;
+        };
+        SetPreferenceArgs: {
+            name: components["schemas"]["PreferenceName"];
+            /** @description Must be of the type the preference accepts, otherwise the request is
+             *     rejected with `InvalidPreferenceValue`. */
+            value: components["schemas"]["PreferenceValue"];
         };
         SetSpendingLimitArgs: {
             /** Format: int64 */
@@ -2864,6 +2922,7 @@ export type MemberDataResponse = components['schemas']['MemberDataResponse'];
 export type MemberEmailId = components['schemas']['MemberEmailId'];
 export type MemberEmailResponse = components['schemas']['MemberEmailResponse'];
 export type MemberId = components['schemas']['MemberId'];
+export type MemberPreferences = components['schemas']['MemberPreferences'];
 export type MemberResponse = components['schemas']['MemberResponse'];
 export type MfaStatusResponse = components['schemas']['MfaStatusResponse'];
 export type OauthAppResponse = components['schemas']['OauthAppResponse'];
@@ -2879,6 +2938,9 @@ export type PlanResponse = components['schemas']['PlanResponse'];
 export type PlansResponse = components['schemas']['PlansResponse'];
 export type PlatformDeploymentResponse = components['schemas']['PlatformDeploymentResponse'];
 export type PotentialVercelTeam = components['schemas']['PotentialVercelTeam'];
+export type PreferenceName = components['schemas']['PreferenceName'];
+export type PreferenceValue = components['schemas']['PreferenceValue'];
+export type PreferencesResponse = components['schemas']['PreferencesResponse'];
 export type PreviewDeploymentIdentifier = components['schemas']['PreviewDeploymentIdentifier'];
 export type ProfileEmailArgs = components['schemas']['ProfileEmailArgs'];
 export type ProjectDetails = components['schemas']['ProjectDetails'];
@@ -2915,6 +2977,7 @@ export type SsoOrganizationResponse = components['schemas']['SSOOrganizationResp
 export type SsoPortalIntent = components['schemas']['SSOPortalIntent'];
 export type SerializedAccessToken = components['schemas']['SerializedAccessToken'];
 export type SetGroupRoleMappingRequest = components['schemas']['SetGroupRoleMappingRequest'];
+export type SetPreferenceArgs = components['schemas']['SetPreferenceArgs'];
 export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
 export type SpendingLimitsState = components['schemas']['SpendingLimitsState'];
@@ -3025,6 +3088,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemberDataResponse"];
+                };
+            };
+        };
+    };
+    get_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
                 };
             };
         };
@@ -3159,6 +3241,27 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_preference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPreferenceArgs"];
+            };
+        };
+        responses: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };

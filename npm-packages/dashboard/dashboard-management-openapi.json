@@ -87,6 +87,23 @@
         }
       }
     },
+    "/preferences": {
+      "get": {
+        "operationId": "get_preferences",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/profile": {
       "get": {
         "operationId": "get_profile",
@@ -207,6 +224,26 @@
         "operationId": "delete_account",
         "responses": {
           "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/set_preference": {
+      "put": {
+        "operationId": "set_preference",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPreferenceArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
             "description": ""
           }
         }
@@ -4958,7 +4995,8 @@
           "teams",
           "projects",
           "deployments",
-          "optInsToAccept"
+          "optInsToAccept",
+          "preferences"
         ],
         "properties": {
           "teams": {
@@ -4984,6 +5022,9 @@
             "items": {
               "$ref": "#/components/schemas/OptInToAccept"
             }
+          },
+          "preferences": {
+            "$ref": "#/components/schemas/MemberPreferences"
           }
         }
       },
@@ -5024,6 +5065,21 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "MemberPreferences": {
+        "type": "object",
+        "description": "The preferences a member has set, keyed by preference name. A preference\nthe member has never set is absent, and the client falls back to its own\ndefault.",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/PreferenceValue"
+        },
+        "propertyNames": {
+          "type": "string",
+          "description": "A dashboard preference a member can set. The variant name is what lands in\nthe `member_preferences.name` column, so renaming one orphans the rows\nmembers have already written.",
+          "enum": [
+            "new_data_filters_opened",
+            "new_data_filters_optout"
+          ]
+        }
       },
       "MemberResponse": {
         "type": "object",
@@ -5573,6 +5629,40 @@
               "null"
             ],
             "description": "Human-readable description of billing impact when joining this team.\n`None` for free plans. Clients should show this verbatim so CLI and\ndashboard stay in sync on pricing copy."
+          }
+        }
+      },
+      "PreferenceName": {
+        "type": "string",
+        "description": "A dashboard preference a member can set. The variant name is what lands in\nthe `member_preferences.name` column, so renaming one orphans the rows\nmembers have already written.",
+        "enum": [
+          "new_data_filters_opened",
+          "new_data_filters_optout"
+        ]
+      },
+      "PreferenceValue": {
+        "oneOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "number",
+            "format": "double"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "description": "The value of a preference. Serializes as a bare JSON scalar, matching how\nit is stored."
+      },
+      "PreferencesResponse": {
+        "type": "object",
+        "required": [
+          "preferences"
+        ],
+        "properties": {
+          "preferences": {
+            "$ref": "#/components/schemas/MemberPreferences"
           }
         }
       },
@@ -6197,6 +6287,23 @@
               "$ref": "#/components/schemas/CustomRoleId"
             },
             "description": "Custom role IDs. If provided, must be non-empty. Mutually exclusive with\n`role`."
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetPreferenceArgs": {
+        "type": "object",
+        "required": [
+          "name",
+          "value"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/PreferenceName"
+          },
+          "value": {
+            "$ref": "#/components/schemas/PreferenceValue",
+            "description": "Must be of the type the preference accepts, otherwise the request is\nrejected with `InvalidPreferenceValue`."
           }
         },
         "additionalProperties": false
