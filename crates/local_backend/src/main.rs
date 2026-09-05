@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    io::Read,
+    time::Duration,
+};
 
 use clap::Parser;
 use cmd_util::env::{
@@ -137,6 +140,7 @@ async fn run_server(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result
 }
 
 async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result<()> {
+    let shutdown_on_stdin_close = config.shutdown_on_stdin_close;
     // Used to receive fatal errors from the database or /preempt endpoint.
     let (preempt_tx, preempt_rx) = oneshot::channel();
     let preempt_signal = ShutdownSignal::new(preempt_tx);
@@ -187,6 +191,8 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
 
     let serve_future = future::try_join(serve_http_future, proxy_future).fuse();
     futures::pin_mut!(serve_future);
+    let stdin_close_future = wait_for_stdin_close(shutdown_on_stdin_close).fuse();
+    futures::pin_mut!(stdin_close_future);
 
     // Start shutdown when we get a manual shutdown signal or with the first
     // ctrl-c.
@@ -205,6 +211,11 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         r = signal::ctrl_c().fuse() => {
             tracing::info!("Received Ctrl-C signal!");
             r?;
+            let _: Result<_, _> = shutdown_tx.broadcast(()).await;
+        },
+        r = stdin_close_future => {
+            r?;
+            tracing::info!("The launching process closed stdin. Shutting down.");
             let _: Result<_, _> = shutdown_tx.broadcast(()).await;
         },
     }
@@ -254,5 +265,33 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         }
     }
 
+    Ok(())
+}
+
+async fn wait_for_stdin_close(enabled: bool) -> anyhow::Result<()> {
+    if !enabled {
+        return std::future::pending().await;
+    }
+
+    let (closed_tx, closed_rx) = oneshot::channel();
+    // Tokio implements stdin with a runtime-owned blocking read. If another
+    // shutdown path wins, dropping that future can leave runtime teardown
+    // waiting for the read forever. A detached OS thread may remain blocked,
+    // but it does not hold the Tokio runtime open and exits with the process.
+    std::thread::Builder::new()
+        .name("local-backend-stdin-close".to_owned())
+        .spawn(move || {
+            let mut stdin = std::io::stdin();
+            let mut buffer = [0; 256];
+            let result = loop {
+                match stdin.read(&mut buffer) {
+                    Ok(0) => break Ok(()),
+                    Ok(_) => {},
+                    Err(error) => break Err(error),
+                }
+            };
+            let _ = closed_tx.send(result);
+        })?;
+    closed_rx.await??;
     Ok(())
 }

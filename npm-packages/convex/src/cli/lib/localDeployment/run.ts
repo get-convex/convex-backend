@@ -93,12 +93,12 @@ export async function runLocalBackend(
     }
   }
 
-  // Check that binary works by running with --help
+  // Probe the binary's actual lifecycle capability. `isLatestVersion` describes
+  // the selected upgrade path, but that path can intentionally point at an
+  // older downloaded backend during a downgrade.
+  let supportsStdinShutdown = false;
   try {
-    const result = child_process.spawnSync(args.binaryPath, [
-      ...commandArgs,
-      "--help",
-    ]);
+    const result = child_process.spawnSync(args.binaryPath, ["--help"]);
     if (result.status === 3221225781) {
       const message =
         "Local backend exited because shared libraries are missing. These may include libraries installed via 'Microsoft Visual C++ Redistributable for Visual Studio.'";
@@ -119,6 +119,14 @@ export async function runLocalBackend(
         errForSentry: new LocalDeploymentError(message),
       });
     }
+    // The lifecycle flag is intentionally hidden from operator help. Probe it
+    // alongside --version, which exits before startup: current backends accept
+    // the flag and older backends reject it without opening the database.
+    const lifecycleProbe = child_process.spawnSync(args.binaryPath, [
+      "--shutdown-on-stdin-close",
+      "--version",
+    ]);
+    supportsStdinShutdown = lifecycleProbe.status === 0;
   } catch (e) {
     const message = `Failed to run backend binary: ${(e as any).toString()}`;
     return ctx.crash({
@@ -128,11 +136,22 @@ export async function runLocalBackend(
       errForSentry: new LocalDeploymentError(message),
     });
   }
+  if (supportsStdinShutdown) {
+    commandArgs.push("--shutdown-on-stdin-close");
+  }
   const commandStr = `${args.binaryPath} ${commandArgs.join(" ")}`;
   logVerbose(`Starting local backend: \`${commandStr}\``);
   const p = child_process
     .spawn(args.binaryPath, commandArgs, {
-      stdio: "ignore",
+      // Current local backends treat stdin EOF as a graceful shutdown signal.
+      // The pipe also closes if the CLI exits abruptly, so the backend can
+      // drain workers and remove executor temporary state before it exits.
+      stdio: supportsStdinShutdown ? ["pipe", "ignore", "ignore"] : "ignore",
+      // Windows otherwise terminates the backend with its Node parent before
+      // the stdin EOF handler can run. A hidden, detached process group keeps
+      // the backend alive only long enough to complete its owned shutdown.
+      detached: process.platform === "win32" && supportsStdinShutdown,
+      windowsHide: true,
       env: {
         ...process.env,
         SENTRY_DSN: LOCAL_BACKEND_SENTRY_DSN,
@@ -144,7 +163,17 @@ export async function runLocalBackend(
     });
   const cleanupHandle = ctx.registerCleanup(async () => {
     logVerbose(`Stopping local backend on port ${ports.cloud}`);
+    if (supportsStdinShutdown && p.stdin !== null) {
+      p.stdin.end();
+      if (await waitForProcessExit(p, 5_000)) {
+        return;
+      }
+    }
+
+    // Older backends do not understand the stdin lifecycle contract. Current
+    // backends also reach this fallback if graceful shutdown exceeds its bound.
     p.kill("SIGTERM");
+    await waitForProcessExit(p, 5_000);
   });
 
   await ensureBackendRunning(ctx, {
@@ -156,6 +185,39 @@ export async function runLocalBackend(
   return {
     cleanupHandle,
   };
+}
+
+function waitForProcessExit(
+  child: child_process.ChildProcess,
+  timeoutMs: number,
+): Promise<boolean> {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (exited: boolean) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      child.removeListener("exit", onExit);
+      resolve(exited);
+    };
+    const onExit = () => {
+      finish(true);
+    };
+    const timeout = setTimeout(() => {
+      finish(false);
+    }, timeoutMs);
+    child.once("exit", onExit);
+    // Close the race between the check above and listener registration.
+    if (child.exitCode !== null || child.signalCode !== null) {
+      finish(true);
+    }
+  });
 }
 
 /** Crash if correct local backend is not currently listening on the expected port. */

@@ -13,6 +13,9 @@ mod metrics;
 pub mod noop;
 pub mod source_package;
 
+#[cfg(windows)]
+mod windows_job;
+
 pub use crate::executor::{
     error_response_json,
     handle_node_executor_stream,
