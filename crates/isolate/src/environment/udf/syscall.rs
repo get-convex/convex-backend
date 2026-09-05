@@ -7,7 +7,6 @@ use common::{
     query::Query,
     runtime::Runtime,
     static_span,
-    types::UdfType,
     version::Version,
 };
 use database::{
@@ -117,15 +116,9 @@ impl<RT: Runtime> SyscallProviderInternal<RT> for DatabaseUdfSyscallProvider<RT>
     }
 
     fn snapshot_ts(&mut self) -> anyhow::Result<ConvexValue> {
-        // Rejected in queries: observing the per-execution snapshot
-        // timestamp would make a query impossible to cache correctly.
-        anyhow::ensure!(
-            self.udf_type == UdfType::Mutation,
-            ErrorMetadata::bad_request(
-                "SnapshotTsNotAvailable",
-                "The snapshot timestamp can only be read in a mutation"
-            )
-        );
+        // The timestamp differs on every execution, so mark the outcome as
+        // time-dependent (like `Date.now()`) to bound query-cache staleness.
+        self.phase.observe_time();
         let ts = *self.phase.tx()?.begin_timestamp();
         Ok(ConvexValue::Int64(ts.into()))
     }

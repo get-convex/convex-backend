@@ -133,6 +133,31 @@ export interface QueryMeta {
   getFunctionMetadata(): Promise<FunctionMetadata>;
   getTransactionMetrics(): Promise<TransactionMetrics>;
   getDeploymentMetadata(): Promise<DeploymentMetadata>;
+  /**
+   * @internal
+   * Returns the timestamp of the database snapshot this transaction reads
+   * from, in nanoseconds.
+   *
+   * All commits at or before this timestamp are observable within the
+   * transaction, and no later commits are. The value is fixed for the
+   * lifetime of the transaction and shared with all nested `runMutation` and
+   * `runQuery` calls.
+   *
+   * It is on the same clock as `db.vars.commitTs`: documents observable in
+   * this transaction have `commitTs` values at or before this timestamp, and
+   * no new documents will be written with a `commitTs` at or below this,
+   * including from the current transaction. When reading documents with an
+   * index in commitTs order, you can use this as an upper bound to prevent
+   * conflicting with racing inserts.
+   *
+   * Since the timestamp differs on every execution, calling this in a query
+   * limits caching of the query's result the same way `Date.now()` does.
+   *
+   * Note: this should not be compared to `_creationTime` or `Date.now()`, as
+   * those are based on wall-clock time rather than the database clock, and
+   * aren't guaranteed to follow commit order.
+   */
+  getSnapshotTs(): bigint;
 }
 
 /**
@@ -142,32 +167,6 @@ export interface QueryMeta {
  */
 export interface MutationMeta extends QueryMeta {
   getRequestMetadata(): Promise<RequestMetadata>;
-  /**
-   * @internal
-   * Returns the timestamp of the database snapshot this transaction reads
-   * from, in nanoseconds.
-   *
-   * All commits at or before this timestamp are observable within the
-   * transaction, and no later commits are. The value is fixed for the
-   * lifetime of the transaction and shared with all nested `runMutation`
-   * calls.
-   *
-   * It is on the same clock as `db.vars.commitTs`: documents observable in
-   * this transaction have `commitTs` values at or before this timestamp, and
-   * no new documents will be written with a `commitTs` at or below this,
-   * including from the current transaction. When reading documents with an
-   * index in commitTs order, you can use this as an upper bound to prevent
-   * conflicting with racing inserts.
-   *
-   * Currently only available in mutations, since a cached query result cannot
-   * depend on the per-execution timestamp. A query called with `runQuery`
-   * that needs the value must take it as an argument.
-   *
-   * Note: this should not be compared to `_creationTime` or `Date.now()`, as
-   * those are based on wall-clock time rather than the database clock, and
-   * aren't guaranteed to follow commit order.
-   */
-  getSnapshotTs(): bigint;
 }
 
 /**

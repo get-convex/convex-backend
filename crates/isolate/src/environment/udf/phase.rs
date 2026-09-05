@@ -688,6 +688,16 @@ impl<RT: Runtime> UdfPhase<RT> {
         Ok(performance_api.time_origin())
     }
 
+    pub fn observe_time(&mut self) {
+        if let UdfPreloaded::Ready {
+            observed_time_during_execution,
+            ..
+        } = &mut self.preloaded
+        {
+            *observed_time_during_execution = true;
+        }
+    }
+
     pub fn observe_rng(&mut self) {
         if let UdfPreloaded::Ready {
             observed_rng_during_execution,

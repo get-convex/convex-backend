@@ -75,6 +75,7 @@ export function setupQueryMeta(
     }),
     getTransactionMetrics,
     getDeploymentMetadata,
+    getSnapshotTs,
   };
 }
 
