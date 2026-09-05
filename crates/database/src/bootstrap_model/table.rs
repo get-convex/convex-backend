@@ -262,19 +262,26 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         Ok(table_metadata.number)
     }
 
-    /// This method should only be called after all documents in the tablet have
-    /// been deleted by retention
+    /// Removes a `Deleting` tablet's `_tables` document, finalizing the drop.
+    /// Only call this once document retention has emptied the tablet.
+    ///
+    /// `Deleting` tablets are absent from the table mapping, so the document is
+    /// resolved by id. A missing document means the drop is already finalized
+    /// and the call is a no-op, making it safe to retry.
     pub async fn hard_delete_tablet_document(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
-        if self.tx.table_mapping().tablet_id_exists(tablet_id) {
-            let doc = self.get_table_metadata(tablet_id).await?;
-            anyhow::ensure!(
-                doc.state == TableState::Deleting,
-                "Cannot delete a tablet that is not in deleting state"
-            );
-            SystemMetadataModel::new(self.tx, TableNamespace::Global)
-                .delete(doc.id())
-                .await?;
-        }
+        let table_doc_id = self.tx.bootstrap_tables().table_resolved_doc_id(tablet_id);
+        let Some(doc) = self.tx.get(table_doc_id).await? else {
+            return Ok(());
+        };
+        let doc: ParsedDocument<TableMetadata> = doc.parse()?;
+        anyhow::ensure!(
+            doc.state == TableState::Deleting,
+            "Cannot hard-delete tablet {tablet_id} in state {:?}, expected Deleting",
+            doc.state,
+        );
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+            .delete(doc.id())
+            .await?;
         Ok(())
     }
 
