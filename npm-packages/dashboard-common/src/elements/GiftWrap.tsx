@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
 import { Button } from "@ui/Button";
@@ -117,7 +116,7 @@ export function GiftWrap({
   // Focus target for clicks that remove the element that was focused.
   const pendingFocus = useRef<"controls" | "parcel" | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  // The parcel is portalled out of the wrapper, so it can't be found by querying it.
+  // Focus target for a rewrap.
   const parcelRef = useRef<HTMLElement>(null);
 
   // `opened` changing is the only thing that decides — or undoes — the wrap.
@@ -160,18 +159,15 @@ export function GiftWrap({
     });
   }, []);
 
-  const unwrap = useCallback(
-    (_event: React.MouseEvent<HTMLButtonElement>) => {
-      if (phaseRef.current !== "wrapped") return;
-      pendingFocus.current = "controls";
-      setBarRect(wrapperRef.current?.getBoundingClientRect() ?? null);
-      setTieAnnouncement("");
-      setReplay(false);
-      onOpen();
-      setPhase("unwrapping");
-    },
-    [onOpen],
-  );
+  const unwrap = useCallback(() => {
+    if (phaseRef.current !== "wrapped") return;
+    pendingFocus.current = "controls";
+    setBarRect(wrapperRef.current?.getBoundingClientRect() ?? null);
+    setTieAnnouncement("");
+    setReplay(false);
+    onOpen();
+    setPhase("unwrapping");
+  }, [onOpen]);
 
   // A moving phase gets the clock that ends it — which the wrap needs outright
   // and the opening only falls back to when `animationend` never fires. A
@@ -190,9 +186,8 @@ export function GiftWrap({
     const target = pendingFocus.current;
     if (!target) return undefined;
     if (target === "parcel") {
-      // Portal may not be mounted yet (reduced motion skips "wrapping" phase,
-      // so rect hasn't been measured when this first fires). Leave pendingFocus
-      // set and retry once rect arrives.
+      // A rewrap can land before `rect` arrives (reduced motion skips the
+      // "wrapping" phase), so retry once it does.
       if (!parcelRef.current) return undefined;
       pendingFocus.current = null;
       if (document.activeElement === document.body) parcelRef.current.focus();
@@ -232,52 +227,44 @@ export function GiftWrap({
           {children}
         </div>
 
-        {phase !== "done" &&
-          rect &&
-          createPortal(
-            // Fixed layer over the controls; portalled because the page clips past
-            // the bar's edge. z-40 = over table, under dialogs (z-50).
-            <div
-              className="fixed z-40"
-              style={{
-                left: rect.left,
-                top: rect.top,
-                width: rect.width,
-                height: rect.height,
-              }}
-            >
-              <Paper
-                buttonRef={parcelRef}
-                phase={phase}
-                reducedMotion={reducedMotion}
-                onActivate={unwrap}
-                onOpened={finish}
-              />
+        {phase !== "done" && rect && (
+          // Fixed so scroll panels can't clip the parcel; an ancestor with
+          // transform, filter, contain or perspective clips it anyway.
+          <div
+            className="fixed z-30"
+            style={{
+              left: rect.left,
+              top: rect.top,
+              width: rect.width,
+              height: rect.height,
+            }}
+          >
+            <Paper
+              buttonRef={parcelRef}
+              phase={phase}
+              reducedMotion={reducedMotion}
+              onActivate={unwrap}
+              onOpened={finish}
+            />
 
-              {(phase === "unwrapping" || phase === "wrapping") &&
-                !reducedMotion && (
-                  <div
-                    className={cn(
-                      "pointer-events-none absolute -inset-1 rounded-md border border-util-brand-purple",
-                      phase === "unwrapping"
-                        ? "animate-giftGlowRing"
-                        : "animate-giftCinchRing",
-                    )}
-                    aria-hidden
-                  />
-                )}
-            </div>,
-            document.body,
-          )}
+            {(phase === "unwrapping" || phase === "wrapping") &&
+              !reducedMotion && (
+                <div
+                  className={cn(
+                    "pointer-events-none absolute -inset-1 rounded-md border border-util-brand-purple",
+                    phase === "unwrapping"
+                      ? "animate-giftGlowRing"
+                      : "animate-giftCinchRing",
+                  )}
+                  aria-hidden
+                />
+              )}
 
-        {showExplanation &&
-          rect &&
-          createPortal(
-            <Explanation rect={rect} onDismiss={unwrap}>
-              {explanation}
-            </Explanation>,
-            document.body,
-          )}
+            {showExplanation && (
+              <Explanation onDismiss={unwrap}>{explanation}</Explanation>
+            )}
+          </div>
+        )}
 
         {phase === "unwrapping" && !reducedMotion && barRect && (
           <SparkBurst rect={barRect} />
@@ -314,20 +301,16 @@ function useRect(ref: RefObject<HTMLElement | null>, active: boolean) {
   return rect;
 }
 
-// Portalled to body so the page's scroll panels don't clip it.
 function Explanation({
   children,
   onDismiss,
-  rect,
 }: {
   children: ReactNode;
-  onDismiss(event: React.MouseEvent<HTMLButtonElement>): void;
-  rect: DOMRect;
+  onDismiss(): void;
 }) {
   return (
     <div
-      className="fixed z-50 w-max max-w-[min(20rem,calc(100vw-1rem))] -translate-x-1/2"
-      style={{ left: rect.left + rect.width / 2, top: rect.bottom + 8 }}
+      className="absolute top-full left-1/2 mt-2 w-max max-w-[min(20rem,calc(100vw-1rem))] -translate-x-1/2"
       data-testid="giftExplanation"
     >
       <div className="relative rounded-md bg-util-accent text-xs/snug text-white shadow-sm">
@@ -384,11 +367,11 @@ function Paper({
   onActivate,
   onOpened,
 }: {
-  /** Focus rescue target — portalled away so it can't be queried from the wrapper. */
+  /** Focus target for a rewrap. */
   buttonRef: RefObject<HTMLElement | null>;
   phase: Phase;
   reducedMotion: boolean;
-  onActivate(event: React.MouseEvent<HTMLButtonElement>): void;
+  onActivate(): void;
   onOpened(): void;
 }) {
   const unwrapping = phase === "unwrapping";
@@ -595,14 +578,13 @@ function BowLoop({ mirrored, motion }: { mirrored: boolean; motion: Motion }) {
   );
 }
 
-// Portalled to body: the container's overflow-y:hidden computes overflow-x to auto,
+// Fixed: the container's overflow-y:hidden computes overflow-x to auto,
 // clipping both axes and leaving sparks nowhere to go.
 function SparkBurst({ rect }: { rect: DOMRect }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(
+  return (
     <div
       aria-hidden
-      className="pointer-events-none fixed z-50"
+      className="pointer-events-none fixed z-30"
       style={{
         left: rect.left,
         top: rect.top,
@@ -638,7 +620,6 @@ function SparkBurst({ rect }: { rect: DOMRect }) {
           />
         </span>
       ))}
-    </div>,
-    document.body,
+    </div>
   );
 }
