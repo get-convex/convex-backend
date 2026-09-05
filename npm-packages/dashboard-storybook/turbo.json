@@ -15,18 +15,21 @@
         "shapes#build",
         "system-udfs#build"
       ],
-      // The stories and the pages they render live in `dashboard`, which the
-      // list above deliberately leaves out, so hash that package here or turbo
-      // serves a build that predates it — its sources, its configs, and its
-      // package.json, since a dependency bump changes what this compiles
-      // against. `dashboard-common` and the design system are compiled from
-      // source too, but they are built above, so their task hashes already
-      // cover their sources.
+      // Storybook compiles dashboard and dashboard-self-hosted directly, so
+      // their source, config, and package metadata must invalidate its build.
+      // The dependencies built above contribute their own task hashes.
+      // Each Turbo invocation writes fresh logs, which would invalidate an
+      // otherwise identical build.
       "inputs": [
         "$TURBO_DEFAULT$",
         "../dashboard/**",
         "!../dashboard/.next/**",
-        "!../dashboard/node_modules/**"
+        "!../dashboard/.turbo/**",
+        "!../dashboard/node_modules/**",
+        "../dashboard-self-hosted/**",
+        "!../dashboard-self-hosted/.next/**",
+        "!../dashboard-self-hosted/.turbo/**",
+        "!../dashboard-self-hosted/node_modules/**"
       ],
       "outputs": ["storybook-static/**"]
     }
