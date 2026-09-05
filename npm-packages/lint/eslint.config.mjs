@@ -545,12 +545,15 @@ const config = [
             // For some reason the ESLint plugin doesn’t recognize classes
             // defined in CSS files, so let’s ignore them manually for now.
             "animate-fadeInToVar",
+            "animate-gift.+",
             "bg-stripes",
             "bottom-four",
             "commandPaletteEditor",
             "DataRow",
             "disabled",
             "focused",
+            "gift-paper",
+            "gift-spark",
             "hover-decoration",
             "SelectorItem-active",
             "SelectorItem",
