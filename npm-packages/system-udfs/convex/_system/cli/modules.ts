@@ -21,11 +21,19 @@ type FunctionSpecs = (FunctionSpec | HttpFunctionSpec)[];
 export const DEFAULT_ARGS_VALIDATOR = '{ "type": "any" }';
 export const DEFAULT_RETURN_VALIDATOR = '{ "type": "any" }';
 
+function encodeValidator(validatorJson: string, rawValidators: boolean): Value {
+  if (rawValidators) {
+    return validatorJson;
+  }
+  return jsonToConvex(JSON.parse(validatorJson));
+}
+
 export const apiSpec = queryPrivateSystem("ViewData")({
   args: {
     componentId: v.optional(v.union(v.string(), v.null())),
+    rawValidators: v.optional(v.boolean()),
   },
-  handler: async ({ db }): Promise<FunctionSpecs> => {
+  handler: async ({ db }, { rawValidators }): Promise<FunctionSpecs> => {
     const result: FunctionSpecs = [];
     for await (const module of db.query("_modules")) {
       const analyzeResult = module.analyzeResult;
@@ -40,8 +48,8 @@ export const apiSpec = queryPrivateSystem("ViewData")({
           identifier: module.path + ":" + fn.name,
           functionType: fn.udfType,
           visibility: fn.visibility ?? { kind: "public" },
-          args: jsonToConvex(JSON.parse(argsValidator)),
-          returns: jsonToConvex(JSON.parse(returnsValidator)),
+          args: encodeValidator(argsValidator, rawValidators === true),
+          returns: encodeValidator(returnsValidator, rawValidators === true),
         });
       }
 
