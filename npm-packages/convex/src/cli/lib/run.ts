@@ -78,7 +78,7 @@ export async function runFunctionAndLog(
         adminKey: args.adminKey,
         functionName: "_system/cli/modules:apiSpec",
         componentPath: args.componentPath,
-        args: {},
+        args: { rawValidators: true },
       })) as (
         | {
             functionType: "Query" | "Mutation" | "Action";

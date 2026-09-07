@@ -3,7 +3,7 @@ import chalk from "chalk";
 import { logOutput } from "../../bundler/log.js";
 import { runSystemQuery } from "./run.js";
 import { Context } from "../../bundler/context.js";
-import { convexToJson } from "../../values/value.js";
+import { apiSpecFunctionsToJson } from "./functionSpecJson.js";
 
 export async function functionSpecForDeployment(
   ctx: Context,
@@ -18,7 +18,7 @@ export async function functionSpecForDeployment(
     adminKey: options.adminKey,
     functionName: "_system/cli/modules:apiSpec",
     componentPath: undefined,
-    args: {},
+    args: { rawValidators: true },
   })) as any[];
   const url = (await runSystemQuery(ctx, {
     deploymentUrl: options.deploymentUrl,
@@ -29,7 +29,7 @@ export async function functionSpecForDeployment(
   })) as string;
 
   const output = JSON.stringify(
-    { url, functions: convexToJson(functions) },
+    { url, functions: apiSpecFunctionsToJson(functions) },
     null,
     2,
   );

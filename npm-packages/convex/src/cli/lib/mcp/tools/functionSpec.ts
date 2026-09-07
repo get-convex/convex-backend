@@ -3,7 +3,7 @@ import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { runSystemQuery } from "../../run.js";
 import { getMcpDeploymentSelection } from "../requestContext.js";
-import { convexToJson } from "../../../../values/index.js";
+import { apiSpecFunctionsToJson } from "../../functionSpecJson.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -53,8 +53,8 @@ export const FunctionSpecTool: ConvexTool<
       adminKey: credentials.adminKey,
       functionName: "_system/cli/modules:apiSpec",
       componentPath: undefined,
-      args: {},
+      args: { rawValidators: true },
     });
-    return convexToJson(functions);
+    return apiSpecFunctionsToJson(functions);
   },
 };
