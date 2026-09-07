@@ -9762,6 +9762,7 @@ dependencies = [
  "futures",
  "futures-async-stream",
  "parking_lot",
+ "proptest",
  "rusqlite",
  "serde",
  "serde_json",
