@@ -4,14 +4,12 @@ use std::{
         Deref,
         DerefMut,
     },
-    str::FromStr,
     sync::Arc,
     time::Duration,
 };
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::components::EnvBinding,
     components::{
         CanonicalizedComponentModulePath,
         ComponentId,
@@ -33,13 +31,9 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
-    environment_variables::{
-        types::{
-            EnvVarName,
-            EnvVarValue,
-        },
-        EnvironmentVariablesModel,
-        PreloadedEnvironmentVariables,
+    environment_variables::types::{
+        EnvVarName,
+        EnvVarValue,
     },
     modules::ModuleModel,
     source_packages::{
@@ -54,22 +48,11 @@ use rand::{
 };
 use rand_chacha::ChaCha12Rng;
 use sync_types::ModulePath;
-use udf::environment::{
-    system_env_vars,
-    CONVEX_SITE,
-};
+use udf::environment::PreloadedEnvVars;
 use value::{
     identifier::Identifier,
     ConvexValue,
 };
-
-/// Populated for non-root components only, when any of the component's env
-/// bindings reference a parent env var. Preloads the parent's
-/// `_environment_variables` table so that lookups take a read dep.
-struct ComponentEnvCtx {
-    env: BTreeMap<Identifier, EnvBinding>,
-    parent_env_vars: Option<PreloadedEnvironmentVariables>,
-}
 
 use crate::{
     environment::{
@@ -126,11 +109,9 @@ enum UdfPreloaded {
         performance_api: Option<PerformanceApi>,
         observed_identity_during_execution: bool,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
-        root_env_vars: Option<PreloadedEnvironmentVariables>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        env_vars: PreloadedEnvVars,
         component: ComponentId,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
-        component_env: Option<ComponentEnvCtx>,
         source_package: Option<Arc<ParsedDocument<SourcePackage>>>,
     },
 }
@@ -192,29 +173,6 @@ impl<RT: Runtime> UdfPhase<RT> {
         let component = self.component;
         self.preloaded = timeout
             .with_release_permit(PauseReason::UdfInitialize, async {
-                let component_env = if !component.is_root() {
-                    let env = BootstrapComponentsModel::new(self.tx_mut()?)
-                        .load_component_env(component)
-                        .await?;
-                    let has_env_var_binding =
-                        env.values().any(|b| matches!(b, EnvBinding::EnvVar(_)));
-                    let parent_env_vars = if has_env_var_binding {
-                        Some(
-                            EnvironmentVariablesModel::new(self.tx_mut()?)
-                                .preload()
-                                .await?,
-                        )
-                    } else {
-                        None
-                    };
-                    Some(ComponentEnvCtx {
-                        env,
-                        parent_env_vars,
-                    })
-                } else {
-                    None
-                };
-
                 let component_args = if !component.is_root() {
                     Some(
                         BootstrapComponentsModel::new(self.tx_mut()?)
@@ -234,38 +192,12 @@ impl<RT: Runtime> UdfPhase<RT> {
                     .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
                 let unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
-                let root_env_vars = if component.is_root() {
-                    Some(
-                        EnvironmentVariablesModel::new(self.tx_mut()?)
-                            .preload()
-                            .await?,
-                    )
-                } else {
-                    None
-                };
-
-                let mut system_env_vars =
-                    system_env_vars(self.tx_mut()?, default_system_env_vars.clone()).await?;
-
-                // For non-root components with an HTTP prefix, override CONVEX_SITE_URL
-                // with the prefixed URL so components can construct correct absolute URLs.
-                if !component.is_root() {
-                    let component_metadata = BootstrapComponentsModel::new(self.tx_mut()?)
-                        .load_component(component)
-                        .await?;
-                    if let Some(http_prefix) = component_metadata
-                        .as_ref()
-                        .and_then(|m| m.http_prefix.as_deref())
-                        && let Some(base_url) = system_env_vars.get(&*CONVEX_SITE).cloned()
-                    {
-                        let prefixed_url = format!(
-                            "{}{}",
-                            base_url.as_ref().trim_end_matches('/'),
-                            http_prefix.trim_end_matches('/')
-                        );
-                        system_env_vars.insert(CONVEX_SITE.clone(), prefixed_url.parse()?);
-                    }
-                }
+                let env_vars = PreloadedEnvVars::load(
+                    self.tx_mut()?,
+                    component,
+                    default_system_env_vars.clone(),
+                )
+                .await?;
 
                 let source_package =
                     if ModuleModel::new(self.tx_mut()?).has_pending_module(component) {
@@ -295,11 +227,9 @@ impl<RT: Runtime> UdfPhase<RT> {
                     performance_api: unix_timestamp.map(PerformanceApi::new),
                     observed_identity_during_execution: false,
                     default_system_env_vars,
-                    root_env_vars,
-                    system_env_vars,
+                    env_vars,
                     component,
                     component_arguments: component_args,
-                    component_env,
                     source_package,
                 })
             })
@@ -546,49 +476,14 @@ impl<RT: Runtime> UdfPhase<RT> {
         &mut self,
         name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
-        let UdfPreloaded::Ready {
-            ref root_env_vars,
-            ref system_env_vars,
-            ref component_env,
-            ..
-        } = self.preloaded
-        else {
+        let UdfPreloaded::Ready { ref env_vars, .. } = self.preloaded else {
             anyhow::bail!("Phase not initialized");
         };
         let tx = self
             .tx
             .as_mut()
             .context("Transaction missing due to concurrent component call")?;
-        let Some(env_vars) = root_env_vars else {
-            // Non-root components: env vars come from the component's env
-            // (passed via `app.use(c, { env: ... })`), falling back to allowed
-            // system env vars (such as the prefixed CONVEX_SITE_URL).
-            if let Some(component_env) = component_env
-                && let Ok(identifier) = Identifier::from_str(name.as_ref())
-                && let Some(binding) = component_env.env.get(&identifier)
-            {
-                match binding {
-                    EnvBinding::Value(s) => {
-                        return Ok(Some(s.parse()?));
-                    },
-                    EnvBinding::EnvVar(parent_name) => {
-                        let parent_env_vars = component_env
-                            .parent_env_vars
-                            .as_ref()
-                            .context("parent env vars not preloaded")?;
-                        if let Some(var) = parent_env_vars.get(tx, parent_name)? {
-                            return Ok(Some(var));
-                        }
-                        return Ok(None);
-                    },
-                }
-            }
-            return Ok(system_env_vars.get(&name).cloned());
-        };
-        if let Some(var) = env_vars.get(tx, &name)? {
-            return Ok(Some(var));
-        }
-        Ok(system_env_vars.get(&name).cloned())
+        env_vars.get(tx, &name)
     }
 
     pub fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
