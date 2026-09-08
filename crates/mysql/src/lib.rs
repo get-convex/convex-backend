@@ -31,6 +31,12 @@ pub use connection::ConvexMySqlPool;
 
 pub type MySqlPersistence<RT> = v5::Persistence<RT>;
 pub type MySqlReader<RT> = v5::Reader<RT>;
+pub use v5::{
+    DeploymentDeleter,
+    DeploymentDeletionBatch,
+    DeploymentDeletionCursor,
+    DeploymentDeletionPool,
+};
 
 #[derive(Clone, Debug)]
 pub struct MySqlInstanceName {
