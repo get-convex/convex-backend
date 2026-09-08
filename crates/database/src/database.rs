@@ -60,7 +60,6 @@ use common::{
         DATA_SYNC_PAGE_SIZE_LIMIT,
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         LIST_SNAPSHOT_MAX_AGE_SECS,
-        PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED,
         SNAPSHOT_LIST_TIME_LIMIT,
     },
     pause::Fault,
@@ -2713,14 +2712,12 @@ fn new_bootstrap_enabled<T: IndexTableIdentifier>(
     next_persistence_index_id: &mut u32,
 ) -> IndexMetadata<T> {
     let mut metadata = IndexMetadata::new_enabled(name, fields);
-    if *PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED {
-        let persistence_index_id = PersistenceIndexId::new(*next_persistence_index_id)
-            .expect("bootstrap persistence index IDs are nonzero");
-        *next_persistence_index_id = next_persistence_index_id
-            .checked_add(1)
-            .expect("bootstrap persistence index IDs cannot exhaust u32");
-        metadata.assign_persistence_index_id(persistence_index_id);
-    }
+    let persistence_index_id = PersistenceIndexId::new(*next_persistence_index_id)
+        .expect("bootstrap persistence index IDs are nonzero");
+    *next_persistence_index_id = next_persistence_index_id
+        .checked_add(1)
+        .expect("bootstrap persistence index IDs cannot exhaust u32");
+    metadata.assign_persistence_index_id(persistence_index_id);
     metadata
 }
 

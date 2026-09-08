@@ -34,7 +34,6 @@ use common::{
         PendingDocumentUpdate,
         ResolvedDocument,
     },
-    errors::report_error,
     identity::InertIdentity,
     index::{
         IndexKey,
@@ -45,7 +44,6 @@ use common::{
         IntervalSet,
     },
     knobs::{
-        PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED,
         SEARCH_INDEX_SIZE_SOFT_LIMIT,
         TEXT_INDEX_SIZE_HARD_LIMIT,
         VECTOR_INDEX_SIZE_HARD_LIMIT,
@@ -271,9 +269,6 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     pub(crate) async fn assign_missing_persistence_index_ids(&mut self) -> anyhow::Result<()> {
-        if !*PERSISTENCE_INDEX_ID_ALLOCATION_ENABLED {
-            return Ok(());
-        }
         let writes = self.writes.as_flat()?;
         let mut missing_index_id_updates = Vec::new();
         for id in writes.new_index_document_ids() {
@@ -300,17 +295,10 @@ impl<RT: Runtime> Transaction<RT> {
         if missing_index_id_updates.is_empty() {
             return Ok(());
         }
-        let persistence_index_ids = match NextPersistenceIndexIdModel::new(self)
+        let persistence_index_ids = NextPersistenceIndexIdModel::new(self)
             .allocate(missing_index_id_updates.len())
             .await
-        {
-            Ok(index_ids) => index_ids,
-            Err(mut err) => {
-                err = err.context("Failed to allocate persistence index IDs");
-                report_error(&mut err).await;
-                return Ok(());
-            },
-        };
+            .context("Failed to allocate persistence index IDs")?;
 
         for ((id, mut metadata), persistence_index_id) in missing_index_id_updates
             .into_iter()
