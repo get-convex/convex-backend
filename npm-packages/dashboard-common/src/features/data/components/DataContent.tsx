@@ -509,7 +509,7 @@ export function DataContent({
                     />
                   </Sheet>
                 ) : isEmptySearchFilter(filters) ? (
-                  <div className="flex h-full flex-1 flex-col items-center gap-2 rounded-t-none border bg-background-secondary pt-8">
+                  <div className="flex h-full flex-1 flex-col items-center gap-3 rounded-t-none border bg-background-secondary pt-8">
                     <div className="text-content-secondary">
                       Enter a search term to find matching documents.
                     </div>
@@ -523,7 +523,7 @@ export function DataContent({
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex h-full flex-1 flex-col items-center gap-2 rounded-t-none border bg-background-secondary pt-8">
+                  <div className="flex h-full flex-1 flex-col items-center gap-3 rounded-t-none border bg-background-secondary pt-8">
                     <div className="text-content-secondary">
                       No documents match the selected filters.
                     </div>
