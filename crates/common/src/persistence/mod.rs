@@ -247,6 +247,11 @@ pub struct IndexRetentionProgress {
     /// Index rows the persistence reported removing. A layout that reclaims
     /// whole storage units rather than rows removes none and reports zero.
     pub deleted_rows: usize,
+    /// Distinct indexes for which the pass re-derived expired entries -- a
+    /// measure of how spread the retention work was across the index
+    /// population, as opposed to concentrated in a few. A layout that
+    /// reclaims whole storage units rather than rows reports zero.
+    pub unique_indexes: usize,
 }
 
 #[async_trait]

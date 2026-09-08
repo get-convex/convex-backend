@@ -9,7 +9,10 @@
 
 use std::{
     cmp,
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        HashSet,
+    },
 };
 
 use async_trait::async_trait;
@@ -88,12 +91,15 @@ pub async fn delete_expired_entries<P: IndexRowPersistence + ?Sized>(
             cursor,
             expired_entries: 0,
             deleted_rows: 0,
+            unique_indexes: 0,
         });
     }
     // The number of rows we delete in persistence.
     let mut total_deleted_rows: usize = 0;
     // The number of expired entries we read from chunks.
     let mut total_expired_entries = 0;
+    // The distinct indexes among the expired entries we've read.
+    let mut touched_indexes = HashSet::new();
     let mut new_cursor = cursor;
 
     let snapshot_ts = min_snapshot_ts;
@@ -109,6 +115,7 @@ pub async fn delete_expired_entries<P: IndexRowPersistence + ?Sized>(
             delete_chunk.len()
         );
         total_expired_entries += delete_chunk.len();
+        touched_indexes.extend(delete_chunk.iter().map(|(_, entry)| entry.index_id));
         let results = try_join_all(
             partition_chunk(
                 delete_chunk,
@@ -135,6 +142,7 @@ pub async fn delete_expired_entries<P: IndexRowPersistence + ?Sized>(
                 cursor: new_cursor,
                 expired_entries: total_expired_entries,
                 deleted_rows: total_deleted_rows,
+                unique_indexes: touched_indexes.len(),
             });
         }
     }
@@ -146,6 +154,7 @@ pub async fn delete_expired_entries<P: IndexRowPersistence + ?Sized>(
         cursor: min_snapshot_ts.pred()?,
         expired_entries: total_expired_entries,
         deleted_rows: total_deleted_rows,
+        unique_indexes: touched_indexes.len(),
     })
 }
 

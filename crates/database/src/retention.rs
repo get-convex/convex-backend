@@ -143,6 +143,7 @@ use crate::{
         log_retention_documents_deleted,
         log_retention_index_entries_deleted,
         log_retention_ts_advanced,
+        log_retention_unique_indexes,
         log_snapshot_verification_age,
         retention_advance_timestamp_timer,
         retention_delete_document_chunk_timer,
@@ -667,6 +668,7 @@ impl LeaderRetentionWorkers {
                 cursor,
                 expired_entries: 0,
                 deleted_rows: 0,
+                unique_indexes: 0,
             });
         }
         let progress = persistence
@@ -678,6 +680,7 @@ impl LeaderRetentionWorkers {
             })
             .await?;
         log_retention_index_entries_deleted(progress.deleted_rows, source);
+        log_retention_unique_indexes(progress.unique_indexes, source);
         Ok(progress)
     }
 

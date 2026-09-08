@@ -669,6 +669,22 @@ pub fn log_retention_index_entries_deleted(deleted_rows: usize, source: IndexRet
     )
 }
 
+register_convex_histogram!(
+    RETENTION_UNIQUE_INDEXES_TOTAL,
+    "Number of distinct indexes a retention pass found expired entries for",
+    &["source"]
+);
+pub fn log_retention_unique_indexes(unique_indexes: usize, source: IndexRetentionSource) {
+    log_distribution_with_labels(
+        &RETENTION_UNIQUE_INDEXES_TOTAL,
+        unique_indexes as f64,
+        vec![StaticMetricLabel::new(
+            "source",
+            <&'static str>::from(source),
+        )],
+    )
+}
+
 register_convex_counter!(
     RETENTION_DOCUMENTS_DELETED_FROM_DELETED_TABLETS_TOTAL,
     "The total number of documents deleted from tablets deleted outside the document retention \
