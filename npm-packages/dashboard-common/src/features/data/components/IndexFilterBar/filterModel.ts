@@ -10,6 +10,7 @@ import {
   FilterExpression,
   SearchIndexFilter,
   SearchIndexFilterClause,
+  isValidFilter,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
 import { Option } from "@ui/Combobox";
@@ -42,7 +43,7 @@ export type SearchIndexDef = {
 
 export type IndexDef = DatabaseIndexDef | SearchIndexDef;
 
-const CREATION_TIME_INDEX: DatabaseIndexDef = {
+export const CREATION_TIME_INDEX: DatabaseIndexDef = {
   kind: "database",
   name: "by_creation_time",
   fields: ["_creationTime"],
@@ -109,7 +110,7 @@ export function isSearchFilter(
   return index !== undefined && "search" in index;
 }
 
-function isDatabaseFilter(
+export function isDatabaseFilter(
   index: FilterExpression["index"],
 ): index is DatabaseIndexFilter {
   return index !== undefined && !("search" in index);
@@ -487,7 +488,7 @@ export function effectiveSortField(
 export type SortOption =
   | { kind: "toggle" }
   | { kind: "switch"; index: DatabaseIndexDef; dropsClauses: boolean }
-  | { kind: "unavailable" };
+  | { kind: "unavailable"; reason?: string };
 
 // How a click on `field`'s column header would sort. Prefers an index that
 // keeps the applied clauses (same prefix, `field` next), then any index
@@ -567,6 +568,14 @@ export function normalizeFilters(expr: FilterExpression): FilterExpression {
   return expr;
 }
 
+export function hasAnyClause(expr: FilterExpression): boolean {
+  return (
+    enabledIndexClauses(expr).length > 0 ||
+    expr.clauses.some((c) => c.enabled !== false) ||
+    isSearchFilter(expr.index)
+  );
+}
+
 export const scanOperatorOptions: Readonly<
   Option<(FilterByType | FilterByBuiltin)["op"]>[]
 > = [
@@ -591,9 +600,7 @@ export const indexedOperatorOptions: Readonly<Option<IndexedOperator>[]> = [
   { value: "between", label: "is between" },
 ];
 
-export function indexedOperatorOf(
-  clause: DatabaseIndexFilterClause,
-): IndexedOperator {
+function indexedOperatorOf(clause: DatabaseIndexFilterClause): IndexedOperator {
   if (!isRangeClause(clause)) return "eq";
   if (clause.lowerOp && clause.upperOp) return "between";
   return clause.lowerOp ?? clause.upperOp ?? "between";
@@ -708,6 +715,46 @@ export function describeScanClause(clause: Filter): string {
     return `${field} ${clause.op}`;
   }
   return `${field} ${operatorSymbol(clause.op)} ${formatFilterValue(field, clause.value)}`;
+}
+
+// One line for history menus: "team = "eng" › status = "active" · newest first".
+export function summarizeFilters(
+  defs: IndexDef[],
+  expr: FilterExpression,
+): string {
+  const parts: string[] = [];
+  if (isSearchFilter(expr.index)) {
+    const def = findIndexDef(defs, expr.index.name);
+    const searchField = def?.kind === "search" ? def.searchField : "text";
+    parts.push(`${searchField} ~ ${JSON.stringify(expr.index.search)}`);
+    for (const c of expr.index.clauses.filter((c) => c.enabled)) {
+      parts.push(`${c.field} = ${formatFilterValue(c.field, c.value)}`);
+    }
+  } else {
+    const index = currentDatabaseIndex(defs, expr);
+    parts.push(
+      ...enabledIndexClauses(expr).map((c, i) =>
+        describeIndexedClause(index.fields[i] ?? "?", c),
+      ),
+    );
+  }
+  const scan = expr.clauses
+    .filter(isValidFilter)
+    .filter((c) => c.enabled !== false)
+    .map(describeScanClause);
+  const clauseText = [parts.join(" › "), scan.join(", ")]
+    .filter((text) => text.length > 0)
+    .join(" · ");
+  if (isSearchFilter(expr.index)) return clauseText;
+  const sortField = effectiveSortField(defs, expr);
+  const order = currentOrder(expr);
+  const sortText =
+    sortField === "_creationTime"
+      ? order === "desc"
+        ? "newest first"
+        : "oldest first"
+      : `${sortField} ${order === "desc" ? "↓" : "↑"}`;
+  return clauseText.length > 0 ? `${clauseText} · ${sortText}` : sortText;
 }
 
 // Timestamps are rarely filtered for equality, so creation time starts as

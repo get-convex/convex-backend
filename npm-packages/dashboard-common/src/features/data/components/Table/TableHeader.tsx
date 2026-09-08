@@ -4,6 +4,7 @@ import classNames from "classnames";
 import { RefObject } from "react";
 import { ColumnHeader } from "@common/features/data/components/Table/ColumnHeader";
 import { DataCellProps } from "@common/features/data/components/Table/DataCell/DataCell";
+import { SortOption } from "@common/features/data/components/IndexFilterBar/filterModel";
 
 export function TableHeader({
   headerGroups,
@@ -15,6 +16,8 @@ export function TableHeader({
   topBorderAnimation,
   openContextMenu,
   sort,
+  getSortOption,
+  onSortColumn,
   localStorageKey,
   tableContainerRef,
 }: {
@@ -30,6 +33,8 @@ export function TableHeader({
     order: "asc" | "desc";
     field: string;
   };
+  getSortOption?: (field: string) => SortOption;
+  onSortColumn?: (field: string) => void;
   localStorageKey: string;
   tableContainerRef: RefObject<HTMLDivElement | null>;
 }) {
@@ -57,6 +62,10 @@ export function TableHeader({
               toggleAll={toggleAll}
               openContextMenu={openContextMenu}
               sort={sort.field === header.column.id ? sort.order : undefined}
+              sortOption={getSortOption?.(header.column.id)}
+              onSort={
+                onSortColumn ? () => onSortColumn(header.column.id) : undefined
+              }
               localStorageKey={localStorageKey}
               tableContainerRef={tableContainerRef}
             />

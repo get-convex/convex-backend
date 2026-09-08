@@ -22,6 +22,7 @@ import { Sheet } from "@ui/Sheet";
 import { Button } from "@ui/Button";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useSelectionState } from "@common/features/data/lib/useSelectionState";
+import { useNewDataFilters } from "@common/features/data/lib/useNewDataFilters";
 import { useDataToolbarActions } from "@common/features/data/lib/useDataToolbarActions";
 import { useTableFilters } from "@common/features/data/lib/useTableFilters";
 import { FiltersAppliedProperties } from "@common/features/data/lib/filterAnalytics";
@@ -59,6 +60,16 @@ import { api } from "system-udfs/convex/_generated/api";
 import { useNents } from "@common/lib/useNents";
 import omit from "lodash/omit";
 import { clearFilters } from "./DataFilters/clearFilters";
+import {
+  EMPTY_FILTERS,
+  buildIndexDefs,
+  currentOrder,
+  effectiveSortField,
+  normalizeFilters,
+  sortByField as sortByFieldInModel,
+  sortOptionForField,
+} from "./IndexFilterBar/filterModel";
+import { useFilterActions } from "./IndexFilterBar/useFilterActions";
 
 export function DataContent({
   tableName,
@@ -79,7 +90,9 @@ export function DataContent({
     onFiltersApplied,
   );
 
-  const [draftFilters, setDraftFilters] = useState(filters);
+  const [draftFilters, setDraftFilters] = useState<
+    FilterExpression | undefined
+  >(filters);
   const [showFilters, setShowFilters] = useState(false);
   useEffect(() => {
     setDraftFilters(filters);
@@ -111,6 +124,7 @@ export function DataContent({
   const { useCurrentDeployment, useIsProtectedDeployment } = useContext(
     DeploymentInfoContext,
   );
+  const { newDataFilters } = useNewDataFilters();
   const deployment = useCurrentDeployment();
   const isProd = deployment?.deploymentType === "prod";
   const isProtectedDeployment = useIsProtectedDeployment();
@@ -288,6 +302,25 @@ export function DataContent({
         | undefined
     )?.[0] || "_creationTime";
 
+  // Behind the `newDataFilters` flag: the index-first filter bar replaces the
+  // Filter & Sort panel, and the table headers gain sort and filter actions.
+  const indexDefs = useMemo(() => buildIndexDefs(indexes), [indexes]);
+  const appliedFilters = filters ?? EMPTY_FILTERS;
+  const filterActions = useFilterActions({
+    filters,
+    draftFilters,
+    setDraftFilters,
+    applyFilters: applyFiltersWithHistory,
+    indexDefs,
+    defaultDocument,
+  });
+  const sort = newDataFilters
+    ? {
+        order: currentOrder(appliedFilters),
+        field: effectiveSortField(indexDefs, appliedFilters),
+      }
+    : { order: filters?.order || "desc", field: sortField };
+
   const { captureMessage } = useContext(DeploymentInfoContext);
   useEffect(() => {
     if (
@@ -395,10 +428,29 @@ export function DataContent({
                     activeSchema={activeSchema}
                     listRef={listRef}
                     loadMore={loadNextPage}
-                    sort={{
-                      order: filters?.order || "desc",
-                      field: sortField,
-                    }}
+                    sort={sort}
+                    getSortOption={
+                      newDataFilters
+                        ? (field: string) =>
+                            sortOptionForField(indexDefs, appliedFilters, field)
+                        : undefined
+                    }
+                    onSortColumn={
+                      newDataFilters
+                        ? (field: string) => {
+                            const next = sortByFieldInModel(
+                              indexDefs,
+                              appliedFilters,
+                              field,
+                            );
+                            if (!next) return;
+                            setDraftFilters(next);
+                            void applyFiltersWithHistory(
+                              normalizeFilters(next),
+                            );
+                          }
+                        : undefined
+                    }
                     totalRowCount={
                       filters
                         ? status === "Exhausted"
@@ -426,6 +478,10 @@ export function DataContent({
                     hiddenColumns={hiddenColumns}
                     onColumnOrderChange={setColumnOrder}
                     onAddDraftFilter={(filter: Filter) => {
+                      if (newDataFilters) {
+                        filterActions.addComplete(filter);
+                        return;
+                      }
                       setDraftFilters((prev) =>
                         prev
                           ? {

@@ -45,6 +45,7 @@ import {
   useTableContextMenuState,
 } from "@common/features/data/components/Table/TableContextMenu";
 import { TableHeader } from "@common/features/data/components/Table/TableHeader";
+import { SortOption } from "@common/features/data/components/IndexFilterBar/filterModel";
 import { useStoredColumnOrder } from "@common/features/data/components/Table/utils/useDataColumns";
 import { ViewDocument } from "@common/features/data/components/Table/ViewDocument";
 import { useDataPageSize } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
@@ -79,6 +80,8 @@ export function Table({
   onAddDraftFilter,
   defaultDocument,
   sort,
+  getSortOption,
+  onSortColumn,
   hiddenColumns,
   onColumnOrderChange,
 }: {
@@ -106,6 +109,8 @@ export function Table({
     order: "asc" | "desc";
     field: string;
   };
+  getSortOption?: (field: string) => SortOption;
+  onSortColumn?: (field: string) => void;
   hiddenColumns: string[];
   onColumnOrderChange?: (newOrder: string[]) => void;
 }) {
@@ -309,6 +314,8 @@ export function Table({
                   topBorderAnimation={topBorderAnimation}
                   openContextMenu={openContextMenu}
                   sort={sort}
+                  getSortOption={getSortOption}
+                  onSortColumn={onSortColumn}
                   localStorageKey={localStorageKey}
                   tableContainerRef={tableContainerRef}
                 />
