@@ -760,6 +760,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Identity::System(_) | Identity::User(_) | Identity::Unknown(_) => {},
         }
         let mut tx = self.database.begin_system().await?;
+        self.bail_if_backend_not_running(&mut tx).await?;
         let ai_gateway_disabled = BackendInfoModel::new(&mut tx)
             .get()
             .await?
