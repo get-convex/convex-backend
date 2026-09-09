@@ -2,14 +2,13 @@
 // `bundle-web-globals.mjs` and evaluated by the guest before a deployment's
 // modules are.
 //
-// These come from `udf-runtime` — the same sources the V8 runtime installs —
-// so the two runtimes agree on behavior rather than each carrying its own
-// implementation. Only the setups that need nothing from the host are here;
-// the rest reach for syscalls that are unavailable while a bundle evaluates.
+// These come from `udf-runtime`, the same sources the V8 runtime installs.
+import { setupDate } from "udf-runtime/src/00_date.js";
 import { setupWeakRefs } from "udf-runtime/src/00_weakref";
 import { setupEvent } from "udf-runtime/src/02_event";
 import { setupStreams } from "udf-runtime/src/06_streams";
 
+setupDate(globalThis);
 setupWeakRefs(globalThis);
 setupEvent(globalThis);
 setupStreams(globalThis);

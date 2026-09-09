@@ -6,6 +6,8 @@ const greeting = process.env.GREETING;
 const missing = process.env.MISSING;
 const again = process.env.GREETING;
 const roll = Math.random();
+const now = Date.now();
+const date = new Date().getTime();
 
 export const baked = {
   isQuery: true,
@@ -15,5 +17,7 @@ export const baked = {
       again,
       missingIsUndefined: missing === undefined,
       roll,
+      now,
+      date,
     }),
 };
