@@ -262,6 +262,13 @@ class Performance extends EventTarget implements IPerformance {
   }
 }
 
+Object.defineProperty(Performance.prototype, Symbol.toStringTag, {
+  value: "Performance",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
+
 class PerformanceEntry implements IPerformanceEntry {
   #name: string;
   #entryType: string;
@@ -317,11 +324,14 @@ class PerformanceEntry implements IPerformanceEntry {
       duration: this.#duration,
     };
   }
-
-  get [Symbol.toStringTag]() {
-    return "PerformanceEntry";
-  }
 }
+
+Object.defineProperty(PerformanceEntry.prototype, Symbol.toStringTag, {
+  value: "PerformanceEntry",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 class PerformanceMark extends PerformanceEntry implements IPerformanceMark {
   #detail: any;
@@ -360,6 +370,13 @@ class PerformanceMark extends PerformanceEntry implements IPerformanceMark {
     };
   }
 }
+
+Object.defineProperty(PerformanceMark.prototype, Symbol.toStringTag, {
+  value: "PerformanceMark",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 class PerformanceMeasure
   extends PerformanceEntry
@@ -410,6 +427,13 @@ class PerformanceMeasure
     };
   }
 }
+
+Object.defineProperty(PerformanceMeasure.prototype, Symbol.toStringTag, {
+  value: "PerformanceMeasure",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 export const setupPerformance = (global: any) => {
   Object.defineProperty(global, "Performance", {

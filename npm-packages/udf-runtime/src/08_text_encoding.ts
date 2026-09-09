@@ -22,10 +22,14 @@ class TextEncoder {
     dest.set(bytes, 0);
     return { read, written };
   }
-  get [Symbol.toStringTag]() {
-    return "TextEncoder";
-  }
 }
+
+Object.defineProperty(TextEncoder.prototype, Symbol.toStringTag, {
+  value: "TextEncoder",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 class TextDecoder {
   #encoding: string;
@@ -104,10 +108,14 @@ class TextDecoder {
       }
     }
   }
-  get [Symbol.toStringTag]() {
-    return "TextDecoder";
-  }
 }
+
+Object.defineProperty(TextDecoder.prototype, Symbol.toStringTag, {
+  value: "TextDecoder",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 function atob(encoded: string): string {
   if (arguments.length === 0) {
@@ -212,10 +220,6 @@ class TextDecoderStream {
     return this.#transform.writable;
   }
 
-  get [Symbol.toStringTag]() {
-    return "TextDecoderStream";
-  }
-
   inspect() {
     const properties = {
       encoding: this.encoding,
@@ -227,6 +231,13 @@ class TextDecoderStream {
     return `TextDecoderStream ${inspect(properties)}`;
   }
 }
+
+Object.defineProperty(TextDecoderStream.prototype, Symbol.toStringTag, {
+  value: "TextDecoderStream",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 class TextEncoderStream {
   /** @type {string | null} */
@@ -289,10 +300,6 @@ class TextEncoderStream {
     return this.#transform.writable;
   }
 
-  get [Symbol.toStringTag]() {
-    return "TextEncoderStream";
-  }
-
   inspect() {
     const properties = {
       encoding: this.encoding,
@@ -302,6 +309,13 @@ class TextEncoderStream {
     return `TextEncoderStream ${inspect(properties)}`;
   }
 }
+
+Object.defineProperty(TextEncoderStream.prototype, Symbol.toStringTag, {
+  value: "TextEncoderStream",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 export const setupTextEncoding = (global: any) => {
   global.atob = atob;

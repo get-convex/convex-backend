@@ -100,6 +100,8 @@ for (const key of ["name", "message", "code"]) {
 }
 Object.defineProperty(DOMException.prototype, Symbol.toStringTag, {
   value: "DOMException",
+  enumerable: false,
+  writable: false,
   configurable: true,
 });
 

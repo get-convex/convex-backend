@@ -275,10 +275,6 @@ export class Request {
     return clonedRequest;
   }
 
-  get [Symbol.toStringTag]() {
-    return "Request";
-  }
-
   inspect() {
     const properties = {
       bodyUsed: this._bodyUsed,
@@ -349,6 +345,13 @@ export class Request {
     return throwNotImplementedMethodError("get duplex", "Request");
   }
 }
+
+Object.defineProperty(Request.prototype, Symbol.toStringTag, {
+  value: "Request",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 // Stream in Rust -> AbortSignal in JS
 function extractAbortSignal(signalId: string) {

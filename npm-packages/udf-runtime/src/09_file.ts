@@ -337,14 +337,17 @@ export class Blob {
     return blob;
   }
 
-  get [Symbol.toStringTag]() {
-    return "Blob";
-  }
-
   inspect() {
     return `Blob { size: ${this.size}, type: "${this.type}" }`;
   }
 }
+
+Object.defineProperty(Blob.prototype, Symbol.toStringTag, {
+  value: "Blob",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 export class File extends Blob {
   private _fileName: string;
@@ -367,11 +370,14 @@ export class File extends Blob {
   get lastModified() {
     return this._lastModified;
   }
-
-  get [Symbol.toStringTag]() {
-    return "File";
-  }
 }
+
+Object.defineProperty(File.prototype, Symbol.toStringTag, {
+  value: "File",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 export const setupBlob = (global: any) => {
   global.Blob = Blob;

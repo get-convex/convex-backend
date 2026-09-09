@@ -154,10 +154,6 @@ class URLSearchParams {
     return this[_searchParamPairs].map(([, value]) => value)[Symbol.iterator]();
   }
 
-  get [Symbol.toStringTag]() {
-    return "URLSearchParams";
-  }
-
   inspect() {
     let inner = "";
     if (this[_searchParamPairs].length !== 0) {
@@ -171,6 +167,13 @@ class URLSearchParams {
     return `${this.constructor.name} {${inner}}`;
   }
 }
+
+Object.defineProperty(URLSearchParams.prototype, Symbol.toStringTag, {
+  value: "URLSearchParams",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 type UrlInfo = {
   scheme: string;
@@ -354,10 +357,6 @@ class URL {
     this.#searchParams[_searchParamPairs] = searchPairs;
   }
 
-  get [Symbol.toStringTag]() {
-    return "URL";
-  }
-
   inspect() {
     const object = {
       href: this.href,
@@ -375,6 +374,13 @@ class URL {
     return `${this.constructor.name} ${inspect(object)}`;
   }
 }
+
+Object.defineProperty(URL.prototype, Symbol.toStringTag, {
+  value: "URL",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 export const setupURL = (global: any) => {
   global.URL = URL;

@@ -83,18 +83,18 @@ class WeakRef {
   }
 }
 
-// The spec defines these as non-writable data properties (not accessors)
-for (const [prototype, tag] of [
-  [FinalizationRegistry.prototype, "FinalizationRegistry"],
-  [WeakRef.prototype, "WeakRef"],
-] as const) {
-  Object.defineProperty(prototype, Symbol.toStringTag, {
-    value: tag,
-    writable: false,
-    enumerable: false,
-    configurable: true,
-  });
-}
+Object.defineProperty(FinalizationRegistry.prototype, Symbol.toStringTag, {
+  value: "FinalizationRegistry",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
+Object.defineProperty(WeakRef.prototype, Symbol.toStringTag, {
+  value: "WeakRef",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 // https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-canbeheldweakly
 function CanBeHeldWeakly(v: any) {
