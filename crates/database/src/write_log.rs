@@ -19,6 +19,7 @@ use std::{
 };
 
 use common::{
+    components::CanonicalizedComponentFunctionPath,
     document::{
         DocumentUpdate,
         DocumentUpdateRef,
@@ -227,6 +228,19 @@ impl WriteSource {
     /// Create a system write source from a static label.
     pub fn system(label: &'static str) -> Self {
         Self::System(label)
+    }
+
+    /// Create the write source for a mutation on `path`. `_system/` functions
+    /// get `SystemUdf` so that consumers filtering on `is_udf` don't surface
+    /// them as developer functions.
+    pub fn mutation(path: CanonicalizedComponentFunctionPath) -> Self {
+        let is_system = path.is_system();
+        let identifier = Arc::new(UdfIdentifier::Function(path));
+        if is_system {
+            Self::SystemUdf(identifier)
+        } else {
+            Self::Udf(identifier)
+        }
     }
 
     /// Returns a display string for this write source, including the
