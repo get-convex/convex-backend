@@ -27,13 +27,14 @@ pub mod migr_119;
 pub mod migr_121;
 pub mod migr_124;
 pub mod migr_125;
+pub mod migr_130;
 
 pub type DatabaseVersion = i64;
 // The version for the format of the database. We support all previous
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 129; // tonyt
+pub const DATABASE_VERSION: DatabaseVersion = 130; // tonyt
 
 pub struct MigrationExecutor<RT: Runtime> {
     pub db: Database<RT>,
@@ -124,6 +125,28 @@ impl<RT: Runtime> MigrationExecutor<RT> {
             129 => {
                 // The application system-table initializer creates the persistence index ID
                 // allocator before this migration runs.
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
+            130 => {
+                // Backfill in bounded batches, resuming the `_index` scan from
+                // the previous batch's cursor so the table is scanned once
+                // rather than re-scanned from the start each batch. Each batch
+                // stays under the per-transaction read and write caps; rerun
+                // until the scan reaches the end.
+                let mut cursor = None;
+                loop {
+                    let mut tx = self.db.begin_system().await?;
+                    let progress = migr_130::run_migration(&mut tx, cursor).await?;
+                    if progress.patched > 0 {
+                        self.db
+                            .commit_with_write_source(tx, "migration_130")
+                            .await?;
+                    }
+                    let Some(next) = progress.cursor else {
+                        break;
+                    };
+                    cursor = Some(next);
+                }
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
