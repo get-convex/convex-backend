@@ -968,7 +968,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
 
         let id_generator = TransactionIdGenerator::new(&self.runtime.clone())?;
         let creation_time =
-            CreationTime::try_from(cmp::max(*self.ts, self.runtime.generate_timestamp()?))?;
+            CreationTime::for_transaction(*self.ts, self.runtime.generate_timestamp()?)?;
         let transaction_index = TransactionIndex::new(
             self.snapshot.index_registry.clone(),
             database_index_snapshot,
@@ -1956,7 +1956,7 @@ impl<RT: Runtime> Database<RT> {
 
         // TODO: Use `begin_ts` outside of just the "_creationTime".
         let begin_ts = cmp::max(latest_ts.succ()?, self.runtime.generate_timestamp()?);
-        let creation_time = CreationTime::try_from(begin_ts)?;
+        let creation_time = CreationTime::for_transaction(*repeatable_ts, begin_ts)?;
         let id_generator = TransactionIdGenerator::new(&self.runtime)?;
         let transaction_index = TransactionIndex::new(
             snapshot.index_registry.clone(),

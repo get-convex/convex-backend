@@ -1,5 +1,4 @@
 use std::{
-    cmp,
     collections::BTreeMap,
     sync::Arc,
 };
@@ -97,7 +96,7 @@ fn make_transaction<RT: Runtime>(
     let id_generator = TransactionIdGenerator::new(&rt)?;
     // The transaction timestamp might be few minutes behind if the backend
     // has been idle. Make sure creation time is always recent.
-    let creation_time = CreationTime::try_from(cmp::max(*ts, rt.generate_timestamp()?))?;
+    let creation_time = CreationTime::for_transaction(*ts, rt.generate_timestamp()?)?;
     let transaction_index =
         TransactionIndex::new(index_registry, database_index_snapshot, text_index_snapshot);
     Ok(Transaction::new(

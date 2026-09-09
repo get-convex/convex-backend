@@ -385,6 +385,10 @@ impl<RT: Runtime> Transaction<RT> {
         self.index.base_snapshot().timestamp()
     }
 
+    pub fn next_creation_time(&self) -> CreationTime {
+        self.next_creation_time
+    }
+
     pub fn index_registry(&self) -> &indexing::index_registry::IndexRegistry {
         self.index.index_registry()
     }

@@ -114,9 +114,10 @@ mod metrics;
 static TOTAL_QUERY_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| *DATABASE_UDF_USER_TIMEOUT + *DATABASE_UDF_SYSTEM_TIMEOUT);
 
-/// Maximum age of results to tolerate if they're time-dependent.
-/// This should be at least `TOTAL_QUERY_TIMEOUT` or else long queries will
-/// loop.
+/// Maximum age or future offset to tolerate for time-dependent results.
+/// Future offsets account for clock skew between the backend and function
+/// runner. This should be at least `TOTAL_QUERY_TIMEOUT` or else long queries
+/// will loop.
 static MAX_CACHE_AGE: LazyLock<Duration> =
     LazyLock::new(|| *TOTAL_QUERY_TIMEOUT + Duration::from_secs(1));
 
@@ -803,9 +804,10 @@ impl<RT: Runtime> CacheManager<RT> {
                     log_validate_system_time_too_old();
                     return Ok(None);
                 },
-                None => {
+                None if cached_time - sys_now > *MAX_CACHE_AGE => {
                     tracing::warn!(
-                        "Cached value's timestamp {:?} is in the future (now: {:?})?",
+                        "Cached value's timestamp {:?} is too far in the future (current wall \
+                         time: {:?})",
                         cached_time,
                         sys_now,
                     );
@@ -813,7 +815,7 @@ impl<RT: Runtime> CacheManager<RT> {
                     log_validate_system_time_in_the_future();
                     return Ok(None);
                 },
-                Some(..) => (),
+                Some(..) | None => (),
             }
         }
         Ok(Some(result))

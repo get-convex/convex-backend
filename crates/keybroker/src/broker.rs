@@ -1361,6 +1361,9 @@ impl FunctionRunnerKeyBroker {
         component: ComponentId,
     ) -> anyhow::Result<StoreFileAuthorization> {
         let now = rt.unix_timestamp();
+        // Snapshot-bounded UDF time can be ahead of wall time. Cap issuance at
+        // wall time so clock skew cannot extend the token's validity.
+        let issued = issued.min(now);
         if (now - issued) > MAX_TS_DELAY {
             anyhow::bail!("Could not issue authorization. Issued TS too far in past.");
         }

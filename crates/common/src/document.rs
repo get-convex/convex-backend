@@ -74,6 +74,7 @@ use crate::{
         IndexKeyBytes,
     },
     pii::PII,
+    runtime::UnixTimestamp,
     types::Timestamp,
     value::Size,
 };
@@ -216,6 +217,16 @@ impl fmt::Debug for CreationTime {
 impl CreationTime {
     // CreationTime::ONE is a default for tests. We don't use zero because zero
     // is a likely value that a bug may produce in prod, so it is invalid.
+    /// Choose the transaction's initial `_creationTime` in milliseconds so that
+    /// `floor(creation_time_ms) * 1_000_000 >= snapshot_ts_ns`.
+    /// Queries and mutations use that floor for `Date.now()`, which must be at
+    /// least the snapshot timestamp and at most each new document's
+    /// `_creationTime`.
+    pub fn for_transaction(snapshot_ts: Timestamp, wall_clock: Timestamp) -> anyhow::Result<Self> {
+        let snapshot_ceil_ms = u64::from(snapshot_ts).div_ceil(1_000_000) as f64;
+        Self::try_from(timestamp_to_ms(wall_clock)?.max(snapshot_ceil_ms))
+    }
+
     pub fn increment(&mut self) -> anyhow::Result<Self> {
         let result = *self;
 
@@ -224,6 +235,13 @@ impl CreationTime {
 
         Ok(result)
     }
+}
+
+/// Set the UDF timestamp (`Date.now()`) based on the transaction's initial
+/// `CreationTime`. This ensures `_creationTime >= Date.now()` as the
+/// creation-time cursor advances.
+pub fn udf_unix_timestamp(creation_time: CreationTime) -> UnixTimestamp {
+    UnixTimestamp::from_millis(f64::from(creation_time).floor() as u64)
 }
 
 /// Documents store [`Value`]s.
