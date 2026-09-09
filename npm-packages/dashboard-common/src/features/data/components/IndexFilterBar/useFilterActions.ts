@@ -19,8 +19,8 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
   DatabaseIndexDef,
   EMPTY_FILTERS,
+  FieldOption,
   IndexDef,
-  IndexForField,
   NextIndexedField,
   SearchIndexDef,
   SortOption,
@@ -33,15 +33,13 @@ import {
   defaultScanClause,
   defaultSearchFilterValue,
   enabledIndexClauses,
-  enabledSearchClauses,
   findIndexDef,
-  indexesForField,
-  isRangeClause,
   isSearchFilter,
   newClauseId,
   nextIndexedFields,
   nextSearchFilterFields,
   normalizeFilters,
+  optionsForField,
   removeIndexedClause,
   removeScanClause,
   removeSearchFilterClause,
@@ -57,7 +55,6 @@ import {
   switchIndexAndAddClause,
 } from "./filterModel";
 
-// The representation of a filter clause for presentation.
 export type FilterItem =
   | {
       key: string;
@@ -65,6 +62,7 @@ export type FilterItem =
       position: number;
       field: string;
       clause: DatabaseIndexFilterClause;
+      isLast: boolean;
     }
   | { key: string; kind: "scan"; position: number; clause: Filter }
   | { key: string; kind: "search"; field: string; search: string }
@@ -86,15 +84,16 @@ export type FilterActions = ReturnType<typeof useFilterActions>;
 const scanKey = (clause: Filter, position: number) =>
   `scan/${clause.id ?? position}`;
 
-// Projects the FilterExpression data model into FilterItem
+const searchFilterKey = (field: string) => `searchFilter/${field}`;
+
 function buildFilterItems(
   defs: IndexDef[],
   expr: FilterExpression,
 ): FilterItem[] {
-  const items: FilterItem[] = [];
+  const filterItems: FilterItem[] = [];
   if (isSearchFilter(expr.index)) {
     const def = findIndexDef(defs, expr.index.name);
-    items.push({
+    filterItems.push({
       key: "search",
       kind: "search",
       field: def?.kind === "search" ? def.searchField : expr.index.name,
@@ -103,8 +102,11 @@ function buildFilterItems(
     expr.index.clauses
       .filter((c) => c.enabled)
       .forEach((clause, position) =>
-        items.push({
-          key: `searchFilter/${position}`,
+        filterItems.push({
+          // Keyed by field, not position: a search index takes each filter
+          // field at most once, so this identity survives the reindexing that
+          // removing an earlier clause would otherwise do to it.
+          key: searchFilterKey(clause.field),
           kind: "searchFilter",
           position,
           clause,
@@ -114,34 +116,36 @@ function buildFilterItems(
     const index = currentDatabaseIndex(defs, expr);
     const used = enabledIndexClauses(expr);
     used.forEach((clause, position) =>
-      items.push({
+      filterItems.push({
         key: `indexed/${position}`,
         kind: "indexed",
         position,
         field: index.fields[position] ?? "?",
         clause,
+        isLast: position === used.length - 1,
       }),
     );
   }
   expr.clauses.forEach((clause, position) =>
-    items.push({
+    filterItems.push({
       key: scanKey(clause, position),
       kind: "scan",
       position,
       clause,
     }),
   );
-  return items;
+  return filterItems;
 }
 
 // How long to wait after the last keystroke in a value editor before
 // running the query with the new value.
 const VALUE_APPLY_DEBOUNCE_MS = 400;
 
-// Owns the draft/applied split for the filter bar and turns user actions
-// (add the index's next field, add a scan, remove an item, sort by a
-// column, etc) into valid filter expressions. Typed values are debounced so
-// each keystroke doesn't run a query.
+// Owns the draft/applied split for the filter bar and turns user intents
+// (add the index's next field, add a scan, remove a chip, sort by a
+// column, ...) into valid filter expressions. Everything applies as soon as
+// it is valid; typed values are debounced so each keystroke doesn't run a
+// query.
 export function useFilterActions({
   filters,
   draftFilters,
@@ -171,11 +175,37 @@ export function useFilterActions({
     [applyFilters, setDraftFilters],
   );
 
-  const [openItemKey, setOpenItemKey] = useState<string | null>(null);
+  const [openFilterItemKey, _setOpenFilterItemKey] = useState<string | null>(
+    null,
+  );
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
-  // Mirrors `errors` for the debounced apply, which runs outside a render.
+  // Mirrors `errors` for the debounced apply, which runs outside a render and
+  // so can't read this render's state. Written only by `setError`, so the two
+  // never drift.
   const errorsRef = useRef(errors);
-  errorsRef.current = errors;
+
+  const setError = useCallback((key: string, message: string | undefined) => {
+    const prev = errorsRef.current;
+    if (prev[key] === message) return;
+    const next = { ...prev };
+    if (message === undefined) {
+      delete next[key];
+    } else {
+      next[key] = message;
+    }
+    errorsRef.current = next;
+    setErrors(next);
+  }, []);
+
+  const setOpenFilterItemKey = useCallback(
+    (key: string | null) => {
+      // Clear any lingering error when the user explicitly opens a chip so
+      // the editor starts clean. The error icon on the closed chip was the hint.
+      if (key !== null) setError(key, undefined);
+      _setOpenFilterItemKey(key);
+    },
+    [setError],
+  );
   const pendingApply = useRef<{
     timer: ReturnType<typeof setTimeout>;
     next: FilterExpression;
@@ -187,17 +217,34 @@ export function useFilterActions({
     [],
   );
 
-  const items = useMemo(
+  const filterItems = useMemo(
     () => buildFilterItems(indexDefs, shown),
     [indexDefs, shown],
   );
-  const hasInvalid = items.some((c) => errors[c.key]);
+  const hasInvalid = filterItems.some((c) => errors[c.key]);
 
-  const setItemError = useCallback((key: string, messages: string[]) => {
-    setErrors((prev) =>
-      prev[key] === messages[0] ? prev : { ...prev, [key]: messages[0] },
-    );
-  }, []);
+  // An error lives exactly as long as the item that reported it. Indexed
+  // chips are keyed by position, so a key freed by one edit can come back
+  // pointing at a different field (switching index, then filtering by the new
+  // index's first field); forgetting the error the moment its item goes is
+  // what stops it resurfacing on the replacement.
+  useEffect(() => {
+    const live = new Set(filterItems.map((c) => c.key));
+    Object.keys(errorsRef.current).forEach((key) => {
+      if (!live.has(key)) setError(key, undefined);
+    });
+  }, [filterItems, setError]);
+
+  // Only an editor reporting a problem writes an error. Clearing belongs to
+  // `updateFilterItem` (which runs when an editor parses a value) and to
+  // opening a chip, so an `onError([])` from an editor unmounting can't wipe
+  // the error the closed chip is there to show.
+  const setFilterItemError = useCallback(
+    (key: string, messages: string[]) => {
+      if (messages.length > 0) setError(key, messages[0]);
+    },
+    [setError],
+  );
 
   const hasErrorsFor = useCallback(
     (expr: FilterExpression) =>
@@ -225,7 +272,7 @@ export function useFilterActions({
     if (!hasErrorsFor(next)) apply(next);
   }, [apply, hasErrorsFor]);
 
-  // Structural edits go live right away unless an item still holds an
+  // Structural edits go live right away unless a chip still holds an
   // unparseable value, in which case they stay in the draft.
   const commitLive = useCallback(
     (next: FilterExpression) => {
@@ -248,15 +295,28 @@ export function useFilterActions({
   );
   const searchActive = isSearchFilter(shown.index);
   const used = enabledIndexClauses(shown);
-  const lastIsRange = used.length > 0 && isRangeClause(used[used.length - 1]);
   const currentIndex = currentDatabaseIndex(indexDefs, shown);
-  const nextFields = searchActive
-    ? searchFilterNext
-    : indexedNext.map((n) => n.field);
+
+  // Every add lands the same way: the new item's editor opens, and the apply
+  // goes through the debounce so that editor can mount and report an invalid
+  // initial value (e.g. "" for an `_id` field) before the query runs.
+  const addAndOpen = useCallback(
+    (
+      next: FilterExpression,
+      itemKey: string,
+      logProps: Record<string, string>,
+    ) => {
+      setDraftFilters(next);
+      scheduleApply(next);
+      setOpenFilterItemKey(itemKey);
+      log("filter add", logProps);
+    },
+    [log, scheduleApply, setDraftFilters, setOpenFilterItemKey],
+  );
 
   // Adds the index's next clause on `field`, seeded from a sample document
-  // so results appear right away, and opens its editor. Only the clause each
-  // index kind takes differs; adding it is the same either way.
+  // so results appear right away. Only the clause each index kind takes
+  // differs; adding it is the same either way.
   const addField = useCallback(
     (field: string) => {
       let added:
@@ -270,7 +330,7 @@ export function useFilterActions({
               field,
               defaultSearchFilterValue(field, defaultDocument),
             ),
-            itemKey: `searchFilter/${enabledSearchClauses(shown).length}`,
+            itemKey: searchFilterKey(field),
             filterType: "searchFilter",
           };
         }
@@ -287,17 +347,14 @@ export function useFilterActions({
         };
       }
       if (!added) return false;
-      commitLive(added.expr);
-      setOpenItemKey(added.itemKey);
-      log("filter add", { filterType: added.filterType });
+      addAndOpen(added.expr, added.itemKey, { filterType: added.filterType });
       return true;
     },
     [
-      commitLive,
+      addAndOpen,
       defaultDocument,
       indexDefs,
       indexedNext,
-      log,
       searchActive,
       searchFilterNext,
       shown,
@@ -310,11 +367,13 @@ export function useFilterActions({
   const addScanField = useCallback(
     (field: string) => {
       const clause = defaultScanClause(field, defaultDocument);
-      commitLive(addScanClause(shown, clause));
-      setOpenItemKey(scanKey(clause, shown.clauses.length));
-      log("filter add", { filterType: "regular" });
+      addAndOpen(
+        addScanClause(shown, clause),
+        scanKey(clause, shown.clauses.length),
+        { filterType: "regular" },
+      );
     },
-    [commitLive, defaultDocument, log, shown],
+    [addAndOpen, defaultDocument, shown],
   );
 
   // Switches to `index` (keeping the applied clauses it shares) and adds an
@@ -328,16 +387,16 @@ export function useFilterActions({
         field,
         defaultIndexedClause(field, defaultDocument),
       );
-      commitLive(next);
-      setOpenItemKey(`indexed/${enabledIndexClauses(next).length - 1}`);
-      log("filter add", { filterType: "index", switchedIndex: index.name });
+      addAndOpen(next, `indexed/${enabledIndexClauses(next).length - 1}`, {
+        filterType: "index",
+        switchedIndex: index.name,
+      });
     },
-    [commitLive, defaultDocument, indexDefs, log, shown],
+    [addAndOpen, defaultDocument, indexDefs, shown],
   );
 
-  const indexesFor = useCallback(
-    (field: string): IndexForField[] =>
-      indexesForField(indexDefs, shown, field),
+  const optionsFor = useCallback(
+    (field: string): FieldOption[] => optionsForField(indexDefs, shown, field),
     [indexDefs, shown],
   );
 
@@ -410,49 +469,65 @@ export function useFilterActions({
     ],
   );
 
-  const updateItem = useCallback(
+  const updateFilterItem = useCallback(
     (key: string, update: FilterItemUpdate) => {
-      const item = items.find((c) => c.key === key);
-      if (!item) return;
+      const filterItem = filterItems.find((c) => c.key === key);
+      if (!filterItem) return;
       let next: FilterExpression | undefined;
-      if (item.kind === "indexed" && update.kind === "indexed") {
-        next = setIndexedClause(indexDefs, shown, item.position, update.clause);
-      } else if (item.kind === "scan" && update.kind === "scan") {
-        next = setScanClause(shown, item.position, update.clause);
-      } else if (item.kind === "search" && update.kind === "search") {
+      if (filterItem.kind === "indexed" && update.kind === "indexed") {
+        next = setIndexedClause(
+          indexDefs,
+          shown,
+          filterItem.position,
+          update.clause,
+        );
+      } else if (filterItem.kind === "scan" && update.kind === "scan") {
+        next = setScanClause(shown, filterItem.position, update.clause);
+      } else if (filterItem.kind === "search" && update.kind === "search") {
         next = setSearchText(shown, update.search);
       } else if (
-        item.kind === "searchFilter" &&
+        filterItem.kind === "searchFilter" &&
         update.kind === "searchFilter"
       ) {
-        next = setSearchFilterClause(shown, item.position, update.value);
+        next = setSearchFilterClause(shown, filterItem.position, update.value);
       }
       // Editors report their initial value on mount; that isn't a change and
       // must not restart the debounce.
       if (next && !isEqual(next, shown)) {
+        // An editor only reports a change once it has parsed a value, so the
+        // change itself clears the chip's error. The editor reports onError
+        // before onChange, so waiting for the next onError([]) would leave the
+        // error — and with it the block on applying — in place until the user
+        // typed again.
+        setError(key, undefined);
         setDraftFilters(next);
         scheduleApply(next);
       }
     },
-    [items, indexDefs, scheduleApply, setDraftFilters, shown],
+    [filterItems, indexDefs, scheduleApply, setDraftFilters, setError, shown],
   );
 
   // Indexed filters (and the search a search index's filters hang off) are
   // removed from the end only, so no removal ever takes other clauses with it.
-  const removeItem = useCallback(
+  const removeFilterItem = useCallback(
     (key: string) => {
-      const item = items.find((c) => c.key === key);
-      if (!item) return;
-      switch (item.kind) {
+      const filterItem = filterItems.find((c) => c.key === key);
+      if (!filterItem) return;
+      let next: FilterExpression | undefined;
+      switch (filterItem.kind) {
         case "indexed": {
-          if (items.findLast((c) => c.kind === "indexed") !== item) return;
-          const { expr } = removeIndexedClause(indexDefs, shown, item.position);
-          commitLive(expr);
+          if (!filterItem.isLast) return;
+          const { expr } = removeIndexedClause(
+            indexDefs,
+            shown,
+            filterItem.position,
+          );
+          next = expr;
           log("filter delete", { filterType: "index" });
           break;
         }
         case "scan":
-          commitLive(removeScanClause(shown, item.position));
+          next = removeScanClause(shown, filterItem.position);
           log("filter delete", { filterType: "regular" });
           break;
         case "search":
@@ -462,29 +537,48 @@ export function useFilterActions({
           ) {
             return;
           }
-          commitLive(clearSearchIndex(shown));
+          next = clearSearchIndex(shown);
           log("filter delete", { filterType: "search" });
           break;
         case "searchFilter":
-          commitLive(removeSearchFilterClause(shown, item.position));
+          next = removeSearchFilterClause(shown, filterItem.position);
           log("filter delete", { filterType: "searchFilter" });
           break;
         default:
           return;
       }
-      setErrors((prev) => ({ ...prev, [key]: undefined }));
-      if (openItemKey === key) setOpenItemKey(null);
+      if (!next) return;
+      setError(key, undefined);
+      if (openFilterItemKey === key) setOpenFilterItemKey(null);
+      // Not `commitLive`: it judges this render's items, which still include
+      // the one just removed. Only errors that survive the removal count.
+      if (hasErrorsFor(next)) {
+        setDraftFilters(next);
+      } else {
+        apply(next);
+      }
     },
-    [items, commitLive, indexDefs, log, openItemKey, shown],
+    [
+      apply,
+      filterItems,
+      hasErrorsFor,
+      indexDefs,
+      log,
+      openFilterItemKey,
+      setDraftFilters,
+      setError,
+      setOpenFilterItemKey,
+      shown,
+    ],
   );
 
   const startSearch = useCallback(
     (def: SearchIndexDef) => {
       commitLive(setSearchIndex(shown, def));
-      setOpenItemKey("search");
+      setOpenFilterItemKey("search");
       log("sort by index combobox opened", { selectedOption: def.name });
     },
-    [commitLive, log, shown],
+    [commitLive, log, setOpenFilterItemKey, shown],
   );
 
   const chooseIndex = useCallback(
@@ -519,35 +613,31 @@ export function useFilterActions({
     [indexDefs, shown],
   );
 
-  // Closing an item's editor flushes any value still waiting on the debounce.
-  const closeItem = useCallback(() => {
-    setOpenItemKey(null);
+  // Closing a chip's editor flushes any value still waiting on the debounce.
+  const closeFilterItem = useCallback(() => {
+    setOpenFilterItemKey(null);
     flushPendingApply();
-  }, [flushPendingApply]);
+  }, [flushPendingApply, setOpenFilterItemKey]);
 
   return {
     shown,
-    applied,
-    items,
+    filterItems,
     errors,
-    hasInvalid,
-    openItemKey,
-    setOpenItemKey,
-    closeItem,
-    setItemError,
+    openFilterItemKey,
+    setOpenFilterItemKey,
+    closeFilterItem,
+    setFilterItemError,
     indexedNext,
     searchFilterNext,
-    nextFields,
     searchActive,
-    lastIsRange,
     currentIndex,
     addField,
     addScanField,
     addFieldWithIndex,
-    indexesFor,
+    optionsFor,
     addComplete,
-    updateItem,
-    removeItem,
+    updateFilterItem,
+    removeFilterItem,
     startSearch,
     chooseIndex,
     setOrder,

@@ -33,7 +33,7 @@ import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
 import {
   documentValidatorForTable,
-  validatorForColumn,
+  validatorForFilterField,
 } from "@common/features/data/components/Table/utils/validators";
 import {
   useFilterHistory,
@@ -461,25 +461,6 @@ function generateNewFilter(): Filter {
     value: "",
     enabled: true,
   };
-}
-
-function validatorForFilterField(
-  documentValidator: SchemaJson["tables"][0]["documentType"],
-  tableName: string,
-  fieldName?: string,
-): ValidatorJSON | undefined {
-  if (!documentValidator || fieldName === undefined) {
-    return undefined;
-  }
-
-  switch (fieldName) {
-    case "_id":
-      return { type: "id", tableName };
-    case "_creationTime":
-      return { type: "number" };
-    default:
-      return validatorForColumn(documentValidator, fieldName);
-  }
 }
 
 function useDataFilters({

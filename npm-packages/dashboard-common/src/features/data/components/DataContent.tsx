@@ -60,14 +60,12 @@ import { api } from "system-udfs/convex/_generated/api";
 import { useNents } from "@common/lib/useNents";
 import omit from "lodash/omit";
 import { clearFilters } from "./DataFilters/clearFilters";
+import { IndexFilterBar } from "./IndexFilterBar/IndexFilterBar";
 import {
   EMPTY_FILTERS,
   buildIndexDefs,
   currentOrder,
   effectiveSortField,
-  normalizeFilters,
-  sortByField as sortByFieldInModel,
-  sortOptionForField,
 } from "./IndexFilterBar/filterModel";
 import { useFilterActions } from "./IndexFilterBar/useFilterActions";
 
@@ -376,31 +374,51 @@ export function DataContent({
         />
 
         <div className="flex h-full max-h-full flex-col overflow-y-hidden rounded-b-lg">
-          {numRowsInTable !== undefined && numRowsInTable > 0 && (
-            <DataFilters
-              tableName={tableName}
-              componentId={componentId}
-              tableFields={tableFields}
-              defaultDocument={defaultDocument}
-              filters={filters}
-              onFiltersChange={applyFiltersWithHistory}
-              onFiltersApplied={onFiltersApplied}
-              dataFetchErrors={errors}
-              draftFilters={draftFilters}
-              setDraftFilters={setDraftFilters}
-              activeSchema={activeSchema}
-              numRows={numRowsInTable}
-              numRowsLoaded={data.length}
-              hasFilters={hasFiltersAndAtLeastOneDocument}
-              showFilters={showFilters}
-              setShowFilters={setShowFilters}
-              allFields={allFields}
-              hiddenColumns={hiddenColumns}
-              setHiddenColumns={setHiddenColumns}
-              columnOrder={columnOrder}
-              setColumnOrder={setColumnOrder}
-            />
-          )}
+          {numRowsInTable !== undefined &&
+            numRowsInTable > 0 &&
+            (newDataFilters ? (
+              <IndexFilterBar
+                actions={filterActions}
+                indexDefs={indexDefs}
+                tableName={tableName}
+                tableFields={tableFields}
+                defaultDocument={defaultDocument}
+                dataFetchErrors={errors}
+                activeSchema={activeSchema}
+                numRows={numRowsInTable}
+                numRowsLoaded={data.length}
+                hasFilters={hasFiltersAndAtLeastOneDocument}
+                allFields={allFields}
+                hiddenColumns={hiddenColumns}
+                setHiddenColumns={setHiddenColumns}
+                columnOrder={columnOrder}
+                setColumnOrder={setColumnOrder}
+              />
+            ) : (
+              <DataFilters
+                tableName={tableName}
+                componentId={componentId}
+                tableFields={tableFields}
+                defaultDocument={defaultDocument}
+                filters={filters}
+                onFiltersChange={applyFiltersWithHistory}
+                onFiltersApplied={onFiltersApplied}
+                dataFetchErrors={errors}
+                draftFilters={draftFilters}
+                setDraftFilters={setDraftFilters}
+                activeSchema={activeSchema}
+                numRows={numRowsInTable}
+                numRowsLoaded={data.length}
+                hasFilters={hasFiltersAndAtLeastOneDocument}
+                showFilters={showFilters}
+                setShowFilters={setShowFilters}
+                allFields={allFields}
+                hiddenColumns={hiddenColumns}
+                setHiddenColumns={setHiddenColumns}
+                columnOrder={columnOrder}
+                setColumnOrder={setColumnOrder}
+              />
+            ))}
 
           <LoadingTransition
             loadingState={
@@ -430,26 +448,10 @@ export function DataContent({
                     loadMore={loadNextPage}
                     sort={sort}
                     getSortOption={
-                      newDataFilters
-                        ? (field: string) =>
-                            sortOptionForField(indexDefs, appliedFilters, field)
-                        : undefined
+                      newDataFilters ? filterActions.sortOptionFor : undefined
                     }
                     onSortColumn={
-                      newDataFilters
-                        ? (field: string) => {
-                            const next = sortByFieldInModel(
-                              indexDefs,
-                              appliedFilters,
-                              field,
-                            );
-                            if (!next) return;
-                            setDraftFilters(next);
-                            void applyFiltersWithHistory(
-                              normalizeFilters(next),
-                            );
-                          }
-                        : undefined
+                      newDataFilters ? filterActions.sortByField : undefined
                     }
                     totalRowCount={
                       filters

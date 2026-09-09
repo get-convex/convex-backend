@@ -15,6 +15,7 @@ import {
   FiltersAppliedProperties,
   summarizeFilters,
 } from "@common/features/data/lib/filterAnalytics";
+import { useNewDataFilters } from "@common/features/data/lib/useNewDataFilters";
 
 // An expression with no clauses, no index, and no explicit order carries no
 // selection and reads as "no filters". This mirrors the condition under which
@@ -63,6 +64,7 @@ export const useTableFilters = (
   const { query, replace } = useRouter();
   const { appendFilterHistory } = useFilterHistory(tableName, componentId);
   const [, setFilterMap] = useFilterMap();
+  const { newDataFilters } = useNewDataFilters();
 
   const rawFilters = query.filters as string | undefined;
   const filters = useMemo(() => parseFilters(rawFilters), [rawFilters]);
@@ -71,7 +73,9 @@ export const useTableFilters = (
     filters,
     applyFiltersWithHistory: async (newFilters?: FilterExpression) => {
       if (newFilters) {
-        onFiltersApplied?.(summarizeFilters(newFilters));
+        onFiltersApplied?.(
+          summarizeFilters(newFilters, newDataFilters ? 2 : 1),
+        );
         if (
           newFilters.clauses.length === 0 &&
           !newFilters.index &&

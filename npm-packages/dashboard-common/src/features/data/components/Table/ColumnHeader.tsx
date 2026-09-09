@@ -20,10 +20,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import { Button } from "@ui/Button";
 import { useStoredShowFieldsAsDates } from "@common/features/data/components/Table/utils/useDataColumns";
-import {
-  SortOption,
-  indexSnippet,
-} from "@common/features/data/components/IndexFilterBar/filterModel";
+import { SortOption } from "@common/features/data/components/IndexFilterBar/filterModel";
 
 type ColumnHeaderProps = {
   header: Header<GenericDocument, unknown>;
@@ -241,34 +238,40 @@ function SortableColumnName({
   if (!sortOption || !onSort || columnName === emptyColumnName) {
     return <>{children}</>;
   }
-  if (sortOption.kind === "unavailable") {
-    // The caret shows on hover; the tooltip is scoped to just the caret so
-    // the column name itself stays a plain text label.
-    const tip = sortOption.reason ?? (
-      <span>
-        To sort by <code>{columnName}</code>, add an index that starts with it:{" "}
-        <code>{indexSnippet(columnName)}</code>
-      </span>
-    );
+  if (sortOption.kind === "switch" && sortOption.dropsClauses) {
     return (
-      <span className="flex cursor-not-allowed items-center gap-1 text-content-tertiary">
+      <span className="flex items-center gap-1">
         {children}
         {isHovered && (
-          <Tooltip tip={tip} side="bottom">
-            <CaretSortIcon className="shrink-0 cursor-not-allowed text-content-tertiary" />
+          <Tooltip
+            tip="Sorting by this field will clear your active indexed filters."
+            side="bottom"
+          >
+            <span className="cursor-not-allowed opacity-40">
+              <CaretSortIcon className="shrink-0" />
+            </span>
           </Tooltip>
         )}
       </span>
     );
   }
-  const tip =
-    sortOption.kind === "switch"
-      ? `Sort by ${columnName} using index ${sortOption.index.name}${
-          sortOption.dropsClauses
-            ? ". This removes the current indexed filters."
-            : ""
-        }`
-      : undefined;
+  if (sortOption.kind === "unavailable") {
+    return (
+      <span className="flex items-center gap-1 text-content-tertiary">
+        {children}
+        {isHovered && (
+          <Tooltip
+            tip="To sort by this field, add an index for it to your schema."
+            side="bottom"
+          >
+            <span className="cursor-not-allowed opacity-40">
+              <CaretSortIcon className="shrink-0" />
+            </span>
+          </Tooltip>
+        )}
+      </span>
+    );
+  }
   return (
     <span className="flex items-center gap-1">
       {children}
@@ -276,11 +279,8 @@ function SortableColumnName({
         <Button
           variant="unstyled"
           onClick={onSort}
-          // -m-1 p-1 enlarges the hitbox without shifting layout
-          className="-m-1 flex cursor-pointer items-center p-1 hover:text-content-primary"
+          className="flex size-5 cursor-pointer items-center justify-center rounded-full hover:bg-background-tertiary"
           aria-label={`Sort by ${columnName}`}
-          tip={tip}
-          tipSide="bottom"
           icon={
             sort ? (
               <CaretUpIcon

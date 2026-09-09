@@ -217,6 +217,12 @@ const mockConvexClient = mockConvexReactClient()
       staged: false,
       backfill: { state: "done" as const },
     },
+    {
+      name: "search_description",
+      fields: { searchField: "description", filterFields: ["name"] },
+      staged: false,
+      backfill: { state: "done" as const },
+    },
   ])
   .registerQueryFake(udfs.getTableMapping.default, () => ({
     1: "channels",
@@ -288,12 +294,23 @@ const meta = {
       return storyFn();
     },
   ],
-  render: () => (
+  render: renderDataPage,
+} satisfies Meta<typeof DataView>;
+
+function renderDataPage(
+  _args: unknown,
+  { parameters }: { parameters: Record<string, any> },
+) {
+  return (
     <ConnectedDeploymentContext.Provider value={mockConnectedDeployment}>
       <ConvexProvider client={mockConvexClient}>
         <DeploymentInfoContext.Provider
           value={{
             ...mockDeploymentInfo,
+            // The index filter bar is behind a LaunchDarkly flag, which
+            // reaches the data page through this context rather than the
+            // hook, so stories opt in per story.
+            newDataFilters: parameters.newDataFilters === true,
             useCurrentTeam: () => mockTeam,
             useCurrentProject: () => mockProject,
             useCurrentDeployment: () => mockDeployment,
@@ -311,13 +328,39 @@ const meta = {
         </DeploymentInfoContext.Provider>
       </ConvexProvider>
     </ConnectedDeploymentContext.Provider>
-  ),
-} satisfies Meta<typeof DataView>;
+  );
+}
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+/**
+ * Shows the Data page with the index filter bar, which replaces the "Filter &
+ * Sort" popover when the `newDataFilters` flag is on.
+ */
+export const IndexFilterBar: Story = {
+  parameters: {
+    newDataFilters: true,
+    nextjs: {
+      router: {
+        pathname: "/t/[team]/[project]/[deploymentName]/data",
+        route: "/t/[team]/[project]/[deploymentName]/data",
+        asPath:
+          "/t/acme/my-amazing-app/happy-capybara-123/data?filters=eyJjbGF1c2VzIjpbXSwiaW5kZXgiOnsibmFtZSI6ImJ5X25hbWUiLCJjbGF1c2VzIjpbeyJ0eXBlIjoiaW5kZXhFcSIsImVuYWJsZWQiOnRydWUsInZhbHVlIjoiZ2VuZXJhbCJ9LHsidHlwZSI6ImluZGV4RXEiLCJlbmFibGVkIjpmYWxzZSwidmFsdWUiOjE3NzU1MTUxNjk5NDd9XX19",
+        query: {
+          team: "acme",
+          project: "my-amazing-app",
+          deploymentName: "happy-capybara-123",
+          filters:
+            "eyJjbGF1c2VzIjpbXSwiaW5kZXgiOnsibmFtZSI6ImJ5X25hbWUiLCJjbGF1c2VzIjpbeyJ0eXBlIjoiaW5kZXhFcSIsImVuYWJsZWQiOnRydWUsInZhbHVlIjoiZ2VuZXJhbCJ9LHsidHlwZSI6ImluZGV4RXEiLCJlbmFibGVkIjpmYWxzZSwidmFsdWUiOjE3NzU1MTUxNjk5NDd9XX19",
+        },
+      },
+    },
+    screenshotSelector: '[data-testid="indexFilterBar"]',
+  },
+};
 
 /**
  * Shows the Data page with filter panel open, sorting by the `by_name` index.
@@ -662,6 +705,12 @@ const mockConvexClientWithComponents = mockConvexReactClient()
     {
       name: "by_name",
       fields: ["name", "_creation_time"],
+      staged: false,
+      backfill: { state: "done" as const },
+    },
+    {
+      name: "search_description",
+      fields: { searchField: "description", filterFields: ["name"] },
       staged: false,
       backfill: { state: "done" as const },
     },

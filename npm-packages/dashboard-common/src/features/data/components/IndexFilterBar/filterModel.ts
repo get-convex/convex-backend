@@ -168,8 +168,6 @@ export type NextIndexedField = { field: string; index: DatabaseIndexDef };
 // Fields that can be added as the next indexed clause right now. Empty when
 // the last clause is a range (nothing may follow it) or a search index is
 // active (see `nextSearchFilterFields`).
-// Used for "faux" query-planning - i.e. deciding if we should add a filter to an existing index filter,
-// or switch to a non-indexed filter instead.
 export function nextIndexedFields(
   defs: IndexDef[],
   expr: FilterExpression,
@@ -269,7 +267,6 @@ export function setIndexedClause(
   const used = enabledIndexClauses(expr);
   const next = [...used];
   next[position] = { ...clause, enabled: true };
-  // A range clause must be last; drop everything that followed it.
   const trimmed = isRangeClause(clause) ? next.slice(0, position + 1) : next;
   return withDatabaseIndex(expr, currentDatabaseIndex(defs, expr), trimmed);
 }
@@ -341,7 +338,7 @@ function withSearchClauses(
 }
 
 // The applied search clauses, in the order their chips appear.
-export function enabledSearchClauses(
+function enabledSearchClauses(
   expr: FilterExpression,
 ): SearchIndexFilterClause[] {
   return isSearchFilter(expr.index)
@@ -411,9 +408,61 @@ export function indexesForField(
     while (kept < used.length && current.fields[kept] === index.fields[kept]) {
       kept += 1;
     }
+    // An index range ends the query the backend can run ("Index range not
+    // supported" otherwise), so nothing can be appended to a kept prefix that
+    // ends in one. Dropping the range (kept === 0) is still on the table.
+    if (kept > 0 && isRangeClause(used[kept - 1])) return [];
     if (index.fields[kept] !== field) return [];
     return [{ index, kept, dropped: used.length - kept }];
   });
+}
+
+// Every way to put a filter on `field` right now, best first. A search is
+// never first: it throws the rest of the query away, so it stays an explicit
+// choice (see `bestFieldOption`).
+export type FieldOption =
+  // An equality on a filter field of the search index already in use.
+  | { kind: "searchFilter"; index: SearchIndexDef }
+  | ({ kind: "index" } & IndexForField)
+  // Starting a search on an index whose search field is this one.
+  | { kind: "search"; index: SearchIndexDef; dropped: number }
+  | { kind: "scan" };
+
+export function optionsForField(
+  defs: IndexDef[],
+  expr: FilterExpression,
+  field: string,
+): FieldOption[] {
+  const current = isSearchFilter(expr.index)
+    ? findIndexDef(defs, expr.index.name)
+    : undefined;
+  const options: FieldOption[] = [];
+  if (
+    current?.kind === "search" &&
+    nextSearchFilterFields(defs, expr).includes(field)
+  ) {
+    options.push({ kind: "searchFilter", index: current });
+  }
+  for (const forField of [...indexesForField(defs, expr, field)].sort(
+    (a, b) => a.dropped - b.dropped,
+  )) {
+    options.push({ kind: "index", ...forField });
+  }
+  // A search keeps nothing but the search string itself.
+  const droppedBySearch =
+    enabledIndexClauses(expr).length +
+    enabledSearchClauses(expr).length +
+    expr.clauses.length;
+  for (const index of searchIndexDefs(defs)) {
+    if (index.searchField !== field || index.name === current?.name) continue;
+    options.push({ kind: "search", index, dropped: droppedBySearch });
+  }
+  options.push({ kind: "scan" });
+  return options;
+}
+
+export function bestFieldOption(options: FieldOption[]): FieldOption {
+  return options.find((o) => o.kind !== "search") ?? { kind: "scan" };
 }
 
 export function switchIndexAndAddClause(
@@ -444,7 +493,7 @@ export function setScanClause(
   clause: Filter,
 ): FilterExpression {
   const clauses = [...expr.clauses];
-  clauses[position] = clause;
+  clauses[position] = { ...clause, enabled: true };
   return { ...expr, clauses };
 }
 
@@ -459,7 +508,6 @@ export function setOrder(
   expr: FilterExpression,
   order: "asc" | "desc",
 ): FilterExpression {
-  if (isSearchFilter(expr.index)) return expr;
   return { ...expr, order };
 }
 
@@ -488,7 +536,7 @@ export function effectiveSortField(
 export type SortOption =
   | { kind: "toggle" }
   | { kind: "switch"; index: DatabaseIndexDef; dropsClauses: boolean }
-  | { kind: "unavailable"; reason?: string };
+  | { kind: "unavailable" };
 
 // How a click on `field`'s column header would sort. Prefers an index that
 // keeps the applied clauses (same prefix, `field` next), then any index
@@ -568,14 +616,6 @@ export function normalizeFilters(expr: FilterExpression): FilterExpression {
   return expr;
 }
 
-export function hasAnyClause(expr: FilterExpression): boolean {
-  return (
-    enabledIndexClauses(expr).length > 0 ||
-    expr.clauses.some((c) => c.enabled !== false) ||
-    isSearchFilter(expr.index)
-  );
-}
-
 export const scanOperatorOptions: Readonly<
   Option<(FilterByType | FilterByBuiltin)["op"]>[]
 > = [
@@ -600,7 +640,9 @@ export const indexedOperatorOptions: Readonly<Option<IndexedOperator>[]> = [
   { value: "between", label: "is between" },
 ];
 
-function indexedOperatorOf(clause: DatabaseIndexFilterClause): IndexedOperator {
+export function indexedOperatorOf(
+  clause: DatabaseIndexFilterClause,
+): IndexedOperator {
   if (!isRangeClause(clause)) return "eq";
   if (clause.lowerOp && clause.upperOp) return "between";
   return clause.lowerOp ?? clause.upperOp ?? "between";
@@ -614,7 +656,7 @@ export function withIndexedOperator(
 ): DatabaseIndexFilterClause {
   const lower = isRangeClause(clause) ? clause.lowerValue : clause.value;
   const upper = isRangeClause(clause) ? clause.upperValue : clause.value;
-  const primary = lower ?? upper;
+  const primary = lower ?? upper ?? null;
   switch (op) {
     case "eq":
       return { type: "indexEq", enabled: true, value: primary };
@@ -757,8 +799,6 @@ export function summarizeFilters(
   return clauseText.length > 0 ? `${clauseText} · ${sortText}` : sortText;
 }
 
-// Timestamps are rarely filtered for equality, so creation time starts as
-// a `>=` range at the current moment.
 export function defaultIndexedClause(
   field: string,
   defaultDocument: GenericDocument,
@@ -767,8 +807,8 @@ export function defaultIndexedClause(
     return {
       type: "indexRange",
       enabled: true,
-      lowerOp: "gte",
-      lowerValue: Date.now(),
+      upperOp: "lte",
+      upperValue: Date.now(),
     };
   }
   return {
@@ -823,9 +863,4 @@ export function defaultScanClause(
           : convexToJson(defaultDocument[field]),
     enabled: true,
   };
-}
-
-export function indexSnippet(field: string): string {
-  const name = `by_${field.replace(/^_+/, "").replace(/[^A-Za-z0-9_]/g, "_")}`;
-  return `.index("${name}", [${JSON.stringify(field)}])`;
 }
