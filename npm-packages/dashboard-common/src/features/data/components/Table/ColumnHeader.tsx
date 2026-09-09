@@ -248,7 +248,7 @@ function SortableColumnName({
             side="bottom"
           >
             <span className="cursor-not-allowed opacity-40">
-              <CaretSortIcon className="shrink-0" />
+              <CaretSortIcon className="shrink-0 text-content-tertiary" />
             </span>
           </Tooltip>
         )}
@@ -257,7 +257,7 @@ function SortableColumnName({
   }
   if (sortOption.kind === "unavailable") {
     return (
-      <span className="flex items-center gap-1 text-content-tertiary">
+      <span className="flex items-center gap-1">
         {children}
         {isHovered && (
           <Tooltip
@@ -265,7 +265,7 @@ function SortableColumnName({
             side="bottom"
           >
             <span className="cursor-not-allowed opacity-40">
-              <CaretSortIcon className="shrink-0" />
+              <CaretSortIcon className="shrink-0 text-content-tertiary" />
             </span>
           </Tooltip>
         )}
