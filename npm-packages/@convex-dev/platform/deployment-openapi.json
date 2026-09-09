@@ -2633,7 +2633,8 @@
           "calls",
           "GB",
           "Query-GB",
-          "GB-hours"
+          "GB-hours",
+          "dollars"
         ]
       },
       "MetricUsageResponse": {
@@ -3345,7 +3346,8 @@
           "queryMutationComputeGbHours",
           "actionComputeConvexGbHours",
           "actionComputeNodeJsGbHours",
-          "actionComputeCpuGbHours"
+          "actionComputeCpuGbHours",
+          "aiGatewayCostDollars"
         ]
       },
       "UsageLimitResponse": {

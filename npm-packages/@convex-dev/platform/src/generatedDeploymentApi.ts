@@ -1032,7 +1032,7 @@ export interface components {
          * @description The user-facing unit a metric's limits and usage are expressed in.
          * @enum {string}
          */
-        MetricUnit: "calls" | "GB" | "Query-GB" | "GB-hours";
+        MetricUnit: "calls" | "GB" | "Query-GB" | "GB-hours" | "dollars";
         /** @description Current-window usage for a single metric. */
         MetricUsageResponse: {
             /** @description The unit `usage` is expressed in, matching the unit this metric's
@@ -1238,7 +1238,7 @@ export interface components {
             enabled: boolean;
         };
         /** @enum {string} */
-        UsageLimitMetric: "functionCalls" | "databaseIoGb" | "dataEgressGb" | "searchQueryGb" | "queryMutationComputeGbHours" | "actionComputeConvexGbHours" | "actionComputeNodeJsGbHours" | "actionComputeCpuGbHours";
+        UsageLimitMetric: "functionCalls" | "databaseIoGb" | "dataEgressGb" | "searchQueryGb" | "queryMutationComputeGbHours" | "actionComputeConvexGbHours" | "actionComputeNodeJsGbHours" | "actionComputeCpuGbHours" | "aiGatewayCostDollars";
         UsageLimitResponse: {
             usageLimit: components["schemas"]["UsageLimitConfigResponse"];
         };
