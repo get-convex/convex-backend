@@ -32,7 +32,6 @@ use common::{
 };
 #[cfg(not(feature = "shuttle-testing"))]
 use dashmap::DashMap;
-use imbl::OrdSet;
 use interval_map::IntervalMap;
 use metrics::StaticMetricLabel;
 use moka::{
@@ -478,23 +477,19 @@ impl IndexCacheHandle {
             timer.add_label(StaticMetricLabel::new("result", "already_exists"));
             return;
         }
-        let mut entries_size = 0;
-        let entries: OrdSet<Arc<IndexEntry>> = index_page
-            .entries
-            .into_iter()
-            .inspect(|entry| {
-                entries_size += std::mem::size_of::<IndexEntry>() + entry.heap_size();
-            })
-            .collect();
+        let IndexPage { entries, cursor } = index_page;
+        let entries_size = entries
+            .iter()
+            .map(|entry| std::mem::size_of::<IndexEntry>() + entry.heap_size())
+            .sum();
         let Some(index) = index_registry.enabled_index_by_index_id(&index_id) else {
             timer.add_label(StaticMetricLabel::new("result", "unknown_index"));
             return;
         };
         let cached_interval = CachedInterval {
             is_ready: false,
-            entries,
-            order,
-            cursor: index_page.cursor,
+            entries: entries.into(),
+            cursor,
             entries_size,
             begin_ts: ts,
             populate_id,
@@ -670,8 +665,8 @@ pub struct CachedInterval {
     /// Whether this interval is ready to serve reads (it has been validated by
     /// reading the write log up to the latest timestamp)
     is_ready: bool,
-    entries: OrdSet<Arc<IndexEntry>>,
-    order: Order,
+    /// Stored in the order returned by the index reader.
+    entries: Arc<[Arc<IndexEntry>]>,
     cursor: CursorPosition,
     entries_size: usize,
     begin_ts: RepeatableTimestamp,
@@ -696,7 +691,7 @@ impl CachedInterval {
         // Since writes to this interval invalidate the cache entry, the entries
         // are always from the original populate snapshot, valid at any ts >=
         // begin_ts. The cursor is also from the original page.
-        let entries = self.order.apply(self.entries.iter().cloned()).collect();
+        let entries = self.entries.iter().cloned().collect();
         Some((
             IndexPage {
                 entries,
@@ -707,7 +702,10 @@ impl CachedInterval {
     }
 
     fn size(&self) -> usize {
-        std::mem::size_of::<Self>() + self.entries_size + self.cursor.heap_size()
+        std::mem::size_of::<Self>()
+            + std::mem::size_of_val(self.entries.as_ref())
+            + self.entries_size
+            + self.cursor.heap_size()
     }
 }
 
