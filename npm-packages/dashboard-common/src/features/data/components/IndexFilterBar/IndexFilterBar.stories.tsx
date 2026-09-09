@@ -20,6 +20,10 @@ import { useFilterActions } from "./useFilterActions";
 // @ts-expect-error -- simplified mock for Storybook
 const deployment: ConnectedDeployment = {};
 
+// The wrapping is behind a LaunchDarkly flag, which reaches the bar through
+// this context rather than the hook, so the stories turn it on themselves.
+const deploymentInfo = { ...mockDeploymentInfo, giftWrapDataFilters: true };
+
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
   .registerQueryFake(udfs.getVersion.default, () => "0.19.0")
@@ -86,7 +90,7 @@ function Example({
   return (
     <ConnectedDeploymentContext.Provider value={connectedDeployment}>
       <ConvexProvider client={mockClient}>
-        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <DeploymentInfoContext.Provider value={deploymentInfo}>
           <ExampleInner
             initialFilters={initialFilters}
             withBetaMenu={withBetaMenu}

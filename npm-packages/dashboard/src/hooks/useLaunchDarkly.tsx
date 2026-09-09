@@ -11,6 +11,7 @@ export const flagDefaults: {
   directorySync: boolean;
   promos: boolean;
   newDataFilters: boolean;
+  giftWrapDataFilters: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
@@ -21,6 +22,7 @@ export const flagDefaults: {
   directorySync: false,
   promos: false,
   newDataFilters: false,
+  giftWrapDataFilters: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

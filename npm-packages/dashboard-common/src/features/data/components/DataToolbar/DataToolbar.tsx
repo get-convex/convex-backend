@@ -77,11 +77,12 @@ export function DataToolbar({
 
   const canManageTable = useIsOperationAllowed("WriteData");
 
-  // The beta menu belongs to the rebuilt filter bar: it appears once that bar
-  // is on screen, which takes a table with rows, and once its wrapping is off.
+  // The beta menu belongs to the gift wrapping it offers to put back: it
+  // appears once the rebuilt filter bar is on screen, which takes a table with
+  // rows, and once that wrapping is off.
   const { newDataFilters } = useNewDataFilters();
-  const { opened } = useGiftWrap();
-  const showBetaMenu = newDataFilters && !!numRows && opened;
+  const { enabled: giftWrapEnabled, opened } = useGiftWrap();
+  const showBetaMenu = newDataFilters && !!numRows && giftWrapEnabled && opened;
 
   return (
     <div className="flex flex-col">

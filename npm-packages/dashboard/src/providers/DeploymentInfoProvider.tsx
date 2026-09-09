@@ -153,7 +153,11 @@ export function DeploymentInfoProvider({
   useEffect(() => {
     accessTokenRef.current = accessToken;
   }, [accessToken]);
-  const { connectionStateCheckIntervalMs, newDataFilters } = useLaunchDarkly();
+  const {
+    connectionStateCheckIntervalMs,
+    newDataFilters,
+    giftWrapDataFilters,
+  } = useLaunchDarkly();
   const [, openFeedbackForm] = useFeedbackFormOpen();
   const posthog = usePostHogLib();
   const posthogRef = useRef(posthog);
@@ -335,6 +339,7 @@ export function DeploymentInfoProvider({
         workosIntegrationEnabled: true,
         connectionStateCheckIntervalMs,
         newDataFilters,
+        giftWrapDataFilters,
       });
     };
     if (accessTokenRef.current && (deploymentOverride || deploymentName)) {
@@ -348,6 +353,7 @@ export function DeploymentInfoProvider({
     teamsURI,
     connectionStateCheckIntervalMs,
     newDataFilters,
+    giftWrapDataFilters,
     openFeedbackForm,
     isDeploymentLookupSettled,
     isLocalTarget,

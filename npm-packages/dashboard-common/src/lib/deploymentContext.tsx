@@ -343,6 +343,9 @@ export type DeploymentInfo = (
   // the Filter & Sort panel. Cloud only -- `useNewDataFilters` keeps the beta
   // off in self-hosted dashboards whatever this says.
   newDataFilters?: boolean;
+  // Feature flag: wrap that bar as a gift the member has to unwrap. Cloud
+  // only, and the beta menu that ties it back up goes with it.
+  giftWrapDataFilters?: boolean;
   /** Opens the feedback sheet. Absent where there is nowhere to send it,
    *  such as the self-hosted dashboard. */
   openFeedbackForm?: (context: FeedbackContext) => void;

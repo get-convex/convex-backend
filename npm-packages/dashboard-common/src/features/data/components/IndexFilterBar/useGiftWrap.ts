@@ -2,16 +2,26 @@ import { useCallback, useContext } from "react";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function useGiftWrap() {
-  const { useMemberPreference } = useContext(DeploymentInfoContext);
-  const { value: opened, set } = useMemberPreference("new_data_filters_opened");
+  const { giftWrapDataFilters, useMemberPreference } = useContext(
+    DeploymentInfoContext,
+  );
+  const { value: openedPreference, set } = useMemberPreference(
+    "new_data_filters_opened",
+  );
+  const enabled = !!giftWrapDataFilters;
 
   const open = useCallback(() => {
-    if (opened !== true) void set(true);
-  }, [opened, set]);
+    if (openedPreference !== true) void set(true);
+  }, [openedPreference, set]);
 
   const rewrap = useCallback(() => {
-    if (opened !== false) void set(false);
-  }, [opened, set]);
+    if (openedPreference !== false) void set(false);
+  }, [openedPreference, set]);
 
-  return { opened, open, rewrap };
+  return {
+    enabled,
+    opened: enabled ? openedPreference : true,
+    open,
+    rewrap,
+  };
 }

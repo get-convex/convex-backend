@@ -287,8 +287,8 @@ function Wrapper({
   example: boolean;
   children: ReactNode;
 }) {
-  const { opened, open } = useGiftWrap();
-  return example ? (
+  const { enabled, opened, open } = useGiftWrap();
+  return example || !enabled ? (
     <div className="min-w-0 grow">{children}</div>
   ) : (
     <GiftWrap

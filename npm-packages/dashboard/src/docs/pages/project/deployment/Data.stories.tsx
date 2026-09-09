@@ -312,6 +312,7 @@ function renderDataPage(
             // reaches the data page through this context rather than the
             // hook, so stories opt in per story.
             newDataFilters: parameters.newDataFilters === true,
+            giftWrapDataFilters: parameters.giftWrapDataFilters === true,
             // Default to already-opened so no docs screenshot is a photo of
             // the wrapping paper.  The gift story overrides this to false.
             useMemberPreference: (name: string) =>
@@ -353,6 +354,7 @@ export const Default: Story = {};
 export const IndexFilterBar: Story = {
   parameters: {
     newDataFilters: true,
+    giftWrapDataFilters: true,
     // The wrapped bar and the bubble under it, which sits outside the bar.
     newDataFiltersOpened: false,
     nextjs: {
