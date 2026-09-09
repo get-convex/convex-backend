@@ -3,7 +3,7 @@ import {
   FunctionReference,
   httpRouter,
 } from "convex/server";
-import { ActionCtx, httpAction } from "./_generated/server";
+import { ActionCtx, env, httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { generateMessage } from "./util/message";
 import { extractVersionFromHeader } from "./util/convexClientHeader";
@@ -68,7 +68,7 @@ function getAgentSkillStatus({
 }
 
 function validateAgentSkillSyncAuth(req: Request) {
-  const expectedToken = process.env.AGENT_SKILLS_SYNC_TOKEN;
+  const expectedToken = env.AGENT_SKILLS_SYNC_TOKEN;
   if (!expectedToken) {
     console.error("AGENT_SKILLS_SYNC_TOKEN is not configured");
     return new Response("Server is not configured for agent skill sync", {
