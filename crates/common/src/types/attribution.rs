@@ -1,3 +1,7 @@
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sync_types::CanonicalizedUdfPath;
 
 use crate::{
@@ -12,7 +16,8 @@ use crate::{
 ///
 /// All three are absent when we cannot identify the caller. A caller in the
 /// root component has a `function_name` but no `component_path`.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AttributionClaims {
     pub component_path: Option<String>,
     pub function_name: Option<String>,
@@ -20,6 +25,17 @@ pub struct AttributionClaims {
 }
 
 impl AttributionClaims {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        match (
+            &self.component_path,
+            &self.function_name,
+            &self.function_type,
+        ) {
+            (None, None, None) | (_, Some(_), Some(_)) => Ok(()),
+            _ => Err("functionName and functionType must be provided together"),
+        }
+    }
+
     /// An unknown caller.
     pub fn unknown() -> Self {
         Self {

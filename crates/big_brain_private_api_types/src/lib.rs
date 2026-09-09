@@ -135,6 +135,19 @@ pub struct AccessTokenDeploymentAuthResponse {
     pub app_client_id: Option<String>,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MintLocalAiGatewayJwtArgs {
+    pub deployment_name: String,
+    pub attribution: common::types::AttributionClaims,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MintLocalAiGatewayJwtResponse {
+    pub token: String,
+}
+
 #[derive(Deserialize, Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 #[serde(deny_unknown_fields)]
