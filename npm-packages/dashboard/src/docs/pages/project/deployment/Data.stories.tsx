@@ -1,4 +1,5 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
+import { Fragment } from "react";
 import {
   PermissionsProvider,
   ConnectedDeploymentContext,
@@ -311,6 +312,15 @@ function renderDataPage(
             // reaches the data page through this context rather than the
             // hook, so stories opt in per story.
             newDataFilters: parameters.newDataFilters === true,
+            // Default to already-opened so no docs screenshot is a photo of
+            // the wrapping paper.  The gift story overrides this to false.
+            useMemberPreference: (name: string) =>
+              name === "new_data_filters_opened"
+                ? {
+                    value: parameters.newDataFiltersOpened !== false,
+                    set: async () => {},
+                  }
+                : mockDeploymentInfo.useMemberPreference(name),
             useCurrentTeam: () => mockTeam,
             useCurrentProject: () => mockProject,
             useCurrentDeployment: () => mockDeployment,
@@ -343,6 +353,8 @@ export const Default: Story = {};
 export const IndexFilterBar: Story = {
   parameters: {
     newDataFilters: true,
+    // The wrapped bar and the bubble under it, which sits outside the bar.
+    newDataFiltersOpened: false,
     nextjs: {
       router: {
         pathname: "/t/[team]/[project]/[deploymentName]/data",
@@ -358,8 +370,22 @@ export const IndexFilterBar: Story = {
         },
       },
     },
-    screenshotSelector: '[data-testid="indexFilterBar"]',
+    screenshotSelector:
+      '[data-testid="indexFilterBar"], [data-testid="giftExplanation"]',
   },
+  loaders: [
+    () => {
+      // Re-selecting the story you are already on re-runs loaders without
+      // remounting, and GiftWrap decides whether to wrap once at mount. Keying
+      // the story on a token that changes per load makes it start over.
+      return { giftRun: Date.now() };
+    },
+  ],
+  render: (args, context) => (
+    <Fragment key={context.loaded.giftRun}>
+      {renderDataPage(args, context)}
+    </Fragment>
+  ),
 };
 
 /**

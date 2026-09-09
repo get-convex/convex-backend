@@ -3,7 +3,7 @@ import {
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
-import { useCallback } from "react";
+import { ReactNode, useCallback } from "react";
 import { FilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@ui/Button";
 import { cn } from "@ui/cn";
@@ -14,6 +14,8 @@ import {
   validatorForFilterField,
 } from "@common/features/data/components/Table/utils/validators";
 import { FunnelIcon } from "@common/elements/icons";
+import { GiftWrap } from "@common/elements/GiftWrap";
+import { useGiftWrap } from "./useGiftWrap";
 import { AddFilterMenu } from "./AddFilterMenu";
 import { FieldSelector } from "@common/features/data/components/DataFilters/FieldSelector";
 import { FilterChip } from "./FilterChip";
@@ -162,7 +164,7 @@ export function IndexFilterBar({
       data-testid="indexFilterBar"
     >
       <div className="flex items-start gap-2">
-        <div className="min-w-0 grow">
+        <Wrapper example={example}>
           <div className="flex min-w-0 grow flex-wrap items-center gap-1.5">
             <IndexSelector
               indexDefs={indexDefs}
@@ -220,7 +222,7 @@ export function IndexFilterBar({
               />
             </div>
           </div>
-        </div>
+        </Wrapper>
         {showToolbar && (
           <div className="flex shrink-0 items-center gap-1.5">
             <OrderToggle
@@ -271,6 +273,28 @@ export function IndexFilterBar({
         </p>
       )}
     </div>
+  );
+}
+
+function Wrapper({
+  example,
+  children,
+}: {
+  example: boolean;
+  children: ReactNode;
+}) {
+  const { opened, open } = useGiftWrap();
+  return example ? (
+    <div className="min-w-0 grow">{children}</div>
+  ) : (
+    <GiftWrap
+      className="min-w-0 grow"
+      explanation="You've been selected to try a new data filtering experience."
+      opened={opened}
+      onOpen={open}
+    >
+      {children}
+    </GiftWrap>
   );
 }
 

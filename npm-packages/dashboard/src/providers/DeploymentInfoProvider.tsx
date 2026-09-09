@@ -237,7 +237,10 @@ export function DeploymentInfoProvider({
           const preferences = useMemberPreferences();
           const setPreference = useSetPreference();
           return {
-            value: preferences?.[name] as boolean | undefined,
+            value:
+              preferences === undefined
+                ? undefined
+                : ((preferences[name] as boolean | undefined) ?? false),
             set: async (value: boolean) => {
               await setPreference({ name, value });
             },
