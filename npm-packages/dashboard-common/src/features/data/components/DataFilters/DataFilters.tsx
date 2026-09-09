@@ -39,7 +39,11 @@ import {
   useFilterHistory,
   useTableFilters,
 } from "@common/features/data/lib/useTableFilters";
-import { FiltersAppliedProperties } from "@common/features/data/lib/filterAnalytics";
+import {
+  FilterHistoryNavigatedProperties,
+  FiltersAppliedProperties,
+  summarizeFilters,
+} from "@common/features/data/lib/filterAnalytics";
 import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
@@ -58,6 +62,7 @@ export function DataFilters({
   filters,
   onFiltersChange,
   onFiltersApplied,
+  onFilterHistoryNavigated,
   dataFetchErrors,
   draftFilters,
   setDraftFilters,
@@ -80,6 +85,9 @@ export function DataFilters({
   filters?: FilterExpression;
   onFiltersChange(next: FilterExpression): void;
   onFiltersApplied?: (properties: FiltersAppliedProperties) => void;
+  onFilterHistoryNavigated?: (
+    properties: FilterHistoryNavigatedProperties,
+  ) => void;
   dataFetchErrors?: FilterValidationError[];
   draftFilters?: FilterExpression;
   setDraftFilters(next: FilterExpression): void;
@@ -190,6 +198,10 @@ export function DataFilters({
                     setShowFilters(true);
                     setCurrentIdx(currentIdx + 1);
                     setDraftFilters(filterHistory[currentIdx + 1]);
+                    onFilterHistoryNavigated?.({
+                      ...summarizeFilters(filterHistory[currentIdx + 1], 1),
+                      direction: "previous",
+                    });
                   }}
                 />
                 <Button
@@ -206,6 +218,10 @@ export function DataFilters({
                     setShowFilters(true);
                     setCurrentIdx(currentIdx - 1);
                     setDraftFilters(filterHistory[currentIdx - 1]);
+                    onFilterHistoryNavigated?.({
+                      ...summarizeFilters(filterHistory[currentIdx - 1], 1),
+                      direction: "next",
+                    });
                   }}
                 />
               </div>

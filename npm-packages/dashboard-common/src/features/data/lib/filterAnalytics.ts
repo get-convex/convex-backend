@@ -16,6 +16,14 @@ export type FiltersAppliedProperties = {
   hasSearchQuery?: boolean;
 };
 
+/**
+ * A step through the per-table filter history. `previous` walks back toward
+ * older filters, `next` walks forward toward the most recently applied ones.
+ */
+export type FilterHistoryNavigatedProperties = FiltersAppliedProperties & {
+  direction: "previous" | "next";
+};
+
 export function summarizeFilters(
   filters: FilterExpression,
   version: FiltersUiVersion,

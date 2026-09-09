@@ -1,6 +1,9 @@
 import { useCallback, useRef } from "react";
 import { usePostHog as usePostHogOriginal } from "posthog-js/react";
-import { FiltersAppliedProperties } from "@common/features/data/lib/filterAnalytics";
+import {
+  FilterHistoryNavigatedProperties,
+  FiltersAppliedProperties,
+} from "@common/features/data/lib/filterAnalytics";
 
 // Map of event names to their properties (use `never` if no properties).
 export type PostHogEventMap = {
@@ -46,6 +49,7 @@ export type PostHogEventMap = {
     kind: string;
   };
   data_filters_applied: FiltersAppliedProperties;
+  data_filter_history_navigated: FilterHistoryNavigatedProperties;
   data_filters_feedback_opened: never;
   data_filters_opt_out_clicked: never;
   data_filters_opt_out_confirmed: never;
