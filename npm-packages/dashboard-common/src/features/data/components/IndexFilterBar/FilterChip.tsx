@@ -63,7 +63,9 @@ export function FilterChip({
   canRemove?: boolean;
   onRemove(): void;
   onDone(): void;
-  onError(errors: string[]): void;
+  // `shown` is false for an error about a value the user hasn't edited yet: it
+  // still blocks the filter from being applied, but nothing marks the chip.
+  onError(errors: string[], shown: boolean): void;
 }) {
   const label = filterItemLabel(filterItem);
   const icon =

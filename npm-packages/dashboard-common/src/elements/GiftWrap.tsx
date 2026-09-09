@@ -310,7 +310,7 @@ function Explanation({
 }) {
   return (
     <div
-      className="absolute top-full left-1/2 mt-2 w-max max-w-[min(20rem,calc(100vw-1rem))] -translate-x-1/2"
+      className="absolute top-full left-1/2 mt-2 w-max max-w-[min(20rem,calc(100vw-1rem))] -translate-x-1/2 animate-fadeInFromLoading"
       data-testid="giftExplanation"
     >
       <div className="relative rounded-md bg-util-accent text-xs/snug text-white shadow-sm">

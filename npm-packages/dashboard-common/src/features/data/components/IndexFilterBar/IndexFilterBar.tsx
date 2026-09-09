@@ -126,7 +126,9 @@ export function IndexFilterBar({
       filterItem={filterItem}
       open={openFilterItemKey === filterItem.key}
       error={
-        errors[filterItem.key] ??
+        (errors[filterItem.key]?.shown
+          ? errors[filterItem.key]?.message
+          : undefined) ??
         (filterItem.kind === "scan"
           ? dataFetchErrors?.find((e) => e.filter === filterItem.position)
               ?.error
@@ -148,7 +150,9 @@ export function IndexFilterBar({
       }
       onRemove={() => removeFilterItem(filterItem.key)}
       onDone={closeFilterItem}
-      onError={(messages) => setFilterItemError(filterItem.key, messages)}
+      onError={(messages, shown) =>
+        setFilterItemError(filterItem.key, messages, shown)
+      }
     />
   );
 

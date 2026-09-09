@@ -34,6 +34,8 @@ import {
   defaultSearchFilterValue,
   enabledIndexClauses,
   findIndexDef,
+  hasUnparsedClauseValue,
+  hasUnparsedValue,
   isSearchFilter,
   newClauseId,
   nextIndexedFields,
@@ -53,6 +55,7 @@ import {
   sortByField as sortByFieldInModel,
   sortOptionForField,
   switchIndexAndAddClause,
+  unparsedText,
 } from "./filterModel";
 
 export type FilterItem =
@@ -72,6 +75,11 @@ export type FilterItem =
       position: number;
       clause: SearchIndexFilterClause;
     };
+
+// A chip's error, and whether it is the user's to see yet: an error about a
+// value an editor was seeded with blocks the filter from being applied but
+// isn't marked until the first edit.
+export type FilterItemError = { message: string; shown: boolean };
 
 export type FilterItemUpdate =
   | { kind: "indexed"; clause: DatabaseIndexFilterClause }
@@ -137,6 +145,20 @@ function buildFilterItems(
   return filterItems;
 }
 
+// Whether the update carries text the editor couldn't parse rather than a
+// value.
+function isUnparsedUpdate(update: FilterItemUpdate): boolean {
+  switch (update.kind) {
+    case "indexed":
+    case "scan":
+      return hasUnparsedClauseValue(update.clause);
+    case "searchFilter":
+      return unparsedText(update.value) !== undefined;
+    default:
+      return false;
+  }
+}
+
 // How long to wait after the last keystroke in a value editor before
 // running the query with the new value.
 const VALUE_APPLY_DEBOUNCE_MS = 400;
@@ -175,37 +197,31 @@ export function useFilterActions({
     [applyFilters, setDraftFilters],
   );
 
-  const [openFilterItemKey, _setOpenFilterItemKey] = useState<string | null>(
+  const [openFilterItemKey, setOpenFilterItemKey] = useState<string | null>(
     null,
   );
-  const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const [errors, setErrors] = useState<Record<string, FilterItemError>>({});
   // Mirrors `errors` for the debounced apply, which runs outside a render and
   // so can't read this render's state. Written only by `setError`, so the two
   // never drift.
   const errorsRef = useRef(errors);
 
-  const setError = useCallback((key: string, message: string | undefined) => {
-    const prev = errorsRef.current;
-    if (prev[key] === message) return;
-    const next = { ...prev };
-    if (message === undefined) {
-      delete next[key];
-    } else {
-      next[key] = message;
-    }
-    errorsRef.current = next;
-    setErrors(next);
-  }, []);
-
-  const setOpenFilterItemKey = useCallback(
-    (key: string | null) => {
-      // Clear any lingering error when the user explicitly opens a chip so
-      // the editor starts clean. The error icon on the closed chip was the hint.
-      if (key !== null) setError(key, undefined);
-      _setOpenFilterItemKey(key);
+  const setError = useCallback(
+    (key: string, error: FilterItemError | undefined) => {
+      const prev = errorsRef.current;
+      if (isEqual(prev[key], error)) return;
+      const next = { ...prev };
+      if (error === undefined) {
+        delete next[key];
+      } else {
+        next[key] = error;
+      }
+      errorsRef.current = next;
+      setErrors(next);
     },
-    [setError],
+    [],
   );
+
   const pendingApply = useRef<{
     timer: ReturnType<typeof setTimeout>;
     next: FilterExpression;
@@ -221,7 +237,8 @@ export function useFilterActions({
     () => buildFilterItems(indexDefs, shown),
     [indexDefs, shown],
   );
-  const hasInvalid = filterItems.some((c) => errors[c.key]);
+  const hasInvalid =
+    filterItems.some((c) => errors[c.key]) || hasUnparsedValue(shown);
 
   // An error lives exactly as long as the item that reported it. Indexed
   // chips are keyed by position, so a key freed by one edit can come back
@@ -236,18 +253,27 @@ export function useFilterActions({
   }, [filterItems, setError]);
 
   // Only an editor reporting a problem writes an error. Clearing belongs to
-  // `updateFilterItem` (which runs when an editor parses a value) and to
-  // opening a chip, so an `onError([])` from an editor unmounting can't wipe
-  // the error the closed chip is there to show.
+  // `updateFilterItem`, which runs when an editor parses a value, so an
+  // `onError([])` from an editor unmounting can't wipe the error the closed
+  // chip is there to show.
   const setFilterItemError = useCallback(
-    (key: string, messages: string[]) => {
-      if (messages.length > 0) setError(key, messages[0]);
+    (key: string, messages: string[], isShown = true) => {
+      if (messages.length === 0) return;
+      // An error the user has already been shown stays shown, so remounting
+      // the editor (reopening the chip, switching operator) doesn't quiet it.
+      setError(key, {
+        message: messages[0],
+        shown: isShown || errorsRef.current[key]?.shown === true,
+      });
     },
     [setError],
   );
 
+  // Text that never parsed counts even without an error to go with it: it is
+  // not a value, so a filter holding one can't run.
   const hasErrorsFor = useCallback(
     (expr: FilterExpression) =>
+      hasUnparsedValue(expr) ||
       buildFilterItems(indexDefs, expr).some((c) => errorsRef.current[c.key]),
     [indexDefs],
   );
@@ -494,12 +520,13 @@ export function useFilterActions({
       // Editors report their initial value on mount; that isn't a change and
       // must not restart the debounce.
       if (next && !isEqual(next, shown)) {
-        // An editor only reports a change once it has parsed a value, so the
+        // An editor reports a value only once it has parsed one, so the
         // change itself clears the chip's error. The editor reports onError
-        // before onChange, so waiting for the next onError([]) would leave the
-        // error — and with it the block on applying — in place until the user
-        // typed again.
-        setError(key, undefined);
+        // before onChange, so waiting for the next onError([]) would leave
+        // the error — and with it the block on applying — in place until
+        // the user typed again. Text that didn't parse arrives through the
+        // same callback and is the error, so it leaves the error alone.
+        if (!isUnparsedUpdate(update)) setError(key, undefined);
         setDraftFilters(next);
         scheduleApply(next);
       }

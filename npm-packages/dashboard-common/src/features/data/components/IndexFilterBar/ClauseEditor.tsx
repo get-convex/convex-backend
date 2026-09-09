@@ -1,4 +1,4 @@
-import { ValidatorJSON, Value, convexToJson } from "convex/values";
+import { JSONValue, ValidatorJSON, Value, convexToJson } from "convex/values";
 import { GenericDocument } from "convex/server";
 import { useCallback, useRef, useState } from "react";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/values";
@@ -19,6 +19,8 @@ import {
   indexedOperatorOptions,
   isRangeClause,
   scanOperatorOptions,
+  unparsedText,
+  unparsedValue,
   withIndexedOperator,
 } from "./filterModel";
 
@@ -28,8 +30,10 @@ const RANGE_ERROR_MESSAGE =
 type ValueEditorProps = {
   field: string;
   value: unknown;
-  onChange(value?: Value): void;
-  onError(errors: string[]): void;
+  // `edited` is false for the value the editor reports on mount, which is the
+  // one it was seeded with rather than one the user typed.
+  onChange(value: Value | undefined, edited: boolean): void;
+  onError(errors: string[], shown: boolean): void;
   onApply(): void;
   autoFocus?: boolean;
   validator?: ValidatorJSON;
@@ -50,18 +54,23 @@ function ValueEditor({
   path,
   ariaLabel,
 }: ValueEditorProps) {
+  // The text as typed, for handing back the part of it that doesn't parse.
+  // `onChangeInnerText` fires on edits only, never for the seeded value.
+  const text = useRef<string | undefined>(undefined);
+
   if (field === "_creationTime") {
     return (
       <DateTimePicker
         aria-label={ariaLabel}
         autoFocus={autoFocus}
         date={typeof value === "number" ? new Date(value) : new Date()}
-        onChange={(date) => onChange(date.getTime())}
+        onChange={(date) => onChange(date.getTime(), true)}
         onSave={onApply}
         className="w-full rounded-sm border bg-background-secondary px-2 py-1 text-xs focus:border-border-selected"
       />
     );
   }
+  const unparsed = unparsedText(value as JSONValue);
   return (
     <ObjectEditor
       className="w-full min-w-4 rounded-sm border focus-within:border-border-selected"
@@ -72,10 +81,25 @@ function ValueEditor({
       disableFolding
       disableFind
       defaultValue={
-        value === UNDEFINED_PLACEHOLDER ? undefined : (value as Value)
+        value === UNDEFINED_PLACEHOLDER || unparsed !== undefined
+          ? undefined
+          : (value as Value)
       }
-      onChange={onChange}
-      onError={onError}
+      defaultInnerText={unparsed}
+      onChange={(next) => onChange(next, text.current !== undefined)}
+      onChangeInnerText={(next) => {
+        text.current = next;
+      }}
+      onError={(errors, shown) => {
+        onError(errors, shown);
+        // The editor hands back errors instead of a value, so put the text
+        // itself in the draft: the chip and a reopened editor keep showing
+        // what was typed.
+        if (errors.length > 0 && text.current !== undefined) {
+          onChange(unparsedValue(text.current) as Value, true);
+        }
+      }}
+      deferErrorsUntilEdit
       path={path}
       autoFocus={autoFocus}
       saveAction={onApply}
@@ -88,7 +112,13 @@ function ValueEditor({
   );
 }
 
-const toJson = (v?: Value) => (v === undefined ? undefined : convexToJson(v));
+// An unparsed value is already JSON, and `convexToJson` would reject the
+// `$`-prefixed key it is marked with.
+const toJson = (v?: Value): JSONValue | undefined => {
+  if (v === undefined) return undefined;
+  const unparsed = unparsedText(v);
+  return unparsed === undefined ? convexToJson(v) : unparsedValue(unparsed);
+};
 
 export function IndexedClauseEditor({
   field,
@@ -105,7 +135,7 @@ export function IndexedClauseEditor({
   clause: DatabaseIndexFilterClause;
   isLast: boolean;
   onChange(clause: DatabaseIndexFilterClause): void;
-  onError(errors: string[]): void;
+  onError(errors: string[], shown: boolean): void;
   onApply(): void;
   validator?: ValidatorJSON;
   shouldSurfaceValidatorErrors?: boolean;
@@ -118,13 +148,17 @@ export function IndexedClauseEditor({
   const rangeErrorRef = useRef<string | undefined>(undefined);
 
   const report = useCallback(
-    (nextValueErrors: string[], nextRangeError: string | undefined) => {
+    (
+      nextValueErrors: string[],
+      nextRangeError: string | undefined,
+      shown = true,
+    ) => {
       valueErrorsRef.current = nextValueErrors;
       rangeErrorRef.current = nextRangeError;
-      onError([
-        ...nextValueErrors,
-        ...(nextRangeError ? [nextRangeError] : []),
-      ]);
+      onError(
+        [...nextValueErrors, ...(nextRangeError ? [nextRangeError] : [])],
+        shown,
+      );
     },
     [onError],
   );
@@ -176,7 +210,7 @@ export function IndexedClauseEditor({
           value={clause.value}
           autoFocus
           onChange={(v) => onChange({ ...clause, value: toJson(v) })}
-          onError={(errors) => report(errors, undefined)}
+          onError={(errors, shown) => report(errors, undefined, shown)}
           onApply={onApply}
           validator={validator}
           shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
@@ -190,15 +224,18 @@ export function IndexedClauseEditor({
             field={field}
             value={clause.lowerValue}
             autoFocus
-            onChange={(v) => {
+            onChange={(v, edited) => {
               const lowerValue = toJson(v);
               onChange({ ...clause, lowerValue });
               report(
                 valueErrorsRef.current,
                 checkRange(lowerValue, clause.upperValue),
+                edited,
               );
             }}
-            onError={(errors) => report(errors, rangeErrorRef.current)}
+            onError={(errors, shown) =>
+              report(errors, rangeErrorRef.current, shown)
+            }
             onApply={onApply}
             validator={validator}
             shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
@@ -210,15 +247,18 @@ export function IndexedClauseEditor({
             key={`upper-${field}`}
             field={field}
             value={clause.upperValue}
-            onChange={(v) => {
+            onChange={(v, edited) => {
               const upperValue = toJson(v);
               onChange({ ...clause, upperValue });
               report(
                 valueErrorsRef.current,
                 checkRange(clause.lowerValue, upperValue),
+                edited,
               );
             }}
-            onError={(errors) => report(errors, rangeErrorRef.current)}
+            onError={(errors, shown) =>
+              report(errors, rangeErrorRef.current, shown)
+            }
             onApply={onApply}
             validator={validator}
             shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
@@ -239,7 +279,7 @@ export function IndexedClauseEditor({
                 : { ...clause, upperValue: toJson(v) },
             )
           }
-          onError={(errors) => report(errors, undefined)}
+          onError={(errors, shown) => report(errors, undefined, shown)}
           onApply={onApply}
           validator={validator}
           shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
@@ -277,7 +317,7 @@ export function ScanClauseEditor({
   clause: Filter;
   defaultDocument: GenericDocument;
   onChange(clause: Filter): void;
-  onError(errors: string[]): void;
+  onError(errors: string[], shown: boolean): void;
   onApply(): void;
   validator?: ValidatorJSON;
   shouldSurfaceValidatorErrors?: boolean;
@@ -287,7 +327,7 @@ export function ScanClauseEditor({
   // with the freshly derived default value.
   const [editorKey, setEditorKey] = useState(0);
   const reset = (next: Filter) => {
-    onError([]);
+    onError([], true);
     setEditorKey((k) => k + 1);
     onChange(next);
   };
@@ -415,7 +455,7 @@ export function SearchFilterClauseEditor({
   field: string;
   value: unknown;
   onChange(value: Value | undefined): void;
-  onError(errors: string[]): void;
+  onError(errors: string[], shown: boolean): void;
   onApply(): void;
   validator?: ValidatorJSON;
   shouldSurfaceValidatorErrors?: boolean;

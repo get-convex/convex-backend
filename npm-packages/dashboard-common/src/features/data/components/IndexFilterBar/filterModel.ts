@@ -716,12 +716,59 @@ function formatDateLikeInput(date: Date): string {
   });
 }
 
+// Text the user typed that doesn't parse into a value. It is kept in the draft
+// filter under this key so the chip and a reopened editor still show what was
+// typed; `hasUnparsedValue` keeps such a filter from ever being applied.
+const UNPARSED_KEY = "$unparsed";
+
+export function unparsedValue(text: string): JSONValue {
+  return { [UNPARSED_KEY]: text };
+}
+
+export function unparsedText(
+  value: JSONValue | Value | undefined,
+): string | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const text = (value as Record<string, unknown>)[UNPARSED_KEY];
+  return typeof text === "string" && Object.keys(value).length === 1
+    ? text
+    : undefined;
+}
+
+type ClauseWithValues = {
+  value?: JSONValue | Value;
+  lowerValue?: JSONValue | Value;
+  upperValue?: JSONValue | Value;
+};
+
+export function hasUnparsedClauseValue(clause: ClauseWithValues): boolean {
+  return [clause.value, clause.lowerValue, clause.upperValue].some(
+    (value) => unparsedText(value) !== undefined,
+  );
+}
+
+// Only the clauses a query would run on count: a disabled one is skipped
+// there, and has no chip here, so text it holds would block applying with
+// nothing on screen to fix. Scan clauses without `enabled` are enabled.
+export function hasUnparsedValue(expr: FilterExpression): boolean {
+  const indexClauses: ClauseWithValues[] = isSearchFilter(expr.index)
+    ? expr.index.clauses.filter((c) => c.enabled)
+    : enabledIndexClauses(expr);
+  return (
+    expr.clauses
+      .filter((c) => c.enabled !== false)
+      .some(hasUnparsedClauseValue) || indexClauses.some(hasUnparsedClauseValue)
+  );
+}
+
 // The value editor can only hand back a serializable value, so an empty
 // ("unset") input arrives as `UNDEFINED_PLACEHOLDER`; both mean unset.
 export function formatFilterValue(
   field: string,
   value: JSONValue | Value | undefined,
 ): string {
+  const unparsed = unparsedText(value);
+  if (unparsed !== undefined) return unparsed;
   if (value === undefined || value === UNDEFINED_PLACEHOLDER) return "unset";
   if (field === "_creationTime" && typeof value === "number") {
     return formatDateLikeInput(new Date(value));

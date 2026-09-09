@@ -43,9 +43,11 @@ function parseObjectEditorCode(
 
 export type PlainObjectEditorProps = {
   defaultValue?: Value;
+  defaultInnerText?: string;
   onChange(v?: Value): void;
-  onError(errors: string[]): void;
+  onError(errors: string[], shown: boolean): void;
   onChangeInnerText?(v: string): void;
+  deferErrorsUntilEdit?: boolean;
   mode: "editField" | "addDocuments" | "editDocument" | "patchDocuments";
   validator?: ValidatorJSON;
   allowTopLevelUndefined?: boolean;
@@ -70,12 +72,14 @@ export type PlainObjectEditorProps = {
  */
 export function PlainObjectEditor({
   defaultValue,
+  defaultInnerText,
   onChange,
   onError,
   onChangeInnerText,
   mode,
   validator,
   allowTopLevelUndefined = false,
+  deferErrorsUntilEdit = false,
   shouldSurfaceValidatorErrors = false,
   disabled = false,
   autoFocus = false,
@@ -87,11 +91,14 @@ export function PlainObjectEditor({
   "aria-label": ariaLabel,
 }: PlainObjectEditorProps) {
   const [text, setText] = useState(() =>
-    defaultValue === undefined || defaultValue === UNDEFINED_PLACEHOLDER
-      ? ""
-      : stringifyValue(defaultValue, true),
+    defaultInnerText !== undefined
+      ? defaultInnerText
+      : defaultValue === undefined || defaultValue === UNDEFINED_PLACEHOLDER
+        ? ""
+        : stringifyValue(defaultValue, true),
   );
   const [hasError, setHasError] = useState(false);
+  const edited = useRef(false);
 
   const saveActionRef = useRef(saveAction);
   useEffect(() => {
@@ -100,7 +107,6 @@ export function PlainObjectEditor({
 
   const validate = useCallback(
     (code: string) => {
-      onChangeInnerText?.(code);
       const { value, errors } = parseObjectEditorCode(
         code,
         mode,
@@ -108,17 +114,18 @@ export function PlainObjectEditor({
         allowTopLevelUndefined,
         shouldSurfaceValidatorErrors,
       );
-      setHasError(errors.length > 0);
-      onError(errors);
+      const shown = !deferErrorsUntilEdit || edited.current;
+      setHasError(shown && errors.length > 0);
+      onError(errors, shown);
       if (errors.length === 0) {
         onChange(value);
       }
     },
     [
-      onChangeInnerText,
       mode,
       validator,
       allowTopLevelUndefined,
+      deferErrorsUntilEdit,
       shouldSurfaceValidatorErrors,
       onError,
       onChange,
@@ -153,7 +160,9 @@ export function PlainObjectEditor({
       )}
       onChange={(e) => {
         const code = e.target.value;
+        edited.current = true;
         setText(code);
+        onChangeInnerText?.(code);
         validate(code);
       }}
       onKeyDown={(e) => {
