@@ -196,7 +196,10 @@ async function defaultHandleResponseError(
   }
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Transient error while running ${operationName}: ${text}`);
+    const prefix = isTransientStatus(response.status)
+      ? "Transient error"
+      : "Error";
+    throw new Error(`${prefix} while running ${operationName}: ${text}`);
   }
   return;
 }
