@@ -1,5 +1,11 @@
 # Changelog
 
+### Unreleased
+
+- Add a new rule `@convex-dev/no-duplicate-indexes` (enabled by default as an
+  error) that detects cases where indexes duplicate the same order of fields and
+  can be combined.
+
 ### 4.0.0
 
 - Add a new rule `@convex-dev/no-schema-import-cycle` (enabled by default as an

@@ -64,6 +64,7 @@ const schema = defineSchema({
     team: v.string(),
     user: v.string(),
   })
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes
     .index("by_team", ["team"])
     .index("by_team_and_user", ["team", "user"]),
   teams: defineTable({

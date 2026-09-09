@@ -6,6 +6,7 @@ import { explicitTableIds } from "./lib/explicit-table-ids.js";
 import { noCollectInQuery } from "./lib/no-collect-in-query.js";
 import { noTopOfHourCrons } from "./lib/no-top-of-hour-crons.js";
 import { noSchemaImportCycle } from "./lib/no-schema-import-cycle.js";
+import { noDuplicateIndexes } from "./lib/no-duplicate-indexes.js";
 import type { RuleModule } from "@typescript-eslint/utils/ts-eslint";
 import { version } from "./version.js";
 
@@ -18,6 +19,7 @@ const rules = {
   "no-collect-in-query": noCollectInQuery,
   "no-top-of-hour-crons": noTopOfHourCrons,
   "no-schema-import-cycle": noSchemaImportCycle,
+  "no-duplicate-indexes": noDuplicateIndexes,
 } satisfies Record<string, RuleModule<string, unknown[]>>;
 
 const recommendedRules = {
@@ -31,6 +33,7 @@ const recommendedRules = {
   "@convex-dev/no-filter-in-query": "warn",
   "@convex-dev/no-top-of-hour-crons": "warn",
   "@convex-dev/no-schema-import-cycle": "error",
+  "@convex-dev/no-duplicate-indexes": "error",
 } satisfies {
   [key: `@convex-dev/${string}`]: "error" | "warn" | "off";
 };
