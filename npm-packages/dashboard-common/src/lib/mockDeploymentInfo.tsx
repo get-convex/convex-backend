@@ -14,6 +14,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
     slug: "team",
   }),
   useTeamMembers: () => [],
+  useCurrentMemberName: () => undefined,
   useMemberPreference: () => ({ value: undefined, set: async () => {} }),
   useTeamEntitlements: () => ({}),
   useCurrentUsageBanner: () => null,
@@ -110,4 +111,6 @@ export const mockDeploymentInfo: DeploymentInfo = {
   isSelfHosted: true,
   workosIntegrationEnabled: false,
   connectionStateCheckIntervalMs: 2500,
+  openFeedbackForm: () => {},
+  captureEvent: () => {},
 };

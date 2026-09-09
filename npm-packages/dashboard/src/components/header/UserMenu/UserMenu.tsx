@@ -15,7 +15,7 @@ import { useCurrentProject } from "api/projects";
 import { useProfile } from "api/profile";
 import { useRouter } from "next/router";
 import { SupportWidget, useSupportFormOpen } from "elements/SupportWidget";
-import { FeedbackForm } from "elements/CommandPalette/FeedbackForm";
+import { FeedbackForm } from "elements/FeedbackForm";
 import { AskAIScript, openAskAI } from "elements/AskAI";
 import { Portal } from "@headlessui/react";
 import { logout } from "lib/logout";

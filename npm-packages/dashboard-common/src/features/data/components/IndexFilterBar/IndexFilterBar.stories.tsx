@@ -13,6 +13,7 @@ import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { fn } from "storybook/test";
 import { Index } from "@common/features/data/lib/api";
 import { IndexFilterBar } from "./IndexFilterBar";
+import { BetaMenu } from "./BetaMenu";
 import { buildIndexDefs } from "./filterModel";
 import { useFilterActions } from "./useFilterActions";
 
@@ -70,7 +71,14 @@ const defaultDocument = {
   score: 42,
 };
 
-function Example({ initialFilters }: { initialFilters?: FilterExpression }) {
+function Example({
+  initialFilters,
+  withBetaMenu,
+}: {
+  initialFilters?: FilterExpression;
+  /** The page toolbar's menu, which is where tying the parcel back up lives. */
+  withBetaMenu?: boolean;
+}) {
   const connectedDeployment = useMemo(
     () => ({ deployment, isDisconnected: false }),
     [],
@@ -79,7 +87,10 @@ function Example({ initialFilters }: { initialFilters?: FilterExpression }) {
     <ConnectedDeploymentContext.Provider value={connectedDeployment}>
       <ConvexProvider client={mockClient}>
         <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-          <ExampleInner initialFilters={initialFilters} />
+          <ExampleInner
+            initialFilters={initialFilters}
+            withBetaMenu={withBetaMenu}
+          />
         </DeploymentInfoContext.Provider>
       </ConvexProvider>
     </ConnectedDeploymentContext.Provider>
@@ -88,8 +99,10 @@ function Example({ initialFilters }: { initialFilters?: FilterExpression }) {
 
 function ExampleInner({
   initialFilters,
+  withBetaMenu,
 }: {
   initialFilters?: FilterExpression;
+  withBetaMenu?: boolean;
 }) {
   const [filters, setFilters] = useState<FilterExpression | undefined>(
     initialFilters,
@@ -111,6 +124,11 @@ function ExampleInner({
   });
   return (
     <div className="flex flex-col gap-4">
+      {withBetaMenu && (
+        <div className="flex justify-end">
+          <BetaMenu tableName="tasks" />
+        </div>
+      )}
       <IndexFilterBar
         actions={actions}
         indexDefs={indexDefs}
@@ -216,6 +234,14 @@ export const Search: Story = {
       },
     },
   },
+};
+
+/**
+ * Tying the parcel back up, which the page toolbar's beta menu offers to
+ * anyone who wants the gift again: pick "Wrap it up again" to run it.
+ */
+export const Rewrapping: Story = {
+  args: { withBetaMenu: true },
 };
 
 /** How the filter controls greet a member who has not seen the new bar yet. */

@@ -24,6 +24,18 @@ import { DeploymentOp } from "system-udfs/convex/_system/server";
 export const PROVISION_PROD_PAGE_NAME = "production";
 export const PROVISION_DEV_PAGE_NAME = "development";
 
+/** The copy and Sentry grouping for one entry point into the feedback sheet. */
+export type FeedbackContext = {
+  /** Sentry message the feedback is attached to, which groups it. */
+  event: string;
+  /** Heading of the sheet. */
+  title: string;
+  /** One line under the heading, saying what we're asking about. */
+  prompt: string;
+  /** Label and placeholder of the message field. */
+  question: string;
+};
+
 type FallbackRender = (errorData: {
   error: unknown;
   componentStack: string;
@@ -65,6 +77,8 @@ export type DeploymentInfo = (
   useTeamMembers(
     teamId?: number,
   ): { id: number; name?: string | null; email?: string }[] | undefined;
+  /** Display name of the signed-in member, where the dashboard knows one. */
+  useCurrentMemberName(): string | undefined;
   useMemberPreference(name: string): {
     value: boolean | undefined;
     set: (value: boolean) => Promise<void>;
@@ -325,7 +339,16 @@ export type DeploymentInfo = (
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
+  // Feature flag: show the index-first filter bar on the Data page instead of
+  // the Filter & Sort panel. Cloud only -- `useNewDataFilters` keeps the beta
+  // off in self-hosted dashboards whatever this says.
   newDataFilters?: boolean;
+  /** Opens the feedback sheet. Absent where there is nowhere to send it,
+   *  such as the self-hosted dashboard. */
+  openFeedbackForm?: (context: FeedbackContext) => void;
+  /** Sends a product analytics event. Absent where there is no analytics
+   *  sink, such as the self-hosted dashboard. */
+  captureEvent?: (event: string, properties?: Record<string, unknown>) => void;
 };
 
 export const DeploymentInfoContext = createContext<DeploymentInfo>(

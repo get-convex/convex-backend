@@ -223,6 +223,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     slug: "team",
   }),
   useTeamMembers: () => [],
+  useCurrentMemberName: () => undefined,
   useMemberPreference: () => ({ value: false, set: async () => {} }),
   useTeamEntitlements: () => ({
     auditLogRetentionDays: -1,

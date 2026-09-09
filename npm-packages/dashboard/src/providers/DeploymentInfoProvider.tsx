@@ -1,4 +1,11 @@
-import { JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  JSX,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import {
@@ -55,7 +62,10 @@ import {
   useProvisionProjectWorkOSEnvironment,
   useDeleteProjectWorkOSEnvironment,
 } from "api/workos";
+import { useProfile } from "api/profile";
 import { useSupportFormOpen } from "elements/SupportWidget";
+import { useFeedbackFormOpen } from "elements/FeedbackForm";
+import { usePostHog as usePostHogLib } from "posthog-js/react";
 import { useConvexStatus } from "hooks/useConvexStatus";
 import { ConvexStatusWidget } from "lib/ConvexStatusWidget";
 import { localDeploymentAuth } from "lib/deploymentAuth";
@@ -74,6 +84,10 @@ function DeploymentErrorBoundary({
   return (
     <ErrorBoundary fallback={fallback ?? Fallback}>{children}</ErrorBoundary>
   );
+}
+
+function useCurrentMemberName() {
+  return useProfile()?.name ?? undefined;
 }
 
 function CloudDashboardDisconnectOverlay({
@@ -140,6 +154,16 @@ export function DeploymentInfoProvider({
     accessTokenRef.current = accessToken;
   }, [accessToken]);
   const { connectionStateCheckIntervalMs, newDataFilters } = useLaunchDarkly();
+  const [, openFeedbackForm] = useFeedbackFormOpen();
+  const posthog = usePostHogLib();
+  const posthogRef = useRef(posthog);
+  posthogRef.current = posthog;
+  const captureEvent = useCallback(
+    (event: string, properties?: Record<string, unknown>) => {
+      posthogRef.current?.capture(event, properties);
+    },
+    [],
+  );
 
   const { project: currentProject, isLoading: projectLoading } =
     useCurrentProjectWithStatus();
@@ -233,6 +257,9 @@ export function DeploymentInfoProvider({
         captureException,
         reportHttpError,
         useCurrentTeam,
+        useCurrentMemberName,
+        openFeedbackForm,
+        captureEvent,
         useMemberPreference: (name: PreferenceName) => {
           const preferences = useMemberPreferences();
           const setPreference = useSetPreference();
@@ -321,6 +348,7 @@ export function DeploymentInfoProvider({
     teamsURI,
     connectionStateCheckIntervalMs,
     newDataFilters,
+    openFeedbackForm,
     isDeploymentLookupSettled,
     isLocalTarget,
     canProveDeploymentMissing,

@@ -18,6 +18,9 @@ import {
 } from "@common/features/data/lib/helpers";
 import { TableSchemaStatus } from "@common/features/data/components/TableSchema";
 import { PermissionDeniedTip } from "@common/elements/NoPermissionMessage";
+import { BetaMenu } from "@common/features/data/components/IndexFilterBar/BetaMenu";
+import { useGiftWrap } from "@common/features/data/components/IndexFilterBar/useGiftWrap";
+import { useNewDataFilters } from "@common/features/data/lib/useNewDataFilters";
 import { useRouter } from "next/router";
 
 export type DataToolbarProps = {
@@ -74,6 +77,12 @@ export function DataToolbar({
 
   const canManageTable = useIsOperationAllowed("WriteData");
 
+  // The beta menu belongs to the rebuilt filter bar: it appears once that bar
+  // is on screen, which takes a table with rows, and once its wrapping is off.
+  const { newDataFilters } = useNewDataFilters();
+  const { opened } = useGiftWrap();
+  const showBetaMenu = newDataFilters && !!numRows && opened;
+
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -108,6 +117,7 @@ export function DataToolbar({
         </div>
         {/* Right side of the toolbar. */}
         <div className="flex flex-wrap items-center gap-2">
+          {showBetaMenu && <BetaMenu tableName={tableName} />}
           {(!selectionToolsEnabled || popup === "addDocuments") && (
             <AddDocumentButton
               popup={popup}

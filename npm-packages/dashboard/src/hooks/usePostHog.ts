@@ -46,6 +46,11 @@ export type PostHogEventMap = {
     kind: string;
   };
   data_filters_applied: FiltersAppliedProperties;
+  data_filters_feedback_opened: never;
+  data_filters_opt_out_clicked: never;
+  data_filters_opt_out_confirmed: never;
+  data_filters_rewrapped: never;
+  data_filters_why_changed_opened: never;
 };
 
 export type PostHogEvent = keyof PostHogEventMap;
