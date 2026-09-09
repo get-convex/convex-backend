@@ -1,9 +1,12 @@
-import { MemberPreferences } from "generatedApi";
-import { useBBMutation, useBBQuery } from "./api";
+import { useCallback } from "react";
+import { MemberPreferences, SetPreferenceArgs } from "generatedApi";
+import { useBBMutation, useBBQuery, useMutate } from "./api";
+
+const PREFERENCES_PATH = "/preferences" as const;
 
 export function useMemberPreferences(): MemberPreferences | undefined {
   const { data } = useBBQuery({
-    path: "/preferences",
+    path: PREFERENCES_PATH,
     pathParams: undefined,
     swrOptions: {
       revalidateOnMount: false,
@@ -16,10 +19,23 @@ export function useMemberPreferences(): MemberPreferences | undefined {
 }
 
 export function useSetPreference() {
-  return useBBMutation({
+  const preferences = useMemberPreferences();
+  const setPreference = useBBMutation({
     method: "put",
     path: "/set_preference",
     pathParams: undefined,
-    mutateKey: "/preferences",
   });
+  const mutate = useMutate();
+
+  return useCallback(
+    async ({ name, value }: SetPreferenceArgs) => {
+      await setPreference({ name, value });
+      await mutate(
+        [PREFERENCES_PATH],
+        { preferences: { ...preferences, [name]: value } },
+        { revalidate: true },
+      );
+    },
+    [setPreference, mutate, preferences],
+  );
 }
