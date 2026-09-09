@@ -6,10 +6,8 @@
 // so the two runtimes agree on behavior rather than each carrying its own
 // implementation. Only the setups that need nothing from the host are here;
 // the rest reach for syscalls that are unavailable while a bundle evaluates.
-import { setupDOMException } from "udf-runtime/src/01_dom_exception";
 import { setupEvent } from "udf-runtime/src/02_event";
 import { setupStreams } from "udf-runtime/src/06_streams";
 
-setupDOMException(globalThis);
 setupEvent(globalThis);
 setupStreams(globalThis);
