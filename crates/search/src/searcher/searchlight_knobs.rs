@@ -7,7 +7,10 @@
 //! When running locally, these knobs can all be overridden with an environment
 //! variable.
 
-use std::sync::LazyLock;
+use std::{
+    num::NonZeroU64,
+    sync::LazyLock,
+};
 
 use cmd_util::env::env_config;
 // Knobs available in backend that are also available in searchlight.
@@ -98,3 +101,15 @@ pub static MAX_TEXT_LRU_ENTRIES: LazyLock<u64> =
 /// so this knob also determines the maximum queue length.
 pub static MAX_CONCURRENT_TEXT_SEARCHES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_CONCURRENT_TEXT_SEARCHES", 20));
+
+/// The size in bytes of the archive disk cache the in-process searcher keeps
+/// under its local storage path. It bounds the bytes of unpacked text and
+/// vector segments retained on disk; a working set larger than this re-fetches
+/// and re-extracts segments as they cycle through the cache, so raise it to
+/// trade disk for fetch traffic.
+pub static MAX_ARCHIVE_CACHE_SIZE_BYTES: LazyLock<NonZeroU64> = LazyLock::new(|| {
+    env_config(
+        "MAX_ARCHIVE_CACHE_SIZE_BYTES",
+        NonZeroU64::new(bytesize::mib(500u64)).unwrap(),
+    )
+});
