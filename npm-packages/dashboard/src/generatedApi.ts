@@ -2614,6 +2614,12 @@ export interface components {
         RoleStatementEffect: "allow" | "deny";
         /** @enum {string} */
         RoleStatementWildcardAction: "*";
+        SSOConnectionResponse: {
+            id: string;
+            name: string;
+            connectionType: string;
+            state: string;
+        };
         /** @enum {string} */
         SSODomainState: "verified" | "pending" | "failed" | "legacyVerified";
         SSOOrganizationDomain: {
@@ -2626,6 +2632,8 @@ export interface components {
             createTime: number;
             domains: components["schemas"]["SSOOrganizationDomain"][];
             requireSsoLogin: boolean;
+            /** @description SSO connections configured in WorkOS for this organization. */
+            connections: components["schemas"]["SSOConnectionResponse"][];
         };
         /** @enum {string} */
         SSOPortalIntent: "sso" | "domainVerification" | "certificateRenewal";
@@ -2971,6 +2979,7 @@ export type RoleStatementAction = components['schemas']['RoleStatementAction'];
 export type RoleStatementActions = components['schemas']['RoleStatementActions'];
 export type RoleStatementEffect = components['schemas']['RoleStatementEffect'];
 export type RoleStatementWildcardAction = components['schemas']['RoleStatementWildcardAction'];
+export type SsoConnectionResponse = components['schemas']['SSOConnectionResponse'];
 export type SsoDomainState = components['schemas']['SSODomainState'];
 export type SsoOrganizationDomain = components['schemas']['SSOOrganizationDomain'];
 export type SsoOrganizationResponse = components['schemas']['SSOOrganizationResponse'];

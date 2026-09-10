@@ -6201,6 +6201,29 @@
           "*"
         ]
       },
+      "SSOConnectionResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "connectionType",
+          "state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "connectionType": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
       "SSODomainState": {
         "type": "string",
         "enum": [
@@ -6234,7 +6257,8 @@
         "required": [
           "createTime",
           "domains",
-          "requireSsoLogin"
+          "requireSsoLogin",
+          "connections"
         ],
         "properties": {
           "createTime": {
@@ -6249,6 +6273,13 @@
           },
           "requireSsoLogin": {
             "type": "boolean"
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SSOConnectionResponse"
+            },
+            "description": "SSO connections configured in WorkOS for this organization."
           }
         }
       },

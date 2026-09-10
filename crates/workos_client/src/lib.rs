@@ -728,7 +728,7 @@ where
     async fn delete_sso_connection(&self, connection_id: &str) -> anyhow::Result<()> {
         delete_workos_resource(
             &self.api_key,
-            &format!("https://api.workos.com/sso/connections/{connection_id}"),
+            &format!("https://api.workos.com/connections/{connection_id}"),
             "delete SSO connection",
             &*self.http_client,
         )
@@ -1090,8 +1090,15 @@ impl WorkOSClient for MockWorkOSClient {
             }
             return Ok(Some(org));
         }
-        // Organizations that were never created through the mock still resolve,
-        // so tests that only care about domains do not have to create one.
+        // An id that names neither an organization nor a domain fixture is one
+        // WorkOS does not have, and saying so is what lets a test cover the
+        // callers that fall back when a recorded organization id goes stale.
+        if domains.is_empty() {
+            return Ok(None);
+        }
+
+        // A domain fixture alone conjures its organization, so a test that only
+        // cares about domains does not have to create one.
         Ok(Some(WorkOSOrganizationResponse {
             object: "organization".to_string(),
             id: organization_id.to_string(),
@@ -3068,7 +3075,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/sso/connections",
+        "https://api.workos.com/connections",
         &[("organization_id", organization_id)],
         "list SSO connections",
         http_client,
