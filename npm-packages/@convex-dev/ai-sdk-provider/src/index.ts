@@ -16,6 +16,7 @@ import { getServiceToken } from "convex/server";
 type Provider = ReturnType<typeof createOpenAICompatible>;
 type ChatModel = ReturnType<Provider>;
 type EmbeddingModel = ReturnType<Provider["embeddingModel"]>;
+type ImageModel = ReturnType<Provider["imageModel"]>;
 type LanguageModel = Parameters<typeof wrapLanguageModel>[0]["model"];
 type GatewayLanguageModel = ReturnType<typeof wrapLanguageModel>;
 
@@ -177,4 +178,19 @@ convexGateway.embeddingModel = function (modelId: string): EmbeddingModel {
       overrideMaxEmbeddingsPerCall: () => maxEmbeddingsPerCall,
     },
   });
+};
+
+/**
+ * Image model for the hosted Convex AI gateway. Use with the AI SDK's
+ * `experimental_generateImage`. Cost is billed per image (per the gateway's
+ * usage accounting) rather than per token.
+ *
+ *   import { experimental_generateImage as generateImage } from "ai";
+ *   const { images } = await generateImage({
+ *     model: convexGateway.imageModel("openai/gpt-image-1"),
+ *     prompt, n,
+ *   });
+ */
+convexGateway.imageModel = function (modelId: string): ImageModel {
+  return createGatewayProvider().imageModel(modelId);
 };
