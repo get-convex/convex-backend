@@ -1,5 +1,5 @@
 import { argv } from "node:process";
-import { Locator, Page } from "puppeteer";
+import { Page } from "puppeteer";
 import { noteBrowserEvent } from "./common.js";
 
 export const DASHBOARD_URL = "http://localhost:6789";
@@ -45,6 +45,45 @@ async function gotoLoginForm(page: Page, path: string) {
   }
 }
 
+// Activate a control from the keyboard. AuthKit's hosted UI renders layouts
+// where a synthetic mouse click never reaches its buttons: hit testing at the
+// center of the button's own bounding box lands on <html>, so the click is
+// swallowed and the form is never submitted.
+async function pressEnterOn(page: Page, selector: string) {
+  const element = await page.waitForSelector(selector, { visible: true });
+  await element!.focus();
+  await page.keyboard.press("Enter");
+}
+
+type SignInOutcome = "signed-in" | "passkey-prompt" | `error: ${string}`;
+
+// AuthKit submits its forms client-side, so signing in produces no navigation
+// until it hands back to the dashboard. Wait for the outcome itself: landing
+// off the AuthKit host, the passkey interstitial, or a rejected sign-in.
+async function waitForSignInOutcome(
+  page: Page,
+  authKitHost: string,
+): Promise<SignInOutcome> {
+  const outcome = await page.waitForFunction(
+    (host: string) => {
+      if (window.location.host !== host) {
+        return "signed-in";
+      }
+      const error = document.querySelector('[data-type="error"]');
+      if (error) {
+        return `error: ${error.textContent?.trim()}`;
+      }
+      const skipPasskey = [...document.querySelectorAll("button")].some(
+        (button) => button.textContent?.includes("Skip for now"),
+      );
+      return skipPasskey ? "passkey-prompt" : false;
+    },
+    {},
+    authKitHost,
+  );
+  return (await outcome.jsonValue()) as SignInOutcome;
+}
+
 export async function loginToDashboard(page: Page, path: string = "") {
   // We end up building large sections of code here, so increase the default
   // timeouts to reduce flakes on CI.
@@ -53,35 +92,22 @@ export async function loginToDashboard(page: Page, path: string = "") {
 
   await gotoLoginForm(page, path);
   await page.type(`input[name="email"]`, argv[2]);
-
-  // WorkOS AuthKit labels the email-submit button "Continue with email" when
-  // social login providers are enabled and "Continue" when they aren't; accept
-  // either. A Locator (unlike page.click) also waits for the button to appear.
-  await Promise.all([
-    Locator.race([
-      page.locator("aria/Continue with email"),
-      page.locator("aria/Continue"),
-    ]).click(),
-    page.waitForNavigation({ waitUntil: "networkidle0" }),
-  ]);
+  await pressEnterOn(page, 'input[name="email"]');
 
   await page.waitForSelector('input[name="password"]', { visible: true });
   await page.type(`input[name="password"]`, argv[3]);
 
-  await Promise.all([
-    page.click('button[type="submit"]'),
-    page.waitForNavigation(),
-  ]);
+  const authKitHost = new URL(page.url()).host;
+  await pressEnterOn(page, 'input[name="password"]');
 
-  // WorkOS AuthKit can interject a passkey-enrollment interstitial after
-  // sign-in ("Create a passkey for faster and more secure sign in"); the
-  // headless browser can't create passkeys, so dismiss it. It only appears
-  // for some sessions (server-side rollout), so poll briefly instead of
-  // blocking on it.
-  const skipPasskey = await page
-    .waitForSelector("button::-p-text(Skip for now)", { timeout: 5000 })
-    .catch(() => null);
-  if (skipPasskey) {
-    await Promise.all([skipPasskey.click(), page.waitForNavigation()]);
+  let outcome = await waitForSignInOutcome(page, authKitHost);
+  if (outcome === "passkey-prompt") {
+    // The headless browser can't create passkeys, so decline the enrollment
+    // interstitial ("Create a passkey for faster and more secure sign in").
+    await pressEnterOn(page, "button::-p-text(Skip for now)");
+    outcome = await waitForSignInOutcome(page, authKitHost);
+  }
+  if (outcome !== "signed-in") {
+    throw new Error(`AuthKit rejected the sign-in: ${outcome}`);
   }
 }
