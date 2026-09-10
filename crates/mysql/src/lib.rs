@@ -8,6 +8,7 @@ mod document_encoding;
 mod metrics;
 mod sql;
 mod v5;
+// Most of the V6 SQL is not reachable until `v6::connect` is implemented.
 #[allow(dead_code)]
 mod v6;
 use std::{
@@ -28,6 +29,10 @@ use common::{
     },
 };
 pub use connection::ConvexMySqlPool;
+pub use v6::maintenance::{
+    IndexesLogMaintenance,
+    MaintenanceRound,
+};
 
 pub type MySqlPersistence<RT> = v5::Persistence<RT>;
 pub type MySqlReader<RT> = v5::Reader<RT>;

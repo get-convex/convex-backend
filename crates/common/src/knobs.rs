@@ -642,6 +642,11 @@ pub static DOCUMENT_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
 pub static INDEX_RETENTION_DELAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("INDEX_RETENTION_DELAY", 4 * 60)));
 
+/// How many `indexes_log_<bucket>` tables to create beyond the one taking
+/// writes now.
+pub static INDEXES_LOG_LOOKAHEAD_BUCKETS: LazyLock<usize> =
+    LazyLock::new(|| env_config("INDEXES_LOG_LOOKAHEAD_BUCKETS", 3));
+
 /// DOCUMENT_RETENTION_DELAY determines the size of the document retention
 /// window.
 ///

@@ -4,7 +4,7 @@
 
 pub(crate) mod documents;
 pub(crate) mod indexes;
-
+pub mod maintenance;
 use std::sync::Arc;
 
 use common::{
@@ -140,7 +140,8 @@ CREATE TABLE IF NOT EXISTS @db_name.persistence_globals (
 
 // This runs every time a Persistence is created, so it has to be idempotent and
 // leave resident data alone. The log tables are absent because they are created
-// per ten-minute bucket as writes arrive; see `indexes::log_ddl`.
+// ahead of the writes that need them by the per-cluster maintenance worker; see
+// `maintenance`.
 pub(crate) const fn init_sql() -> &'static str {
     concatcp!(
         DOCUMENTS_DDL,

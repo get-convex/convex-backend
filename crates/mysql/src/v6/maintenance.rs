@@ -1,0 +1,261 @@
+//! Ahead-of-time creation of V6 `indexes_log_<bucket>` tables.
+//!
+//! A commit whose bucket table is missing fails, so buckets are created with a
+//! wide lookahead and the round publishes how far ahead it got.
+//!
+//! The tables live in the DB cluster's schema, which every partition on that
+//! cluster shares, so several conductors run this against the same tables. A
+//! CAS lease on `indexes_maintenance_state` picks one of them per round.
+
+use std::{
+    cmp,
+    collections::BTreeSet,
+    sync::Arc,
+    time::Duration,
+};
+
+use anyhow::Context as _;
+use common::{
+    knobs::{
+        INDEXES_LOG_LOOKAHEAD_BUCKETS,
+        INDEX_RETENTION_DELAY,
+    },
+    runtime::Runtime,
+    types::Timestamp,
+};
+use const_format::concatcp;
+use itertools::Itertools as _;
+use mysql_async::{
+    Row,
+    Value,
+};
+
+use super::indexes::{
+    log_ddl,
+    LogBucket,
+    LIST_LOG_TABLES,
+};
+use crate::{
+    connection::MySqlConnection,
+    ConvexMySqlPool,
+};
+
+pub(crate) const LEASE_TTL: Duration = Duration::from_secs(5 * 60);
+
+const CONNECTION_NAME: &str = "indexes_log_maintenance";
+
+const STATE_TABLE_DDL: &str = r#"
+CREATE TABLE IF NOT EXISTS @db_name.indexes_maintenance_state (
+    id TINYINT UNSIGNED NOT NULL,
+    /* exclusive upper bound of the buckets that existed at the last round */
+    created_through_ts BIGINT NOT NULL,
+    /* the oldest snapshot a read may still ask for; never retreats */
+    oldest_kept_ts BIGINT NOT NULL,
+    lease_owner VARCHAR(64) NOT NULL,
+    lease_expires_ts BIGINT NOT NULL,
+    last_run_ts BIGINT NOT NULL,
+    last_run_status VARCHAR(16) NOT NULL,
+    PRIMARY KEY (id),
+    CHECK (id = 1)
+) ROW_FORMAT=DYNAMIC;
+"#;
+
+const SEED_STATE_ROW: &str = r#"
+INSERT INTO @db_name.indexes_maintenance_state
+    (id, created_through_ts, oldest_kept_ts, lease_owner, lease_expires_ts, last_run_ts, last_run_status)
+    VALUES (1, 0, 0, '', 0, 0, 'never_run')
+    ON DUPLICATE KEY UPDATE id = id;
+"#;
+
+const INIT_SQL: &str = concatcp!(STATE_TABLE_DDL, SEED_STATE_ROW);
+
+const READ_STATE: &str = r#"
+SELECT oldest_kept_ts FROM @db_name.indexes_maintenance_state WHERE id = 1
+"#;
+
+const TAKE_LEASE: &str = r#"
+UPDATE @db_name.indexes_maintenance_state
+SET lease_owner = ?, lease_expires_ts = ?
+WHERE id = 1 AND (lease_expires_ts <= ? OR lease_owner = ?)
+"#;
+
+const PUBLISH_STATE: &str = r#"
+UPDATE @db_name.indexes_maintenance_state
+SET created_through_ts = ?,
+    oldest_kept_ts = GREATEST(oldest_kept_ts, ?),
+    last_run_ts = ?,
+    last_run_status = 'ok'
+WHERE id = 1 AND lease_owner = ?
+"#;
+
+const MARK_FAILED: &str = r#"
+UPDATE @db_name.indexes_maintenance_state
+SET last_run_ts = ?, last_run_status = 'failed'
+WHERE id = 1 AND lease_owner = ?
+"#;
+
+#[derive(Debug)]
+pub struct MaintenanceRound {
+    pub created_through_ts: Timestamp,
+    pub oldest_kept_ts: Timestamp,
+    pub bucket_count: usize,
+}
+
+pub struct IndexesLogMaintenance<RT: Runtime> {
+    pool: Arc<ConvexMySqlPool<RT>>,
+    db_name: String,
+    owner: String,
+}
+
+impl<RT: Runtime> IndexesLogMaintenance<RT> {
+    pub fn new(pool: Arc<ConvexMySqlPool<RT>>, db_name: String, owner: String) -> Self {
+        Self {
+            pool,
+            db_name,
+            owner,
+        }
+    }
+
+    pub async fn initialize(&self) -> anyhow::Result<()> {
+        let mut conn = self.pool.acquire(CONNECTION_NAME, &self.db_name).await?;
+        conn.execute_many(INIT_SQL).await
+    }
+
+    pub async fn run_once(&self, now: Timestamp) -> anyhow::Result<Option<MaintenanceRound>> {
+        let mut conn = self.pool.acquire(CONNECTION_NAME, &self.db_name).await?;
+        let row = conn
+            .query_optional(READ_STATE, vec![])
+            .await?
+            .context("indexes_maintenance_state has no row; call initialize() first")?;
+
+        // The floor a previous round published. This round may advance it
+        // but never walk it back.
+        let prev_oldest_kept_ts = ts_column(&row, 0)?;
+
+        if !self.take_lease(&mut conn, now).await? {
+            return Ok(None);
+        }
+
+        let round = self.maintain(&mut conn, now, prev_oldest_kept_ts).await;
+        if round.is_err()
+            && let Err(e) = conn
+                .exec_iter(
+                    MARK_FAILED,
+                    vec![Value::Int(i64::from(now)), (&self.owner).into()],
+                )
+                .await
+        {
+            tracing::warn!("Could not record indexes_log maintenance failure: {e:#}");
+        }
+        round.map(Some)
+    }
+
+    async fn take_lease(
+        &self,
+        conn: &mut MySqlConnection<'_, RT>,
+        now: Timestamp,
+    ) -> anyhow::Result<bool> {
+        let expires_ts = now.add(LEASE_TTL)?;
+        let affected_rows = conn
+            .exec_iter(
+                TAKE_LEASE,
+                vec![
+                    (&self.owner).into(),
+                    Value::Int(i64::from(expires_ts)),
+                    Value::Int(i64::from(now)),
+                    (&self.owner).into(),
+                ],
+            )
+            .await?;
+        Ok(affected_rows == 1)
+    }
+
+    async fn maintain(
+        &self,
+        conn: &mut MySqlConnection<'_, RT>,
+        now: Timestamp,
+        prev_oldest_kept_ts: Timestamp,
+    ) -> anyhow::Result<MaintenanceRound> {
+        let mut existing: BTreeSet<LogBucket> = conn
+            .query_collect(
+                LIST_LOG_TABLES,
+                vec![(&self.db_name).into()],
+                16,
+                |row: Row| {
+                    let table_name: String = row
+                        .get(0)
+                        .context("LIST_LOG_TABLES returned zero columns?")?;
+                    LogBucket::from_table_name(&table_name)
+                },
+            )
+            .await?
+            .into_iter()
+            .collect();
+
+        let now_bucket = LogBucket::from_successor_ts(now);
+        let missing = buckets_to_create(now_bucket, *INDEXES_LOG_LOOKAHEAD_BUCKETS, &existing)?;
+        for bucket in missing {
+            conn.execute_many(&log_ddl(bucket)).await?;
+            existing.insert(bucket);
+        }
+
+        let created_through_ts = existing
+            .last()
+            .context("no log bucket exists after creating the lookahead")?
+            .end_ts()?;
+        let retention_start = now.sub(*INDEX_RETENTION_DELAY).unwrap_or(Timestamp::MIN);
+        let oldest_kept_ts = cmp::max(
+            prev_oldest_kept_ts,
+            LogBucket::from_successor_ts(retention_start).start_ts()?,
+        );
+        let published = conn
+            .exec_iter(
+                PUBLISH_STATE,
+                vec![
+                    Value::Int(i64::from(created_through_ts)),
+                    Value::Int(i64::from(oldest_kept_ts)),
+                    Value::Int(i64::from(now)),
+                    (&self.owner).into(),
+                ],
+            )
+            .await?;
+        anyhow::ensure!(
+            published == 1,
+            "another conductor took over the indexes_log maintenance lease mid-round"
+        );
+
+        Ok(MaintenanceRound {
+            created_through_ts,
+            oldest_kept_ts,
+            bucket_count: existing.len(),
+        })
+    }
+}
+
+fn ts_column(row: &Row, index: usize) -> anyhow::Result<Timestamp> {
+    let nanos: i64 = row
+        .get(index)
+        .with_context(|| format!("indexes_maintenance_state has no column {index}"))?;
+    Timestamp::try_from(nanos)
+}
+
+/// A day of lookahead. Past this the knob is a typo rather than a policy, and
+/// enumerating the range would cost more than the outage it guards against.
+const MAX_LOOKAHEAD_BUCKETS: usize = 24 * 6;
+
+/// The buckets writes may land in before maintenance is guaranteed to run
+/// again, so all of them must exist before any of those writes arrive.
+fn buckets_to_create(
+    now_bucket: LogBucket,
+    lookahead: usize,
+    existing: &BTreeSet<LogBucket>,
+) -> anyhow::Result<Vec<LogBucket>> {
+    anyhow::ensure!(
+        lookahead <= MAX_LOOKAHEAD_BUCKETS,
+        "INDEXES_LOG_LOOKAHEAD_BUCKETS is {lookahead}, above the cap of {MAX_LOOKAHEAD_BUCKETS}"
+    );
+    (0..=i64::try_from(lookahead).context("lookahead does not fit in a bucket offset")?)
+        .map(|offset| now_bucket.offset(offset))
+        .filter_ok(|bucket| !existing.contains(bucket))
+        .try_collect()
+}
