@@ -5,6 +5,7 @@ use std::{
         Reverse,
     },
     collections::{
+        btree_map::Entry,
         BTreeMap,
         BinaryHeap,
         VecDeque,
@@ -29,8 +30,10 @@ use common::{
         DatabaseIndexWrite,
         IndexKeyUpdate,
         TextIndexWrite,
+        Update,
     },
     erased_slot::ErasedSlot,
+    interval::IntervalSet,
     knobs::{
         WRITE_LOG_MAX_RETENTION_SECS,
         WRITE_LOG_MIN_RETENTION_SECS,
@@ -69,7 +72,10 @@ use value::{
 };
 
 use crate::{
-    database::ConflictingReadWithWriteSource,
+    database::{
+        ConflictingRead,
+        ConflictingReadWithWriteSource,
+    },
     metrics,
     reads::ReadSet,
     Snapshot,
@@ -898,19 +904,97 @@ impl WriteLogSnapshot {
     }
 }
 
+/// The commit that wrote a database index key, and the document it wrote.
+struct PendingKeyWriter {
+    ts: Timestamp,
+    document_id: ResolvedDocumentId,
+}
+
+/// The database index keys written by all pending commits for a single index,
+/// sorted by key. Index keys end with the document id, and a document written
+/// by one pending commit can't be written by another. The later commit read
+/// the document at a timestamp before every pending commit, so it conflicts
+/// with the earlier write. Each key therefore has exactly one pending writer.
+#[derive(Default)]
+struct PendingKeysInIndex(BTreeMap<Arc<[u8]>, PendingKeyWriter>);
+
+impl PendingKeysInIndex {
+    fn insert(&mut self, key: Arc<[u8]>, writer: PendingKeyWriter) {
+        let ts = writer.ts;
+        if let Some(existing) = self.0.insert(key, writer) {
+            panic!(
+                "index key written by pending commits at {} and {ts}",
+                existing.ts
+            );
+        }
+    }
+
+    /// Removes the entry for `key`, which must have been written by the commit
+    /// at `ts`.
+    fn remove(&mut self, key: &[u8], ts: Timestamp) {
+        let writer = self
+            .0
+            .remove(key)
+            .unwrap_or_else(|| panic!("index key of pending write at {ts} is missing"));
+        assert_eq!(
+            writer.ts, ts,
+            "index key of pending write at {ts} was written at {}",
+            writer.ts
+        );
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Returns an index key contained in `intervals` that has a pending write,
+    /// along with the commit that wrote it.
+    fn overlaps(&self, intervals: &IntervalSet) -> Option<(&[u8], &PendingKeyWriter)> {
+        // Both sides are sorted by key, so probe whichever is smaller against
+        // the other rather than scanning both.
+        let (key, writer) = if self.0.len() <= intervals.len() {
+            self.0.iter().find(|(key, _)| intervals.contains(key))?
+        } else {
+            intervals
+                .iter_ref()
+                .find_map(|interval| self.0.range::<[u8], _>(interval).next())?
+        };
+        Some((key, writer))
+    }
+}
+
+struct PendingWrite {
+    ts: Timestamp,
+    writes: OrderedDocumentWrites,
+    write_source: WriteSource,
+    snapshot: Snapshot,
+    /// The keys this commit added to [`PendingWrites::by_database_index`],
+    /// retained so they can be removed once it is published.
+    index_keys: BTreeMap<TabletIndexName, Vec<Arc<[u8]>>>,
+}
+
 /// Pending writes are used by the committer to detect conflicts between a new
 /// commit and a commit that has started but has not finished writing to
 /// persistence and snapshot_manager.
 /// These pending writes do not conflict with each other so any subset of them
 /// may be written to persistence, in any order.
 pub struct PendingWrites {
-    by_ts: BTreeMap<Timestamp, (OrderedDocumentWrites, WriteSource, Snapshot)>,
+    /// Pending commits in commit order, oldest first.
+    by_ts: VecDeque<PendingWrite>,
+    /// The database index keys of every pending commit, so that `is_stale` can
+    /// intersect a read set with the pending writes by index and key instead of
+    /// walking every pending document.
+    ///
+    /// Keying by name rather than index id relies on every pending key under
+    /// one name having been computed with the same index definition.
+    by_database_index: BTreeMap<TabletIndexName, PendingKeysInIndex>,
 }
 
 impl PendingWrites {
     pub fn new() -> Self {
         Self {
-            by_ts: BTreeMap::new(),
+            by_ts: VecDeque::new(),
+            by_database_index: BTreeMap::new(),
         }
     }
 
@@ -921,73 +1005,175 @@ impl PendingWrites {
         write_source: WriteSource,
         snapshot: Snapshot,
     ) -> PendingWriteHandle {
-        if let Some((last_ts, _)) = self.by_ts.iter().next_back() {
-            assert!(*last_ts < ts, "{:?} >= {}", *last_ts, ts);
+        if let Some(last) = self.by_ts.back() {
+            assert!(last.ts < ts, "{:?} >= {}", last.ts, ts);
         }
 
-        self.by_ts.insert(ts, (writes, write_source, snapshot));
+        let index_keys = self.index_by_key(ts, &writes, &snapshot.index_registry);
+        self.by_ts.push_back(PendingWrite {
+            ts,
+            writes,
+            write_source,
+            snapshot,
+            index_keys,
+        });
         PendingWriteHandle(ts)
+    }
+
+    /// Adds the database index keys the commit at `ts` writes to
+    /// `by_database_index`, returning them so `pop_first` can take them out
+    /// again.
+    fn index_by_key(
+        &mut self,
+        ts: Timestamp,
+        writes: &OrderedDocumentWrites,
+        index_registry: &IndexRegistry,
+    ) -> BTreeMap<TabletIndexName, Vec<Arc<[u8]>>> {
+        let mut index_keys: BTreeMap<TabletIndexName, Vec<Arc<[u8]>>> = BTreeMap::new();
+        for update in writes.iter() {
+            let update_keys = index_registry.database_index_keys(
+                update.id,
+                update.old_document.as_ref(),
+                update.new_document.as_ref(),
+            );
+            for (index_name, Update { old, new }) in update_keys {
+                // An update that leaves the indexed fields alone writes the
+                // same key twice.
+                let new = new.filter(|new| old.as_ref() != Some(new));
+                let index = self
+                    .by_database_index
+                    .entry(index_name.clone())
+                    .or_default();
+                let keys = index_keys.entry(index_name).or_default();
+                for key in old.into_iter().chain(new) {
+                    let key: Arc<[u8]> = Arc::from(key.0);
+                    index.insert(
+                        key.clone(),
+                        PendingKeyWriter {
+                            ts,
+                            document_id: update.id,
+                        },
+                    );
+                    keys.push(key);
+                }
+            }
+        }
+        index_keys
     }
 
     pub fn latest_snapshot(&self) -> Option<Snapshot> {
         self.by_ts
-            .iter()
-            .next_back()
-            .map(|(_, (_, _, snapshot))| snapshot.clone())
+            .back()
+            .map(|pending_write| pending_write.snapshot.clone())
     }
 
     /// Recomputes the snapshot associated with each pending write, rebasing the
     /// pending writes on the new base snapshot provided.
     pub fn recompute_pending_snapshots(&mut self, mut base_snapshot: Snapshot) {
-        for (ts, (ordered_writes, _, snapshot)) in self.by_ts.iter_mut() {
-            for document_update in ordered_writes.iter() {
+        for pending_write in self.by_ts.iter_mut() {
+            let ts = pending_write.ts;
+            for document_update in pending_write.writes.iter() {
                 base_snapshot
-                    .update(&document_update.unpack(), *ts)
+                    .update(&document_update.unpack(), ts)
                     .expect("Failed to update snapshot");
             }
-            *snapshot = base_snapshot.clone();
+            pending_write.snapshot = base_snapshot.clone();
         }
     }
 
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<
-        Item = (
-            &Timestamp,
-            impl Iterator<Item = &PackedDocumentUpdate>,
-            &WriteSource,
-        ),
-    > {
-        self.by_ts
-            .iter()
-            .map(|(ts, (w, source, _snapshot))| (ts, w.iter(), source))
+    /// Returns a pending write that conflicts with `reads`, if there is one.
+    #[fastrace::trace]
+    pub fn is_stale(&self, reads: &ReadSet) -> Option<ConflictingReadWithWriteSource> {
+        self.database_index_conflict(reads)
+            .or_else(|| self.text_index_conflict(reads))
     }
 
-    pub fn is_stale(
-        &self,
-        reads: &ReadSet,
-    ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        Ok(reads.writes_overlap_docs(self.iter()))
+    /// Intersects the read set's index intervals with the pending index keys,
+    /// touching only the indexes that were read.
+    fn database_index_conflict(&self, reads: &ReadSet) -> Option<ConflictingReadWithWriteSource> {
+        reads.iter_indexed().find_map(|(index, index_reads)| {
+            let pending = self.by_database_index.get(index)?;
+            let (index_key, writer) = pending.overlaps(&index_reads.intervals)?;
+            Some(ConflictingReadWithWriteSource {
+                read: ConflictingRead {
+                    index: index.clone(),
+                    id: writer.document_id,
+                    stack_traces: index_reads.stack_traces_covering(index_key),
+                },
+                write_source: self.write_source(writer.ts).clone(),
+                write_ts: writer.ts,
+            })
+        })
+    }
+
+    /// Checks the read set against every pending document.
+    ///
+    /// Text index keys aren't indexed like database index keys are: tokenizing
+    /// a document is too expensive to do on the committer thread, so it is
+    /// deferred until the commit is written to persistence. Text index reads
+    /// are rare enough that the linear scan is worth avoiding that cost.
+    fn text_index_conflict(&self, reads: &ReadSet) -> Option<ConflictingReadWithWriteSource> {
+        if !reads.has_search_reads() {
+            return None;
+        }
+        self.by_ts.iter().find_map(|pending_write| {
+            let read = pending_write
+                .writes
+                .iter()
+                .flat_map(|update| [&update.old_document, &update.new_document])
+                .flatten()
+                .find_map(|document| reads.search_overlaps_document(document))?;
+            Some(ConflictingReadWithWriteSource {
+                read,
+                write_source: pending_write.write_source.clone(),
+                write_ts: pending_write.ts,
+            })
+        })
+    }
+
+    fn write_source(&self, ts: Timestamp) -> &WriteSource {
+        let position = self
+            .by_ts
+            .binary_search_by(|pending_write| pending_write.ts.cmp(&ts))
+            .expect("pending index key without a pending write");
+        &self.by_ts[position].write_source
     }
 
     pub fn pop_first(
         &mut self,
         handle: PendingWriteHandle,
     ) -> (OrderedDocumentWrites, WriteSource, Snapshot) {
-        let (ts, write) = self
+        let pending_write = self
             .by_ts
-            .pop_first()
+            .pop_front()
             .unwrap_or_else(|| panic!("commit at {} not pending", handle.0));
+        let ts = pending_write.ts;
         assert_eq!(
             ts, handle.0,
             "pending write handle ts {} does not match first pending write {ts}",
             handle.0,
         );
-        write
+        for (index_name, keys) in pending_write.index_keys {
+            let Entry::Occupied(mut entry) = self.by_database_index.entry(index_name) else {
+                panic!("index of pending write is missing");
+            };
+            let index = entry.get_mut();
+            for key in keys {
+                index.remove(&key, ts);
+            }
+            if index.is_empty() {
+                entry.remove();
+            }
+        }
+        (
+            pending_write.writes,
+            pending_write.write_source,
+            pending_write.snapshot,
+        )
     }
 
     pub fn min_ts(&self) -> Option<Timestamp> {
-        self.by_ts.first_key_value().map(|(ts, _)| *ts)
+        self.by_ts.front().map(|pending_write| pending_write.ts)
     }
 }
 

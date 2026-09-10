@@ -253,15 +253,23 @@ impl IntervalSet {
             .all(|(in_set, _)| in_set)
     }
 
+    /// Return an iterator over all the intervals within the set, borrowing
+    /// their bounds.
+    pub fn iter_ref(&self) -> impl Iterator<Item = IntervalRef<'_>> + '_ {
+        match self {
+            Self::All => Either::Left(iter::once(IntervalRef::all())),
+            Self::Intervals(intervals) => Either::Right(intervals.iter().map(
+                |(StartIncluded(start), end)| IntervalRef {
+                    start: start.as_slice(),
+                    end: end.as_ref(),
+                },
+            )),
+        }
+    }
+
     /// Return an iterator over all the intervals within the set.
     pub fn iter(&self) -> impl Iterator<Item = Interval> + '_ {
-        match self {
-            Self::All => Either::Left(std::iter::once(Interval::all())),
-            Self::Intervals(intervals) => Either::Right(intervals.iter().map(|(a, b)| Interval {
-                start: a.clone(),
-                end: b.clone(),
-            })),
-        }
+        self.iter_ref().map(|interval| interval.to_owned())
     }
 
     /// Computes the set-difference target - self.

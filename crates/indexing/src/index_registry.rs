@@ -221,71 +221,52 @@ impl IndexRegistry {
         updates.into_values().collect()
     }
 
-    fn index_keys_for_index<F>(
+    /// A document's update to one text index's key, or `None` if `index` isn't
+    /// a text index or the document exists on neither side of the update.
+    fn text_index_key_update<F>(
         index: &Index,
         old_doc: Option<&PackedDocument>,
         new_doc: Option<&PackedDocument>,
         search_tokenizer: &F,
-    ) -> Option<IndexKeyUpdate>
+    ) -> Option<Update<SearchIndexKeyValue>>
     where
         F: Fn(ConvexString) -> SearchValueTokens,
     {
-        match &index.metadata.config {
-            IndexConfig::Database {
-                spec: DatabaseIndexSpec { fields },
-                ..
-            } => {
-                let old_key = old_doc.map(|doc| doc.index_key_bytes(&fields[..]));
-                let new_key = new_doc.map(|doc| doc.index_key_bytes(&fields[..]));
-                if old_key.is_some() || new_key.is_some() {
-                    Some(IndexKeyUpdate::Database(Update {
-                        old: old_key,
-                        new: new_key,
-                    }))
-                } else {
-                    None
-                }
-            },
-            IndexConfig::Text {
-                spec:
-                    TextIndexSpec {
-                        search_field,
-                        filter_fields,
-                    },
-                ..
-            } => {
-                let compute_search_key = |doc: &PackedDocument| {
-                    let filter_values = filter_fields
-                        .iter()
-                        .map(|field| {
-                            let value = doc.value().get_path(field);
-                            let bytes = SearchFilterValue::from_search_value(value.as_ref());
-                            (field.clone(), bytes)
-                        })
-                        .collect();
-                    let search_field_value = match doc.value().get_path(search_field) {
-                        Some(ConvexValue::String(string)) => Some(search_tokenizer(string)),
-                        _ => None,
-                    };
-                    SearchIndexKeyValue {
-                        filter_values,
-                        search_field: search_field.clone(),
-                        search_field_value,
-                    }
-                };
-                let old_key = old_doc.map(compute_search_key);
-                let new_key = new_doc.map(compute_search_key);
-                if old_key.is_some() || new_key.is_some() {
-                    Some(IndexKeyUpdate::Text(Update {
-                        old: old_key,
-                        new: new_key,
-                    }))
-                } else {
-                    None
-                }
-            },
-            IndexConfig::Vector { .. } => None,
-        }
+        let IndexConfig::Text {
+            spec:
+                TextIndexSpec {
+                    search_field,
+                    filter_fields,
+                },
+            ..
+        } = &index.metadata.config
+        else {
+            return None;
+        };
+        let compute_search_key = |doc: &PackedDocument| {
+            let filter_values = filter_fields
+                .iter()
+                .map(|field| {
+                    let value = doc.value().get_path(field);
+                    let bytes = SearchFilterValue::from_search_value(value.as_ref());
+                    (field.clone(), bytes)
+                })
+                .collect();
+            let search_field_value = match doc.value().get_path(search_field) {
+                Some(ConvexValue::String(string)) => Some(search_tokenizer(string)),
+                _ => None,
+            };
+            SearchIndexKeyValue {
+                filter_values,
+                search_field: search_field.clone(),
+                search_field_value,
+            }
+        };
+        let update = Update {
+            old: old_doc.map(compute_search_key),
+            new: new_doc.map(compute_search_key),
+        };
+        (update.old.is_some() || update.new.is_some()).then_some(update)
     }
 
     /// A document's updates to enabled indexes
@@ -299,50 +280,110 @@ impl IndexRegistry {
     where
         F: Fn(ConvexString) -> SearchValueTokens,
     {
-        let mut map: BTreeMap<_, _> = self
+        let database_keys = self
+            .iter_database_index_keys(id, old_document, new_document)
+            .map(|(index_name, update)| (index_name, IndexKeyUpdate::Database(update)));
+        let text_keys = self
             .enabled_indexes_for_table(id.tablet_id)
             .filter_map(|index| {
-                let update = Self::index_keys_for_index(
+                let update = Self::text_index_key_update(
                     index,
                     old_document,
                     new_document,
                     &search_tokenizer,
                 )?;
-                Some((
-                    index.name(),
+                Some((index.name(), IndexKeyUpdate::Text(update)))
+            });
+        let map = database_keys
+            .chain(text_keys)
+            .map(|(index_name, update)| {
+                (
+                    index_name,
                     IndexUpdate {
                         document_id: id,
                         update,
                         new_document: new_document.cloned(),
                     },
-                ))
+                )
             })
             .collect();
-        if id.tablet_id == self.index_table {
-            let index_name = GenericIndexName::new(
-                id.tablet_id,
-                INDEX_BY_TABLE_ID_VIRTUAL_INDEX_DESCRIPTOR.clone(),
-            )
-            .expect("invalid built-in index name");
-
-            let old_key =
-                old_document.map(|doc| doc.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)));
-            let new_key =
-                new_document.map(|doc| doc.index_key_bytes(slice::from_ref(&*TABLE_ID_FIELD_PATH)));
-
-            map.insert(
-                index_name,
-                IndexUpdate {
-                    document_id: id,
-                    update: IndexKeyUpdate::Database(Update {
-                        old: old_key,
-                        new: new_key,
-                    }),
-                    new_document: new_document.cloned(),
-                },
-            );
-        }
         DocumentIndexKeys(map)
+    }
+
+    /// A document's updates to the keys of enabled database indexes.
+    ///
+    /// Text index keys need the document's text tokenized, which is expensive
+    /// enough that callers who only conflict-check database indexes use this
+    /// rather than [`Self::document_index_keys`].
+    pub fn database_index_keys<'a>(
+        &'a self,
+        id: ResolvedDocumentId,
+        old_document: Option<&'a PackedDocument>,
+        new_document: Option<&'a PackedDocument>,
+    ) -> impl Iterator<Item = (TabletIndexName, Update<IndexKeyBytes>)> + 'a {
+        self.iter_database_index_keys(id, old_document, new_document)
+    }
+
+    /// The single source of which database indexes a document update touches,
+    /// so that [`Self::document_index_keys`] and [`Self::database_index_keys`]
+    /// can't disagree about it.
+    fn iter_database_index_keys<'a>(
+        &'a self,
+        id: ResolvedDocumentId,
+        old_document: Option<&'a PackedDocument>,
+        new_document: Option<&'a PackedDocument>,
+    ) -> impl Iterator<Item = (TabletIndexName, Update<IndexKeyBytes>)> + 'a {
+        let enabled = self
+            .enabled_indexes_for_table(id.tablet_id)
+            .filter_map(move |index| {
+                let IndexConfig::Database {
+                    spec: DatabaseIndexSpec { fields },
+                    ..
+                } = &index.metadata.config
+                else {
+                    return None;
+                };
+                let update = Self::database_index_key_update(fields, old_document, new_document)?;
+                Some((index.name(), update))
+            });
+        let by_table_id = (id.tablet_id == self.index_table)
+            .then(|| self.index_by_table_id_keys(old_document, new_document));
+        enabled.chain(by_table_id)
+    }
+
+    /// A document's update to one database index's key, or `None` if the
+    /// document exists on neither side of the update.
+    fn database_index_key_update(
+        fields: &[FieldPath],
+        old_doc: Option<&PackedDocument>,
+        new_doc: Option<&PackedDocument>,
+    ) -> Option<Update<IndexKeyBytes>> {
+        let update = Update {
+            old: old_doc.map(|doc| doc.index_key_bytes(fields)),
+            new: new_doc.map(|doc| doc.index_key_bytes(fields)),
+        };
+        (update.old.is_some() || update.new.is_some()).then_some(update)
+    }
+
+    /// The keys for `_index.by_table_id`, a virtual index that doesn't exist in
+    /// the registry but that transactions writing to a table take a read
+    /// dependency on.
+    fn index_by_table_id_keys(
+        &self,
+        old_document: Option<&PackedDocument>,
+        new_document: Option<&PackedDocument>,
+    ) -> (TabletIndexName, Update<IndexKeyBytes>) {
+        let index_name = GenericIndexName::new(
+            self.index_table,
+            INDEX_BY_TABLE_ID_VIRTUAL_INDEX_DESCRIPTOR.clone(),
+        )
+        .expect("invalid built-in index name");
+        let fields = slice::from_ref(&*TABLE_ID_FIELD_PATH);
+        let update = Update {
+            old: old_document.map(|doc| doc.index_key_bytes(fields)),
+            new: new_document.map(|doc| doc.index_key_bytes(fields)),
+        };
+        (index_name, update)
     }
 
     // Verifies if an update is valid.

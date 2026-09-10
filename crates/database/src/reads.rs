@@ -11,10 +11,7 @@ use cmd_util::env::env_config;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     components::ComponentPath,
-    document::{
-        IndexKeyBuffer,
-        PackedDocument,
-    },
+    document::PackedDocument,
     document_index_keys::{
         DatabaseIndexWrite,
         TextIndexWrite,
@@ -55,11 +52,7 @@ use crate::{
     },
     execution_size::TransactionLimits,
     stack_traces::StackTrace,
-    write_log::{
-        ArcWriteInIndex,
-        PackedDocumentUpdate,
-        WriteSource,
-    },
+    write_log::ArcWriteInIndex,
 };
 
 pub const OVER_LIMIT_HELP: &str = "Consider using smaller limits in your queries, paginating your \
@@ -77,6 +70,21 @@ pub struct IndexReads {
     pub fields: IndexedFields,
     pub intervals: IntervalSet,
     pub stack_traces: Option<Vec<(Interval, StackTrace)>>,
+}
+
+impl IndexReads {
+    /// The stack traces of the reads that cover `index_key`, or `None` if
+    /// backtraces aren't being collected.
+    pub(crate) fn stack_traces_covering(&self, index_key: &[u8]) -> Option<Vec<StackTrace>> {
+        let stack_traces = self.stack_traces.as_ref()?;
+        Some(
+            stack_traces
+                .iter()
+                .filter(|(interval, _)| interval.contains(index_key))
+                .map(|(_, trace)| trace.clone())
+                .collect(),
+        )
+    }
 }
 
 impl HeapSize for IndexReads {
@@ -124,6 +132,10 @@ impl ReadSet {
         self.search.iter()
     }
 
+    pub fn has_search_reads(&self) -> bool {
+        !self.search.is_empty()
+    }
+
     pub fn consume(
         self,
     ) -> (
@@ -133,45 +145,9 @@ impl ReadSet {
         (self.indexed.into_iter(), self.search.into_iter())
     }
 
-    /// Determine whether a mutation to a document overlaps with the read set.
-    ///
-    /// `reusable_buffer` is passed as a parameter to avoid repeated
-    /// allocations.
-    pub fn overlaps_document(
-        &self,
-        document: &PackedDocument,
-        reusable_buffer: &mut IndexKeyBuffer,
-    ) -> Option<ConflictingRead> {
-        for (
-            index,
-            IndexReads {
-                fields,
-                intervals,
-                stack_traces,
-            },
-        ) in iter_indexes_for_table(&self.indexed, document.id().tablet_id)
-        {
-            let index_key = document.index_key(fields, reusable_buffer);
-            if intervals.contains(index_key) {
-                let stack_traces = stack_traces.as_ref().map(|st| {
-                    st.iter()
-                        .filter_map(|(interval, trace)| {
-                            if interval.contains(index_key) {
-                                Some(trace.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect()
-                });
-                return Some(ConflictingRead {
-                    index: index.clone(),
-                    id: document.id(),
-                    stack_traces,
-                });
-            }
-        }
-
+    /// Determine whether a mutation to a document overlaps with the text index
+    /// reads in the read set.
+    pub fn search_overlaps_document(&self, document: &PackedDocument) -> Option<ConflictingRead> {
         for (index, search_reads) in iter_indexes_for_table(&self.search, document.id().tablet_id) {
             if search_reads.overlaps_document(document) {
                 return Some(ConflictingRead {
@@ -184,51 +160,9 @@ impl ReadSet {
         None
     }
 
-    /// writes_overlap_docs is the core logic for
-    /// detecting whether a transaction or subscription intersects a commit.
-    /// If a write transaction intersects, it will be retried to maintain
-    /// serializability. If a subscription intersects, it will be rerun and the
-    /// result sent to all clients.
-    #[fastrace::trace]
-    pub fn writes_overlap_docs<'a>(
-        &self,
-        updates: impl Iterator<
-            Item = (
-                &'a Timestamp,
-                impl Iterator<Item = &'a PackedDocumentUpdate>,
-                &'a WriteSource,
-            ),
-        >,
-    ) -> Option<ConflictingReadWithWriteSource> {
-        let mut buffer = IndexKeyBuffer::new();
-        for (update_ts, updates, write_source) in updates {
-            for update in updates {
-                if let Some(ref document) = update.new_document
-                    && let Some(conflicting_read) = self.overlaps_document(document, &mut buffer)
-                {
-                    return Some(ConflictingReadWithWriteSource {
-                        read: conflicting_read,
-                        write_source: write_source.clone(),
-                        write_ts: *update_ts,
-                    });
-                }
-                if let Some(ref prev_value) = update.old_document
-                    && let Some(conflicting_read) = self.overlaps_document(prev_value, &mut buffer)
-                {
-                    return Some(ConflictingReadWithWriteSource {
-                        read: conflicting_read,
-                        write_source: write_source.clone(),
-                        write_ts: *update_ts,
-                    });
-                }
-            }
-        }
-        None
-    }
-
     /// Check whether any writes in the given index maps in the timestamp
-    /// range `(from, to]` conflict with this read set. More efficient than
-    /// `writes_overlap_docs` because it looks up only indexes that were read.
+    /// range `(from, to]` conflict with this read set. Only looks up indexes
+    /// that were read.
     #[fastrace::trace]
     pub(crate) fn writes_overlap_by_index(
         &self,
@@ -238,38 +172,19 @@ impl ReadSet {
         to: Timestamp,
     ) -> Option<ConflictingReadWithWriteSource> {
         // Check database index reads
-        for (
-            index,
-            IndexReads {
-                intervals,
-                stack_traces,
-                ..
-            },
-        ) in self.indexed.iter()
-        {
+        for (index, index_reads) in self.indexed.iter() {
             let Some(updates) = by_database_index.get(index) else {
                 continue;
             };
             for write in updates.range((Bound::Excluded(from), Bound::Included(to))) {
                 for update in &write.index_updates {
                     for index_key in update.update.iter() {
-                        if intervals.contains(index_key) {
-                            let stack_traces = stack_traces.as_ref().map(|st| {
-                                st.iter()
-                                    .filter_map(|(interval, trace)| {
-                                        if interval.contains(index_key) {
-                                            Some(trace.clone())
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect()
-                            });
+                        if index_reads.intervals.contains(index_key) {
                             return Some(ConflictingReadWithWriteSource {
                                 read: ConflictingRead {
                                     index: index.clone(),
                                     id: update.document_id,
-                                    stack_traces,
+                                    stack_traces: index_reads.stack_traces_covering(index_key),
                                 },
                                 write_source: write.write_source.clone(),
                                 write_ts: write.ts,
