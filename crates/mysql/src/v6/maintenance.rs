@@ -38,6 +38,7 @@ use super::indexes::{
 };
 use crate::{
     connection::MySqlConnection,
+    metrics,
     ConvexMySqlPool,
 };
 
@@ -155,6 +156,12 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
         round.map(Some)
     }
 
+    /// Reports this round's gauges. The created and dropped counters are logged
+    /// by the DDL itself.
+    pub fn report_metrics(&self, round: &MaintenanceRound, now: Timestamp) {
+        metrics::log_indexes_log_maintenance(self.pool.cluster_name(), round, now);
+    }
+
     async fn take_lease(
         &self,
         conn: &mut MySqlConnection<'_, RT>,
@@ -199,8 +206,11 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
 
         let now_bucket = LogBucket::from_successor_ts(now);
         let missing = buckets_to_create(now_bucket, *INDEXES_LOG_LOOKAHEAD_BUCKETS, &existing)?;
+        // Counted here rather than off the returned round: the DDL is done and
+        // committed even if this round later loses the publish fence.
         for bucket in missing {
             conn.execute_many(&log_ddl(bucket)).await?;
+            metrics::log_indexes_log_bucket_created(self.pool.cluster_name());
             existing.insert(bucket);
         }
 
@@ -210,6 +220,7 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
         let dropped = bucket_to_drop(&existing, prev_oldest_kept_ts, now_bucket)?;
         if let Some(bucket) = dropped {
             conn.execute_many(&drop_log_ddl(bucket)).await?;
+            metrics::log_indexes_log_bucket_dropped(self.pool.cluster_name());
             existing.remove(&bucket);
         }
 
