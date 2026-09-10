@@ -642,6 +642,12 @@ pub static DOCUMENT_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
 pub static INDEX_RETENTION_DELAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("INDEX_RETENTION_DELAY", 4 * 60)));
 
+/// How often each conductor checks that the MySQL V6 `indexes_log_<bucket>`
+/// tables its cluster needs exist, and that buckets past retention are gone.
+pub static INDEXES_LOG_MAINTENANCE_INTERVAL: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("INDEXES_LOG_MAINTENANCE_INTERVAL", 60).max(1))
+});
+
 /// How many `indexes_log_<bucket>` tables to create beyond the one taking
 /// writes now.
 pub static INDEXES_LOG_LOOKAHEAD_BUCKETS: LazyLock<usize> =
