@@ -31,6 +31,7 @@ use mysql_async::{
 };
 
 use super::indexes::{
+    drop_log_ddl,
     log_ddl,
     LogBucket,
     LIST_LOG_TABLES,
@@ -96,6 +97,7 @@ WHERE id = 1 AND lease_owner = ?
 
 #[derive(Debug)]
 pub struct MaintenanceRound {
+    pub dropped: Option<String>,
     pub created_through_ts: Timestamp,
     pub oldest_kept_ts: Timestamp,
     pub bucket_count: usize,
@@ -121,6 +123,9 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
         conn.execute_many(INIT_SQL).await
     }
 
+    /// Creates the buckets writes will need, drop at most one that has aged
+    /// out, and publish the new ceiling and floor. Returns `None` when
+    /// another conductor holds the lease.
     pub async fn run_once(&self, now: Timestamp) -> anyhow::Result<Option<MaintenanceRound>> {
         let mut conn = self.pool.acquire(CONNECTION_NAME, &self.db_name).await?;
         let row = conn
@@ -199,6 +204,15 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
             existing.insert(bucket);
         }
 
+        // Dropping runs against the floor a previous round published, and
+        // publishing this round's floor comes after. A reader still holding the
+        // older floor can only be pointed at buckets that are still here.
+        let dropped = bucket_to_drop(&existing, prev_oldest_kept_ts, now_bucket)?;
+        if let Some(bucket) = dropped {
+            conn.execute_many(&drop_log_ddl(bucket)).await?;
+            existing.remove(&bucket);
+        }
+
         let created_through_ts = existing
             .last()
             .context("no log bucket exists after creating the lookahead")?
@@ -225,6 +239,7 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
         );
 
         Ok(MaintenanceRound {
+            dropped: dropped.map(LogBucket::table_name),
             created_through_ts,
             oldest_kept_ts,
             bucket_count: existing.len(),
@@ -258,4 +273,16 @@ fn buckets_to_create(
         .map(|offset| now_bucket.offset(offset))
         .filter_ok(|bucket| !existing.contains(bucket))
         .try_collect()
+}
+
+fn bucket_to_drop(
+    existing: &BTreeSet<LogBucket>,
+    prev_oldest_kept_ts: Timestamp,
+    now_bucket: LogBucket,
+) -> anyhow::Result<Option<LogBucket>> {
+    let Some(&bucket) = existing.first() else {
+        return Ok(None);
+    };
+    let past_backstop = bucket.value() < now_bucket.value() - 1;
+    Ok((past_backstop && bucket.end_ts()? <= prev_oldest_kept_ts).then_some(bucket))
 }
