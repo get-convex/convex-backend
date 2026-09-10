@@ -99,6 +99,7 @@ use common::{
         GenericIndexName,
         IndexId,
         IndexName,
+        IndexRef,
         IndexTableIdentifier,
         PersistenceIndexId,
         PersistenceVersion,
@@ -176,6 +177,7 @@ use usage_tracking::{
 };
 use value::{
     id_v6::DeveloperDocumentId,
+    InternalDocumentId,
     Size,
     TableNamespace,
     TableNumber,
@@ -330,7 +332,7 @@ pub struct Database<RT: Runtime> {
     // Caches of snapshot TableMapping and by_id index ids, which are used repeatedly by
     // /api/list_snapshot.
     table_mapping_snapshot_cache: AsyncLru<RT, Timestamp, TableMapping>,
-    by_id_indexes_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<TabletId, IndexId>>,
+    by_id_indexes_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<TabletId, IndexRef>>,
     component_paths_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<ComponentId, ComponentPath>>,
     list_snapshot_table_iterator_cache:
         Arc<tokio::sync::Mutex<Option<ListSnapshotTableIteratorCacheEntry<RT>>>>,
@@ -349,7 +351,7 @@ struct ListSnapshotTableIteratorCacheEntry<RT: Runtime> {
 struct ListSnapshotTableIteratorCacheKey {
     snapshot: Timestamp,
     tablet_ids: Vec<TabletId>,
-    by_id: IndexId,
+    by_id: IndexRef,
     cursor: Option<ResolvedDocumentId>,
 }
 
@@ -405,8 +407,8 @@ pub struct SnapshotPage {
 
 #[derive(Clone)]
 pub struct BootstrapMetadata {
-    pub tables_by_id: IndexId,
-    pub index_by_id: IndexId,
+    pub tables_by_id: IndexRef,
+    pub index_by_id: IndexRef,
     pub tables_tablet_id: TabletId,
     pub index_tablet_id: TabletId,
 }
@@ -424,17 +426,11 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         D: TryFrom<ConvexObject, Error = anyhow::Error>,
     >(
         persistence_snapshot: &PersistenceSnapshot,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
     ) -> anyhow::Result<(Vec<(Timestamp, PackedDocument)>, Vec<ParsedDocument<D>>)> {
         persistence_snapshot
-            .index_scan(
-                index_id,
-                tablet_id,
-                &Interval::all(),
-                Order::Asc,
-                usize::MAX,
-            )
+            .index_scan(index, tablet_id, &Interval::all(), Order::Asc, usize::MAX)
             .map(|row| {
                 let rev = row?.1;
                 let doc = PackedDocument::pack(&rev.value);
@@ -506,7 +502,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         BootstrapMetadata,
     )> {
         let _timer = metrics::load_table_and_index_metadata_timer();
-        let bootstrap_metadata = Self::get_meta_ids(persistence_snapshot.persistence()).await?;
+        let bootstrap_metadata = Self::get_meta_ids(persistence_snapshot).await?;
         let BootstrapMetadata {
             tables_by_id,
             index_by_id,
@@ -701,13 +697,13 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         let stream = if let Some(by_creation_time) = by_creation_time {
             let stream = table_iterator.stream_documents_in_table_by_index(
                 tablet_id,
-                by_creation_time.id(),
+                IndexRef::try_from(by_creation_time)?,
                 IndexedFields::creation_time(),
                 None,
             );
             stream.map_ok(|(_, rev)| rev).boxed()
         } else {
-            let table_by_id = self.index_registry().must_get_by_id(tablet_id)?.id();
+            let table_by_id = IndexRef::try_from(self.index_registry().must_get_by_id(tablet_id)?)?;
             table_iterator
                 .stream_documents_in_table(tablet_id, table_by_id, None)
                 .boxed()
@@ -717,8 +713,9 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
 
     /// Fetch _tables.by_id and _index.by_id for bootstrapping.
     pub async fn get_meta_ids(
-        persistence: &dyn PersistenceReader,
+        persistence_snapshot: &PersistenceSnapshot,
     ) -> anyhow::Result<BootstrapMetadata> {
+        let persistence = persistence_snapshot.persistence();
         let tables_by_id = persistence
             .get_persistence_global(PersistenceGlobalKey::TablesByIdIndex)
             .await?
@@ -747,12 +744,43 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             .as_str()
             .context("_index table ID is not string")?
             .parse()?;
+        let tables_by_id =
+            Self::bootstrap_index_ref(persistence_snapshot, index_tablet_id, tables_by_id).await?;
+        let index_by_id =
+            Self::bootstrap_index_ref(persistence_snapshot, index_tablet_id, index_by_id).await?;
         Ok(BootstrapMetadata {
             tables_by_id,
             index_by_id,
             tables_tablet_id,
             index_tablet_id,
         })
+    }
+
+    /// Resolves a bootstrap index from its `_index` document at the snapshot.
+    /// Every other index resolves through the index registry, but these two
+    /// are what the registry is loaded with, so their metadata is read by
+    /// document ID instead.
+    async fn bootstrap_index_ref(
+        persistence_snapshot: &PersistenceSnapshot,
+        index_tablet_id: TabletId,
+        index_id: IndexId,
+    ) -> anyhow::Result<IndexRef> {
+        let document_id = InternalDocumentId::new(index_tablet_id, index_id.0);
+        // `previous_revisions` returns the newest revision strictly before the
+        // timestamp, so ask one past the snapshot.
+        let after_snapshot = persistence_snapshot.timestamp().succ()?;
+        let mut revisions = persistence_snapshot
+            .persistence()
+            .previous_revisions(
+                BTreeSet::from([(document_id, after_snapshot)]),
+                persistence_snapshot.retention_validator(),
+            )
+            .await?;
+        let document = revisions
+            .remove(&(document_id, after_snapshot))
+            .and_then(|revision| revision.value)
+            .with_context(|| format!("bootstrap index {index_id} has no `_index` document"))?;
+        IndexRef::try_from(&TabletIndexMetadata::from_document(document)?)
     }
 
     #[fastrace::trace]
@@ -1321,6 +1349,16 @@ impl<RT: Runtime> Database<RT> {
             .await
     }
 
+    /// The `by_id` ref of a system table, from the latest registry, for reading
+    /// the table at any snapshot. These indexes are created at initialization
+    /// and never replaced, and a persistence index ID never changes once
+    /// assigned, so the latest metadata names the physical index every
+    /// snapshot saw; metadata from a snapshot before the ID was assigned would
+    /// name none, and a layout that keys rows by it could not read at all.
+    fn system_by_id_ref(snapshot: &Snapshot, tablet_id: TabletId) -> anyhow::Result<IndexRef> {
+        IndexRef::try_from(snapshot.index_registry.must_get_by_id(tablet_id)?)
+    }
+
     #[fastrace::trace]
     async fn compute_snapshot_table_mapping(
         self,
@@ -1334,10 +1372,7 @@ impl<RT: Runtime> Database<RT> {
             .namespace(TableNamespace::Global)
             .id(&TABLES_TABLE)?
             .tablet_id;
-        let tables_by_id = snapshot
-            .index_registry
-            .must_get_by_id(tables_tablet_id)?
-            .id();
+        let tables_by_id = Self::system_by_id_ref(&snapshot, tables_tablet_id)?;
         let stream = table_iterator.stream_documents_in_table(tables_tablet_id, tables_by_id, None);
         pin_mut!(stream);
         let mut table_mapping = TableMapping::new();
@@ -1359,7 +1394,7 @@ impl<RT: Runtime> Database<RT> {
     async fn snapshot_by_id_indexes(
         &self,
         ts: RepeatableTimestamp,
-    ) -> anyhow::Result<Arc<BTreeMap<TabletId, IndexId>>> {
+    ) -> anyhow::Result<Arc<BTreeMap<TabletId, IndexRef>>> {
         self.by_id_indexes_snapshot_cache
             .get(&*ts, || self.clone().compute_snapshot_by_id_indexes(ts))
             .await
@@ -1369,21 +1404,18 @@ impl<RT: Runtime> Database<RT> {
     async fn compute_snapshot_by_id_indexes(
         self,
         ts: RepeatableTimestamp,
-    ) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
+    ) -> anyhow::Result<BTreeMap<TabletId, IndexRef>> {
         let table_iterator = self.table_iterator(ts, 100);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
         let index_tablet_id = snapshot.index_registry.index_table();
-        let index_by_id = snapshot
-            .index_registry
-            .must_get_by_id(index_tablet_id)?
-            .id();
+        let index_by_id = Self::system_by_id_ref(&snapshot, index_tablet_id)?;
         let stream = table_iterator.stream_documents_in_table(index_tablet_id, index_by_id, None);
         pin_mut!(stream);
         let mut by_id_indexes = BTreeMap::new();
         while let Some(index_doc) = stream.try_next().await? {
             let index_doc = TabletIndexMetadata::from_document(index_doc.value)?;
             if index_doc.name.is_by_id() {
-                by_id_indexes.insert(*index_doc.name.table(), index_doc.id().internal_id().into());
+                by_id_indexes.insert(*index_doc.name.table(), IndexRef::try_from(&index_doc)?);
             }
         }
         Ok(by_id_indexes)
@@ -1410,10 +1442,7 @@ impl<RT: Runtime> Database<RT> {
             .namespace(TableNamespace::Global)
             .id(&COMPONENTS_TABLE)?
             .tablet_id;
-        let component_by_id = snapshot
-            .index_registry
-            .must_get_by_id(component_tablet_id)?
-            .id();
+        let component_by_id = Self::system_by_id_ref(&snapshot, component_tablet_id)?;
         let stream =
             table_iterator.stream_documents_in_table(component_tablet_id, component_by_id, None);
         pin_mut!(stream);
@@ -1656,6 +1685,31 @@ impl<RT: Runtime> Database<RT> {
         self.reader.version()
     }
 
+    /// The ref for an index a funrun named by `_index` document ID alone,
+    /// which only a funrun predating the persistence ID on the wire does. The
+    /// registry at the snapshot supplies the ID, or the latest registry once
+    /// that snapshot left memory; the two agree because an assigned ID never
+    /// changes. An unknown index gets none; a text or vector index is an error.
+    fn index_ref_at(
+        &self,
+        snapshot: Option<&Snapshot>,
+        index_id: IndexId,
+    ) -> anyhow::Result<IndexRef> {
+        let latest;
+        let registry = match snapshot {
+            Some(snapshot) => &snapshot.index_registry,
+            None => {
+                latest = self.snapshot_manager.lock().latest().1;
+                &latest.index_registry
+            },
+        };
+        registry
+            .enabled_index_by_index_id(&index_id)
+            .or_else(|| registry.pending_index_by_index_id(&index_id))
+            .map(IndexRef::try_from)
+            .unwrap_or(Ok(IndexRef::unresolved(index_id)))
+    }
+
     /// Scan a page of the index, checking in-memory indexes and the index cache
     /// first and falling back to the persistence reader.
     ///
@@ -1664,7 +1718,7 @@ impl<RT: Runtime> Database<RT> {
     pub async fn index_page(
         &self,
         ts: RepeatableTimestamp,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
@@ -1685,7 +1739,7 @@ impl<RT: Runtime> Database<RT> {
         if let Some(snapshot) = &snapshot
             && let Some(range) = snapshot
                 .in_memory_indexes
-                .range(index_id, interval, order)?
+                .range(index.id(), interval, order)?
         {
             let results = range
                 .into_iter()
@@ -1702,6 +1756,11 @@ impl<RT: Runtime> Database<RT> {
             let persistence_snapshot =
                 RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator())
                     .read_snapshot(ts)?;
+            let index = if index.persistence_index_id().is_some() {
+                index
+            } else {
+                self.index_ref_at(snapshot.as_ref(), index.id())?
+            };
             let mut reader = Arc::new(persistence_snapshot) as Arc<dyn IndexReader>;
             if let Some(snapshot) = snapshot
                 && let Some(handle) = self.index_cache_handle.clone()
@@ -1711,7 +1770,7 @@ impl<RT: Runtime> Database<RT> {
                 reader = Arc::new(handle.caching_index_reader(reader, snapshot.index_registry));
             }
             let index_page = reader
-                .index_page(index_id, tablet_id, interval, order, max_size)
+                .index_page(index, tablet_id, interval, order, max_size)
                 .await?;
             let results = index_page
                 .entries

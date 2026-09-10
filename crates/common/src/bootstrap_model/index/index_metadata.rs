@@ -43,6 +43,7 @@ use crate::{
     types::{
         GenericIndexName,
         IndexDescriptor,
+        IndexRef,
         IndexTableIdentifier,
         PersistenceIndexId,
     },
@@ -50,6 +51,35 @@ use crate::{
 
 pub type TabletIndexMetadata = IndexMetadata<TabletId>;
 pub type DeveloperIndexMetadata = IndexMetadata<TableName>;
+
+impl TryFrom<&ParsedDocument<TabletIndexMetadata>> for IndexRef {
+    type Error = anyhow::Error;
+
+    /// Only database indexes have rows in persistence, so only they have a
+    /// ref.
+    fn try_from(metadata: &ParsedDocument<TabletIndexMetadata>) -> anyhow::Result<Self> {
+        let persistence_index_id = match &metadata.config {
+            IndexConfig::Database {
+                persistence_index_id,
+                ..
+            } => *persistence_index_id,
+            IndexConfig::Text { .. } => {
+                anyhow::bail!(
+                    "{} is a text index, which has no persistence rows",
+                    metadata.name
+                )
+            },
+            IndexConfig::Vector { .. } => anyhow::bail!(
+                "{} is a vector index, which has no persistence rows",
+                metadata.name
+            ),
+        };
+        Ok(Self::from_parts(
+            metadata.id().internal_id().into(),
+            persistence_index_id,
+        ))
+    }
+}
 
 /// In-memory representation of an index's metadata.
 #[derive(Debug, Clone, PartialEq, Eq)]

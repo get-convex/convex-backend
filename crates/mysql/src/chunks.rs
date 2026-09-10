@@ -74,7 +74,7 @@ impl ApproxSize for DocumentLogEntry {
 
 impl ApproxSize for PersistenceIndexEntry {
     fn approx_size(&self) -> usize {
-        self.index_id.size() + self.key.len() + InternalDocumentId::MIN.size()
+        self.index.id().size() + self.key.len() + InternalDocumentId::MIN.size()
     }
 }
 

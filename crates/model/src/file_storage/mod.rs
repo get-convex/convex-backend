@@ -23,8 +23,8 @@ use common::{
     },
     runtime::Runtime,
     types::{
-        IndexId,
         IndexName,
+        IndexRef,
         StorageUuid,
     },
     virtual_system_mapping::AssociatedVirtualTable,
@@ -324,7 +324,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
 async fn file_storage_target_tables<RT: Runtime>(
     identity: &Identity,
     snapshot: &DatabaseSnapshot<RT>,
-) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
+) -> anyhow::Result<BTreeMap<TabletId, IndexRef>> {
     let mut tx = snapshot.begin_tx(
         identity.clone(),
         Arc::new(SearchNotEnabled),
@@ -441,7 +441,7 @@ impl<RT: Runtime> FileStorageSizeTracker<RT> {
 async fn sync_totals<RT: Runtime>(
     iterator: &DataSyncIterator<RT>,
     resume: Option<SyncedTotals>,
-    target_tables: &BTreeMap<TabletId, IndexId>,
+    target_tables: &BTreeMap<TabletId, IndexRef>,
 ) -> anyhow::Result<SyncedTotals> {
     let (mut cursor, mut size, mut num_documents) = match resume {
         Some(SyncedTotals {

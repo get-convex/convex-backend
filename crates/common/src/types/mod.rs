@@ -97,6 +97,7 @@ pub use index::{
     IndexDiff,
     IndexId,
     IndexName,
+    IndexRef,
     IndexTableIdentifier,
     PersistenceIndexId,
     StableIndexName,

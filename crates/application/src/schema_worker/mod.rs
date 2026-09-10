@@ -21,7 +21,7 @@ use common::{
         TableValidationOutcome,
     },
     types::{
-        IndexId,
+        IndexRef,
         RepeatableTimestamp,
     },
     virtual_system_mapping::VirtualSystemMapping,
@@ -87,7 +87,7 @@ pub struct PendingSchemaValidation {
     db_schema: Arc<DatabaseSchema>,
     ts: RepeatableTimestamp,
     active_schema: Option<Arc<DatabaseSchema>>,
-    by_id_indexes: BTreeMap<TabletId, IndexId>,
+    by_id_indexes: BTreeMap<TabletId, IndexRef>,
 }
 
 pub struct SchemaValidationResult {

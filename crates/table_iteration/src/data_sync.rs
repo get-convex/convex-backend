@@ -126,7 +126,7 @@ use common::{
     },
     runtime::Runtime,
     types::{
-        IndexId,
+        IndexRef,
         RepeatableTimestamp,
         Timestamp,
     },
@@ -381,7 +381,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
     pub async fn next_page(
         &self,
         cursor: Option<DataSyncCursor>,
-        target_tables: &BTreeMap<TabletId, IndexId>,
+        target_tables: &BTreeMap<TabletId, IndexRef>,
     ) -> anyhow::Result<DataSyncPage> {
         let page = self.next_page_inner(cursor, target_tables, false).await?;
         Ok(DataSyncPage {
@@ -397,7 +397,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
     pub async fn next_page_with_prev_revs(
         &self,
         cursor: Option<DataSyncCursor>,
-        target_tables: &BTreeMap<TabletId, IndexId>,
+        target_tables: &BTreeMap<TabletId, IndexRef>,
     ) -> anyhow::Result<DataSyncPage<DataSyncEntry>> {
         self.next_page_inner(cursor, target_tables, true).await
     }
@@ -424,7 +424,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
     async fn next_page_inner(
         &self,
         cursor: Option<DataSyncCursor>,
-        target_tables: &BTreeMap<TabletId, IndexId>,
+        target_tables: &BTreeMap<TabletId, IndexRef>,
         include_prev_revs: bool,
     ) -> anyhow::Result<DataSyncPage<DataSyncEntry>> {
         self.runtime
@@ -498,7 +498,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         &self,
         cursor: &mut DataSyncCursor,
         latest: RepeatableTimestamp,
-        target_tables: &BTreeMap<TabletId, IndexId>,
+        target_tables: &BTreeMap<TabletId, IndexRef>,
     ) -> anyhow::Result<(Vec<DataSyncEntry>, DataSyncStatus)> {
         let TableCursor::InProgress {
             current_table,
@@ -612,7 +612,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         &self,
         cursor: &mut DataSyncCursor,
         latest: RepeatableTimestamp,
-        target_tables: &BTreeMap<TabletId, IndexId>,
+        target_tables: &BTreeMap<TabletId, IndexRef>,
         include_prev_revs: bool,
     ) -> anyhow::Result<(Vec<DataSyncEntry>, DataSyncStatus)> {
         cover!(coverage::TS_PAGE);
@@ -859,7 +859,7 @@ fn is_captured(id: &InternalDocumentId, cursor: &DataSyncCursor) -> bool {
 /// targets are done.
 fn advance_to_next_table(
     synced_tables: &BTreeSet<TabletId>,
-    target_tables: &BTreeMap<TabletId, IndexId>,
+    target_tables: &BTreeMap<TabletId, IndexRef>,
 ) -> TableCursor {
     match target_tables
         .keys()
@@ -885,7 +885,7 @@ fn advance_to_next_table(
 /// start a newly-added table if we were otherwise `Synced`.
 fn reconcile_target_tables(
     cursor: &mut DataSyncCursor,
-    target_tables: &BTreeMap<TabletId, IndexId>,
+    target_tables: &BTreeMap<TabletId, IndexRef>,
 ) {
     let synced_before = cursor.synced_tables.len();
     cursor

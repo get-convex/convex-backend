@@ -46,6 +46,7 @@ use common::{
         GenericIndexName,
         IndexId,
         IndexName,
+        IndexRef,
         TabletIndexName,
     },
 };
@@ -167,19 +168,24 @@ impl IndexRegistry {
     pub(crate) fn index_keys<'a, D: IndexedDocument>(
         &'a self,
         document: &'a D,
-    ) -> impl Iterator<Item = (&'a Index, D::IndexKey)> + 'a {
+    ) -> impl Iterator<Item = (&'a Index, IndexRef, D::IndexKey)> + 'a {
         iter::from_coroutine(
             #[coroutine]
             move || {
                 for index in self.indexes_by_table(document.id().tablet_id) {
-                    // Only yield fields from database indexes.
+                    // Only database indexes have keys in persistence; the ref
+                    // comes from the same config, so callers need not convert.
                     if let IndexConfig::Database {
                         spec: DatabaseIndexSpec { fields },
                         on_disk_state: _,
-                        persistence_index_id: _,
+                        persistence_index_id,
                     } = &index.metadata.config
                     {
-                        yield (index, document.index_key_bytes(&fields[..]));
+                        yield (
+                            index,
+                            IndexRef::from_parts(index.id(), *persistence_index_id),
+                            document.index_key_bytes(&fields[..]),
+                        );
                     }
                 }
             },
@@ -193,11 +199,11 @@ impl IndexRegistry {
     ) -> Vec<DatabaseIndexUpdate> {
         let mut updates = BTreeMap::new();
         if let Some(old_document) = deletion {
-            for (index, index_key) in self.index_keys(old_document) {
+            for (index, index_ref, index_key) in self.index_keys(old_document) {
                 updates.insert(
                     (index.id(), index_key.clone()),
                     DatabaseIndexUpdate {
-                        index_id: index.id(),
+                        index: index_ref,
                         key: index_key,
                         value: DatabaseIndexValue::Deleted,
                         is_system_index: index.name().descriptor().is_reserved(),
@@ -206,11 +212,11 @@ impl IndexRegistry {
             }
         }
         if let Some(new_document) = insertion {
-            for (index, index_key) in self.index_keys(new_document) {
+            for (index, index_ref, index_key) in self.index_keys(new_document) {
                 updates.insert(
                     (index.id(), index_key.clone()),
                     DatabaseIndexUpdate {
-                        index_id: index.id(),
+                        index: index_ref,
                         key: index_key,
                         value: DatabaseIndexValue::NonClustered(new_document.id()),
                         is_system_index: index.name().descriptor().is_reserved(),
@@ -641,11 +647,11 @@ impl IndexRegistry {
             .map(|(_, index)| index)
     }
 
-    pub fn by_id_indexes(&self) -> BTreeMap<TabletId, IndexId> {
+    pub fn by_id_indexes(&self) -> anyhow::Result<BTreeMap<TabletId, IndexRef>> {
         self.all_enabled_indexes()
             .into_iter()
             .filter(|index| index.name.is_by_id())
-            .map(|index| (*index.name.table(), index.id().internal_id().into()))
+            .map(|index| Ok((*index.name.table(), IndexRef::try_from(&index)?)))
             .collect()
     }
 
@@ -796,6 +802,14 @@ impl IndexedDocument for PackedDocument {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Index {
     pub metadata: ParsedDocument<TabletIndexMetadata>,
+}
+
+impl TryFrom<&Index> for IndexRef {
+    type Error = anyhow::Error;
+
+    fn try_from(index: &Index) -> anyhow::Result<Self> {
+        Self::try_from(&index.metadata)
+    }
 }
 
 impl Index {

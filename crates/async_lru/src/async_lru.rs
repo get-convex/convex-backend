@@ -27,7 +27,7 @@ use common::{
         Runtime,
         SpawnHandle,
     },
-    types::IndexId,
+    types::IndexRef,
 };
 use fastrace::{
     collector::SpanContext,
@@ -155,7 +155,7 @@ impl<Value: SizedValue> SizedValue for Arc<Value> {
     }
 }
 
-// TableMapping and BTreeMap<TabletId, IndexId> don't vary much in size within
+// TableMapping and BTreeMap<TabletId, IndexRef> don't vary much in size within
 // a deployment, so it's easier to think about the caches as having a number of
 // items, instead of considering the number of bytes cached.
 impl SizedValue for TableMapping {
@@ -163,7 +163,7 @@ impl SizedValue for TableMapping {
         1
     }
 }
-impl SizedValue for BTreeMap<TabletId, IndexId> {
+impl SizedValue for BTreeMap<TabletId, IndexRef> {
     fn size(&self) -> u64 {
         1
     }

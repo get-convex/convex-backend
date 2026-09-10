@@ -53,6 +53,7 @@ use common::{
     types::{
         DatabaseIndexUpdate,
         IndexId,
+        IndexRef,
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
@@ -133,7 +134,7 @@ impl IndexSelector {
     fn filter_index_update(&self, index_update: &DatabaseIndexUpdate) -> bool {
         match self {
             Self::All(_) => true,
-            Self::ManyIndexes { indexes, .. } => indexes.contains_key(&index_update.index_id),
+            Self::ManyIndexes { indexes, .. } => indexes.contains_key(&index_update.index.id()),
         }
     }
 
@@ -318,7 +319,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         let (index_update_tx, index_update_rx) = mpsc::channel(32);
         let balance = ReadWriteBalance::new();
         let producer = async {
-            let by_id = index_registry.must_get_by_id(tablet_id)?.id();
+            let by_id = IndexRef::try_from(index_registry.must_get_by_id(tablet_id)?)?;
             let mut stream =
                 std::pin::pin!(table_iterator.stream_documents_in_table(tablet_id, by_id, cursor));
             let mut docs_sent = 0;

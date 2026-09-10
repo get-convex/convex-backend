@@ -132,7 +132,7 @@ fn index_params(query: &mut Vec<mysql_async::Value>, update: &PersistenceIndexEn
             Some(internal_doc_id_param(*doc_id)),
         ),
     };
-    query.push(internal_id_param(update.index_id.0).into());
+    query.push(internal_id_param(update.index.id().0).into());
     query.push(i64::from(update.ts).into());
     query.push(key.prefix.into());
     query.push(

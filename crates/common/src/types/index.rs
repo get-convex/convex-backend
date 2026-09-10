@@ -383,6 +383,48 @@ impl TryFrom<u32> for PersistenceIndexId {
     }
 }
 
+/// A database index as persistence identifies it: the `_index` document's ID
+/// and the persistence index ID its metadata held at the snapshot being read,
+/// so a layout keyed by that ID never resolves it from newer metadata. Text and
+/// vector indexes have no persistence rows and so no ref.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct IndexRef {
+    id: IndexId,
+    /// `None` until the index's metadata is assigned one, or without metadata.
+    /// Non-optional once every index has one and every ref comes from metadata.
+    persistence_index_id: Option<PersistenceIndexId>,
+}
+
+impl IndexRef {
+    /// A ref built without metadata, which a layout keyed by the persistence
+    /// index ID rejects. Its callers are the fallback for a funrun predating
+    /// the ID on the wire and `db_import`, whose exports carry none; when both
+    /// are gone, so is this, and the ID stops being optional.
+    pub const fn unresolved(id: IndexId) -> Self {
+        Self {
+            id,
+            persistence_index_id: None,
+        }
+    }
+
+    /// Reassembles a ref whose parts came from one ref or one metadata
+    /// revision.
+    pub const fn from_parts(id: IndexId, persistence_index_id: Option<PersistenceIndexId>) -> Self {
+        Self {
+            id,
+            persistence_index_id,
+        }
+    }
+
+    pub const fn id(&self) -> IndexId {
+        self.id
+    }
+
+    pub const fn persistence_index_id(&self) -> Option<PersistenceIndexId> {
+        self.persistence_index_id
+    }
+}
+
 // TODO: this encoding is rarely used and confusing
 impl From<IndexId> for String {
     fn from(index_id: IndexId) -> String {
@@ -399,8 +441,7 @@ impl FromStr for IndexId {
 
 #[derive(Eq, PartialEq, Clone, Debug, Ord, PartialOrd)]
 pub struct DatabaseIndexUpdate {
-    // id of the index document where the index is defined.
-    pub index_id: IndexId,
+    pub index: IndexRef,
 
     pub key: IndexKey,
     pub value: DatabaseIndexValue,

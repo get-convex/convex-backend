@@ -52,6 +52,7 @@ use common::{
     try_anyhow,
     types::{
         IndexId,
+        IndexRef,
         PersistenceVersion,
         Timestamp,
     },
@@ -325,7 +326,7 @@ impl Persistence for SqlitePersistence {
             tx.prepare_cached(INSERT_INDEX)?
         };
         for update in indexes {
-            let index_id = update.index_id;
+            let index_id = update.index.id();
             let key: &[u8] = &update.key.0;
             match update.value {
                 None => {
@@ -574,7 +575,7 @@ impl PersistenceReader for SqlitePersistence {
 
     fn index_scan(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         read_timestamp: Timestamp,
         interval: &Interval,
@@ -582,7 +583,8 @@ impl PersistenceReader for SqlitePersistence {
         _size_hint: usize,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
-        let triples = self._index_scan_inner(index_id, tablet_id, read_timestamp, interval, order);
+        let triples =
+            self._index_scan_inner(index.id(), tablet_id, read_timestamp, interval, order);
         // index_scan isn't async so we have to validate snapshot as part of the stream.
         let validate = self.validate_snapshot(read_timestamp, retention_validator);
         match triples {

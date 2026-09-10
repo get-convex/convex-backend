@@ -90,6 +90,7 @@ use common::{
     shutdown::ShutdownSignal,
     types::{
         IndexId,
+        IndexRef,
         PersistenceVersion,
         Timestamp,
     },
@@ -1655,7 +1656,7 @@ impl PersistenceReader for PostgresReader {
 
     fn index_scan(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         read_timestamp: Timestamp,
         range: &Interval,
@@ -1664,7 +1665,7 @@ impl PersistenceReader for PostgresReader {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
         self._index_scan(
-            index_id,
+            index.id(),
             tablet_id,
             read_timestamp,
             range.clone(),
@@ -1939,7 +1940,7 @@ fn index_params(update: &PersistenceIndexEntry) -> [Param; NUM_INDEX_PARAMS] {
         ),
     };
     [
-        internal_id_param(update.index_id.0),
+        internal_id_param(update.index.id().0),
         Param::Ts(i64::from(update.ts)),
         Param::Bytes(key.prefix),
         match key.suffix {

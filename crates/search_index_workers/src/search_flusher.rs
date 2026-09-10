@@ -40,6 +40,7 @@ use common::{
     },
     types::{
         IndexId,
+        IndexRef,
         RepeatableTimestamp,
         TabletIndexName,
     },
@@ -380,7 +381,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                 let job = IndexBuild {
                     index_name: name.clone(),
                     index_id: index_id.internal_id().into(),
-                    by_id: by_id_metadata.id().internal_id().into(),
+                    by_id: IndexRef::try_from(&by_id_metadata)?,
                     index_config: config,
                     metadata_id: index_id,
                     build_reason,
@@ -616,7 +617,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         params: Params<RT, T>,
         rate_limit_pages_per_second: NonZeroU32,
         index_name: TabletIndexName,
-        by_id: IndexId,
+        by_id: IndexRef,
         build_type: MultipartBuildType,
         snapshot_ts: RepeatableTimestamp,
         spec: T::Spec,
@@ -755,7 +756,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
 async fn incremental_table_scan_stream<'a, T: SearchIndex>(
     reader: &'a PersistenceSnapshot,
     start_cursor: Option<IndexKeyBytes>,
-    by_id: IndexId,
+    by_id: IndexRef,
     tablet_id: TabletId,
     schema: &'a T::Schema,
     threshold_bytes: usize,
@@ -828,7 +829,7 @@ fn build_incremental_doc_stream<'a, T: SearchIndex>(
     new_ts: RepeatableTimestamp,
     table_number: TableNumber,
     tablet_id: TabletId,
-    by_id: IndexId,
+    by_id: IndexRef,
     schema: &'a T::Schema,
     threshold_bytes: usize,
     start_cursor: Option<IndexKeyBytes>,
@@ -867,7 +868,7 @@ fn build_incremental_doc_stream<'a, T: SearchIndex>(
 pub(crate) struct IndexBuild<T: SearchIndex> {
     pub(crate) index_name: TabletIndexName,
     pub(crate) index_id: IndexId,
-    pub(crate) by_id: IndexId,
+    pub(crate) by_id: IndexRef,
     pub(crate) metadata_id: ResolvedDocumentId,
     pub(crate) index_config: SearchIndexConfig<T>,
     pub(crate) build_reason: BuildReason,

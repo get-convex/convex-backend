@@ -19,7 +19,10 @@ use common::{
     persistence::PersistenceSnapshot,
     query::Order,
     runtime::Runtime,
-    types::IndexId,
+    types::{
+        IndexId,
+        IndexRef,
+    },
 };
 use futures::TryStreamExt;
 use indexing::index_registry::IndexRegistry;
@@ -145,14 +148,14 @@ pub async fn load_metadata_fast_forward_ts(
     let metadata_index_id = INDEX_DOC_ID_INDEX
         .name()
         .map_table(&table_mapping.name_to_tablet())?;
-    let metadata_index_internal_id = registry.get_enabled(&metadata_index_id).unwrap().id();
+    let metadata_index = IndexRef::try_from(registry.get_enabled(&metadata_index_id).unwrap())?;
 
     let id_value = ConvexValue::String(index.internal_id().to_string().try_into()?);
     let id_value_bytes = values_to_bytes(&[Some(id_value)]);
     let interval = Interval::prefix(BinaryKey::from(id_value_bytes));
 
     let stream = snapshot.index_scan(
-        metadata_index_internal_id,
+        metadata_index,
         metadata_table_id.tablet_id,
         &interval,
         Order::Asc,

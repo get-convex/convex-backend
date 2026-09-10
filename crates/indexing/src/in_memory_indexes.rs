@@ -47,6 +47,7 @@ use common::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
         IndexId,
+        IndexRef,
         TabletIndexName,
         Timestamp,
     },
@@ -73,7 +74,7 @@ pub trait InMemoryIndexes: Send + Sync {
     /// memory, returns None so it is safe to call on any index.
     async fn range(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         interval: &Interval,
         order: Order,
         tablet_id: TabletId,
@@ -95,13 +96,13 @@ pub struct BackendInMemoryIndexes {
 impl InMemoryIndexes for BackendInMemoryIndexes {
     async fn range(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         interval: &Interval,
         order: Order,
         _tablet_id: TabletId,
         _table_name: TableName,
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>> {
-        self.range(index_id, interval, order)
+        self.range(index.id(), interval, order)
     }
 }
 
@@ -223,7 +224,7 @@ impl BackendInMemoryIndexes {
         // Read the table using an arbitrary index from the list
         let entries: Vec<_> = snapshot
             .index_scan(
-                indexes[0].id().internal_id().into(),
+                IndexRef::try_from(&indexes[0])?,
                 tablet_id,
                 &Interval::all(),
                 Order::Asc,
@@ -318,7 +319,7 @@ impl BackendInMemoryIndexes {
 
         // Apply the updates to the subset of database indexes in memory.
         for update in &updates {
-            match self.in_memory_indexes.get_mut(&update.index_id) {
+            match self.in_memory_indexes.get_mut(&update.index.id()) {
                 Some(key_set) => match &update.value {
                     DatabaseIndexValue::Deleted => {
                         key_set.remove(&update.key.to_bytes(), ts);
@@ -376,7 +377,7 @@ pub struct NoInMemoryIndexes;
 impl InMemoryIndexes for NoInMemoryIndexes {
     async fn range(
         &self,
-        _index_id: IndexId,
+        _index: IndexRef,
         _interval: &Interval,
         _order: Order,
         _tablet_id: TabletId,

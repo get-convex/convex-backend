@@ -79,6 +79,7 @@ use common::{
     try_anyhow,
     types::{
         IndexId,
+        IndexRef,
         PersistenceVersion,
         Timestamp,
     },
@@ -1410,7 +1411,7 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
 
     fn index_scan(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         read_timestamp: Timestamp,
         range: &Interval,
@@ -1419,7 +1420,7 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
         self._index_scan(
-            index_id,
+            index.id(),
             tablet_id,
             read_timestamp,
             range.clone(),

@@ -551,7 +551,7 @@ impl TransactionIndex {
                 },
             };
             self.database_index_updates
-                .entry(update.index_id)
+                .entry(update.index.id())
                 .or_insert_with(TransactionIndexMap::new)
                 .insert(update.key.to_bytes(), new_value);
         }

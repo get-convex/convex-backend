@@ -43,6 +43,7 @@ use crate::{
         DatabaseIndexValue,
         GenericIndexName,
         IndexId,
+        IndexRef,
         PersistenceVersion,
         RepeatableReason,
         RepeatableTimestamp,
@@ -76,7 +77,7 @@ impl DocumentLogEntry {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PersistenceIndexEntry {
     pub ts: Timestamp,
-    pub index_id: IndexId,
+    pub index: IndexRef,
     pub key: IndexKeyBytes,
     pub value: Option<InternalDocumentId>,
 }
@@ -85,7 +86,7 @@ impl PersistenceIndexEntry {
     pub fn from_index_update(ts: Timestamp, update: &DatabaseIndexUpdate) -> Self {
         Self {
             ts,
-            index_id: update.index_id,
+            index: update.index,
             key: update.key.to_bytes(),
             value: match update.value {
                 DatabaseIndexValue::Deleted => None,
@@ -97,7 +98,7 @@ impl PersistenceIndexEntry {
     }
 
     pub fn size(&self) -> u64 {
-        let mut size = self.ts.size() + self.index_id.size() + self.key.0.len();
+        let mut size = self.ts.size() + self.index.id().size() + self.key.0.len();
         if let Some(value) = self.value {
             size += value.size();
         }
@@ -533,7 +534,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
     /// fully consumed regardless of the estimate.
     fn index_scan(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         read_timestamp: Timestamp,
         range: &Interval,
@@ -550,14 +551,14 @@ pub trait PersistenceReader: Send + Sync + 'static {
     /// Performs a single point get using an index.
     async fn index_get(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         read_timestamp: Timestamp,
         key: IndexKey,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<Option<LatestDocument>> {
         let mut stream = self.index_scan(
-            index_id,
+            index,
             tablet_id,
             read_timestamp,
             &Interval::prefix(key.to_bytes().into()),
@@ -780,14 +781,14 @@ impl PersistenceSnapshot {
     /// Same as [`Persistence::index_scan`] but with fixed timestamp.
     pub fn index_scan(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
         size_hint: usize,
     ) -> IndexStream<'_> {
         self.reader.index_scan(
-            index_id,
+            index,
             tablet_id,
             *self.at,
             interval,
@@ -800,14 +801,14 @@ impl PersistenceSnapshot {
     /// Same as [`Persistence::index_get`] but with fixed timestamp.
     pub async fn index_get(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         key: IndexKey,
     ) -> anyhow::Result<Option<LatestDocument>> {
         let result = self
             .reader
             .index_get(
-                index_id,
+                index,
                 tablet_id,
                 *self.at,
                 key,
@@ -823,6 +824,10 @@ impl PersistenceSnapshot {
 
     pub fn persistence(&self) -> &dyn PersistenceReader {
         self.reader.as_ref()
+    }
+
+    pub fn retention_validator(&self) -> Arc<dyn RetentionValidator> {
+        self.retention_validator.clone()
     }
 }
 

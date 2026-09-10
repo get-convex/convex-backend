@@ -27,7 +27,7 @@ use common::{
     persistence::DocumentLogEntry,
     runtime::Runtime,
     types::{
-        IndexId,
+        IndexRef,
         Timestamp,
     },
     version::ClientType,
@@ -375,16 +375,16 @@ fn table_included(
 /// iterator's own (possibly slightly newer) read snapshot.
 struct ResolvedStreamingExportFilter {
     /// The selected tablets, each mapped to its `by_id` index.
-    target_tables: BTreeMap<TabletId, IndexId>,
+    target_tables: BTreeMap<TabletId, IndexRef>,
 }
 
 impl ResolvedStreamingExportFilter {
     fn new(snapshot: &Snapshot, filter: &StreamingExportFilter) -> anyhow::Result<Self> {
         let table_mapping = snapshot.table_mapping();
         let component_paths = snapshot.component_ids_to_paths();
-        let by_id_indexes = snapshot.index_registry.by_id_indexes();
+        let by_id_indexes = snapshot.index_registry.by_id_indexes()?;
 
-        let mut target_tables: BTreeMap<TabletId, IndexId> = BTreeMap::new();
+        let mut target_tables: BTreeMap<TabletId, IndexRef> = BTreeMap::new();
         for (tablet_id, ..) in table_mapping.iter() {
             if !table_included(filter, tablet_id, table_mapping, &component_paths)? {
                 continue;

@@ -14,8 +14,8 @@ use common::{
         Order,
     },
     types::{
-        IndexId,
         IndexName,
+        IndexRef,
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
@@ -57,7 +57,7 @@ pub struct IndexPage {
 pub trait IndexReader: Send + Sync {
     async fn index_page(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
@@ -71,7 +71,7 @@ pub trait IndexReader: Send + Sync {
 impl IndexReader for PersistenceSnapshot {
     async fn index_page(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
@@ -84,7 +84,7 @@ impl IndexReader for PersistenceSnapshot {
         let result = async {
             let mut stream = PersistenceSnapshot::index_scan(
                 self,
-                index_id,
+                index,
                 tablet_id,
                 interval,
                 order,
@@ -126,7 +126,7 @@ impl dyn IndexReader {
     #[try_stream(ok = IndexEntry, error = anyhow::Error)]
     pub async fn index_scan<'a>(
         &'a self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         mut interval: Interval,
         order: Order,
@@ -134,7 +134,7 @@ impl dyn IndexReader {
     ) {
         while !interval.is_empty() {
             let page = self
-                .index_page(index_id, tablet_id, &interval, order, page_size)
+                .index_page(index, tablet_id, &interval, order, page_size)
                 .await?;
             for entry in page.entries {
                 yield Arc::unwrap_or_clone(entry);

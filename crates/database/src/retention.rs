@@ -426,8 +426,10 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
         );
 
         let snapshot = snapshot_reader.lock().latest_snapshot();
-        let tablets_to_delete =
-            LeaderRetentionWorkers::tablets_to_delete(snapshot, bootstrap_metadata.tables_by_id)?;
+        let tablets_to_delete = LeaderRetentionWorkers::tablets_to_delete(
+            snapshot,
+            bootstrap_metadata.tables_by_id.id(),
+        )?;
 
         let tablet_deletion_handle = rt.spawn(
             "retention_tablet_deletion",
