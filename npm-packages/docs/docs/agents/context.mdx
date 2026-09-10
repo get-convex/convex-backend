@@ -38,6 +38,7 @@ const result = await agent.generateText(
       excludeToolMessages: true,
       // How many recent messages to include. These are added after the search
       // messages, and do not count against the search limit.
+      // If the limit splits an order, more messages are included to complete it.
       recentMessages: 100,
       // Options for searching messages via text and/or vector search.
       searchOptions: {

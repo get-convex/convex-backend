@@ -120,7 +120,7 @@ await thread.generateText({
   message: {
     role: "user",
     content: [
-      { type: "image", image: imageBytes, mimeType: "image/png" },
+      { type: "image", image: imageBytes, mediaType: "image/png" },
       { type: "text", text: "What is this image?" },
     ],
   },
@@ -138,7 +138,7 @@ Saving to the files has 3 components:
    you can vacuum files that are no longer used (see
    [files/vacuum.ts](https://github.com/get-convex/agent/blob/main/example/convex/files/vacuum.ts)).
 3. Inserting a URL in place of the data in the message sent to the LLM, along
-   with the mimeType and other metadata provided. It will be inferred if not
+   with the media type and other metadata provided. It will be inferred if not
    provided in
    [`guessMimeType`](https://github.com/get-convex/agent/blob/main/src/mapping.ts#L556).
 
@@ -154,7 +154,7 @@ await thread.generateText({
   message: {
     role: "user",
     content: [
-      { type: "image", data: url, mimeType: blob.type },
+      { type: "image", image: url, mediaType: blob.type },
       { type: "text", text: "What is this image?" },
     ],
   },
