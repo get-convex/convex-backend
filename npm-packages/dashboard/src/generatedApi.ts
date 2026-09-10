@@ -2619,6 +2619,7 @@ export interface components {
             name: string;
             connectionType: string;
             state: string;
+            active: boolean;
         };
         /** @enum {string} */
         SSODomainState: "verified" | "pending" | "failed" | "legacyVerified";

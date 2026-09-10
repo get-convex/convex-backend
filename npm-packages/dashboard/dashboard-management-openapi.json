@@ -6207,7 +6207,8 @@
           "id",
           "name",
           "connectionType",
-          "state"
+          "state",
+          "active"
         ],
         "properties": {
           "id": {
@@ -6221,6 +6222,9 @@
           },
           "state": {
             "type": "string"
+          },
+          "active": {
+            "type": "boolean"
           }
         }
       },
