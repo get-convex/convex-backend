@@ -66,6 +66,29 @@ export function FieldIcon({ className }: { className?: string }) {
   );
 }
 
+export function PackageVersionIcon({
+  className,
+  ...props
+}: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      viewBox="0 0 16 16"
+      className={cn("size-4 shrink-0", className)}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    >
+      <g transform="translate(1.98 -1.98) rotate(-45 8 8)">
+        <path d="M2.1 3.7h7.3l4.3 4.3-4.3 4.3H2.1A1.1 1.1 0 0 1 1 11.2V4.8a1.1 1.1 0 0 1 1.1-1.1Z" />
+        <circle cx="3.4" cy="8" r="1.05" fill="currentColor" stroke="none" />
+      </g>
+    </svg>
+  );
+}
+
 export function FunctionIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
