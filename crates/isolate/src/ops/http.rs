@@ -124,11 +124,13 @@ enum UrlInfoUpdate {
     Hash(Option<String>),
     Hostname(Option<String>),
     Href(String),
+    Password(String),
     Protocol(String),
     Port(String),
     Pathname(String),
     Search(Option<String>),
     SearchParams(Vec<(String, String)>),
+    Username(String),
 }
 
 #[convex_macro::v8_op]
@@ -160,6 +162,11 @@ pub fn op_url_update_url_info<'b, P: V8OpProvider<'b>>(
             parsed_url = Url::parse(&value)
                 .map_err(|_| TypeError::new(format!("Could not parse URL: {original_url}")))?;
         },
+        UrlInfoUpdate::Password(value) => {
+            // ignore errors
+            let password = (!value.is_empty()).then_some(value.as_str());
+            _ = parsed_url.set_password(password);
+        },
         UrlInfoUpdate::Protocol(value) => {
             // ignore errors
             _ = parsed_url.set_scheme(&value);
@@ -174,6 +181,10 @@ pub fn op_url_update_url_info<'b, P: V8OpProvider<'b>>(
         },
         UrlInfoUpdate::Pathname(value) => parsed_url.set_path(&value),
         UrlInfoUpdate::Search(value) => parsed_url.set_query(value.as_deref()),
+        UrlInfoUpdate::Username(value) => {
+            // ignore errors
+            _ = parsed_url.set_username(&value);
+        },
     }
 
     Ok(UrlInfo::from(parsed_url))
