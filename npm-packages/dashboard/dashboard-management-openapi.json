@@ -2965,6 +2965,31 @@
         }
       }
     },
+    "/teams/{team_id}/directory_sync": {
+      "get": {
+        "operationId": "get_directory_sync",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectorySyncResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/directory_sync/portal_link": {
       "post": {
         "operationId": "generate_directory_sync_configuration_link",
@@ -2986,6 +3011,24 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/directory_sync/disable": {
+      "post": {
+        "operationId": "disable_directory_sync",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
           }
         }
       }
@@ -4293,6 +4336,33 @@
           }
         }
       },
+      "DirectoryResponse": {
+        "type": "object",
+        "description": "The one directory a team may connect, as WorkOS reports it.",
+        "required": [
+          "id",
+          "state",
+          "linked"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "like \"directory_01ECAZ4NV9QMV47GW873HDCX74\"."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "linked": {
+            "type": "boolean"
+          }
+        }
+      },
       "DirectorySyncOffer": {
         "type": "object",
         "required": [
@@ -4324,6 +4394,21 @@
             "items": {
               "$ref": "#/components/schemas/DirectorySyncOffer"
             }
+          }
+        }
+      },
+      "DirectorySyncResponse": {
+        "type": "object",
+        "properties": {
+          "directory": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DirectoryResponse"
+              }
+            ]
           }
         }
       },
