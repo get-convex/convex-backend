@@ -281,6 +281,17 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
         let async_op_key = strings::asyncOp.create(scope)?;
         convex_value.set(scope, async_op_key.into(), async_op_value.into());
 
+        let setup_temporal_key = strings::setupTemporal.create(scope)?;
+        let setup_temporal: v8::Local<v8::Function> = convex_value
+            .get(scope, setup_temporal_key.into())
+            .context("Missing Temporal setup")?
+            .try_into()
+            .context("Temporal setup must be a function")?;
+        convex_value.delete(scope, setup_temporal_key.into());
+        setup_temporal
+            .call(scope, convex_value.into(), &[])
+            .context("Failed to set up Temporal")?;
+
         timer.finish();
         Ok(isolate_context)
     }
