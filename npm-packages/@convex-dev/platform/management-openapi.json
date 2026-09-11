@@ -1090,6 +1090,60 @@
         ]
       }
     },
+    "/deployments/{deployment_name}/mint_ai_gateway_jwt": {
+      "post": {
+        "tags": [
+          "Deployments"
+        ],
+        "summary": "Mint an AI gateway JWT",
+        "description": "Mints a short-lived AI gateway JWT for a local deployment.",
+        "operationId": "mint ai gateway jwt",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Local deployment name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MintLocalAiGatewayJwtArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MintLocalAiGatewayJwtResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
     "/deployments/{deployment_name}/create_deploy_key": {
       "post": {
         "tags": [
@@ -2613,6 +2667,31 @@
         "type": "string",
         "description": "Encrypted admin key"
       },
+      "AttributionClaims": {
+        "type": "object",
+        "description": "The wire format of the claims sent to the gateway.\n\nAll three are absent when we cannot identify the caller. A caller in the\nroot component has a `function_name` but no `component_path`.",
+        "properties": {
+          "componentPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "functionName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "functionType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "AuditLogActor": {
         "oneOf": [
           {
@@ -3334,6 +3413,29 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "MintLocalAiGatewayJwtArgs": {
+        "type": "object",
+        "required": [
+          "attribution"
+        ],
+        "properties": {
+          "attribution": {
+            "$ref": "#/components/schemas/AttributionClaims"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MintLocalAiGatewayJwtResponse": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
       },
       "PaginatedDefaultEnvironmentVariablesResponse": {
         "type": "object",

@@ -345,6 +345,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/deployments/{deployment_name}/mint_ai_gateway_jwt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint an AI gateway JWT
+         * @description Mints a short-lived AI gateway JWT for a local deployment.
+         */
+        post: operations["mint ai gateway jwt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deployments/{deployment_name}/create_deploy_key": {
         parameters: {
             query?: never;
@@ -957,6 +977,15 @@ export interface components {
         AccessTokenId: number;
         /** @description Encrypted admin key */
         AdminKey: string;
+        /** @description The wire format of the claims sent to the gateway.
+         *
+         *     All three are absent when we cannot identify the caller. A caller in the
+         *     root component has a `function_name` but no `component_path`. */
+        AttributionClaims: {
+            componentPath?: string | null;
+            functionName?: string | null;
+            functionType?: string | null;
+        };
         /** @description The identity that executed an audit log action. */
         AuditLogActor: {
             /** @enum {string} */
@@ -1148,6 +1177,12 @@ export interface components {
         };
         /** Format: int64 */
         MemberId: number;
+        MintLocalAiGatewayJwtArgs: {
+            attribution: components["schemas"]["AttributionClaims"];
+        };
+        MintLocalAiGatewayJwtResponse: {
+            token: string;
+        };
         PaginatedDefaultEnvironmentVariablesResponse: {
             items: components["schemas"]["DefaultEnvironmentVariableResponse"][];
             pagination: components["schemas"]["PaginationMetadata"];
@@ -1659,6 +1694,7 @@ export interface components {
 }
 export type AccessTokenId = components['schemas']['AccessTokenId'];
 export type AdminKey = components['schemas']['AdminKey'];
+export type AttributionClaims = components['schemas']['AttributionClaims'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AuditLogEventResponse = components['schemas']['AuditLogEventResponse'];
 export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
@@ -1693,6 +1729,8 @@ export type ListLocalDeploymentsResponse = components['schemas']['ListLocalDeplo
 export type ListTeamAccessTokensResponse = components['schemas']['ListTeamAccessTokensResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberId = components['schemas']['MemberId'];
+export type MintLocalAiGatewayJwtArgs = components['schemas']['MintLocalAiGatewayJwtArgs'];
+export type MintLocalAiGatewayJwtResponse = components['schemas']['MintLocalAiGatewayJwtResponse'];
 export type PaginatedDefaultEnvironmentVariablesResponse = components['schemas']['PaginatedDefaultEnvironmentVariablesResponse'];
 export type PaginatedDeploymentsResponse = components['schemas']['PaginatedDeploymentsResponse'];
 export type PaginatedPersonalAccessTokensResponse = components['schemas']['PaginatedPersonalAccessTokensResponse'];
@@ -2206,6 +2244,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListLocalDeploymentsResponse"];
+                };
+            };
+        };
+    };
+    "mint ai gateway jwt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Local deployment name */
+                deployment_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MintLocalAiGatewayJwtArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MintLocalAiGatewayJwtResponse"];
                 };
             };
         };

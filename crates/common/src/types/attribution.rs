@@ -16,7 +16,7 @@ use crate::{
 ///
 /// All three are absent when we cannot identify the caller. A caller in the
 /// root component has a `function_name` but no `component_path`.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AttributionClaims {
     pub component_path: Option<String>,
