@@ -11,6 +11,7 @@ use common::{
     },
     sync::spsc,
 };
+use errors::ErrorMetadata;
 use futures::{
     stream::BoxStream,
     FutureExt,
@@ -55,7 +56,10 @@ impl HttpRequestV8 {
     ) -> anyhow::Result<HttpRequestStream> {
         let mut header_map = HeaderMap::new();
         for (name, value) in &self.header_pairs {
-            header_map.append(HeaderName::from_str(name)?, byte_string_to_header(value)?);
+            header_map.append(
+                HeaderName::from_str(name)?,
+                byte_string_to_header(name, value)?,
+            );
         }
         // A `None` stream id means the request has no body (e.g. a plain GET).
         // Keep that as `None` so the request is sent without a body and framed
@@ -131,7 +135,7 @@ impl HttpResponseV8 {
         for (name, value) in &self.header_pairs {
             header_map.append(
                 HeaderName::from_str(name.as_str())?,
-                byte_string_to_header(value)?,
+                byte_string_to_header(name, value)?,
             );
         }
 
@@ -189,11 +193,25 @@ fn header_to_byte_string(header: &HeaderValue) -> String {
     header.as_bytes().iter().map(|&b| char::from(b)).collect()
 }
 
-fn byte_string_to_header(header: &str) -> anyhow::Result<HeaderValue> {
-    // TODO: turn these into TypeErrors
+fn byte_string_to_header(name: &str, header: &str) -> anyhow::Result<HeaderValue> {
     let bytes = header
         .chars()
-        .map(|c| u8::try_from(c).map_err(|_| anyhow::anyhow!("invalid char for header: `{c}`")))
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(HeaderValue::from_bytes(&bytes)?)
+        .map(|c| {
+            u8::try_from(c).map_err(|_| {
+                ErrorMetadata::bad_request(
+                    "InvalidHeaderValue",
+                    format!(
+                        "Header `{name}` has an invalid value: character `{c}` must be \
+                         percent-encoded."
+                    ),
+                )
+            })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    HeaderValue::from_bytes(&bytes).map_err(|e| {
+        anyhow::Error::from(e).context(ErrorMetadata::bad_request(
+            "InvalidHeaderValue",
+            format!("Header `{name}` has an invalid value"),
+        ))
+    })
 }
