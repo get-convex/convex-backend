@@ -74,6 +74,18 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // The security policy lives on the marketing site; keep this temporary so
+      // the canonical location can move without browsers caching a stale target.
+      {
+        source: "/security.txt",
+        destination: "https://www.convex.dev/.well-known/security.txt",
+        permanent: false,
+      },
+      {
+        source: "/.well-known/security.txt",
+        destination: "https://www.convex.dev/.well-known/security.txt",
+        permanent: false,
+      },
       {
         source: "/login",
         destination: "/api/auth/login",
