@@ -12,3 +12,10 @@ setupDate(globalThis);
 setupWeakRefs(globalThis);
 setupEvent(globalThis);
 setupStreams(globalThis);
+
+// TODO: implement actions
+globalThis.fetch = async () => {
+  throw new TypeError(
+    "Can't use fetch() in queries and mutations. Please consider using an action. See https://docs.convex.dev/functions/actions for more details.",
+  );
+};
