@@ -4,7 +4,7 @@ resolver = "2"
 exclude = [ "crates/py_client", "crates/python_client_tests" ]
 
 [workspace.dependencies]
-aes = { version = "0.8.4" }
+aes = "0.8.4"
 ahash = "0.8"
 anyhow = "1"
 application = { path = "crates/application" }
@@ -43,7 +43,7 @@ bitvec = "1.0.1"
 byteorder = "1.5.0"
 bytes = "1.6.0"
 bytesize = "2.0.0"
-cbc = { version = "0.1.2" }
+cbc = "0.1.2"
 cfg-if = "1.0"
 chrono = "0.4.38"
 clap = { version = "^4.1.8", features = [ "derive", "env" ] }
@@ -147,7 +147,7 @@ openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = 
 openssl-aws-lc = { package = "openssl", git = "https://github.com/get-convex/rust-openssl", rev = "03caf5bc9775242f4b02daa978f86fafbd0e7659" }
 packed_value = { path = "crates/packed_value" }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
-paste = { version = "1.0.12" }
+paste = "1.0.12"
 pb = { path = "crates/pb" }
 pb_build = { path = "crates/pb_build" }
 pb_data_sync = { path = "crates/pb_data_sync" }
@@ -157,7 +157,7 @@ phf = { version = "0.13.0", features = [ "macros" ] }
 pin-project = "1"
 pkcs8 = "0.10.2"
 postgres = { path = "crates/postgres" }
-postgres-protocol = { version = "0.6" }
+postgres-protocol = "0.6"
 pretty_assertions = "1"
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "367f80d0d3678ed7989814fd5864598746a3b946" }
 proptest = "1"
@@ -184,12 +184,12 @@ rsa = "0.9.6"
 runtime = { path = "crates/runtime" }
 rusqlite = { version = "0.32", features = [ "bundled" ] }
 rustls = { version = "0.23", default-features = false }
-rustls-native-certs = { version = "0.8" }
-rustls-pki-types = { version = "1" }
+rustls-native-certs = "0.8"
+rustls-pki-types = "1"
 rustls-platform-verifier = "0.7.0"
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
-scoped-tls = { version = "1.0.1" }
-scopeguard = { version = "1.1" }
+scoped-tls = "1.0.1"
+scopeguard = "1.1"
 search = { path = "crates/search" }
 search_index_workers = { path = "crates/search_index_workers" }
 semver = { version = "1", features = [ "serde" ] }
@@ -200,9 +200,9 @@ serde_bytes = "0.11.14"
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth" ] }
 serde_with = "3.16.1"
 sha1 = { version = "0.10.5", features = [ "oid" ] }
-sha2 = { version = "0.10.8" }
+sha2 = "0.10.8"
 shape_inference = { path = "crates/shape_inference" }
-short_future = { version = "0.1.1" }
+short_future = "0.1.1"
 slab = "0.4.9"
 slugify = "0.1.0"
 smallvec = "1"
@@ -230,10 +230,10 @@ tikv-jemalloc-sys = { version = "0.7", features = [ "profiling", "stats", "unpre
 tikv-jemallocator = { version = "0.7", features = [ "profiling", "stats", "unprefixed_malloc_on_supported_platforms" ] }
 tld = "2.36.0"
 tokio = { version = "1.53.1", features = [ "full" ] }
-tokio-metrics = { version = "0.4.0" }
-tokio-metrics-collector = { version = "0.3.1" }
+tokio-metrics = "0.4.0"
+tokio-metrics-collector = "0.3.1"
 tokio-postgres = { version = "0.7.13", features = [ "with-serde_json-1" ] }
-tokio-postgres-rustls = { version = "0.14" }
+tokio-postgres-rustls = "0.14"
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = "0.28.0"
 tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util", "join-map" ] }
@@ -247,7 +247,7 @@ tower = { version = "0.5.2", features = [ "limit", "timeout", "util" ] }
 tower-cookies = "0.11"
 tower-http = { version = "0.6", features = [ "trace", "cors", "decompression-br", "limit" ] }
 tracing = "0.1"
-tracing-appender = { version = "0.2" }
+tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
 tracy-client = { version = "0.18.0", default-features = false, features = [ "fibers" ] }
 tungstenite = { version = "0.28.0", features = [ "url", "deflate" ], git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
@@ -260,11 +260,11 @@ usage_gauges_tracking_worker = { path = "crates/usage_gauges_tracking_worker" }
 usage_limits = { path = "crates/usage_limits" }
 usage_tracking = { path = "crates/usage_tracking" }
 utoipa = { version = "5.5", features = [ "axum_extras", "preserve_order", "preserve_path_order", "openapi_extensions" ] }
-utoipa-axum = { version = "0.2" }
+utoipa-axum = "0.2"
 uuid = { version = "1.6", features = [ "fast-rng", "serde", "v4" ] }
 value = { path = "crates/value" }
 vector = { path = "crates/vector" }
-vergen = { version = "8.1.0" }
+vergen = "8.1.0"
 walkdir = "2"
 xorf = { git = "https://github.com/sujayakar/xorf.git", rev = "62a32de47bb3ad8b34d6d4feac034a24be2c881a" }
 
