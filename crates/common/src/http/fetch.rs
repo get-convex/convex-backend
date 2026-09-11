@@ -28,6 +28,7 @@ use reqwest::{
     Proxy,
     Url,
 };
+use rustls_platform_verifier::BuilderVerifierExt;
 use tokio::select;
 
 use crate::http::{
@@ -54,11 +55,19 @@ pub struct ProxiedFetchClient {
         LazyLock<reqwest::Client, Box<dyn FnOnce() -> reqwest::Client + Send + Sync + 'static>>,
 }
 
-// Share the underlying TlsConnector between ProxiedFetchClients
-static TLS_CONNECTOR: LazyLock<native_tls::TlsConnector> = LazyLock::new(|| {
-    let mut tls = native_tls::TlsConnector::builder();
-    tls.request_alpns(&["h2", "http/1.1"]);
-    tls.build().expect("failed to build TLS connector")
+// Share the underlying rustls::ClientConfig between ProxiedFetchClients
+static TLS_CONNECTOR: LazyLock<rustls::ClientConfig> = LazyLock::new(|| {
+    let mut config = rustls::ClientConfig::builder_with_provider(Arc::new(
+        rustls::crypto::aws_lc_rs::default_provider(),
+    ))
+    .with_safe_default_protocol_versions()
+    .expect("invalid default protocol versions?")
+    .with_platform_verifier()
+    .expect("Failed to create rustls_platform_verifier")
+    .with_no_client_auth();
+    // reqwest prefers HTTP2 by default, preserve that
+    config.alpn_protocols = vec!["h2".into(), "http/1.1".into()];
+    config
 });
 
 /// Creates a reqwest client configured with an optional proxy.

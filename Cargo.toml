@@ -102,8 +102,8 @@ health_check = { path = "crates/health_check" }
 home = "0.5"
 http = "1.0.0"
 http-body-util = "0.1.2"
-http-cache = { version = "0.20.1", default-features = false }
-http-cache-reqwest = { version = "0.15.1", features = [ "manager-moka" ] }
+http-cache = { version = "=1.0.0-alpha.8", default-features = false }
+http-cache-reqwest = { version = "=1.0.0-alpha.9", default-features = false, features = [ "manager-moka", "reqwest-middleware", "url-standard" ] }
 http_client = { path = "crates/http_client" }
 humansize = { version = "2.1.3", features = [ "impl_style" ] }
 hyper = "1.3.1"
@@ -118,7 +118,7 @@ itertools = "0.14"
 jemalloc_pprof = "0.9"
 js_build = { path = "crates/js_build" }
 json_trait = { path = "crates/json_trait" }
-jsonschema = "0.33"
+jsonschema = { version = "0.33", default-features = false }
 keybroker = { path = "crates/keybroker" }
 levenshtein_automata = "0.2.1"
 libc = "0.2"
@@ -140,11 +140,10 @@ multer = "3.1.0"
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
 mysql = { path = "crates/mysql" }
 mysql_async = { version = "0.37.1", default-features = false, features = [ "default-rustls" ] }
-native-tls = { version = "0.2", features = [ "alpn", "vendored" ] }
 node_executor = { path = "crates/node_executor" }
-oauth2 = { version = "5", default-features = false, features = [ "reqwest" ] }
+oauth2 = { version = "5", default-features = false }
 once_cell = "1.19"
-openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "15a9c551eafcf3b60d307feb94332352ac56c099", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits", "reqwest" ] }
+openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "15a9c551eafcf3b60d307feb94332352ac56c099", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits" ] }
 openssl = { version = "0.10.75", features = [ "aws-lc" ] }
 packed_value = { path = "crates/packed_value" }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
@@ -178,8 +177,8 @@ rand_chacha = "0.9.0"
 rc-zip = { version = "5", features = [ "deflate", "deflate64", "zstd" ] }
 ref-cast = "1.0.20"
 regex = "1"
-reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-alpn", "native-tls-vendored" ] }
-reqwest-middleware = "0.4.1"
+reqwest = { version = "0.13", features = [ "json", "query", "stream", "gzip", "rustls" ] }
+reqwest-middleware = "0.5.1"
 roles = { path = "crates/roles" }
 rsa = "0.9.6"
 runtime = { path = "crates/runtime" }
@@ -187,14 +186,15 @@ rusqlite = { version = "0.32", features = [ "bundled" ] }
 rustls = { version = "0.23", default-features = false }
 rustls-native-certs = { version = "0.8" }
 rustls-pki-types = { version = "1" }
+rustls-platform-verifier = "0.7.0"
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
 scoped-tls = { version = "1.0.1" }
 scopeguard = { version = "1.1" }
 search = { path = "crates/search" }
 search_index_workers = { path = "crates/search_index_workers" }
 semver = { version = "1", features = [ "serde" ] }
-sentry = { version = "0.46", features = [ "anyhow", "tower", "tower-http" ] }
-sentry-tracing = "0.46"
+sentry = { version = "0.47", default-features = false, features = [ "anyhow", "reqwest", "rustls", "tower", "tower-http", "backtrace", "contexts", "debug-images", "panic", "release-health" ] }
+sentry-tracing = "0.47"
 serde = { version = "1", features = [ "derive" ] }
 serde_bytes = "0.11.14"
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "raw_value", "unbounded_depth" ] }
