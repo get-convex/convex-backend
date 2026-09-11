@@ -29,7 +29,6 @@ WORKDIR /app/npm-packages
 RUN pnpm install --frozen-lockfile
 ENV NODE_ENV=production
 RUN turbo run build --filter=dashboard-self-hosted...
-RUN pnpm --filter=dashboard-self-hosted deploy --legacy --prod /tmp/deploy
 
 FROM ubuntu:noble
 
@@ -49,14 +48,23 @@ EOF
 
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 --gid nodejs nextjs
-COPY --from=build --chown=nextjs:nodejs /tmp/deploy/ /app/
 WORKDIR /app
-# Since the pnpm workspace root (npm-packages/, where pnpm-lock.yaml lives) is
-# an ancestor of the package, Next infers it as outputFileTracingRoot and nests
-# the standalone output under the package's workspace-relative path.
-RUN cp /app/.next/standalone/dashboard-self-hosted/server.js .
+# Next writes a self-contained standalone build under .next/standalone: it bundles
+# server.js, the traced production node_modules, and the .next/node_modules links
+# that Turbopack's server chunks require() at runtime. We copy that tree as-is
+# instead of running `pnpm deploy`, which prunes nested node_modules (including
+# .next/node_modules) and leaves the server unable to resolve those links, so the
+# dashboard returns HTTP 500 on every page (see issue #553).
+#
+# The pnpm workspace root (npm-packages/, where pnpm-lock.yaml lives) is an
+# ancestor of the package, so Next uses it as outputFileTracingRoot and nests the
+# app one level down, under dashboard-self-hosted/.
+COPY --from=build --chown=nextjs:nodejs /app/npm-packages/dashboard-self-hosted/.next/standalone/ ./
+# Static assets are not part of the standalone bundle, so copy them in separately.
+# (public/ is already included under dashboard-self-hosted/ by the standalone output.)
+COPY --from=build --chown=nextjs:nodejs /app/npm-packages/dashboard-self-hosted/.next/static/ ./dashboard-self-hosted/.next/static/
 USER nextjs
 EXPOSE 6791
 ENV PORT=6791
 ENV HOSTNAME=0.0.0.0
-CMD ["node", "./server.js"]
+CMD ["node", "dashboard-self-hosted/server.js"]
