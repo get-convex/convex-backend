@@ -21,7 +21,7 @@ atomic_refcell = "0.1.13"
 authentication = { path = "crates/authentication" }
 aws-config = { version = "1.6", default-features = false, features = [ "client-hyper", "default-https-client", "rustls", "rt-tokio", "sso" ] }
 aws-credential-types = "1"
-aws-lc-rs = { version = "1.13", default-features = false, features = [ "aws-lc-sys", "prebuilt-nasm" ] }
+aws-lc-rs = { version = "1.18.1", default-features = false, features = [ "aws-lc-sys", "prebuilt-nasm" ] }
 aws-sdk-firehose = { version = "1.72", default-features = false, features = [ "default-https-client", "rt-tokio" ] }
 aws-sdk-s3 = { version = "1.83", default-features = false, features = [ "default-https-client", "rt-tokio", "sigv4a" ] }
 aws-smithy-http = "0.62.0"
@@ -144,7 +144,7 @@ node_executor = { path = "crates/node_executor" }
 oauth2 = { version = "5", default-features = false }
 once_cell = "1.19"
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "15a9c551eafcf3b60d307feb94332352ac56c099", default-features = false, features = [ "accept-rfc3339-timestamps", "timing-resistant-secret-traits" ] }
-openssl = { version = "0.10.75", features = [ "aws-lc" ] }
+openssl-aws-lc = { package = "openssl", git = "https://github.com/get-convex/rust-openssl", rev = "03caf5bc9775242f4b02daa978f86fafbd0e7659" }
 packed_value = { path = "crates/packed_value" }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 paste = { version = "1.0.12" }

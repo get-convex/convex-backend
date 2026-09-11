@@ -75,12 +75,12 @@ impl CryptoHash {
         }
     }
 
-    fn openssl_message_digest(&self) -> openssl::hash::MessageDigest {
+    fn openssl_message_digest(&self) -> openssl_aws_lc::hash::MessageDigest {
         match self {
-            CryptoHash::Sha1 => openssl::hash::MessageDigest::sha1(),
-            CryptoHash::Sha256 => openssl::hash::MessageDigest::sha256(),
-            CryptoHash::Sha384 => openssl::hash::MessageDigest::sha384(),
-            CryptoHash::Sha512 => openssl::hash::MessageDigest::sha512(),
+            CryptoHash::Sha1 => openssl_aws_lc::hash::MessageDigest::sha1(),
+            CryptoHash::Sha256 => openssl_aws_lc::hash::MessageDigest::sha256(),
+            CryptoHash::Sha384 => openssl_aws_lc::hash::MessageDigest::sha384(),
+            CryptoHash::Sha512 => openssl_aws_lc::hash::MessageDigest::sha512(),
         }
     }
 }
