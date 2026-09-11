@@ -51,16 +51,23 @@ function useUseAuthFromAuthKit(useAuth: UseAuth) {
 
         const fetchAccessToken = useCallback(
           async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
-            try {
-              return await (forceRefreshToken
-                ? getAccessToken({ forceRefresh: true })
-                : getAccessToken());
-            } catch (error) {
-              if (error instanceof LoginRequiredError) {
-                return null;
+            // Convex's auth manager expects a token or null, not a rejection.
+            // Retry temporary failures before reporting authentication failure.
+            for (let attempt = 0; attempt < 3; attempt++) {
+              try {
+                return await (forceRefreshToken
+                  ? getAccessToken({ forceRefresh: true })
+                  : getAccessToken());
+              } catch (error) {
+                if (error instanceof LoginRequiredError || attempt === 2) {
+                  return null;
+                }
+                await new Promise((resolve) =>
+                  setTimeout(resolve, 250 * 2 ** attempt),
+                );
               }
-              throw error;
             }
+            return null;
           },
           [getAccessToken],
         );

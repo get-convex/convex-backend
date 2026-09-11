@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { LoginRequiredError } from "@workos-inc/authkit-react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConvexProviderWithAuthKit } from "./index.js";
 
 vi.mock("react", async (importOriginal) => {
@@ -40,6 +40,7 @@ function makeFetchAccessToken(getAccessToken: GetAccessToken) {
 }
 
 describe("ConvexProviderWithAuthKit", () => {
+  afterEach(() => vi.useRealTimers());
   it("returns null when AuthKit requires login", async () => {
     const getAccessToken = vi
       .fn<GetAccessToken>()
@@ -49,18 +50,59 @@ describe("ConvexProviderWithAuthKit", () => {
     await expect(
       fetchAccessToken({ forceRefreshToken: false }),
     ).resolves.toBeNull();
+    expect(getAccessToken).toHaveBeenCalledTimes(1);
   });
 
-  it("preserves transient token failures", async () => {
-    const networkError = new TypeError("Failed to fetch");
+  it.each([false, true])(
+    "recovers a transient failure (forced: %s)",
+    async (forceRefreshToken) => {
+      vi.useFakeTimers();
+      const networkError = new TypeError("Failed to fetch");
+      const getAccessToken = vi
+        .fn<GetAccessToken>()
+        .mockRejectedValueOnce(networkError)
+        .mockResolvedValue("recovered-token");
+      const fetchAccessToken = makeFetchAccessToken(getAccessToken);
+
+      const result = fetchAccessToken({ forceRefreshToken });
+      await vi.advanceTimersByTimeAsync(250);
+      await expect(result).resolves.toBe("recovered-token");
+      expect(getAccessToken).toHaveBeenCalledTimes(2);
+      for (const args of getAccessToken.mock.calls) {
+        expect(args).toEqual(forceRefreshToken ? [{ forceRefresh: true }] : []);
+      }
+    },
+  );
+
+  it("settles persistent failures without rejecting or retrying forever", async () => {
+    vi.useFakeTimers();
     const getAccessToken = vi
       .fn<GetAccessToken>()
-      .mockRejectedValue(networkError);
-    const fetchAccessToken = makeFetchAccessToken(getAccessToken);
+      .mockRejectedValue(new TypeError("offline"));
+    const result = makeFetchAccessToken(getAccessToken)({
+      forceRefreshToken: true,
+    });
+    await vi.advanceTimersByTimeAsync(749);
+    expect(getAccessToken).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(result).resolves.toBeNull();
+    expect(getAccessToken).toHaveBeenCalledTimes(3);
+    expect(vi.getTimerCount()).toBe(0);
+  });
 
-    await expect(fetchAccessToken({ forceRefreshToken: false })).rejects.toBe(
-      networkError,
-    );
+  it("stops retrying if a later attempt requires login", async () => {
+    vi.useFakeTimers();
+    const getAccessToken = vi
+      .fn<GetAccessToken>()
+      .mockRejectedValueOnce(new TypeError("offline"))
+      .mockRejectedValue(new LoginRequiredError());
+    const result = makeFetchAccessToken(getAccessToken)({
+      forceRefreshToken: true,
+    });
+    await vi.advanceTimersByTimeAsync(250);
+    await expect(result).resolves.toBeNull();
+    expect(getAccessToken).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("forces AuthKit to refresh when Convex requests it", async () => {
