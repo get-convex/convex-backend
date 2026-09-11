@@ -48,7 +48,7 @@ function Credit({ credit }: { credit: CreditResponse }) {
       </Tooltip>
       <div className="flex min-w-0 grow flex-col gap-0.5">
         <CreditTitle credit={credit} />
-        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
+        <div className="flex flex-col text-sm">
           <span>{usedLabel}</span>
           <span className="text-content-secondary">
             <CreditStatus credit={credit} />
