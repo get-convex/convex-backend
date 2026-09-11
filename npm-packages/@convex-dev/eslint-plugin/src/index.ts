@@ -7,6 +7,7 @@ import { noCollectInQuery } from "./lib/no-collect-in-query.js";
 import { noTopOfHourCrons } from "./lib/no-top-of-hour-crons.js";
 import { noSchemaImportCycle } from "./lib/no-schema-import-cycle.js";
 import { noDuplicateIndexes } from "./lib/no-duplicate-indexes.js";
+import { noProcessEnv } from "./lib/no-process-env.js";
 import type { RuleModule } from "@typescript-eslint/utils/ts-eslint";
 import { version } from "./version.js";
 
@@ -20,6 +21,7 @@ const rules = {
   "no-top-of-hour-crons": noTopOfHourCrons,
   "no-schema-import-cycle": noSchemaImportCycle,
   "no-duplicate-indexes": noDuplicateIndexes,
+  "no-process-env": noProcessEnv,
 } satisfies Record<string, RuleModule<string, unknown[]>>;
 
 const recommendedRules = {
