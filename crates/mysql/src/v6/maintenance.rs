@@ -1,7 +1,9 @@
 //! Ahead-of-time creation of V6 `indexes_log_<bucket>` tables.
 //!
 //! A commit whose bucket table is missing fails, so buckets are created with a
-//! wide lookahead and the round publishes how far ahead it got.
+//! wide lookahead and the round publishes how far ahead it got. Reads union
+//! every bucket from the published floor through the newest created, so the
+//! floor's bucket is created too when it precedes the one taking writes.
 //!
 //! The tables live in the DB cluster's schema, which every partition on that
 //! cluster shares, so several conductors run this against the same tables. A
@@ -69,7 +71,7 @@ INSERT INTO @db_name.indexes_maintenance_state
     ON DUPLICATE KEY UPDATE id = id;
 "#;
 
-const INIT_SQL: &str = concatcp!(STATE_TABLE_DDL, SEED_STATE_ROW);
+pub(crate) const INIT_SQL: &str = concatcp!(STATE_TABLE_DDL, SEED_STATE_ROW);
 
 const READ_STATE: &str = r#"
 SELECT oldest_kept_ts FROM @db_name.indexes_maintenance_state WHERE id = 1
@@ -205,7 +207,18 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
             .collect();
 
         let now_bucket = LogBucket::from_successor_ts(now);
-        let missing = buckets_to_create(now_bucket, *INDEXES_LOG_LOOKAHEAD_BUCKETS, &existing)?;
+        let retention_start = now.sub(*INDEX_RETENTION_DELAY).unwrap_or(Timestamp::MIN);
+        let oldest_kept_ts = cmp::max(
+            prev_oldest_kept_ts,
+            LogBucket::from_successor_ts(retention_start).start_ts()?,
+        );
+        let floor_bucket = LogBucket::from_successor_ts(oldest_kept_ts);
+        let missing = buckets_to_create(
+            floor_bucket.min(now_bucket),
+            now_bucket,
+            *INDEXES_LOG_LOOKAHEAD_BUCKETS,
+            &existing,
+        )?;
         // Counted here rather than off the returned round: the DDL is done and
         // committed even if this round later loses the publish fence.
         for bucket in missing {
@@ -228,11 +241,6 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
             .last()
             .context("no log bucket exists after creating the lookahead")?
             .end_ts()?;
-        let retention_start = now.sub(*INDEX_RETENTION_DELAY).unwrap_or(Timestamp::MIN);
-        let oldest_kept_ts = cmp::max(
-            prev_oldest_kept_ts,
-            LogBucket::from_successor_ts(retention_start).start_ts()?,
-        );
         let published = conn
             .exec_iter(
                 PUBLISH_STATE,
@@ -269,9 +277,12 @@ fn ts_column(row: &Row, index: usize) -> anyhow::Result<Timestamp> {
 /// enumerating the range would cost more than the outage it guards against.
 const MAX_LOOKAHEAD_BUCKETS: usize = 24 * 6;
 
-/// The buckets writes may land in before maintenance is guaranteed to run
-/// again, so all of them must exist before any of those writes arrive.
+/// The buckets from `first`, the floor's or the one taking writes, through the
+/// lookahead past `now_bucket`: every bucket a read unions or a write may land
+/// in before maintenance is guaranteed to run again, so all of them must exist
+/// before those reads and writes arrive.
 fn buckets_to_create(
+    first: LogBucket,
     now_bucket: LogBucket,
     lookahead: usize,
     existing: &BTreeSet<LogBucket>,
@@ -280,8 +291,10 @@ fn buckets_to_create(
         lookahead <= MAX_LOOKAHEAD_BUCKETS,
         "INDEXES_LOG_LOOKAHEAD_BUCKETS is {lookahead}, above the cap of {MAX_LOOKAHEAD_BUCKETS}"
     );
-    (0..=i64::try_from(lookahead).context("lookahead does not fit in a bucket offset")?)
-        .map(|offset| now_bucket.offset(offset))
+    let last = now_bucket
+        .offset(i64::try_from(lookahead).context("lookahead does not fit in a bucket offset")?)?;
+    (0..=last.value() - first.value())
+        .map(|offset| first.offset(offset))
         .filter_ok(|bucket| !existing.contains(bucket))
         .try_collect()
 }

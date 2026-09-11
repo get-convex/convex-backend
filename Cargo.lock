@@ -6582,6 +6582,8 @@ dependencies = [
  "common",
  "const-hex",
  "const_format",
+ "convex_macro",
+ "database",
  "dynfmt",
  "errors",
  "fastrace",

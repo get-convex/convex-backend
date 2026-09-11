@@ -3,13 +3,17 @@
 //! The V6 logical database is tenant-scoped by `deployment_id`.
 
 pub(crate) mod documents;
+pub(crate) mod indexes;
 pub mod maintenance;
+mod persistence;
 pub(crate) mod sql;
 use std::sync::Arc;
 
+use anyhow::Context;
 use common::{
     persistence::{
-        Persistence,
+        Persistence as PersistenceTrait,
+        PersistenceGlobalKey,
         PersistenceReader,
     },
     runtime::Runtime,
@@ -17,7 +21,25 @@ use common::{
     types::DeploymentId as CommonDeploymentId,
 };
 use const_format::concatcp;
-use mysql_async::Value;
+use mysql_async::{
+    Row,
+    Value,
+};
+pub(crate) use persistence::Persistence;
+use serde::Deserialize;
+use serde_json::Value as JsonValue;
+pub(crate) use sql::{
+    CHECK_READ_ONLY,
+    FIND_TABLE,
+    INIT_LEASE,
+    LEASE_ACQUIRE,
+    LEASE_PRECONDITION,
+    READ_PERSISTENCE_GLOBAL,
+    READ_V6_SCOPED_TABLES,
+    SET_READ_ONLY,
+    UNSET_READ_ONLY,
+    WRITE_PERSISTENCE_GLOBAL,
+};
 
 use crate::{
     ConvexMySqlPool,
@@ -25,34 +47,32 @@ use crate::{
     MySqlReaderOptions,
 };
 
-pub(crate) fn not_implemented() -> anyhow::Error {
-    anyhow::anyhow!("MySQL V6 persistence is not implemented")
-}
-
 pub(crate) async fn connect<RT: Runtime>(
-    _pool: Arc<ConvexMySqlPool<RT>>,
-    _db_name: String,
-    _options: MySqlOptions,
-    _lease_lost_shutdown: ShutdownSignal,
-) -> anyhow::Result<Arc<dyn Persistence>> {
-    Err(not_implemented())
+    pool: Arc<ConvexMySqlPool<RT>>,
+    db_name: String,
+    options: MySqlOptions,
+    lease_lost_shutdown: ShutdownSignal,
+) -> anyhow::Result<Arc<dyn PersistenceTrait>> {
+    Ok(Arc::new(
+        Persistence::new(pool, db_name, options, lease_lost_shutdown).await?,
+    ))
 }
 
 pub(crate) fn connect_reader<RT: Runtime>(
-    _pool: Arc<ConvexMySqlPool<RT>>,
-    _db_name: String,
-    _options: MySqlReaderOptions,
+    pool: Arc<ConvexMySqlPool<RT>>,
+    db_name: String,
+    options: MySqlReaderOptions,
 ) -> anyhow::Result<Arc<dyn PersistenceReader>> {
-    Err(not_implemented())
+    Ok(Arc::new(Persistence::new_reader(pool, db_name, options)?))
 }
 
 pub(crate) async fn set_persistence_read_only<RT: Runtime>(
-    _pool: Arc<ConvexMySqlPool<RT>>,
-    _db_name: String,
-    _options: MySqlOptions,
-    _read_only: bool,
+    pool: Arc<ConvexMySqlPool<RT>>,
+    db_name: String,
+    options: MySqlOptions,
+    read_only: bool,
 ) -> anyhow::Result<()> {
-    Err(not_implemented())
+    Persistence::set_read_only(pool, db_name, options, read_only).await
 }
 
 /// A deployment identifier in V6 persistence tables.
@@ -60,9 +80,6 @@ pub(crate) async fn set_persistence_read_only<RT: Runtime>(
 pub(crate) struct DeploymentId(u32);
 
 impl DeploymentId {
-    pub(crate) const fn new(value: u32) -> Self {
-        Self(value)
-    }
 }
 
 impl From<DeploymentId> for Value {
@@ -96,6 +113,9 @@ CREATE TABLE IF NOT EXISTS @db_name.documents (
 ) ROW_FORMAT=DYNAMIC;
 "#;
 
+/// Partitioned on `(deployment_id, index_id)`: persistence index IDs restart at
+/// 1 per deployment, so hashing `index_id` alone would put every tenant's index
+/// number k in the same partition.
 const INDEXES_LATEST_DDL: &str = r#"
 CREATE TABLE IF NOT EXISTS @db_name.indexes_latest (
     deployment_id INT UNSIGNED NOT NULL,
@@ -104,14 +124,11 @@ CREATE TABLE IF NOT EXISTS @db_name.indexes_latest (
     key_suffix LONGBLOB NULL,
     key_suffix_hash VARBINARY(16) NOT NULL,
     ts BIGINT NOT NULL,
-    /* A tombstone keeps the row so a later write can see that the key was
-       deleted at this timestamp. table_id and document_id are populated iff
-       deleted is false. */
-    deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    table_id BINARY(16) NULL,
-    document_id BINARY(16) NULL,
-    PRIMARY KEY (deployment_id, index_id, key_prefix, key_suffix_hash)
-) ROW_FORMAT=DYNAMIC PARTITION BY KEY(index_id) PARTITIONS 16;
+    table_id BINARY(16) NOT NULL,
+    document_id BINARY(16) NOT NULL,
+    PRIMARY KEY (deployment_id, index_id, key_prefix, key_suffix_hash),
+    CHECK (ts >= 0)
+) ROW_FORMAT=DYNAMIC PARTITION BY KEY(deployment_id, index_id) PARTITIONS 16;
 "#;
 
 const LEASES_DDL: &str = r#"
@@ -138,16 +155,56 @@ CREATE TABLE IF NOT EXISTS @db_name.persistence_globals (
 ) ROW_FORMAT=DYNAMIC;
 "#;
 
-// This runs every time a Persistence is created, so it has to be idempotent and
-// leave resident data alone. The log tables are absent because they are created
-// ahead of the writes that need them by the per-cluster maintenance worker; see
-// `maintenance`.
+// `indexes_latest` is V6-only and must stay first: its presence distinguishes
+// an interrupted V6 initialization from an incompatible V5 database. Every
+// statement is idempotent so initialization can resume. The log tables are
+// absent because `maintenance` creates them ahead of the writes that need
+// them; its state row is seeded here so reads find it as soon as the schema
+// exists.
 pub(crate) const fn init_sql() -> &'static str {
     concatcp!(
-        DOCUMENTS_DDL,
         INDEXES_LATEST_DDL,
+        DOCUMENTS_DDL,
         LEASES_DDL,
         READ_ONLY_DDL,
         PERSISTENCE_GLOBALS_DDL,
+        maintenance::INIT_SQL,
     )
+}
+
+/// Decodes a `persistence_globals.json_value` column. Globals can nest deeply
+/// enough to trip serde_json's default recursion limit.
+pub(crate) fn decode_persistence_global(
+    row: &Row,
+    key: PersistenceGlobalKey,
+) -> anyhow::Result<JsonValue> {
+    let mut deserializer = serde_json::Deserializer::from_slice(column::bytes(row, 0)?);
+    deserializer.disable_recursion_limit();
+    let value = JsonValue::deserialize(&mut deserializer)
+        .with_context(|| format!("Invalid JSON at persistence key {key:?}"))?;
+    deserializer.end()?;
+    Ok(value)
+}
+
+/// Column accessors for V6 rows.
+pub(crate) mod column {
+    use mysql_async::{
+        Row,
+        Value,
+    };
+
+    pub(crate) fn bytes(row: &Row, column: usize) -> anyhow::Result<&[u8]> {
+        match row.as_ref(column) {
+            Some(Value::Bytes(bytes)) => Ok(bytes),
+            _ => anyhow::bail!("row[{column}] must be bytes"),
+        }
+    }
+
+    pub(crate) fn maybe_bytes(row: &Row, column: usize) -> anyhow::Result<Option<&[u8]>> {
+        match row.as_ref(column) {
+            Some(Value::Bytes(bytes)) => Ok(Some(bytes)),
+            Some(Value::NULL) => Ok(None),
+            _ => anyhow::bail!("row[{column}] must be bytes or NULL"),
+        }
+    }
 }

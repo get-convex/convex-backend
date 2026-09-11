@@ -8,8 +8,6 @@ mod document_encoding;
 mod metrics;
 mod sql;
 mod v5;
-// Most of the V6 SQL is not reachable until `v6::connect` is implemented.
-#[allow(dead_code)]
 mod v6;
 use std::{
     ops::Deref,
