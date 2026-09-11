@@ -347,11 +347,10 @@ export function GiftParcel({ className }: { className?: string }) {
     <span
       aria-hidden
       className={cn(
-        "relative block size-5 overflow-hidden rounded-sm border border-util-brand-purple",
+        "gift-paper relative block size-5 overflow-hidden rounded-sm border border-util-brand-purple",
         className,
       )}
     >
-      <span className="gift-paper absolute inset-0" />
       <RibbonHalf half="top" motion="still" width="w-1" />
       <RibbonHalf half="bottom" motion="still" width="w-1" />
       {/* Bow drawn for ~58px; at 1.25rem scale 0.3 brings it to roughly a third. */}
@@ -393,16 +392,13 @@ function Paper({
         "border border-util-brand-purple",
         // Transitioned so the shadow fades in with the tie rather than popping in.
         "transition-shadow duration-200",
-        still && "shadow-md",
+        still && "gift-paper shadow-md",
         unwrapping && "animate-giftPull will-change-transform",
         wrapping && "animate-giftCinch will-change-transform",
         // origin-bottom so it rocks like a box nudged from inside, not pivoting at its centre.
         still && !reducedMotion && "animate-giftShake origin-bottom",
       )}
     >
-      {/* One unbroken sheet at rest — two adjacent halves can show a hairline seam. */}
-      {still && <span aria-hidden className="gift-paper absolute inset-0" />}
-
       {/* Top half fires onOpened (last element to settle); wrap is ended by the clock instead. */}
       {!still && (
         <>
