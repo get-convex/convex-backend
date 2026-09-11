@@ -45,6 +45,7 @@ use crate::{
         IndexId,
         IndexRef,
         PersistenceVersion,
+        PrevIndexEntry,
         RepeatableReason,
         RepeatableTimestamp,
         Timestamp,
@@ -80,6 +81,10 @@ pub struct PersistenceIndexEntry {
     pub index: IndexRef,
     pub key: IndexKeyBytes,
     pub value: Option<InternalDocumentId>,
+    /// `Some` when the key had an entry before this one: always for a
+    /// tombstone, and for a live entry whose key the document's previous
+    /// revision also produced.
+    pub prev: Option<PrevIndexEntry>,
 }
 
 impl PersistenceIndexEntry {
@@ -94,9 +99,13 @@ impl PersistenceIndexEntry {
                     Some(InternalDocumentId::new(id.tablet_id, id.internal_id()))
                 },
             },
+            prev: update.prev,
         }
     }
 
+    /// The bytes the entry adds, as the write throughput limiter and the write
+    /// log account for them. The superseded entry is the persistence layer's
+    /// bookkeeping, not data the commit adds, so it is not counted.
     pub fn size(&self) -> u64 {
         let mut size = self.ts.size() + self.index.id().size() + self.key.0.len();
         if let Some(value) = self.value {

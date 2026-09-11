@@ -50,6 +50,7 @@ use common::{
         IndexRef,
         TabletIndexName,
         Timestamp,
+        WriteTimestamp,
     },
     value::Size,
 };
@@ -301,10 +302,10 @@ impl BackendInMemoryIndexes {
         // NB: We assume that `index_registry` has already received this update.
         index_registry: &IndexRegistry,
         ts: Timestamp,
-        deletion: Option<ResolvedDocument>,
+        deletion: Option<(ResolvedDocument, WriteTimestamp)>,
         insertion: Option<ResolvedDocument>,
     ) -> Vec<DatabaseIndexUpdate> {
-        if let (Some(old_document), None) = (&deletion, &insertion)
+        if let (Some((old_document, _)), None) = (&deletion, &insertion)
             && old_document.id().tablet_id == index_registry.index_table()
         {
             // Drop the index from memory.
@@ -313,7 +314,10 @@ impl BackendInMemoryIndexes {
         }
 
         // Build up the list of updates to apply to all database indexes.
-        let updates = index_registry.index_updates(deletion.as_ref(), insertion.as_ref());
+        let updates = index_registry.index_updates(
+            deletion.as_ref().map(|(document, ts)| (document, *ts)),
+            insertion.as_ref(),
+        );
 
         let mut memory_doc = None;
 

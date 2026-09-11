@@ -1,5 +1,6 @@
 use std::{
     collections::{
+        btree_map::Entry,
         BTreeMap,
         BTreeSet,
     },
@@ -47,7 +48,9 @@ use common::{
         IndexId,
         IndexName,
         IndexRef,
+        PrevIndexEntry,
         TabletIndexName,
+        WriteTimestamp,
     },
 };
 use errors::ErrorMetadata;
@@ -192,13 +195,24 @@ impl IndexRegistry {
         )
     }
 
+    /// `deletion` carries the old revision's write timestamp, so every update
+    /// that supersedes one of its entries can say which. A revision still
+    /// pending in the same transaction has no persisted entry to supersede;
+    /// the committer's resolved update names the committed one.
     pub fn index_updates<'a>(
         &'a self,
-        deletion: Option<&'a ResolvedDocument>,
+        deletion: Option<(&'a ResolvedDocument, WriteTimestamp)>,
         insertion: Option<&'a ResolvedDocument>,
     ) -> Vec<DatabaseIndexUpdate> {
         let mut updates = BTreeMap::new();
-        if let Some(old_document) = deletion {
+        if let Some((old_document, old_ts)) = deletion {
+            let prev = match old_ts {
+                WriteTimestamp::Committed(ts) => Some(PrevIndexEntry {
+                    ts,
+                    document_id: old_document.id_with_table_id(),
+                }),
+                WriteTimestamp::Pending => None,
+            };
             for (index, index_ref, index_key) in self.index_keys(old_document) {
                 updates.insert(
                     (index.id(), index_key.clone()),
@@ -206,6 +220,7 @@ impl IndexRegistry {
                         index: index_ref,
                         key: index_key,
                         value: DatabaseIndexValue::Deleted,
+                        prev,
                         is_system_index: index.name().descriptor().is_reserved(),
                     },
                 );
@@ -213,15 +228,18 @@ impl IndexRegistry {
         }
         if let Some(new_document) = insertion {
             for (index, index_ref, index_key) in self.index_keys(new_document) {
-                updates.insert(
-                    (index.id(), index_key.clone()),
-                    DatabaseIndexUpdate {
-                        index: index_ref,
-                        key: index_key,
-                        value: DatabaseIndexValue::NonClustered(new_document.id()),
-                        is_system_index: index.name().descriptor().is_reserved(),
-                    },
-                );
+                let entry = updates.entry((index.id(), index_key.clone()));
+                let prev = match &entry {
+                    Entry::Occupied(superseded) => superseded.get().prev,
+                    Entry::Vacant(_) => None,
+                };
+                entry.insert_entry(DatabaseIndexUpdate {
+                    index: index_ref,
+                    key: index_key,
+                    value: DatabaseIndexValue::NonClustered(new_document.id()),
+                    prev,
+                    is_system_index: index.name().descriptor().is_reserved(),
+                });
             }
         }
         updates.into_values().collect()

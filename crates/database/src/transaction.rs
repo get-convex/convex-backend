@@ -1184,9 +1184,10 @@ impl<RT: Runtime> Transaction<RT> {
         }
         let bootstrap_tables = self.bootstrap_tables();
         let old_document = old_document_and_ts.as_ref().map(|(doc, _)| doc);
-        let index_update = self
-            .index
-            .begin_update(old_document.cloned(), new_document_view.as_deref().cloned())?;
+        let index_update = self.index.begin_update(
+            old_document_and_ts.clone(),
+            new_document_view.as_deref().cloned(),
+        )?;
         let schema_update = self.schema_registry.begin_update(
             self.metadata.table_mapping(),
             id,

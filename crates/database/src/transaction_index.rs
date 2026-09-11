@@ -502,13 +502,17 @@ impl TransactionIndex {
 
     // TODO: Add precise error types to facilitate detecting which indexing errors
     // are the developer's fault or not.
+    /// `old_document` comes with the write timestamp of its revision.
     pub fn begin_update(
         &mut self,
-        old_document: Option<ResolvedDocument>,
+        old_document: Option<(ResolvedDocument, WriteTimestamp)>,
         new_document: Option<ResolvedDocument>,
     ) -> anyhow::Result<Update<'_>> {
         let mut registry = self.index_registry.clone();
-        registry.update(old_document.as_ref(), new_document.as_ref())?;
+        registry.update(
+            old_document.as_ref().map(|(document, _)| document),
+            new_document.as_ref(),
+        )?;
 
         Ok(Update {
             index: self,
@@ -520,9 +524,13 @@ impl TransactionIndex {
 
     fn finish_update(
         &mut self,
-        old_document: Option<ResolvedDocument>,
+        old_document: Option<(ResolvedDocument, WriteTimestamp)>,
         new_document: Option<ResolvedDocument>,
     ) -> Vec<DatabaseIndexUpdate> {
+        let (old_document, old_ts) = match old_document {
+            Some((document, ts)) => (Some(document), Some(ts)),
+            None => (None, None),
+        };
         // Update the index registry first.
         let index_registry_updated = self
             .index_registry
@@ -532,7 +540,7 @@ impl TransactionIndex {
         // Then compute the index updates.
         let updates = self
             .index_registry
-            .index_updates(old_document.as_ref(), new_document.as_ref());
+            .index_updates(old_document.as_ref().zip(old_ts), new_document.as_ref());
 
         // Add the index updates to self.database_index_updates.
         for update in &updates {
@@ -705,7 +713,7 @@ impl TransactionIndexMap {
 pub struct Update<'a> {
     index: &'a mut TransactionIndex,
 
-    deletion: Option<ResolvedDocument>,
+    deletion: Option<(ResolvedDocument, WriteTimestamp)>,
     insertion: Option<ResolvedDocument>,
     registry: IndexRegistry,
 }

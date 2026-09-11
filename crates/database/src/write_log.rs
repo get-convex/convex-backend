@@ -22,8 +22,7 @@ use std::{
 use common::{
     components::CanonicalizedComponentFunctionPath,
     document::{
-        DocumentUpdate,
-        DocumentUpdateRef,
+        DocumentUpdateWithPrevTs,
         PackedDocument,
     },
     document_index_keys::{
@@ -90,29 +89,39 @@ pub type OrderedDocumentWrites = Arc<[PackedDocumentUpdate]>;
 #[derive(Clone)]
 pub struct PackedDocumentUpdate {
     pub id: ResolvedDocumentId,
-    pub old_document: Option<PackedDocument>,
+    /// The old document with the timestamp of its revision.
+    pub old_document: Option<(PackedDocument, Timestamp)>,
     pub new_document: Option<PackedDocument>,
 }
 
 impl HeapSize for PackedDocumentUpdate {
     fn heap_size(&self) -> usize {
-        self.old_document.heap_size() + self.new_document.heap_size()
+        self.old_document
+            .as_ref()
+            .map_or(0, |(document, _)| document.heap_size())
+            + self.new_document.heap_size()
     }
 }
 
 impl PackedDocumentUpdate {
-    pub fn pack(update: &impl DocumentUpdateRef) -> Self {
+    pub fn pack(update: &DocumentUpdateWithPrevTs) -> Self {
         Self {
-            id: update.id(),
-            old_document: update.old_document().map(PackedDocument::pack),
-            new_document: update.new_document().map(PackedDocument::pack),
+            id: update.id,
+            old_document: update
+                .old_document
+                .as_ref()
+                .map(|(document, ts)| (PackedDocument::pack(document), *ts)),
+            new_document: update.new_document.as_ref().map(PackedDocument::pack),
         }
     }
 
-    pub fn unpack(&self) -> DocumentUpdate {
-        DocumentUpdate {
+    pub fn unpack(&self) -> DocumentUpdateWithPrevTs {
+        DocumentUpdateWithPrevTs {
             id: self.id,
-            old_document: self.old_document.as_ref().map(|doc| doc.unpack()),
+            old_document: self
+                .old_document
+                .as_ref()
+                .map(|(document, ts)| (document.unpack(), *ts)),
             new_document: self.new_document.as_ref().map(|doc| doc.unpack()),
         }
     }
@@ -155,7 +164,7 @@ pub fn index_keys_from_full_documents(
         for (index_name, index_update) in index_registry
             .document_index_keys(
                 update.id,
-                update.old_document.as_ref(),
+                update.old_document.as_ref().map(|(document, _)| document),
                 update.new_document.as_ref(),
                 tokenize,
             )
@@ -1033,7 +1042,7 @@ impl PendingWrites {
         for update in writes.iter() {
             let update_keys = index_registry.database_index_keys(
                 update.id,
-                update.old_document.as_ref(),
+                update.old_document.as_ref().map(|(document, _)| document),
                 update.new_document.as_ref(),
             );
             for (index_name, Update { old, new }) in update_keys {
@@ -1120,7 +1129,12 @@ impl PendingWrites {
             let read = pending_write
                 .writes
                 .iter()
-                .flat_map(|update| [&update.old_document, &update.new_document])
+                .flat_map(|update| {
+                    [
+                        update.old_document.as_ref().map(|(document, _)| document),
+                        update.new_document.as_ref(),
+                    ]
+                })
                 .flatten()
                 .find_map(|document| reads.search_overlaps_document(document))?;
             Some(ConflictingReadWithWriteSource {

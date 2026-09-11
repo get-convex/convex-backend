@@ -100,6 +100,7 @@ pub use index::{
     IndexRef,
     IndexTableIdentifier,
     PersistenceIndexId,
+    PrevIndexEntry,
     StableIndexName,
     TabletIndexName,
     INDEX_BY_CREATION_TIME_DESCRIPTOR,

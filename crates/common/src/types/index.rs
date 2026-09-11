@@ -11,14 +11,18 @@ use std::{
 
 use anyhow::Context;
 use compact_str::CompactString;
-use sync_types::identifier::{
-    check_valid_identifier,
-    MIN_IDENTIFIER,
+use sync_types::{
+    identifier::{
+        check_valid_identifier,
+        MIN_IDENTIFIER,
+    },
+    Timestamp,
 };
 use value::{
     heap_size::HeapSize,
     identifier::is_valid_identifier,
     FieldName,
+    InternalDocumentId,
     InternalId,
     ResolvedDocumentId,
     TableName,
@@ -445,8 +449,20 @@ pub struct DatabaseIndexUpdate {
 
     pub key: IndexKey,
     pub value: DatabaseIndexValue,
+    /// The entry this update supersedes: the old document's entry for the same
+    /// key, when it produced one.
+    pub prev: Option<PrevIndexEntry>,
 
     pub is_system_index: bool,
+}
+
+/// An index entry a newer one supersedes: the same key's previous revision. A
+/// layout that keeps one live row per key moves that row into its history from
+/// these values instead of reading it back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PrevIndexEntry {
+    pub ts: Timestamp,
+    pub document_id: InternalDocumentId,
 }
 
 #[derive(Eq, PartialEq, Clone, Debug, Ord, PartialOrd)]

@@ -57,6 +57,7 @@ use common::{
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
+        WriteTimestamp,
     },
     value::TabletId,
 };
@@ -485,8 +486,13 @@ impl<RT: Runtime> IndexWriter<RT> {
                     let prev_doc_size =
                         revision_pair.prev_document().map_or(0, |d| d.size() as u64);
                     bytes_read += doc_size + prev_doc_size;
+                    let prev_revision = revision_pair.prev_rev.as_ref().and_then(|rev| {
+                        rev.document
+                            .as_ref()
+                            .map(|document| (document, WriteTimestamp::Committed(rev.ts)))
+                    });
                     for update in index_registry
-                        .index_updates(revision_pair.prev_document(), revision_pair.document())
+                        .index_updates(prev_revision, revision_pair.document())
                         .into_iter()
                         .filter(|update| index_selector.filter_index_update(update))
                     {

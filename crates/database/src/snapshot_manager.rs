@@ -15,7 +15,7 @@ use common::{
         ComponentPath,
     },
     document::{
-        DocumentUpdateRef,
+        DocumentUpdateWithPrevTs,
         ResolvedDocument,
     },
     knobs::{
@@ -255,7 +255,7 @@ pub struct Snapshot {
 impl Snapshot {
     pub fn update(
         &mut self,
-        document_update: &impl DocumentUpdateRef,
+        document_update: &DocumentUpdateWithPrevTs,
         commit_ts: Timestamp,
     ) -> anyhow::Result<(
         Vec<DatabaseIndexUpdate>,
@@ -263,9 +263,12 @@ impl Snapshot {
         TextIndexWriteSize,
     )> {
         block_in_place(|| {
-            let removal = document_update.old_document();
-            let insertion = document_update.new_document();
-            let document_id = document_update.id();
+            let removal = document_update
+                .old_document
+                .as_ref()
+                .map(|(document, _)| document);
+            let insertion = document_update.new_document.as_ref();
+            let document_id = document_update.id;
             let table_update = self
                 .table_registry
                 .update(
@@ -306,7 +309,10 @@ impl Snapshot {
             let in_memory_index_updates = self.in_memory_indexes.update(
                 &self.index_registry,
                 commit_ts,
-                removal.cloned(),
+                document_update
+                    .old_document
+                    .clone()
+                    .map(|(document, ts)| (document, WriteTimestamp::Committed(ts))),
                 insertion.cloned(),
             );
 
