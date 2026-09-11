@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added `.optional()` to all validators. For example, `v.string().optional()` is
+  equivalent to `v.optional(v.string())`. This changes TypeScript compatibility
+  between validators from different Convex versions; projects sharing validators
+  across packages may need to align their `convex` dependency versions.
+
 ## 1.45.0
 
 - Local deployments now upgrade to a new backend version in place, instead of
