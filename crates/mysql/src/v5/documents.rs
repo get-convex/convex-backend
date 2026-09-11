@@ -266,10 +266,6 @@ pub fn delete_tablet_chunk(multitenant: bool) -> &'static str {
     DELETE_TABLET_CHUNK_QUERIES.get(&multitenant).unwrap()
 }
 
-// Maximum number of writes within a single transaction. This is the sum of
-// TRANSACTION_MAX_SYSTEM_NUM_WRITES and TRANSACTION_MAX_NUM_USER_WRITES.
-pub const MAX_INSERT_SIZE: usize = 56000;
-
 // Gross: after initialization, the first thing database does is insert metadata
 // documents.
 pub const fn check_newly_created(multitenant: bool) -> &'static str {

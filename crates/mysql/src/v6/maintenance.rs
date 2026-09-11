@@ -30,7 +30,7 @@ use mysql_async::{
     Value,
 };
 
-use super::indexes::{
+use super::sql::{
     drop_log_ddl,
     log_ddl,
     LogBucket,

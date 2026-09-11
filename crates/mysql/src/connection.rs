@@ -118,6 +118,21 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
     }
 }
 
+/// Recognizes the Vitess error returned when a result exceeds its 64 MiB
+/// message limit, allowing callers to retry with a smaller page.
+pub(crate) fn is_message_too_large_error(
+    error: &anyhow::Error,
+) -> Option<&mysql_async::ServerError> {
+    error
+        .chain()
+        .find_map(|error| error.downcast_ref::<mysql_async::ServerError>())
+        .filter(|database_error| {
+            database_error.state == "HY000"
+                && database_error.code == 1105
+                && database_error.message.contains("message larger than max")
+        })
+}
+
 // Guard against connections hanging during bootstrapping -- which means
 // instances can't start -- and during commit -- which means all future commits
 // fail with OCC errors.
