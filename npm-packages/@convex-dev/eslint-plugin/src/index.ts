@@ -36,6 +36,7 @@ const recommendedRules = {
   "@convex-dev/no-top-of-hour-crons": "warn",
   "@convex-dev/no-schema-import-cycle": "error",
   "@convex-dev/no-duplicate-indexes": "error",
+  "@convex-dev/no-process-env": "error",
 } satisfies {
   [key: `@convex-dev/${string}`]: "error" | "warn" | "off";
 };
