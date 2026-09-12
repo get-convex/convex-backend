@@ -83,7 +83,6 @@ import type * as tasks from "../tasks.js";
 import type * as tour2Messages from "../tour2Messages.js";
 import type * as tour2Schema from "../tour2Schema.js";
 import type * as tour3Messages from "../tour3Messages.js";
-import type * as tour3ai from "../tour3ai.js";
 import type * as tsGeneration from "../tsGeneration.js";
 import type * as typescriptContextTypes from "../typescriptContextTypes.js";
 import type * as typescriptSystemFieldsTypes from "../typescriptSystemFieldsTypes.js";
@@ -180,7 +179,6 @@ declare const fullApi: ApiFromModules<{
   tour2Messages: typeof tour2Messages;
   tour2Schema: typeof tour2Schema;
   tour3Messages: typeof tour3Messages;
-  tour3ai: typeof tour3ai;
   tsGeneration: typeof tsGeneration;
   typescriptContextTypes: typeof typescriptContextTypes;
   typescriptSystemFieldsTypes: typeof typescriptSystemFieldsTypes;
