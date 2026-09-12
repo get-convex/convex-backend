@@ -1096,8 +1096,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()> {
         let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
-        fs::remove_file(path)?;
-        Ok(())
+        remove_local_object(&self.dir, path)
     }
 
     async fn put_object(&self, key: ObjectKey, bytes: Bytes) -> anyhow::Result<()> {
@@ -1220,5 +1219,78 @@ impl Display for StorageUseCase {
             StorageUseCase::Files => write!(f, "files"),
             StorageUseCase::SearchIndexes => write!(f, "search"),
         }
+    }
+}
+
+/// Body of `LocalDirStorage::delete_object`, kept as a free function so the
+/// semantics are unit-testable. An already-absent object is a success, as in
+/// S3 DeleteObject. A missing storage root is not: that would let the caller
+/// commit a delete that never durably happened.
+fn remove_local_object(storage_root: &Path, path: PathBuf) -> anyhow::Result<()> {
+    if let Err(e) = fs::remove_file(path) {
+        if e.kind() == io::ErrorKind::NotFound && storage_root.exists() {
+            return Ok(());
+        }
+        return Err(e.into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use super::remove_local_object;
+
+    #[test]
+    fn removes_existing_file() -> anyhow::Result<()> {
+        let root = TempDir::new()?;
+        let path = root.path().join("blob-1.blob");
+        std::fs::write(&path, b"payload")?;
+        remove_local_object(root.path(), path.clone())?;
+        assert!(!path.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn delete_is_idempotent() -> anyhow::Result<()> {
+        let root = TempDir::new()?;
+        let path = root.path().join("deleted-twice.blob");
+        std::fs::write(&path, b"payload")?;
+        remove_local_object(root.path(), path.clone())?;
+        // The object is already gone, which is success under S3 DeleteObject
+        // semantics — not an ENOENT crash.
+        remove_local_object(root.path(), path)?;
+        Ok(())
+    }
+
+    #[test]
+    fn never_existed_is_ok() -> anyhow::Result<()> {
+        let root = TempDir::new()?;
+        remove_local_object(root.path(), root.path().join("never-existed.blob"))?;
+        Ok(())
+    }
+
+    #[test]
+    fn missing_storage_root_is_error() -> anyhow::Result<()> {
+        let root = TempDir::new()?;
+        let path = root.path().join("any.blob");
+        // A vanished storage root (unmounted or wiped) must NOT be treated as
+        // a successful delete — the caller would commit a removal that never
+        // durably happened.
+        std::fs::remove_dir_all(root.path())?;
+        assert!(remove_local_object(root.path(), path).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn directory_at_path_stays_an_error() -> anyhow::Result<()> {
+        let root = TempDir::new()?;
+        let path = root.path().join("actually-a-dir.blob");
+        std::fs::create_dir(&path)?;
+        // Only NotFound is tolerated; any other failure kind (here: trying to
+        // remove_file a directory) must keep surfacing.
+        assert!(remove_local_object(root.path(), path).is_err());
+        Ok(())
     }
 }
