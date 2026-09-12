@@ -10,6 +10,7 @@ import SchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/sched
 import ChainedSchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/chainedScheduling.test.ts";
 import AuthDemo from "!!raw-loader!@site/../demos/convex-test/convex/auth.test.ts";
 import MockingFetchDemo from "!!raw-loader!@site/../demos/convex-test/convex/mockingFetch.test.ts";
+import GlobalsDemo from "!!raw-loader!@site/../demos/convex-test/convex/globals.test.ts";
 import ErrorDemo from "!!raw-loader!@site/../demos/convex-test/convex/error.test.ts";
 import HttpDemo from "!!raw-loader!@site/../demos/convex-test/convex/http.test.ts";
 import RunDemo from "!!raw-loader!@site/../demos/convex-test/convex/run.test.ts";
@@ -381,14 +382,74 @@ To assert that a function throws, use
 
 ### Mocking `fetch` calls
 
-You can use Vitest's
-[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) method:
+Assign your mock to `globalThis.fetch`, and restore the original when the test
+is done:
 
 <Snippet
   title="convex/ai.test.ts"
   source={MockingFetchDemo}
-  highlightPatterns={["stubGlobal"]}
+  highlightPatterns={["globalThis.fetch ="]}
 />
+
+Don't use Vitest's
+[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) for `fetch` or
+any of the other globals `convex-test` manages — it defines a new property on
+`globalThis` instead of assigning through the existing one, which opts the
+global out of the isolation described in
+[Overriding globals inside functions](#overriding-globals-inside-functions).
+
+### Overriding globals inside functions
+
+Some libraries override runtime globals such as `fetch`, `Math`, `Date`,
+`console`, `process`, or `crypto` while a Convex function runs. `convex-test`
+scopes those overrides to a single function invocation, so they don't leak into
+other functions or into your test.
+
+Override a global by assigning a replacement object to it:
+
+<Snippet
+  title="convex/globals.test.ts"
+  source={GlobalsDemo}
+  snippet="overrideMath"
+  highlightPatterns={["globalThis.Math = replacement"]}
+/>
+
+The override is visible to the handler and everything it calls directly,
+including after `await`. Nested calls through `ctx.runQuery`, `ctx.runMutation`,
+or `ctx.runAction` start from the test's globals and do not inherit it.
+
+#### Assign to the global; don't mutate or redefine it
+
+Isolation works by intercepting assignments to the global itself, so only
+assignment is scoped to the invocation:
+
+- ✅ `globalThis.Math = replacement`
+- ❌ `Math.random = () => 0.5` — mutates the object shared with the rest of the
+  test. Build a replacement object instead, as shown above.
+- ❌ `Object.defineProperty(globalThis, "Math", { value: replacement })` —
+  replaces the property rather than assigning through it. `vi.stubGlobal` does
+  this, so avoid it while running queries/mutations/actions.
+- ❌ `delete globalThis.crypto` — removes the property. Assign `undefined`
+  instead:
+
+<Snippet
+  title="convex/globals.test.ts"
+  source={GlobalsDemo}
+  snippet="unsetCrypto"
+  highlightPatterns={["crypto = undefined"]}
+/>
+
+The property still exists, so `typeof crypto === "undefined"` checks pass, but
+this doesn't simulate deleting the property.
+
+The ❌ forms change the global for the whole test process, and they also disable
+the restrictions `convex-test` applies inside queries and mutations, even when
+used in test setup.
+
+Isolation covers the supported globals that exist and are configurable in your
+test environment; it doesn't cover custom globals. Overrides made outside a
+handler are shared test setup — restore them yourself, for example in a
+`finally` block.
 
 ### Measuring test coverage
 

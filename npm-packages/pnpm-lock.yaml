@@ -1664,8 +1664,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       convex-test:
-        specifier: ^0.0.41
-        version: 0.0.41(convex@convex)
+        specifier: ^0.0.58
+        version: 0.0.58(convex@convex)
       globals:
         specifier: ~17.4.0
         version: 17.4.0
@@ -4183,7 +4183,7 @@ importers:
     devDependencies:
       '@types/bun':
         specifier: latest
-        version: 1.4.0
+        version: 1.4.1
 
   private-demos/quickstarts/expo:
     dependencies:
@@ -14849,8 +14849,8 @@ packages:
   '@types/bonjour@3.5.13':
     resolution: {integrity: sha512-z9fJ5Im06zvUL548KvYNecEVlA7cVDkGUi6kZusb04mpyEFKCIZJvloCcmpmLaIahDpOQGHaHmG6imtPMmPXGQ==}
 
-  '@types/bun@1.4.0':
-    resolution: {integrity: sha512-K+lZULY23vRgK/CfTjFIV+tyifaNdSMlPh9j+6mQ/cLfpOznLyAuzgV/JQysyECpkBQLVMSyvjlr2fBUSA9wFQ==}
+  '@types/bun@1.4.1':
+    resolution: {integrity: sha512-0AVGiTXGajf1rgKom3N+c5L7CBxuoyyv1i44M0nX4UDK0G/fnRAMiri93nHuVPIb429KKtAgj7HatVmmOjeQLA==}
 
   '@types/caseless@0.12.5':
     resolution: {integrity: sha512-hWtVTC2q7hc7xZ/RLbxapMvDMgUnDvKvMOpKal4DrMyfGBUfB1oKaZlIRr6mJL+If3bAP6sV/QneGzF6tJjZDg==}
@@ -17158,8 +17158,8 @@ packages:
   builtin-status-codes@3.0.0:
     resolution: {integrity: sha512-HpGFw18DgFWlncDfjTa2rcQ4W88O1mC8e8yZ2AvQY5KDaktSTwo+KRf6nHK6FRI5FyRyb/5T6+TSxfP7QyGsmQ==}
 
-  bun-types@1.4.0:
-    resolution: {integrity: sha512-iIKw23BspnQQYd3prITOBxeUsxBHnwzX6YJfGMuNOZzeNcMmVqzIIVGRm1l69ogaPQmb4wB6BN8mA5bE9YuC5Q==}
+  bun-types@1.4.1:
+    resolution: {integrity: sha512-loKuVrAFZKfEv+JvWkHRS9GW5IqLuLRjVXN9p+vZvBN86O5hf/pBZQ5hSoyipsrMmWObZBDvWnlmKvjKTM0PdA==}
 
   bundle-name@4.1.0:
     resolution: {integrity: sha512-tjwM5exMg6BGRI+kNmTntNsvdZS1X8BFYS6tnJ2hdH0kVxM6/eVZ2xy+FqStSWvYmtfFMDLIxurorHwDKfDz5Q==}
@@ -17824,6 +17824,11 @@ packages:
     resolution: {integrity: sha512-GPHeYFOi70n7UtW0eCEQFVhzl/+m8PvbWkDCbKpHLybI1MrScf4sVpGeM0cC2qmtxiduxa2nLPbehPalhh9oyQ==}
     peerDependencies:
       convex: ^1.16.4
+
+  convex-test@0.0.58:
+    resolution: {integrity: sha512-VZ9VNrWZkdlWMmudnoOdiqTk8oc6r9pCcnxxPq1Kh/tt4dX9cyA7kJWFZ9LrAgEUxGcg2iPkiOb+bBvHfy3ihA==}
+    peerDependencies:
+      convex: ^1.43.0
 
   convex-vue@0.1.5:
     resolution: {integrity: sha512-0kyM4rkGzDDW9mrK4O3q9cCByzezBm6cnjfeB+i5Wc/BNKfXeAWKFyOKvAuCqjC8WGCbUG/OtbMFbUlWT3dD3g==}
@@ -40518,9 +40523,9 @@ snapshots:
     dependencies:
       '@types/node': 22.19.1
 
-  '@types/bun@1.4.0':
+  '@types/bun@1.4.1':
     dependencies:
-      bun-types: 1.4.0
+      bun-types: 1.4.1
 
   '@types/caseless@0.12.5': {}
 
@@ -44244,7 +44249,7 @@ snapshots:
 
   builtin-status-codes@3.0.0: {}
 
-  bun-types@1.4.0:
+  bun-types@1.4.1:
     dependencies:
       '@types/node': 22.19.1
 
@@ -44914,6 +44919,10 @@ snapshots:
       svelte: 5.55.8
 
   convex-test@0.0.41(convex@convex):
+    dependencies:
+      convex: link:convex
+
+  convex-test@0.0.58(convex@convex):
     dependencies:
       convex: link:convex
 

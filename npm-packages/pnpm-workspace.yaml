@@ -187,6 +187,8 @@ minimumReleaseAgeExclude:
   - brace-expansion
   # Renovate security update: svgo@4.1.0
   - svgo@4.1.0
+  # First-party publish; the convex-test docs often reference new features
+  - convex-test
 
 # Keep react and react-dom out of pnpm's hoisted fallback layer. The workspace
 # has both React 18 (the demos) and React 19 (the dashboards), and

@@ -16,6 +16,10 @@
    */
   "allowedAlternativeVersions": {
     /**
+     * The convex-test docs demo needs the global isolation behavior in 0.0.58.
+     */
+    "convex-test": ["^0.0.58"],
+    /**
      * Convex minimum version of TypeScript supported is 5.0;
      * Whatever features were added after that, don't use them!
      *
