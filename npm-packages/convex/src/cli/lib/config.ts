@@ -22,7 +22,10 @@ import {
   entryPointsByEnvironment,
 } from "../../bundler/index.js";
 import { version } from "../version.js";
-import { deploymentDashboardUrlPage } from "./dashboard.js";
+import {
+  deploymentDashboardUrlPage,
+  selfHostedDashboardUrl,
+} from "./dashboard.js";
 import {
   functionsDir,
   ErrorData,
@@ -975,6 +978,15 @@ export async function handlePushConfigError(
       const dashboardUrl = deploymentDashboardUrlPage(
         deploymentName,
         `/settings/environment-variables${variableQuery}`,
+      );
+      setEnvVarInstructions = `Go to:\n\n    ${chalkStderr.bold(
+        dashboardUrl,
+      )}\n\n  to set it up. `;
+    } else if (deployment) {
+      // Self-hosted deployments have no deploymentName but do have a deployment URL.
+      const dashboardUrl = selfHostedDashboardUrl(
+        deployment.deploymentUrl,
+        `/settings/environment-variables`,
       );
       setEnvVarInstructions = `Go to:\n\n    ${chalkStderr.bold(
         dashboardUrl,
