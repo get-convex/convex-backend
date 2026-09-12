@@ -49,6 +49,9 @@ tracing = { workspace = true }
 udf = { workspace = true }
 value = { workspace = true }
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true }
+
 [build-dependencies]
 anyhow = "1"
 
