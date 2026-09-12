@@ -674,7 +674,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 variant: TaskRequestEnum::AsyncOp(AsyncOpRequest::SendStream { stream, stream_id }),
                 parent_trace: EncodedSpan::from_parent(),
             })
-            .map_err(|_| {
+.map_err(|_| {
+                self.task_promise_resolvers.remove(&task_id);
                 anyhow!(ErrorMetadata::operational_internal_server_error())
                     .context("TaskExecutor went away")
             })?;
