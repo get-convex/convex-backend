@@ -916,7 +916,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
                 // NOTE: We should not be getting developer errors here.
                 self.database
-                    .commit_with_write_source(tx, "scheduled_job_mutation_error")
+                    .commit_with_write_source(tx, WriteSource::mutation(job.path.clone()))
                     .await?;
             }
             self.function_log
