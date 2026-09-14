@@ -482,6 +482,11 @@ pub trait WorkOSClient: Send + Sync {
         domain: Option<&str>,
     ) -> anyhow::Result<WorkOSOrganizationResponse>;
     async fn delete_organization(&self, organization_id: &str) -> anyhow::Result<()>;
+    /// Removes one domain from its organization. WorkOS has no list-domains
+    /// endpoint; the domains an organization holds come back on
+    /// [`WorkOSClient::get_organization_by_id`]. Deleting an already-deleted
+    /// domain is a no-op.
+    async fn delete_organization_domain(&self, domain_id: &str) -> anyhow::Result<()>;
 
     // Organization membership methods
     async fn create_membership(
@@ -691,6 +696,16 @@ where
         delete_workos_organization(&self.api_key, organization_id, &*self.http_client).await
     }
 
+    async fn delete_organization_domain(&self, domain_id: &str) -> anyhow::Result<()> {
+        delete_workos_resource(
+            &self.api_key,
+            &format!("https://api.workos.com/organization_domains/{domain_id}"),
+            "delete organization domain",
+            &*self.http_client,
+        )
+        .await
+    }
+
     async fn list_organization_memberships(
         &self,
         user_id: &str,
@@ -835,7 +850,8 @@ struct MockWorkOSState {
     organization_domains: HashMap<String, Vec<WorkOSOrganizationDomain>>,
     organization_memberships: HashMap<String, Vec<WorkOSOrganizationMembershipResponse>>,
     /// Distinguishes the ids handed out by successive `create_organization`
-    /// calls.
+    /// and `with_organization_domain` calls. Shared between the two so a
+    /// domain id names one domain across every organization, as WorkOS's do.
     next_id: u64,
     /// The event log served by [`list_events`], oldest first.
     events: Vec<WorkOSEvent>,
@@ -866,16 +882,18 @@ impl MockWorkOSClient {
     ) -> Self {
         {
             let mut guard = self.state.write();
-            let domains = guard
+            guard.next_id += 1;
+            let id = format!("org_domain_mock{}", guard.next_id);
+            guard
                 .organization_domains
                 .entry(organization_id.to_string())
-                .or_default();
-            domains.push(WorkOSOrganizationDomain {
-                object: "organization_domain".to_string(),
-                id: format!("org_domain_mock{}", domains.len()),
-                domain: domain.to_string(),
-                state,
-            });
+                .or_default()
+                .push(WorkOSOrganizationDomain {
+                    object: "organization_domain".to_string(),
+                    id,
+                    domain: domain.to_string(),
+                    state,
+                });
         }
         self
     }
@@ -1158,6 +1176,19 @@ impl WorkOSClient for MockWorkOSClient {
             memberships.retain(|membership| membership.organization_id != organization_id);
             !memberships.is_empty()
         });
+        Ok(())
+    }
+
+    async fn delete_organization_domain(&self, domain_id: &str) -> anyhow::Result<()> {
+        let mut state = self.state.write();
+        for domains in state.organization_domains.values_mut() {
+            domains.retain(|domain| domain.id != domain_id);
+        }
+        // `update_organization` writes domains onto the organization itself,
+        // so a domain can live in either place.
+        for org in state.organizations.values_mut() {
+            org.domains.retain(|domain| domain.id != domain_id);
+        }
         Ok(())
     }
 
