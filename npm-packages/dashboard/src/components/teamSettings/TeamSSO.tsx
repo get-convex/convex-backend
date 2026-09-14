@@ -107,7 +107,9 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
   const isGeneratingAnyLink = isGeneratingDomainsLink || isGeneratingSSOLink;
 
   const ssoEnabled = entitlements?.ssoEnabled ?? false;
-  const isSSOConfigured = !!ssoOrganization;
+  const isSSOConfigured =
+    (ssoOrganization?.createTime ?? null) !== null ||
+    (ssoOrganization?.connections.length ?? 0) > 0;
   const domains = ssoOrganization?.domains ?? [];
   const requireSsoLogin = ssoOrganization?.requireSsoLogin ?? false;
 
