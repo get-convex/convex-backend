@@ -13,32 +13,17 @@ import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { fn } from "storybook/test";
 import { Index } from "@common/features/data/lib/api";
 import { IndexFilterBar } from "./IndexFilterBar";
-import { BetaMenu } from "./BetaMenu";
 import { buildIndexDefs } from "./filterModel";
 import { useFilterActions } from "./useFilterActions";
 
 // @ts-expect-error -- simplified mock for Storybook
 const deployment: ConnectedDeployment = {};
 
-// The wrapping is behind a LaunchDarkly flag, which reaches the bar through
-// this context rather than the hook, so the stories turn it on themselves.
-const deploymentInfo = { ...mockDeploymentInfo, giftWrapDataFilters: true };
-
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
   .registerQueryFake(udfs.getVersion.default, () => "0.19.0")
   .registerQueryFake(udfs.components.list, () => [])
-  .registerQueryFake(udfs.getTableMapping.default, () => ({}))
-  // The legacy panel in the "why did this change?" dialog looks up the table's
-  // indexes for itself.
-  .registerQueryFake(udfs.indexes.default, () =>
-    indexes.map(({ name, fields }) => ({
-      name,
-      fields,
-      staged: false,
-      backfill: { state: "done" as const },
-    })),
-  );
+  .registerQueryFake(udfs.getTableMapping.default, () => ({}));
 
 const indexes: Index[] = [
   {
@@ -75,14 +60,7 @@ const defaultDocument = {
   score: 42,
 };
 
-function Example({
-  initialFilters,
-  withBetaMenu,
-}: {
-  initialFilters?: FilterExpression;
-  /** The page toolbar's menu, which is where tying the parcel back up lives. */
-  withBetaMenu?: boolean;
-}) {
+function Example({ initialFilters }: { initialFilters?: FilterExpression }) {
   const connectedDeployment = useMemo(
     () => ({ deployment, isDisconnected: false }),
     [],
@@ -90,11 +68,8 @@ function Example({
   return (
     <ConnectedDeploymentContext.Provider value={connectedDeployment}>
       <ConvexProvider client={mockClient}>
-        <DeploymentInfoContext.Provider value={deploymentInfo}>
-          <ExampleInner
-            initialFilters={initialFilters}
-            withBetaMenu={withBetaMenu}
-          />
+        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+          <ExampleInner initialFilters={initialFilters} />
         </DeploymentInfoContext.Provider>
       </ConvexProvider>
     </ConnectedDeploymentContext.Provider>
@@ -103,10 +78,8 @@ function Example({
 
 function ExampleInner({
   initialFilters,
-  withBetaMenu,
 }: {
   initialFilters?: FilterExpression;
-  withBetaMenu?: boolean;
 }) {
   const [filters, setFilters] = useState<FilterExpression | undefined>(
     initialFilters,
@@ -128,11 +101,6 @@ function ExampleInner({
   });
   return (
     <div className="flex flex-col gap-4">
-      {withBetaMenu && (
-        <div className="flex justify-end">
-          <BetaMenu tableName="tasks" />
-        </div>
-      )}
       <IndexFilterBar
         actions={actions}
         indexDefs={indexDefs}
@@ -159,14 +127,6 @@ function ExampleInner({
 const meta = {
   component: Example,
   parameters: { a11y: { test: "todo" } },
-  loaders: [
-    () => {
-      // preview.ts marks the gift as unwrapped so it stays out of every docs
-      // screenshot; only the GiftWrapped story below puts it back.
-      localStorage.setItem("dataFilterGiftUnwrapped", "true");
-      return {};
-    },
-  ],
 } satisfies Meta<typeof Example>;
 
 export default meta;
@@ -238,27 +198,4 @@ export const Search: Story = {
       },
     },
   },
-};
-
-/**
- * Tying the parcel back up, which the page toolbar's beta menu offers to
- * anyone who wants the gift again: pick "Wrap it up again" to run it.
- */
-export const Rewrapping: Story = {
-  args: { withBetaMenu: true },
-};
-
-/** How the filter controls greet a member who has not seen the new bar yet. */
-export const GiftWrapped: Story = {
-  ...Empty,
-  loaders: [
-    () => {
-      localStorage.removeItem("dataFilterGiftUnwrapped");
-      // Re-selecting the story you are already on re-runs loaders without
-      // remounting, and GiftWrap decides whether to wrap once at mount. Keying
-      // on a token that changes per load makes it start over every time.
-      return { giftRun: Date.now() };
-    },
-  ],
-  render: (args, { loaded }) => <Example key={loaded.giftRun} {...args} />,
 };

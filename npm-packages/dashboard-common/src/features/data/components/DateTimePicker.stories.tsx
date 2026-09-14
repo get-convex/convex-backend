@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
+import { DateTimePicker } from "@common/features/data/components/DateTimePicker";
 import { fn } from "storybook/test";
 import { Sheet } from "@ui/Sheet";
 

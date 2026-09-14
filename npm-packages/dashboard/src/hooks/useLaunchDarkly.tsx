@@ -10,8 +10,6 @@ export const flagDefaults: {
   ephemeralZipExportToken: boolean;
   directorySync: boolean;
   promos: boolean;
-  newDataFilters: boolean;
-  giftWrapDataFilters: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
@@ -21,8 +19,6 @@ export const flagDefaults: {
   ephemeralZipExportToken: false,
   directorySync: false,
   promos: false,
-  newDataFilters: false,
-  giftWrapDataFilters: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

@@ -11,7 +11,7 @@ import {
 import { Combobox, Option } from "@ui/Combobox";
 import { TextInput } from "@ui/TextInput";
 import { cn } from "@ui/cn";
-import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
+import { DateTimePicker } from "@common/features/data/components/DateTimePicker";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import {
   IndexedOperator,

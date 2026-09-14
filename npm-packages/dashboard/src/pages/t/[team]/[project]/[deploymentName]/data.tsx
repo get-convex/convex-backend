@@ -20,9 +20,6 @@ function DataViewWithAnalytics() {
       onTableCreated={() => capture("created_table")}
       onDocumentsAdded={(count) => capture("add_documents", { count })}
       onFiltersApplied={onFiltersApplied}
-      onFilterHistoryNavigated={(properties) =>
-        capture("data_filter_history_navigated", properties)
-      }
     />
   );
 }

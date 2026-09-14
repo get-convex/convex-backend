@@ -109,8 +109,8 @@ export function Table({
     order: "asc" | "desc";
     field: string;
   };
-  getSortOption?: (field: string) => SortOption;
-  onSortColumn?: (field: string) => void;
+  getSortOption: (field: string) => SortOption;
+  onSortColumn: (field: string) => void;
   hiddenColumns: string[];
   onColumnOrderChange?: (newOrder: string[]) => void;
 }) {

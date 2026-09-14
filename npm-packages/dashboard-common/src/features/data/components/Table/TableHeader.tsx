@@ -33,8 +33,8 @@ export function TableHeader({
     order: "asc" | "desc";
     field: string;
   };
-  getSortOption?: (field: string) => SortOption;
-  onSortColumn?: (field: string) => void;
+  getSortOption: (field: string) => SortOption;
+  onSortColumn: (field: string) => void;
   localStorageKey: string;
   tableContainerRef: RefObject<HTMLDivElement | null>;
 }) {
@@ -62,10 +62,8 @@ export function TableHeader({
               toggleAll={toggleAll}
               openContextMenu={openContextMenu}
               sort={sort.field === header.column.id ? sort.order : undefined}
-              sortOption={getSortOption?.(header.column.id)}
-              onSort={
-                onSortColumn ? () => onSortColumn(header.column.id) : undefined
-              }
+              sortOption={getSortOption(header.column.id)}
+              onSort={() => onSortColumn(header.column.id)}
               localStorageKey={localStorageKey}
               tableContainerRef={tableContainerRef}
             />
