@@ -42,7 +42,6 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use bytes::Bytes;
 use common::{
-    errors::report_error,
     runtime::Runtime,
     try_anyhow,
     types::{
@@ -792,11 +791,13 @@ async fn stream_object_with_retries(
                 return Err(e);
             },
             Err(e) => {
-                let mut toreport = anyhow::anyhow!(e).context(format!(
-                    "failed while reading stream for {key:?}. {retries_remaining} attempts \
-                     remaining"
-                ));
-                report_error(&mut toreport).await;
+                tracing::warn!(
+                    ?key,
+                    retries_remaining,
+                    bytes_yielded,
+                    error = ?e,
+                    "Retrying storage download after stream error"
+                );
                 let new_range =
                     (small_byte_range.start + bytes_yielded as u64)..small_byte_range.end;
                 let output = storage
