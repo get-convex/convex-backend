@@ -13,6 +13,10 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use chrono::{
+    DateTime,
+    Utc,
+};
 use common::types::MemberId;
 use errors::ErrorMetadata;
 use oauth2::{
@@ -438,6 +442,7 @@ pub struct WorkOSEvent {
     pub id: String,
     /// e.g. "dsync.user.created".
     pub event: String,
+    pub created_at: DateTime<Utc>,
     /// The event-type-specific body, e.g. a `DirectoryUser` for
     /// `dsync.user.*`.
     pub data: serde_json::Value,
@@ -832,6 +837,8 @@ struct MockWorkOSState {
     /// Distinguishes the ids handed out by successive `create_organization`
     /// calls.
     next_id: u64,
+    /// The event log served by [`list_events`], oldest first.
+    events: Vec<WorkOSEvent>,
 }
 
 impl MockWorkOSClient {
@@ -969,6 +976,11 @@ impl MockWorkOSClient {
             .write()
             .directory_groups_by_user_id
             .insert(user_id.to_string(), groups);
+    }
+
+    /// Inject the event log served by [`list_events`], oldest first.
+    pub fn set_events(&self, events: Vec<WorkOSEvent>) {
+        self.state.write().events = events;
     }
 }
 
@@ -1318,11 +1330,33 @@ impl WorkOSClient for MockWorkOSClient {
 
     async fn list_events(
         &self,
-        _event_types: &[&str],
-        _after: Option<&str>,
-        _limit: u32,
+        event_types: &[&str],
+        after: Option<&str>,
+        limit: u32,
     ) -> anyhow::Result<Vec<WorkOSEvent>> {
-        Ok(vec![])
+        // Matches the real client, which rejects this before issuing a request
+        // rather than letting an empty filter mean "every type".
+        if event_types.is_empty() {
+            anyhow::bail!("Refusing to list events with no event types");
+        }
+        let state = self.state.read();
+        let start = match after {
+            Some(after) => match state.events.iter().position(|e| e.id == after) {
+                Some(index) => index + 1,
+                // WorkOS doesn't document what it does with a cursor outside
+                // its retention window, so fail loudly rather than pick a
+                // behaviour: a test that loses its cursor should say so, not
+                // silently replay the whole log.
+                None => anyhow::bail!("Unknown event cursor {after}"),
+            },
+            None => 0,
+        };
+        Ok(state.events[start..]
+            .iter()
+            .filter(|e| event_types.contains(&e.event.as_str()))
+            .take(limit as usize)
+            .cloned()
+            .collect())
     }
 }
 
