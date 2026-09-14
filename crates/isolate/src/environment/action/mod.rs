@@ -59,6 +59,7 @@ use deno_core::v8::{
     self,
     scope,
 };
+use errors::ErrorMetadata;
 use futures::{
     future::BoxFuture,
     select_biased,
@@ -513,7 +514,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 scope
                     .state_mut()?
                     .environment
-                    .send_stream(stream_id, Some(body));
+                    .send_stream(stream_id, Some(body))?;
                 Some(stream_id)
             },
             None => None,
@@ -579,7 +580,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let stream_id = state.create_request_stream()?;
         state
             .environment
-            .send_stream(stream_id, Some(sender_closed));
+            .send_stream(stream_id, Some(sender_closed))?;
 
         Ok(stream_id)
     }
@@ -665,7 +666,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         &mut self,
         stream_id: uuid::Uuid,
         stream: Option<BoxStream<'static, anyhow::Result<bytes::Bytes>>>,
-    ) {
+    ) -> anyhow::Result<()> {
         let task_id = self.next_task_id.increment();
         self.pending_task_sender
             .send(TaskRequest {
@@ -673,7 +674,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 variant: TaskRequestEnum::AsyncOp(AsyncOpRequest::SendStream { stream, stream_id }),
                 parent_trace: EncodedSpan::from_parent(),
             })
-            .expect("TaskExecutor went away?");
+.map_err(|_| {
+                self.task_promise_resolvers.remove(&task_id);
+                anyhow!(ErrorMetadata::operational_internal_server_error())
+                    .context("TaskExecutor went away")
+            })?;
+        Ok(())
     }
 
     #[fastrace::trace]
@@ -1336,7 +1342,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 variant: request,
                 parent_trace: EncodedSpan::from_parent(),
             })
-            .expect("TaskExecutor went away?");
+            .map_err(|_| {
+                anyhow!(ErrorMetadata::operational_internal_server_error())
+                    .context("TaskExecutor went away")
+            })?;
         Ok(())
     }
 
