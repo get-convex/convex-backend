@@ -7,7 +7,7 @@ import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import udfs from "@common/udfs";
 import { ConvexProvider } from "convex/react";
-import { fn, mocked } from "storybook/test";
+import { fn, mocked, userEvent, within } from "storybook/test";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { Id } from "system-udfs/convex/_generated/dataModel";
@@ -22,6 +22,10 @@ import { useDeploymentByName } from "api/deployments";
 import { useInfiniteProjects } from "api/projects";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { Backups } from "components/deploymentSettings/Backups";
+import {
+  type BackupStorageSummary,
+  useBackupStorageSummary,
+} from "hooks/usageMetrics";
 
 // Fixed "now" so the relative timestamps ("Expires in 6 days") are stable. The
 // absolute times this page also renders (`toLocaleString`, `Intl.DateTimeFormat`
@@ -82,6 +86,11 @@ const mockPeriodicBackupConfig = {
   includeStorage: false,
 };
 
+const mockUsageSummary: BackupStorageSummary = {
+  databaseStorage: 5 * 1024 * 1024 * 1024,
+  fileStorage: 10 * 1024 * 1024 * 1024,
+};
+
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.components.list, () => [])
   .registerQueryFake(udfs.latestExport.default, () => null)
@@ -138,9 +147,6 @@ const meta = {
   parameters: {
     layout: "fullscreen",
     docsPage: { deploymentType: "prod" },
-    // The backup list and the automatic-backup panel sit side by side only from
-    // the `xl` breakpoint on, which the default 1024px capture viewport misses.
-    screenshotViewport: { width: 1280, height: 720 },
     nextjs: {
       router: {
         pathname: "/t/[team]/[project]/[deploymentName]/settings/backups",
@@ -173,6 +179,10 @@ const meta = {
         mockPeriodicBackupConfig,
       );
       mocked(useGetCloudBackup).mockReturnValue(undefined);
+      mocked(useBackupStorageSummary).mockReturnValue({
+        data: mockUsageSummary,
+        error: undefined,
+      });
       // Each list item resolves its backup identifier from the source
       // deployment name.
       mocked(useDeploymentByName).mockReturnValue(mockDeployment);
@@ -195,3 +205,48 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const RequestImmediateBackup: Story = {
+  parameters: {
+    screenshotSelector: '[role="dialog"]',
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Backup Now" }),
+    );
+
+    const dialog = within(await within(document.body).findByRole("dialog"));
+    await dialog.findByText("Request an immediate backup");
+    await dialog.findByText(/\(Est\. 5\sGB\)/);
+    await dialog.findByText(/\(Est\. \+10\sGB\)/);
+  },
+};
+
+export const RequestImmediateBackupWithTooMuchFileStorage: Story = {
+  parameters: {
+    screenshotSelector: '[role="dialog"], [role="tooltip"]',
+  },
+  decorators: [
+    (storyFn) => {
+      mocked(useBackupStorageSummary).mockReturnValue({
+        data: { ...mockUsageSummary, fileStorage: 10 * 1024 ** 4 },
+        error: undefined,
+      });
+      return storyFn();
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Backup Now" }),
+    );
+
+    const dialog = within(await within(document.body).findByRole("dialog"));
+    await dialog.findByText(/\(Est\. \+10\sTB\)/);
+    await userEvent.hover(
+      dialog.getByLabelText("About including file storage"),
+    );
+    await within(document.body).findAllByRole("tooltip");
+  },
+};

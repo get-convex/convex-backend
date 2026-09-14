@@ -3,12 +3,14 @@ import { DeploymentType } from "generatedApi";
 
 const QUERY_IDS_: {
   summary: DatabricksQueryId;
+  backupStorageEstimate: DatabricksQueryId;
   functionBreakdown: DatabricksQueryId;
   deploymentsByClassAndRegion: DatabricksQueryId;
   deploymentCountByType: DatabricksQueryId;
   deploymentCountByStatus: DatabricksQueryId;
 } = {
   summary: "b63fe48d-320c-401a-8682-0a0b36b50e2b",
+  backupStorageEstimate: "b58b3969-d916-460a-a7b6-210af082b24a",
   functionBreakdown: "76c86baa-418e-4d7f-ac21-46f397030595",
   deploymentsByClassAndRegion: "dfc73057-1948-4b99-a3bf-9ae802a395ee",
   deploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
@@ -74,6 +76,11 @@ export type UsageSummaryRow = {
   deploymentCount: number;
   pausedDeploymentCount: number;
   idleDeploymentCount: number;
+};
+
+export type BackupStorageSummary = {
+  databaseStorage: number;
+  fileStorage: number;
 };
 
 // Function name of the row the breakdown query emits per project to carry the
@@ -157,6 +164,7 @@ export function useUsageTeamSummary(
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
+  options: { deploymentName?: string; skip?: boolean } = {},
 ) {
   const { data, error } = useUsageQuery({
     queryId: QUERY_IDS_.summary,
@@ -164,6 +172,8 @@ export function useUsageTeamSummary(
     projectId,
     period,
     componentPrefix,
+    deploymentName: options.deploymentName,
+    skip: options.skip,
   });
 
   if (error) {
@@ -216,6 +226,38 @@ export function useUsageTeamSummary(
           auditLogBandwidth: Number(auditLogBandwidth),
         }) satisfies UsageSummaryRow,
     ),
+    error: undefined,
+  };
+}
+
+export function useBackupStorageSummary(
+  teamId: number,
+  projectId: number,
+  deploymentName: string | undefined,
+  skip = false,
+) {
+  const { data, error } = useUsageQuery({
+    queryId: QUERY_IDS_.backupStorageEstimate,
+    teamId,
+    projectId,
+    deploymentName,
+    period: null,
+    componentPrefix: null,
+    skip,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  const row = data?.[0];
+  return {
+    data: row
+      ? {
+          databaseStorage: Number(row[0]),
+          fileStorage: Number(row[1]),
+        }
+      : undefined,
     error: undefined,
   };
 }

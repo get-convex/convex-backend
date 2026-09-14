@@ -2,7 +2,7 @@ import { CaretSortIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { useProjectById } from "api/projects";
 import { cn } from "@ui/cn";
-import { useRef } from "react";
+import { ReactNode, useRef } from "react";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import {
   useCommandPaletteAnchor,
@@ -21,10 +21,12 @@ export function BackupDeploymentSelector({
   selectedDeployment,
   onChange,
   targetDeployment,
+  children,
 }: {
   selectedDeployment: PlatformDeploymentResponse;
   onChange: (newDeployment: PlatformDeploymentResponse) => void;
   targetDeployment: PlatformDeploymentResponse;
+  children?: ReactNode;
 }) {
   // Restoring zip backups into dedicated deployments isn't supported, so the
   // cross-deployment "Restore from" dropdown is hidden — backups are always
@@ -35,13 +37,16 @@ export function BackupDeploymentSelector({
   return (
     <div className="flex w-full flex-wrap items-center justify-between gap-2 p-4">
       <h4 className="text-content-primary">Existing Backups</h4>
-      {!isDedicated && (
-        <RestoreFromButton
-          selectedDeployment={selectedDeployment}
-          onChange={onChange}
-          targetDeployment={targetDeployment}
-        />
-      )}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {children}
+        {!isDedicated && (
+          <RestoreFromButton
+            selectedDeployment={selectedDeployment}
+            onChange={onChange}
+            targetDeployment={targetDeployment}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -118,7 +123,7 @@ function RestoreFromButton({
       className={cn(
         "flex items-center gap-1",
         "truncate rounded-sm text-left text-content-primary",
-        "border bg-background-secondary px-3 py-2 text-sm focus:border-border-selected focus:outline-hidden",
+        "border bg-background-secondary px-2 py-1.5 text-sm focus:border-border-selected focus:outline-hidden",
         "cursor-pointer hover:bg-background-tertiary",
         isOpen && "border-border-selected bg-background-tertiary",
       )}
