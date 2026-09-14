@@ -714,7 +714,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a team */
+        /**
+         * Create a team
+         * @description This endpoint is not publicly accessible. It is reserved for specific
+         *     integrations that have been granted permission to create teams on behalf of
+         *     users. To request access, contact platforms@convex.dev.
+         */
         post: operations["create team"];
         delete?: never;
         options?: never;
@@ -2681,7 +2686,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Caller is not authorized to create teams */
+            /** @description This application is not authorized to create teams. This endpoint is reserved for specific integrations that are allowed to create users. If you need to create teams for your users, please contact us at platforms@convex.dev */
             403: {
                 headers: {
                     [name: string]: unknown;
