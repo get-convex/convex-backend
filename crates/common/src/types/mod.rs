@@ -99,6 +99,7 @@ pub use index::{
     IndexName,
     IndexRef,
     IndexTableIdentifier,
+    IndexWriteMode,
     PersistenceIndexId,
     PrevIndexEntry,
     StableIndexName,

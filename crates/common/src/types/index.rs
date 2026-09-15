@@ -443,8 +443,26 @@ impl FromStr for IndexId {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum IndexWriteMode {
+    /// Index backfill has inserted all existing index entries. In persistence
+    /// v6, `DatabaseIndexUpdate::prev` (copied to
+    /// `PersistenceIndexEntry::prev`) identifies the row to remove from the
+    /// current index and store in history, using its `ts` and `document_id`
+    /// for the update's `index` and `key`.
+    ScanComplete,
+    /// Index backfill is still inserting index entries, so the entry identified
+    /// by `DatabaseIndexUpdate::prev` / `PersistenceIndexEntry::prev` may not
+    /// exist in persistence yet. Persistence v6 must record the `index` and
+    /// `key` of updates whose `value` is `DatabaseIndexValue::Deleted`
+    /// (`None` in `PersistenceIndexEntry`) so backfill cannot reinsert a
+    /// deleted entry.
+    Scanning,
+}
+
 #[derive(Eq, PartialEq, Clone, Debug, Ord, PartialOrd)]
 pub struct DatabaseIndexUpdate {
+    pub mode: IndexWriteMode,
     pub index: IndexRef,
 
     pub key: IndexKey,

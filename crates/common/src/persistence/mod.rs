@@ -12,6 +12,7 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use enum_iterator::Sequence;
 use futures::{
@@ -44,6 +45,8 @@ use crate::{
         GenericIndexName,
         IndexId,
         IndexRef,
+        IndexWriteMode,
+        PersistenceIndexId,
         PersistenceVersion,
         PrevIndexEntry,
         RepeatableReason,
@@ -77,6 +80,9 @@ impl DocumentLogEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PersistenceIndexEntry {
+    /// Whether index backfill may still be inserting entries for existing
+    /// documents.
+    pub mode: IndexWriteMode,
     pub ts: Timestamp,
     pub index: IndexRef,
     pub key: IndexKeyBytes,
@@ -92,6 +98,7 @@ impl PersistenceIndexEntry {
         Self {
             ts,
             index: update.index,
+            mode: update.mode,
             key: update.key.to_bytes(),
             value: match update.value {
                 DatabaseIndexValue::Deleted => None,
@@ -112,6 +119,50 @@ impl PersistenceIndexEntry {
             size += value.size();
         }
         size as u64
+    }
+}
+
+/// An index entry for an existing document read during index backfill.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexBackfillEntry {
+    pub ts: Timestamp,
+    pub index: IndexRef,
+    pub key: IndexKeyBytes,
+    pub document_id: InternalDocumentId,
+}
+
+impl TryFrom<PersistenceIndexEntry> for IndexBackfillEntry {
+    type Error = anyhow::Error;
+
+    fn try_from(entry: PersistenceIndexEntry) -> anyhow::Result<Self> {
+        let document_id = entry.value.context("index backfill wrote a tombstone")?;
+        anyhow::ensure!(
+            entry.prev.is_none(),
+            "index backfill wrote an entry superseding another"
+        );
+        anyhow::ensure!(
+            entry.mode == IndexWriteMode::Scanning,
+            "index backfill wrote an entry whose scan is already complete"
+        );
+        Ok(Self {
+            ts: entry.ts,
+            index: entry.index,
+            key: entry.key,
+            document_id,
+        })
+    }
+}
+
+impl From<&IndexBackfillEntry> for PersistenceIndexEntry {
+    fn from(entry: &IndexBackfillEntry) -> Self {
+        Self {
+            mode: IndexWriteMode::Scanning,
+            ts: entry.ts,
+            index: entry.index,
+            key: entry.key.clone(),
+            value: Some(entry.document_id),
+            prev: None,
+        }
     }
 }
 
@@ -278,6 +329,28 @@ pub trait Persistence: Sync + Send + 'static {
         indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
+
+    /// Inserts the live entries an online index backfill read at its snapshot,
+    /// each at its document's own timestamp. A layout that keeps one live row
+    /// per key fills only the holes live writes have left; one that stores
+    /// every revision overwrites, so replaying a chunk is harmless either way.
+    async fn write_index_backfill(&self, entries: &[IndexBackfillEntry]) -> anyhow::Result<()> {
+        let entries: Vec<_> = entries.iter().map(PersistenceIndexEntry::from).collect();
+        self.write(&[], &entries, ConflictStrategy::Overwrite).await
+    }
+
+    /// The indexes for which this persistence records keys that live writes
+    /// deleted. Empty for a layout that keeps no delete markers.
+    async fn index_backfill_marker_indexes(&self) -> anyhow::Result<Vec<PersistenceIndexId>> {
+        Ok(Vec::new())
+    }
+
+    async fn delete_index_backfill_markers(
+        &self,
+        _indexes: &[PersistenceIndexId],
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
 
     /// Writes global key-value data for the whole persistence.
     /// This is expected to be small data that does not make sense in a
