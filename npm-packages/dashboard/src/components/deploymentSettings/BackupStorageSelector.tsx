@@ -11,9 +11,9 @@ import { useBackupStorageSummary } from "hooks/usageMetrics";
 import { useId } from "react";
 
 const includeStorageTip =
-  "Restoring a tables-only backup leaves existing files untouched. Including files copies them into every backup, increasing storage cost.";
+  "If file storage isn't included, only database tables are backed up and restored. Files in the destination deployment aren't deleted or replaced. Including file storage adds a full copy of your files to every backup and incurs additional storage costs.";
 const fileStorageTooLargeTip =
-  "File storage is too large to include. Restoring a tables-only backup leaves existing files untouched.";
+  "Backups can include up to 1 TB of file storage. This deployment has more than 1 TB.";
 
 // Backups including more file storage than this can't be produced.
 const MAX_BACKUP_FILE_STORAGE = 1024 ** 4;
@@ -63,26 +63,35 @@ export function BackupStorageSelector({
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="ml-px flex items-center gap-2 text-sm">
-        <label
-          className={cn(
-            "flex items-center gap-2",
-            checkboxDisabled && "cursor-not-allowed text-content-secondary",
-          )}
-          htmlFor={includeStorageCheckboxId}
-        >
-          <Checkbox
-            id={includeStorageCheckboxId}
-            checked={includeStorage}
-            disabled={checkboxDisabled}
-            onChange={() => setIncludeStorage(!includeStorage)}
-          />
-          <span>
-            Include file storage{" "}
-            <EstimatedSize bytes={fileStorage} error={error} sign="+" />
-          </span>
-        </label>
         <Tooltip
-          tip={fileStorageTooLarge ? fileStorageTooLargeTip : includeStorageTip}
+          tip={
+            fileStorageTooLarge && !includeStorage
+              ? fileStorageTooLargeTip
+              : undefined
+          }
+          asChild
+        >
+          <label
+            className={cn(
+              "flex items-center gap-2",
+              checkboxDisabled && "cursor-not-allowed text-content-secondary",
+            )}
+            htmlFor={includeStorageCheckboxId}
+          >
+            <Checkbox
+              id={includeStorageCheckboxId}
+              checked={includeStorage}
+              disabled={checkboxDisabled}
+              onChange={() => setIncludeStorage(!includeStorage)}
+            />
+            <span>
+              Include file storage{" "}
+              <EstimatedSize bytes={fileStorage} error={error} sign="+" />
+            </span>
+          </label>
+        </Tooltip>
+        <Tooltip
+          tip={includeStorageTip}
           aria-label="About including file storage"
         >
           <InfoCircledIcon className="size-3.5 text-content-secondary" />

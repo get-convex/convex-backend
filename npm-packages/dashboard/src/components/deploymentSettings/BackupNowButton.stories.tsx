@@ -92,7 +92,7 @@ export const TablesOnlyExplanation: Story = {
       dialog.getByLabelText("About including file storage"),
     );
     await within(document.body).findAllByText(
-      /Restoring a tables-only backup leaves existing files untouched/,
+      /Files in the destination deployment aren't deleted or replaced/,
     );
   },
 };
@@ -116,9 +116,9 @@ export const FileStorageTooLarge: Story = {
     );
     const dialog = await within(document.body).findByRole("dialog");
     await within(dialog).findByText(/\(Est\. \+10\sTB\)/);
-    await userEvent.hover(
-      within(dialog).getByLabelText("About including file storage"),
+    await userEvent.hover(within(dialog).getByText("Include file storage"));
+    await within(document.body).findAllByText(
+      "Backups can include up to 1 TB of file storage. This deployment has more than 1 TB.",
     );
-    await within(document.body).findAllByRole("tooltip");
   },
 };

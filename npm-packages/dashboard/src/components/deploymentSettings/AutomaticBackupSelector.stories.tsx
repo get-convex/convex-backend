@@ -157,10 +157,10 @@ export const FileStorageTooLarge: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await canvas.findByText(/\(Est\. \+10\sTB\)/);
-    await userEvent.hover(
-      canvas.getByLabelText("About including file storage"),
+    await userEvent.hover(canvas.getByText("Include file storage"));
+    await within(document.body).findAllByText(
+      "Backups can include up to 1 TB of file storage. This deployment has more than 1 TB.",
     );
-    await within(document.body).findAllByRole("tooltip");
   },
 };
 
