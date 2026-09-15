@@ -2,7 +2,10 @@ import { convexToJson, jsonToConvex, Value } from "../../values/index.js";
 import { version } from "../../index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
-import { FunctionReference } from "../../server/api.js";
+import {
+  FunctionReference,
+  FunctionReference_future,
+} from "../../server/api.js";
 import { getFunctionAddress } from "../components/paths.js";
 import { validateArg } from "./validate.js";
 
@@ -23,7 +26,9 @@ function syscallArgs(
 export function setupActionCalls(requestId: string) {
   return {
     runQuery: async (
-      query: FunctionReference<"query", "public" | "internal">,
+      query:
+        | FunctionReference<"query", "public" | "internal">
+        | FunctionReference_future<"query", "public" | "internal">,
       args?: Record<string, Value>,
     ): Promise<any> => {
       const result = await performAsyncSyscall(
@@ -33,7 +38,9 @@ export function setupActionCalls(requestId: string) {
       return jsonToConvex(result);
     },
     runMutation: async (
-      mutation: FunctionReference<"mutation", "public" | "internal">,
+      mutation:
+        | FunctionReference<"mutation", "public" | "internal">
+        | FunctionReference_future<"mutation", "public" | "internal">,
       args?: Record<string, Value>,
     ): Promise<any> => {
       const result = await performAsyncSyscall(
@@ -43,7 +50,9 @@ export function setupActionCalls(requestId: string) {
       return jsonToConvex(result);
     },
     runAction: async (
-      action: FunctionReference<"action", "public" | "internal">,
+      action:
+        | FunctionReference<"action", "public" | "internal">
+        | FunctionReference_future<"action", "public" | "internal">,
       args?: Record<string, Value>,
     ): Promise<any> => {
       const result = await performAsyncSyscall(

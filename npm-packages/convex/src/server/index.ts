@@ -174,6 +174,7 @@ export {
 export type {
   ApiFromModules,
   AnyApi,
+  FunctionReference_future,
   FilterApi,
   FunctionType,
   FunctionReference,

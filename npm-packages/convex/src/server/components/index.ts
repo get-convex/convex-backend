@@ -3,6 +3,7 @@ import { version } from "../../index.js";
 import {
   AnyFunctionReference,
   FunctionReference,
+  FunctionReference_future,
   FunctionType,
 } from "../api.js";
 import { performAsyncSyscall } from "../impl/syscall.js";
@@ -66,12 +67,9 @@ export async function createFunctionHandle<
   Args extends DefaultFunctionArgs,
   ReturnType,
 >(
-  functionReference: FunctionReference<
-    Type,
-    "public" | "internal",
-    Args,
-    ReturnType
-  >,
+  functionReference:
+    | FunctionReference<Type, "public" | "internal", Args, ReturnType>
+    | FunctionReference_future<Type, "public" | "internal", Args, ReturnType>,
 ): Promise<FunctionHandle<Type, Args, ReturnType>> {
   const address = getFunctionAddress(functionReference);
   return await performAsyncSyscall("1.0/createFunctionHandle", {
