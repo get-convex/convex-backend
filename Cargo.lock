@@ -1465,6 +1465,7 @@ dependencies = [
  "anyhow",
  "big_brain_private_api_types",
  "common",
+ "errors",
  "reqwest",
 ]
 
@@ -5979,10 +5980,12 @@ dependencies = [
  "anyhow",
  "application",
  "async-broadcast",
+ "async-trait",
  "authentication",
  "axum",
  "axum-extra",
  "base64 0.13.1",
+ "big_brain_client",
  "clap",
  "clusters",
  "cmd_util",
