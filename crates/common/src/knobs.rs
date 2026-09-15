@@ -1362,9 +1362,15 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
 pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> =
     LazyLock::new(|| env_config("TICKETMASTER_CLUSTER_NAME", String::from("ticketmaster")));
 
-/// Timeout applied to each individual probe request the prober makes.
+/// Timeout on each probe request, bounding how long a hung deployment holds
+/// one of the round's `probe_concurrency` slots. 99.995% of probes finish
+/// inside a second, and the handful a week that run longer take over five.
+///
+/// Also bounds picking the round's targets, which is a handful of indexed
+/// queries and so the same order of work; without it a hung pick stops the
+/// probe loop with its gauges frozen.
 pub static PROBER_PROBE_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("PROBER_PROBE_TIMEOUT", 30)));
+    LazyLock::new(|| Duration::from_secs(env_config("PROBER_PROBE_TIMEOUT", 5)));
 
 /// The maximum number of CPU cores that can be used simultaneously by the
 /// isolates. Zero means no limit.
