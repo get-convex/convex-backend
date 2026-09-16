@@ -549,7 +549,7 @@ UPDATE @db_name.leases SET ts = ? WHERE ? > ts AND deployment_id = ?
 "#;
 
 pub(crate) const LEASE_PRECONDITION: &str = r#"
-SELECT ts FROM @db_name.leases WHERE ts = ? AND deployment_id = ? FOR UPDATE
+SELECT ts FROM @db_name.leases WHERE ts = ? AND deployment_id = ? FOR SHARE
 "#;
 
 pub(crate) const READ_PERSISTENCE_GLOBAL: &str = r#"
