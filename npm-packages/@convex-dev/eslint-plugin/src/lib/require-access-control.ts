@@ -242,12 +242,13 @@ export const requireAccessControl = createRule<Options, MessageIds>({
         }
       },
       ExportDefaultDeclaration(node) {
-        if (node.declaration.type === "Identifier") {
-          exportedNames.add(node.declaration.name);
+        const declaration = unwrapTSExpression(node.declaration);
+        if (declaration.type === "Identifier") {
+          exportedNames.add(declaration.name);
           return;
         }
         const registered = getRegisteredFunction(
-          node.declaration,
+          declaration,
           PUBLIC_CONVEX_REGISTRARS,
         );
         if (registered) check(registered);
