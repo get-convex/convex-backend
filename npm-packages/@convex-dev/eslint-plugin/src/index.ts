@@ -1,6 +1,7 @@
 import { noImportUseNode } from "./lib/no-import-use-node.js";
 import { noOldRegisteredFunctionSyntax } from "./lib/no-old-registered-function-syntax.js";
 import { requireArgsValidator } from "./lib/require-args-validator.js";
+import { requireAccessControl } from "./lib/require-access-control.js";
 import { noFilterInQuery } from "./lib/no-filter-in-query.js";
 import { explicitTableIds } from "./lib/explicit-table-ids.js";
 import { noCollectInQuery } from "./lib/no-collect-in-query.js";
@@ -14,6 +15,7 @@ import { version } from "./version.js";
 const rules = {
   "no-old-registered-function-syntax": noOldRegisteredFunctionSyntax,
   "require-args-validator": requireArgsValidator,
+  "require-access-control": requireAccessControl,
   "import-wrong-runtime": noImportUseNode,
   "explicit-table-ids": explicitTableIds,
   "no-filter-in-query": noFilterInQuery,
@@ -31,6 +33,7 @@ const recommendedRules = {
   "@convex-dev/import-wrong-runtime": "off",
   "@convex-dev/no-old-registered-function-syntax": "error",
   "@convex-dev/require-args-validator": "error",
+  "@convex-dev/require-access-control": "off",
   "@convex-dev/explicit-table-ids": "error",
   "@convex-dev/no-filter-in-query": "warn",
   "@convex-dev/no-top-of-hour-crons": "warn",
