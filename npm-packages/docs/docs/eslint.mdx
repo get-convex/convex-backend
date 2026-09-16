@@ -115,6 +115,7 @@ const nextConfig: NextConfig = {
 | [`@convex-dev/no-top-of-hour-crons`](#no-top-of-hour-crons)<br/>Warn on cron jobs scheduled exactly on the hour                         |     ✅      |              |
 | [`@convex-dev/no-schema-import-cycle`](#no-schema-import-cycle)<br/>Prevent using the schema in a file that the schema imports          |     ✅      |              |
 | [`@convex-dev/no-duplicate-indexes`](#no-duplicate-indexes)<br/>Warn on indexes whose fields are a prefix of another index's            |     ✅      |              |
+| [`@convex-dev/no-process-env`](#no-process-env)<br/>Prefer the typed `env` object over `process.env`                                    |     ✅      |      🔧      |
 | [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files     |             |              |
 | [`@convex-dev/no-collect-in-query`](#no-collect-in-query)<br/>Prefer `.take()` / `.paginate()` over `.collect()` in queries             |             |              |
 | [`@convex-dev/require-access-control`](#require-access-control)<br/>Require an access control check in public functions                 |             |              |
@@ -435,6 +436,43 @@ the index is defined:
 ```ts
 // eslint-disable-next-line @convex-dev/no-duplicate-indexes
 .index("by_author", ["author"])
+```
+
+### no-process-env
+
+Prefer the typed `env` object over `process.env`.
+
+[Declaring your environment variables](/production/environment-variables.mdx#declaring)
+in `convex/convex.config.ts` gives you a typed `env` object to import from
+`_generated/server`. Reading them that way means TypeScript catches typos and
+tells you which variables are optional, and the deploy fails early when a
+required variable is missing.
+
+```ts
+// ❌ Not allowed by this rule:
+const apiKey = process.env.GIPHY_KEY; // `string | undefined`, and typos compile
+
+// ✅ Allowed by this rule:
+import { env } from "./_generated/server";
+
+const apiKey = env.GIPHY_KEY; // `string`, and typos are a build error
+```
+
+The rule provides an autofix when the environment variable is already declared
+in your `convex.config.ts` (or is one of the
+[system environment variables](/production/environment-variables.mdx#system-environment-variables)).
+If the variable isn't declared, the rewrite is offered as an editor suggestion
+instead of a fix.
+
+```ts title="convex/convex.config.ts"
+import { defineApp } from "convex/server";
+import { v } from "convex/values";
+
+const app = defineApp({
+  env: { GIPHY_KEY: v.string() },
+});
+
+export default app;
 ```
 
 ### import-wrong-runtime

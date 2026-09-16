@@ -194,7 +194,9 @@ function giphyUrl(query) {
 
 If you've [declared your environment variables](#declaring) in
 `convex.config.ts`, prefer using the typed `env` import from `_generated/server`
-instead of `process.env` for better type safety.
+instead of `process.env` for better type safety. You can use the
+[`@convex-dev/no-process-env`](/eslint#no-process-env) ESLint rule to
+automatically flag `process.env` reads, and suggest using `env.*` instead.
 
 :::
 

@@ -1,4 +1,5 @@
 import { GenericId, v } from "convex/values";
+import { env } from "../_generated/server";
 import {
   ActionBuilder,
   anyApi,
@@ -695,3 +696,22 @@ declare const movieId: GenericId<"movies">;
   // @skipNextLine
 }
 // @snippet end dateInQueries
+
+// @snippet start typedEnv
+// @skipNextLine
+declare const body: string;
+// ❌ The typo compiles, and reads as "not configured": notifications silently
+// stop being sent
+// @skipNextLine
+// eslint-disable-next-line @convex-dev/no-process-env
+const webhookUrl_OMIT_1 = process.env.SLACK_WEBOOK_URL;
+if (webhookUrl_OMIT_1 !== undefined) {
+  await fetch(webhookUrl_OMIT_1, { method: "POST", body });
+}
+
+// ✅ The typo would be a build error, and the type says the variable is optional
+const webhookUrl_OMIT_2 = env.SLACK_WEBHOOK_URL;
+if (webhookUrl_OMIT_2 !== undefined) {
+  await fetch(webhookUrl_OMIT_2, { method: "POST", body });
+}
+// @snippet end typedEnv

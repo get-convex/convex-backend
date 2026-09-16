@@ -10,6 +10,7 @@ description:
 import BestPractices from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/index.ts";
 import HelperFunctions from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/helperFunctions.ts";
 import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import ConvexConfig from "!!raw-loader!@site/../private-demos/snippets/convex/convex.config.ts";
 
 This is a list of best practices and common anti-patterns around using Convex.
 We recommend going through this list before broadly releasing your app to
@@ -599,3 +600,40 @@ Alternatively, you can pass in the target time in as an explicit argument from
 the client. For best caching results, the client should avoid changing this
 argument frequently, for instance by rounding the time down to the most recent
 minute, so all client requests within that minute use the same arguments.
+
+## Read environment variables through the typed `env` object
+
+### Why?
+
+[Declaring your environment variables](/production/environment-variables.mdx#declaring)
+in `convex/convex.config.ts` gives you a typed `env` object to import from
+`_generated/server`.
+
+Reading them through `env` instead of `process.env` means TypeScript catches
+typos and tells you which variables are optional, and your deploy fails early
+with a clear error when a required variable is missing, instead of failing at
+runtime. With `process.env`, every read has type `string | undefined`, so a
+misspelled name looks exactly like a variable that hasn't been set.
+
+### Example
+
+<Snippet title="convex/convex.config.ts" source={ConvexConfig} />
+
+<Snippet
+  title="convex/notifications.ts"
+  source={BestPractices}
+  snippet="typedEnv"
+  prefix={`import { env } from './_generated/server';\n`}
+  replacements={[[/_OMIT_[0-9]+/g, ""]]}
+/>
+
+### How?
+
+Search for `process.env` in your Convex codebase, declare each variable you find
+in `convex.config.ts`, and read it from the `env` import instead. System
+environment variables (`CONVEX_CLOUD_URL` and `CONVEX_SITE_URL`) are
+automatically declared.
+
+You can also check this automatically with the
+[`@convex-dev/no-process-env` ESLint rule](/eslint#no-process-env), which
+autofixes reads of variables that are already declared.
