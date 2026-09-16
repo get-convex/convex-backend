@@ -57,6 +57,34 @@ function isAccessControlCall(
 }
 
 /**
+ * Is there a call to an access-control function anywhere inside this
+ * expression? Used for `if` conditions, where boolean checks show up negated
+ * and combined: `if (!(await canEdit(ctx)) || isBanned) throw …`.
+ */
+function containsAccessControlCall(
+  expr: TSESTree.Node | null | undefined,
+  pattern: RegExp,
+): boolean {
+  if (!expr) return false;
+  if (isAccessControlCall(expr, pattern)) return true;
+
+  const unwrapped = unwrapTSExpression(expr);
+  switch (unwrapped.type) {
+    case "AwaitExpression":
+    case "UnaryExpression":
+      return containsAccessControlCall(unwrapped.argument, pattern);
+    case "LogicalExpression":
+    case "BinaryExpression":
+      return (
+        containsAccessControlCall(unwrapped.left, pattern) ||
+        containsAccessControlCall(unwrapped.right, pattern)
+      );
+    default:
+      return false;
+  }
+}
+
+/**
  * Does this top-level statement of a handler body call an access-control
  * function?
  */
@@ -74,6 +102,11 @@ function isAccessControlStatement(
   }
   if (statement.type === "ReturnStatement") {
     return isAccessControlCall(statement.argument, pattern);
+  }
+  if (statement.type === "IfStatement") {
+    // A boolean check acts as access control when it decides whether the
+    // handler goes on, e.g. `if (!(await canEdit(ctx))) throw …`
+    return containsAccessControlCall(statement.test, pattern);
   }
   return false;
 }
