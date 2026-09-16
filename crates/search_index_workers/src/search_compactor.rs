@@ -227,11 +227,29 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         let total_compacted_segments = segments_to_compact.len();
         log_compaction_total_segments(total_compacted_segments, Self::search_type());
 
-        let new_segment = self.compact(&job.spec, segments_to_compact.clone()).await?;
-        let stats = new_segment.statistics()?;
-
-        let total_documents = stats.num_documents();
-        log_compaction_compacted_segment_num_documents_total(total_documents, Self::search_type());
+        // A segment whose documents have all been deleted contributes nothing to
+        // the merged output, and tantivy's merger panics when every input
+        // segment has zero live documents. Such segments are removed from the
+        // index without being read.
+        let mut segments_with_live_documents = vec![];
+        for segment in &segments_to_compact {
+            if segment.statistics()?.num_non_deleted_documents() > 0 {
+                segments_with_live_documents.push(segment.clone());
+            }
+        }
+        let new_segment = if segments_with_live_documents.is_empty() {
+            None
+        } else {
+            let new_segment = self
+                .compact(&job.spec, segments_with_live_documents)
+                .await?;
+            let total_documents = new_segment.statistics()?.num_documents();
+            log_compaction_compacted_segment_num_documents_total(
+                total_documents,
+                Self::search_type(),
+            );
+            Some(new_segment)
+        };
 
         self.writer
             .commit_compaction(
@@ -252,7 +270,10 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 .iter()
                 .map(|segment| Self::format(segment, &job.spec))
                 .collect::<anyhow::Result<Vec<_>>>()?,
-            Self::format(&new_segment, &job.spec)?,
+            new_segment
+                .as_ref()
+                .map(|segment| Self::format(segment, &job.spec))
+                .transpose()?,
         );
         Ok(total_compacted_segments)
     }

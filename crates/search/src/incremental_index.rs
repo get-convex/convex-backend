@@ -679,6 +679,13 @@ pub async fn merge_segments(
     let total_alive = search_segments
         .iter()
         .fold(0, |acc, e| acc + e.alive_bitset.num_alive_docs());
+    // tantivy's IndexMerger panics while writing fast fields when no input
+    // segment has a live document.
+    anyhow::ensure!(
+        total_alive > 0,
+        "Cannot merge {} segments with no live documents",
+        search_segments.len()
+    );
 
     let index_dir = dir.join("index_dir");
     fs::create_dir(&index_dir).await?;
