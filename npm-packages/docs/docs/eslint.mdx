@@ -117,6 +117,7 @@ const nextConfig: NextConfig = {
 | [`@convex-dev/no-duplicate-indexes`](#no-duplicate-indexes)<br/>Warn on indexes whose fields are a prefix of another index's            |     ✅      |              |
 | [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files     |             |              |
 | [`@convex-dev/no-collect-in-query`](#no-collect-in-query)<br/>Prefer `.take()` / `.paginate()` over `.collect()` in queries             |             |              |
+| [`@convex-dev/require-access-control`](#require-access-control)<br/>Require an access control check in public functions                 |             |              |
 
 ### no-old-registered-function-syntax
 
@@ -483,3 +484,91 @@ disable this rule for that line with:
 // eslint-disable-next-line @convex-dev/no-collect-in-query
 const results = await ctx.db.query("roles").collect();
 ```
+
+### require-access-control
+
+Require an access control check in public functions.
+
+Public queries, mutations and actions
+[can be called by anyone](/understanding/best-practices/best-practices.mdx#use-some-form-of-access-control-for-all-public-functions),
+so forgetting an access control check might cause malicious users to read or
+write data they shouldn’t have access to.
+
+This rule reports every exported `query`, `mutation` or `action` whose handler
+doesn’t call one of your access control functions. It recognizes these functions
+by name: by default, any call whose name starts with `require`, `assert`,
+`check`, `ensure`, `can` or `has`. This covers helpers that throw
+(`requireUser(ctx)`) as well as helpers that return a boolean
+(`canEditNote(ctx)`).
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    // …
+  },
+});
+
+// ✅ Allowed by this rule: a boolean check in the condition of an `if`
+export const update = mutation({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await canEditNote(ctx))) {
+      throw new Error("Unauthorized");
+    }
+    // …
+  },
+});
+
+// ✅ Allowed by this rule: methods count too
+export const remove = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await authz.require(ctx, userId, "documents:delete");
+    // …
+  },
+});
+
+// ✅ Not checked: internal functions can’t be called from the internet
+export const cleanup = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    // …
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const send = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.db.insert("messages", { body: "hello" });
+  },
+});
+```
+
+If your access control functions are named differently, you can customize the
+pattern in the ESLint settings:
+
+```ts
+"@convex-dev/require-access-control": [
+  "error",
+  {
+    pattern: "^(require|authorize)",
+  },
+],
+```
+
+When using this rule, please consider the following limitations:
+
+- The rule only verifies that a matching function is called. It can’t tell
+  whether that check is the right one for this function (e.g.
+  `requireIsLoggedIn` vs `requireIsAdmin`), or whether you act on the boolean it
+  returns.
+- The call has to be a top-level statement of the handler or the condition of a
+  top-level `if`, so a check nested in an `if` body or a `try` block isn’t
+  detected.
+- This rule doesn’t check HTTP actions.
+- This rule doesn’t check
+  [custom functions](https://github.com/get-convex/convex-helpers/blob/main/packages/convex-helpers/README.md#custom-functions).
