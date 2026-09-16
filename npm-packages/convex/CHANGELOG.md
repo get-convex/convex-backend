@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.46.0
 
 - Added `.optional()` to all validators. For example, `v.string().optional()` is
   equivalent to `v.optional(v.string())`. This changes TypeScript compatibility
