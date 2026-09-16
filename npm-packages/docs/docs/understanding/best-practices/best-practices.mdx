@@ -157,6 +157,9 @@ indexes uses about 4× its document size.
 Look through your indexes, either in your `schema.ts` file or in the dashboard,
 and look for any indexes where one is a prefix of another.
 
+You can also check automatically that no index is a prefix of another with the
+[`@convex-dev/no-duplicate-indexes` ESLint rule](/eslint#no-duplicate-indexes).
+
 ### Exceptions
 
 `.index("by_foo", ["foo"])` is really an index on the properties `foo` and
