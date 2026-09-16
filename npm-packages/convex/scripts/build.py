@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = "~=3.13.0"
+# dependencies = [
+#     "toml",
+# ]
+# ///
 
 import os
 import random
