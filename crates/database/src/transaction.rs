@@ -91,6 +91,7 @@ use keybroker::{
 use search::{
     metrics::SearchType,
     CandidateRevision,
+    TextSearchResults,
 };
 use sync_types::{
     AuthenticationToken,
@@ -1303,14 +1304,21 @@ impl<RT: Runtime> Transaction<RT> {
             .index_registry()
             .require_enabled(tablet_index_name, &index_name)?;
         let index_size = index.metadata().config.estimate_pricing_size_bytes()?;
-        let results = self
+        let TextSearchResults {
+            revisions_with_keys,
+            filtered_bytes_searched,
+        } = self
             .index
             .search(&mut self.reads, &search, tablet_index_name.clone(), version)
             .await?;
 
-        self.usage_tracker
-            .track_text_query(component_path, index_name, index_size);
-        Ok(results)
+        self.usage_tracker.track_text_query(
+            component_path,
+            index_name,
+            index_size,
+            filtered_bytes_searched,
+        );
+        Ok(revisions_with_keys)
     }
 
     // Preload an index range against the transaction, building a snapshot of

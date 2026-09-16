@@ -552,6 +552,7 @@ impl UsageCounter {
             TextIndexQueryUsage {
                 num_searches,
                 bytes_searched,
+                filtered_bytes_searched,
             },
         ) in stats.text_query_usage
         {
@@ -563,6 +564,7 @@ impl UsageCounter {
                 index_name: index_name.to_string(),
                 num_searches,
                 bytes_searched,
+                filtered_bytes_searched,
             })
         }
         for (
@@ -990,12 +992,14 @@ impl FunctionUsageTracker {
         component_path: ComponentPath,
         index_name: IndexName,
         index_size: u64,
+        filtered_bytes_searched: u64,
     ) {
         let mut state = self.state.lock();
         let key = (component_path, index_name);
         *state.text_query_usage.entry(key).or_default() += TextIndexQueryUsage {
             num_searches: 1,
             bytes_searched: index_size,
+            filtered_bytes_searched,
         };
     }
 
@@ -1074,7 +1078,12 @@ type StorageAPI = String;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Add, Default, AddAssign)]
 pub struct TextIndexQueryUsage {
     pub num_searches: u64,
+    /// Total size of the index's disk segments, once per search.
     pub bytes_searched: u64,
+    /// Segment bytes scaled by the share of documents matching each search's
+    /// filter conditions. Reported alongside `bytes_searched` so the two can
+    /// be compared; billing reads `bytes_searched`.
+    pub filtered_bytes_searched: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, AddAssign)]
@@ -1341,6 +1350,7 @@ fn to_text_query_usage(
                 index_name: Some(index_name.to_string()),
                 num_searches: Some(usage.num_searches),
                 bytes_searched: Some(usage.bytes_searched),
+                filtered_bytes_searched: Some(usage.filtered_bytes_searched),
             },
         )
         .collect()
@@ -1378,11 +1388,14 @@ fn from_text_query_usage(
             let bytes_searched = u
                 .bytes_searched
                 .context("Missing `num_segment_searches` field")?;
+            // Absent from records written before the field existed.
+            let filtered_bytes_searched = u.filtered_bytes_searched.unwrap_or(0);
             Ok((
                 (component_path, index_name),
                 TextIndexQueryUsage {
                     num_searches,
                     bytes_searched,
+                    filtered_bytes_searched,
                 },
             ))
         })

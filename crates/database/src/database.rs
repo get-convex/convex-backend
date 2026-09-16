@@ -157,10 +157,10 @@ use itertools::Itertools;
 use keybroker::Identity;
 use search::{
     metrics::SearchType,
-    query::RevisionWithKeys,
     Searcher,
     TextIndexManager,
     TextIndexManagerState,
+    TextSearchResults,
 };
 use short_future::ShortBoxFuture;
 use storage::Storage;
@@ -2731,7 +2731,7 @@ impl<RT: Runtime> Database<RT> {
         query: pb::searchlight::TextQuery,
         pending_updates: Vec<DocumentUpdate>,
         ts: RepeatableTimestamp,
-    ) -> anyhow::Result<RevisionWithKeys> {
+    ) -> anyhow::Result<TextSearchResults> {
         let snapshot = self.snapshot(ts)?;
         let index = snapshot
             .index_registry

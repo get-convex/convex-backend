@@ -45,15 +45,12 @@ use storage::Storage;
 use crate::{
     memory_index::MemoryTextIndex,
     metrics,
-    query::{
-        CompiledQuery,
-        RevisionWithKeys,
-    },
-    searcher::FragmentedTextStorageKeys,
+    query::CompiledQuery,
     QueryResults,
     Searcher,
     TantivySearchIndexSchema,
     TextIndexWriteSize,
+    TextSearchResults,
 };
 
 #[derive(Clone)]
@@ -177,7 +174,10 @@ impl TextIndexManager {
             TantivySearchIndexSchema::new_for_index(index, &search.printable_index_name()?)?;
         let (compiled_query, reads) = tantivy_schema.compile(search, version)?;
 
-        let revisions_with_keys = self
+        let TextSearchResults {
+            revisions_with_keys,
+            filtered_bytes_searched,
+        } = self
             .run_compiled_query(
                 index,
                 &search.printable_index_name()?,
@@ -191,6 +191,7 @@ impl TextIndexManager {
         let results = QueryResults {
             revisions_with_keys,
             reads,
+            filtered_bytes_searched,
         };
         metrics::finish_search(timer, &results.revisions_with_keys);
         Ok(results)
@@ -203,13 +204,13 @@ impl TextIndexManager {
         query: pb::searchlight::TextQuery,
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
-    ) -> anyhow::Result<RevisionWithKeys> {
+    ) -> anyhow::Result<TextSearchResults> {
         let timer = metrics::search_timer(&SEARCHLIGHT_CLUSTER_NAME);
         let tantivy_schema = TantivySearchIndexSchema::new_for_index(index, printable_index_name)?;
         let compiled_query =
             CompiledQuery::try_from_text_query_proto(query, tantivy_schema.search_field)?;
 
-        let revisions_with_keys = self
+        let results = self
             .run_compiled_query(
                 index,
                 printable_index_name,
@@ -219,8 +220,8 @@ impl TextIndexManager {
                 search_storage,
             )
             .await?;
-        metrics::finish_search(timer, &revisions_with_keys);
-        Ok(revisions_with_keys)
+        metrics::finish_search(timer, &results.revisions_with_keys);
+        Ok(results)
     }
 
     async fn run_compiled_query(
@@ -231,12 +232,15 @@ impl TextIndexManager {
         compiled_query: CompiledQuery,
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
-    ) -> anyhow::Result<RevisionWithKeys> {
+    ) -> anyhow::Result<TextSearchResults> {
         // Ignore empty searches to avoid failures due to transient search
         // issues (e.g. bootstrapping).
         if compiled_query.is_empty() {
             tracing::debug!("Skipping empty search query");
-            return Ok(vec![]);
+            return Ok(TextSearchResults {
+                revisions_with_keys: vec![],
+                filtered_bytes_searched: 0,
+            });
         }
         let SnapshotInfo {
             disk_index,
@@ -250,12 +254,7 @@ impl TextIndexManager {
                 compiled_query,
                 memory_index,
                 search_storage,
-                disk_index
-                    .0
-                    .iter()
-                    .cloned()
-                    .map(FragmentedTextStorageKeys::from)
-                    .collect(),
+                disk_index.0.clone(),
                 *disk_index_ts,
                 searcher,
                 metric_labels,
