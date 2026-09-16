@@ -9,13 +9,14 @@ import {
 } from "../util.js";
 
 /**
- * Get the name of the function called by a call expression, or null when the
- * callee isn’t a plain identifier or member access (e.g. `(fns[key])(ctx)`).
+ * Bare name of the callee (`requireUser`, or `require` for `authz.require`),
+ * or null when it isn’t a plain identifier or method. A bare `require(…)` is
+ * a CommonJS import, never an access check.
  */
 function getCalleeName(callExpr: TSESTree.CallExpression): string | null {
   const { callee } = callExpr;
   if (callee.type === "Identifier") {
-    return callee.name;
+    return callee.name === "require" ? null : callee.name;
   }
   if (
     callee.type === "MemberExpression" &&
@@ -92,15 +93,18 @@ function hasAccessControl(
 
 type MessageIds = "missing-access-control";
 
+/**
+ * Each prefix must end at a word boundary, so `canView` and `authz.can` match
+ * but `canister` doesn’t. `has` also requires a suffix: a bare `has()` is
+ * usually a `Map`/`Set` lookup.
+ */
+export const DEFAULT_ACCESS_CONTROL_PATTERN =
+  "^(require|assert|check|ensure|can)([A-Z_]|$)|^has[A-Z_]";
+
 type Options = [
   {
     // A string, not a RegExp: ESLint validates options against `meta.schema`
     // (JSON Schema), where a RegExp fails as `{}`. Compiled in `create()`.
-    //
-    // Users probably want to include `^` or `$` in the regex if they want to
-    // enforce a prefix/suffix (e.g. "^require" rather than "require.*").
-    // This matches how other ESLint ecosystem rules are implemented,
-    // such as naming-convention in typescript-eslint.
     pattern: string;
   },
 ];
@@ -119,7 +123,7 @@ export const requireAccessControl = createRule<Options, MessageIds>({
     },
     messages: {
       "missing-access-control":
-        "Anyone on the internet can call this Convex function. Add a top-level call to an access control function whose name matches {{pattern}}, or use an internal registrar (e.g. `internalMutation`) if this function shouldn’t be callable from outside.",
+        "Anyone on the internet can call this Convex function. Add a top-level call to an access control function {{expected}}, or use an internal registrar (e.g. `internalMutation`) if this function shouldn’t be callable from outside.",
     },
     schema: [
       {
@@ -134,13 +138,11 @@ export const requireAccessControl = createRule<Options, MessageIds>({
         additionalProperties: false,
       },
     ],
-    defaultOptions: [{ pattern: "^require" }],
+    defaultOptions: [{ pattern: DEFAULT_ACCESS_CONTROL_PATTERN }],
     // Not fixable: the rule can’t know which check belongs here.
   },
-  defaultOptions: [{ pattern: "^require" }],
+  defaultOptions: [{ pattern: DEFAULT_ACCESS_CONTROL_PATTERN }],
   create: (context, options) => {
-    // Only entry points hold callable functions, so skip everything else
-    // (including generated files) to avoid unnecessary work
     if (!isEntryPoint(context.filename)) {
       return {};
     }
@@ -156,6 +158,13 @@ export const requireAccessControl = createRule<Options, MessageIds>({
       );
     }
 
+    // The default pattern is too dense to show to someone who just wants to
+    // know what to write, so describe it by example instead.
+    const expected =
+      patternSource === DEFAULT_ACCESS_CONTROL_PATTERN
+        ? "named like `requireUser`, `checkAccess`, `canEditNote` or `hasRole`"
+        : `whose name matches \`${patternSource}\``;
+
     const check = (registered: RegisteredFunction) => {
       if (
         registered.handler &&
@@ -164,7 +173,7 @@ export const requireAccessControl = createRule<Options, MessageIds>({
         context.report({
           node: registered.callee,
           messageId: "missing-access-control",
-          data: { pattern: `\`${patternSource}\`` },
+          data: { expected },
         });
       }
     };

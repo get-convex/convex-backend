@@ -90,22 +90,14 @@ export function getRegisteredFunction(
   }
 
   const argument = unwrapTSExpression(call.arguments[0]);
-  if (argument.type === "ObjectExpression") {
-    return {
-      call,
-      callee: call.callee,
-      objectArg: argument,
-      handler: getHandlerProperty(argument),
-    };
-  }
-  if (
-    argument.type === "ArrowFunctionExpression" ||
-    argument.type === "FunctionExpression"
-  ) {
-    // Old function argument syntax
-    return { call, callee: call.callee, objectArg: null, handler: argument };
-  }
-  return { call, callee: call.callee, objectArg: null, handler: null };
+  const objectArg = argument.type === "ObjectExpression" ? argument : null;
+  const handler = objectArg
+    ? getHandlerProperty(objectArg)
+    : argument.type === "ArrowFunctionExpression" ||
+        argument.type === "FunctionExpression"
+      ? argument
+      : null;
+  return { call, callee: call.callee, objectArg, handler };
 }
 
 const ENTRY_POINT_EXTENSIONS = [
