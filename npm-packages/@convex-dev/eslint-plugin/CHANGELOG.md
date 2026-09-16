@@ -10,6 +10,9 @@
 - Add a new rule `@convex-dev/no-duplicate-indexes` (enabled by default as an
   error) that detects cases where indexes duplicate the same order of fields and
   can be combined.
+- Add a new rule `@convex-dev/require-access-control` (disabled by default) that
+  ensures that every public Convex function calls an access control helper (e.g.
+  `requireAdmin`, `assertIsLoggedIn`, etc).
 
 ### 4.0.0
 
