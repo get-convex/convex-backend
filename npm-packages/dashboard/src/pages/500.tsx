@@ -2,11 +2,7 @@ import { captureMessage } from "@sentry/nextjs";
 import { Callout } from "@ui/Callout";
 import { Link } from "@ui/Link";
 import { Sheet } from "@ui/Sheet";
-import { Button } from "@ui/Button";
 import { LockClosedIcon } from "@radix-ui/react-icons";
-import { useMyCustomRoles } from "api/roles";
-import { useCurrentTeam } from "api/teams";
-import { useSupportFormOpen } from "elements/SupportWidget";
 import { DEPLOYMENT_OP_TO_ACTION } from "lib/permissions";
 
 export default function Custom500() {
@@ -88,20 +84,11 @@ export function Fallback({
   );
 }
 
-// Split out so the role-lookup hooks (`useMyCustomRoles` chains
-// `useTeamMembers` + profile fetches) only fire on the permission-denied
-// branch — the generic 500 page may render outside an authenticated
-// context where those queries would be useless.
 function PermissionDeniedFallback({
   missingAction,
 }: {
   missingAction?: string;
 }) {
-  const team = useCurrentTeam();
-  const myRoles = useMyCustomRoles(team?.id);
-  const [, setSupportFormOpen] = useSupportFormOpen();
-  const isCustomRole = myRoles?.role === "custom";
-
   return (
     <div className="h-full grow">
       <div className="flex h-full flex-col items-center justify-center p-6">
@@ -122,27 +109,6 @@ function PermissionDeniedFallback({
             If your role was just updated, it may take a few minutes for the
             changes to propagate to this deployment. Try again shortly.
           </p>
-          {isCustomRole && (
-            <p className="text-sm text-content-secondary">
-              Custom Roles are currently in beta.{" "}
-              <Button
-                inline
-                variant="unstyled"
-                className="underline"
-                onClick={() =>
-                  setSupportFormOpen({
-                    defaultSubject: "Custom roles issue",
-                    defaultMessage: missingAction
-                      ? `I hit a permission denial on a deployment using a custom role.\n\nMissing permission: ${missingAction}\n\n[Describe what you were trying to do]`
-                      : "I hit a permission denial on a deployment using a custom role.\n\n[Describe what you were trying to do]",
-                  })
-                }
-              >
-                Report an issue
-              </Button>
-              .
-            </p>
-          )}
         </Sheet>
       </div>
     </div>
