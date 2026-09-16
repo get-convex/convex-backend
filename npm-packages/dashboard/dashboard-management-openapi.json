@@ -3138,6 +3138,50 @@
         }
       }
     },
+    "/teams/{team_id}/directory_sync/staged_members": {
+      "get": {
+        "operationId": "list_staged_directory_members",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Max results per page (default: 100, max: 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListStagedDirectoryMembersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/directory_sync/mappings/{workos_group_id}": {
       "put": {
         "operationId": "put_group_role_mapping",
@@ -4494,6 +4538,14 @@
           }
         }
       },
+      "DirectoryUserState": {
+        "type": "string",
+        "enum": [
+          "active",
+          "inactive",
+          "suspended"
+        ]
+      },
       "DisconnectWorkOSTeamRequest": {
         "type": "object",
         "required": [
@@ -5128,6 +5180,24 @@
             "items": {
               "$ref": "#/components/schemas/CustomRoleResponse"
             }
+          }
+        }
+      },
+      "ListStagedDirectoryMembersResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StagedDirectoryMemberResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
           }
         }
       },
@@ -6579,6 +6649,113 @@
           "Warning"
         ]
       },
+      "StagedDirectoryGroupResponse": {
+        "type": "object",
+        "required": [
+          "workosGroupId",
+          "name"
+        ],
+        "properties": {
+          "workosGroupId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "StagedDirectoryMemberResponse": {
+        "type": "object",
+        "properties": {
+          "member": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StagedMemberResponse"
+              }
+            ]
+          },
+          "directoryUser": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StagedDirectoryUserResponse"
+              }
+            ]
+          }
+        }
+      },
+      "StagedDirectoryUserResponse": {
+        "type": "object",
+        "required": [
+          "directoryUserId",
+          "email",
+          "state",
+          "groups",
+          "role"
+        ],
+        "properties": {
+          "directoryUserId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/DirectoryUserState"
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StagedDirectoryGroupResponse"
+            }
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "customRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberCustomRole"
+            }
+          }
+        }
+      },
+      "StagedMemberResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "customRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMemberCustomRole"
+            }
+          }
+        }
+      },
       "TeamCurrentBillingPeriodResponse": {
         "type": "object",
         "required": [
@@ -6738,6 +6915,22 @@
         "type": "integer",
         "format": "int64",
         "minimum": 0
+      },
+      "TeamMemberCustomRole": {
+        "type": "object",
+        "description": "A custom role attached to a team member, denormalized with the\nrole's display name so API consumers can render members without a\nseparate roles lookup.",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CustomRoleId"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
       },
       "TeamName": {
         "type": "string"

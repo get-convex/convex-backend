@@ -1787,6 +1787,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/directory_sync/staged_members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_staged_directory_members"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/directory_sync/mappings/{workos_group_id}": {
         parameters: {
             query?: never;
@@ -2175,6 +2191,8 @@ export interface components {
         DirectorySyncResponse: {
             directory?: null | components["schemas"]["DirectoryResponse"];
         };
+        /** @enum {string} */
+        DirectoryUserState: "active" | "inactive" | "suspended";
         DisconnectWorkOSTeamRequest: {
             /** @description Convex team ID to disconnect from WorkOS */
             teamId: components["schemas"]["TeamId"];
@@ -2350,6 +2368,10 @@ export interface components {
              *     do; for `admin`/`developer` it is empty. */
             role: components["schemas"]["Role"];
             customRoles: components["schemas"]["CustomRoleResponse"][];
+        };
+        ListStagedDirectoryMembersResponse: {
+            items: components["schemas"]["StagedDirectoryMemberResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
         };
         ListTeamDomainsResponse: {
             domains: components["schemas"]["SSOOrganizationDomain"][];
@@ -2777,6 +2799,29 @@ export interface components {
         };
         /** @enum {string} */
         SpendingLimitsState: "Running" | "Disabled" | "Warning";
+        StagedDirectoryGroupResponse: {
+            workosGroupId: string;
+            name: string;
+        };
+        StagedDirectoryMemberResponse: {
+            member?: null | components["schemas"]["StagedMemberResponse"];
+            directoryUser?: null | components["schemas"]["StagedDirectoryUserResponse"];
+        };
+        StagedDirectoryUserResponse: {
+            directoryUserId: string;
+            email: string;
+            state: components["schemas"]["DirectoryUserState"];
+            groups: components["schemas"]["StagedDirectoryGroupResponse"][];
+            role: components["schemas"]["Role"];
+            customRoles?: components["schemas"]["TeamMemberCustomRole"][];
+        };
+        StagedMemberResponse: {
+            id: components["schemas"]["MemberId"];
+            name?: string | null;
+            email: string;
+            role: components["schemas"]["Role"];
+            customRoles?: components["schemas"]["TeamMemberCustomRole"][];
+        };
         TeamCurrentBillingPeriodResponse: {
             start: string;
             end: string;
@@ -2827,6 +2872,13 @@ export interface components {
         };
         /** Format: int64 */
         TeamId: number;
+        /** @description A custom role attached to a team member, denormalized with the
+         *     role's display name so API consumers can render members without a
+         *     separate roles lookup. */
+        TeamMemberCustomRole: {
+            id: components["schemas"]["CustomRoleId"];
+            name: string;
+        };
         TeamName: string;
         TeamResponse: {
             id: components["schemas"]["TeamId"];
@@ -2991,6 +3043,7 @@ export type DirectoryResponse = components['schemas']['DirectoryResponse'];
 export type DirectorySyncOffer = components['schemas']['DirectorySyncOffer'];
 export type DirectorySyncOffersResponse = components['schemas']['DirectorySyncOffersResponse'];
 export type DirectorySyncResponse = components['schemas']['DirectorySyncResponse'];
+export type DirectoryUserState = components['schemas']['DirectoryUserState'];
 export type DisconnectWorkOsTeamRequest = components['schemas']['DisconnectWorkOSTeamRequest'];
 export type DisconnectWorkOsTeamResponse = components['schemas']['DisconnectWorkOSTeamResponse'];
 export type DiscordAccount = components['schemas']['DiscordAccount'];
@@ -3025,6 +3078,7 @@ export type JoinDirectorySyncedTeamRequest = components['schemas']['JoinDirector
 export type JoinDirectorySyncedTeamResponse = components['schemas']['JoinDirectorySyncedTeamResponse'];
 export type ListDirectorySyncGroupsResponse = components['schemas']['ListDirectorySyncGroupsResponse'];
 export type ListMyCustomRolesResponse = components['schemas']['ListMyCustomRolesResponse'];
+export type ListStagedDirectoryMembersResponse = components['schemas']['ListStagedDirectoryMembersResponse'];
 export type ListTeamDomainsResponse = components['schemas']['ListTeamDomainsResponse'];
 export type LocalDeploymentAuthResponse = components['schemas']['LocalDeploymentAuthResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
@@ -3092,9 +3146,14 @@ export type SetPreferenceArgs = components['schemas']['SetPreferenceArgs'];
 export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
 export type SpendingLimitsState = components['schemas']['SpendingLimitsState'];
+export type StagedDirectoryGroupResponse = components['schemas']['StagedDirectoryGroupResponse'];
+export type StagedDirectoryMemberResponse = components['schemas']['StagedDirectoryMemberResponse'];
+export type StagedDirectoryUserResponse = components['schemas']['StagedDirectoryUserResponse'];
+export type StagedMemberResponse = components['schemas']['StagedMemberResponse'];
 export type TeamCurrentBillingPeriodResponse = components['schemas']['TeamCurrentBillingPeriodResponse'];
 export type TeamEntitlementsResponse = components['schemas']['TeamEntitlementsResponse'];
 export type TeamId = components['schemas']['TeamId'];
+export type TeamMemberCustomRole = components['schemas']['TeamMemberCustomRole'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamResponse = components['schemas']['TeamResponse'];
 export type TeamSlug = components['schemas']['TeamSlug'];
@@ -5606,6 +5665,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListDirectorySyncGroupsResponse"];
+                };
+            };
+        };
+    };
+    list_staged_directory_members: {
+        parameters: {
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Max results per page (default: 100, max: 100) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListStagedDirectoryMembersResponse"];
                 };
             };
         };
