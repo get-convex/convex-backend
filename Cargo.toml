@@ -278,7 +278,7 @@ inherits = "release"
 strip = "debuginfo"
 
 [patch.crates-io]
-v8 = { git = "https://github.com/get-convex/rusty_v8", rev = "8cac03c8ab100230ccadc77e25f396e60f48db4e" }
+v8 = { git = "https://github.com/get-convex/rusty_v8", rev = "105b32c50433c4cf6eb77fe6a79e93b8637b20e2" }
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "367f80d0d3678ed7989814fd5864598746a3b946" }
 tungstenite = { git = "https://github.com/danielsufrindisler/tungstenite-rs", rev = "eda0a0c5c15334feca45aec64af90fded2917cb7" }
 moka = { git = "https://github.com/get-convex/moka", rev = "abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04" }
