@@ -6,6 +6,15 @@
   equivalent to `v.optional(v.string())`. This changes TypeScript compatibility
   between validators from different Convex versions; projects sharing validators
   across packages may need to align their `convex` dependency versions.
+- `npx convex deploy --dry-run` now warns when a schema change requires checking
+  every document in large tables against the new schema, since these deploys can
+  take a long time. The warning lists the affected tables along with their
+  document counts and sizes.
+- Fixed a bug where `npx convex deploy` could fail with a `deployment:data:view`
+  permission error when deleting indexes with a deploy key that only has
+  `deployment:deploy`. The CLI now reuses the schema evaluation response to size
+  the affected tables instead of reading them directly, so
+  `deployment:data:view` is no longer required.
 - `convex/server` exports `FunctionReference_future`, a reference type whose
   arguments are checked similar to the way Convex checks them at runtime. Use it
   instead of `FunctionReference` when you accept someone else's Convex function
