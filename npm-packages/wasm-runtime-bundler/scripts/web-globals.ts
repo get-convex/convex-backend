@@ -7,11 +7,23 @@ import { setupDate } from "udf-runtime/src/00_date.js";
 import { setupWeakRefs } from "udf-runtime/src/00_weakref";
 import { setupEvent } from "udf-runtime/src/02_event";
 import { setupStreams } from "udf-runtime/src/06_streams";
+import { setupBlob } from "udf-runtime/src/09_file";
+import { setupAbortSignal } from "udf-runtime/src/03_abort_signal";
+import { setupHeaders } from "udf-runtime/src/20_headers";
+import { setupFormData } from "udf-runtime/src/21_formdata";
+import { setupRequest } from "udf-runtime/src/23_request";
+import { setupResponse } from "udf-runtime/src/23_response";
 
 setupDate(globalThis);
 setupWeakRefs(globalThis);
 setupEvent(globalThis);
 setupStreams(globalThis);
+setupAbortSignal(globalThis);
+setupBlob(globalThis);
+setupHeaders(globalThis);
+setupFormData(globalThis);
+setupRequest(globalThis);
+setupResponse(globalThis);
 
 // TODO: implement actions
 globalThis.fetch = async () => {
@@ -74,18 +86,6 @@ globalThis.clearTimeout = () => {};
 globalThis.clearInterval = () => {};
 
 globalThis.structuredClone = unsupportedFunction("structuredClone") as any;
-
-for (const name of [
-  "AbortController",
-  "Blob",
-  "File",
-  "FormData",
-  "Headers",
-  "Request",
-  "Response",
-]) {
-  (globalThis as any)[name] = unsupportedClass(name);
-}
 
 globalThis.WebAssembly = {
   compile: unsupportedFunction("WebAssembly.compile"),
