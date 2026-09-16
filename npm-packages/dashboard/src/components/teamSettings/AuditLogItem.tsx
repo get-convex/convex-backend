@@ -255,6 +255,24 @@ function EntryAction({
       return <span>updated the team</span>;
     case "team:delete":
       return <span>deleted the team</span>;
+    case "team:domain:create":
+      return (
+        <span>
+          added {metadata.current?.domain ? "the" : "a"} domain{" "}
+          {metadata.current?.domain && (
+            <span className="font-semibold">{metadata.current.domain}</span>
+          )}
+        </span>
+      );
+    case "team:domain:delete":
+      return (
+        <span>
+          removed {metadata.previous?.domain ? "the" : "a"} domain{" "}
+          {metadata.previous?.domain && (
+            <span className="font-semibold">{metadata.previous.domain}</span>
+          )}
+        </span>
+      );
     case "deployment:create": {
       const deploymentType =
         metadata.current?.deploymentType ?? metadata.current?.type;

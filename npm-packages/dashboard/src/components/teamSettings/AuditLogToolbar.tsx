@@ -15,6 +15,8 @@ const AUDIT_LOG_ACTIONS = [
   "team:token:update",
   "team:token:delete",
   "team:token:view",
+  "team:domain:create",
+  "team:domain:delete",
   "team:disableExceedingSpendingLimits",
   "team:applyReferralCode",
   "project:create",

@@ -283,6 +283,9 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "team:update": "team",
   "team:delete": "team",
   "team:auditLog:view": "team",
+  "team:domain:create": "team",
+  "team:domain:delete": "team",
+  "team:domain:view": "team",
   "team:usage:view": "team",
   // Billing
   "billing:paymentMethod:update": "billing",

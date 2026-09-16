@@ -252,6 +252,12 @@ pub enum RolePolicyAction {
     ViewInvoices,
     // Audit Log
     ViewTeamAuditLog,
+    // Team Domains — the domains the team has claimed in WorkOS, shared by SSO
+    // and directory sync. Creation happens in the WorkOS admin portal, so
+    // `CreateTeamDomain` gates the portal link rather than a write of ours.
+    CreateTeamDomain,
+    DeleteTeamDomain,
+    ViewTeamDomains,
     // Team Access Tokens
     CreateTeamAccessToken {
         creator: Option<MemberId>,
@@ -417,6 +423,9 @@ impl RolePolicyAction {
             | P::DeleteTeam
             | P::ApplyReferralCode
             | P::ViewTeamAuditLog
+            | P::CreateTeamDomain
+            | P::DeleteTeamDomain
+            | P::ViewTeamDomains
             | P::ViewUsage => Path::Singleton(ResourceKind::Team),
             // Billing singletons.
             P::UpdatePaymentMethod
@@ -635,6 +644,9 @@ impl RolePolicyAction {
             P::ViewBillingDetails => S::ViewBillingDetails,
             P::ViewInvoices => S::ViewInvoices,
             P::ViewTeamAuditLog => S::ViewTeamAuditLog,
+            P::CreateTeamDomain => S::CreateTeamDomain,
+            P::DeleteTeamDomain => S::DeleteTeamDomain,
+            P::ViewTeamDomains => S::ViewTeamDomains,
             P::CreateTeamAccessToken { .. } => S::CreateTeamAccessToken,
             P::UpdateTeamAccessToken { .. } => S::UpdateTeamAccessToken,
             P::DeleteTeamAccessToken { .. } => S::DeleteTeamAccessToken,
@@ -826,6 +838,16 @@ pub enum RoleStatementAction {
     #[serde(rename = "team:auditLog:view")]
     #[strum(serialize = "team:auditLog:view")]
     ViewTeamAuditLog,
+    // Team Domains
+    #[serde(rename = "team:domain:create")]
+    #[strum(serialize = "team:domain:create")]
+    CreateTeamDomain,
+    #[serde(rename = "team:domain:delete")]
+    #[strum(serialize = "team:domain:delete")]
+    DeleteTeamDomain,
+    #[serde(rename = "team:domain:view")]
+    #[strum(serialize = "team:domain:view")]
+    ViewTeamDomains,
     // Team Access Tokens
     #[serde(rename = "team:token:create")]
     #[strum(serialize = "team:token:create")]
@@ -1026,9 +1048,13 @@ impl RoleStatementAction {
         use RoleStatementAction as A;
         match self {
             // Team
-            A::UpdateTeam | A::DeleteTeam | A::ViewTeamAuditLog | A::ViewUsage => {
-                ResourceKind::Team
-            },
+            A::UpdateTeam
+            | A::DeleteTeam
+            | A::ViewTeamAuditLog
+            | A::CreateTeamDomain
+            | A::DeleteTeamDomain
+            | A::ViewTeamDomains
+            | A::ViewUsage => ResourceKind::Team,
             // Billing
             A::UpdatePaymentMethod
             | A::UpdateBillingContact
