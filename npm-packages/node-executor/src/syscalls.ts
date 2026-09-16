@@ -175,6 +175,15 @@ const createServiceTokenReturn = z.object({
   token: z.string(),
 });
 
+const getServiceUrlSchema = z.object({
+  service: z.literal("ai-gateway"),
+  version: z.string(),
+});
+
+const getServiceUrlReturn = z.object({
+  url: z.string(),
+});
+
 export type ScheduledJob = z.infer<typeof scheduleSchema>;
 
 export interface Syscalls {
@@ -241,6 +250,9 @@ export class SyscallsImpl {
   // calls share the in-flight promise; a rejected mint is dropped so a later
   // call retries.
   aiGatewayTokenPromise?: Promise<string>;
+
+  // Cached for the same reasons as `aiGatewayTokenPromise`.
+  aiGatewayUrlPromise?: Promise<string>;
 
   constructor(
     udfPath: UdfPath,
@@ -519,6 +531,9 @@ export class SyscallsImpl {
         case "1.0/createServiceToken": {
           return JSON.stringify(await this.syscallCreateServiceToken(jsonArgs));
         }
+        case "1.0/getServiceUrl": {
+          return JSON.stringify(await this.syscallGetServiceUrl(jsonArgs));
+        }
         case "1.0/actions/vectorSearch": {
           return JSON.stringify(await this.syscallVectorSearch(jsonArgs));
         }
@@ -779,6 +794,32 @@ export class SyscallsImpl {
     } catch (e) {
       if (this.aiGatewayTokenPromise === pending) {
         this.aiGatewayTokenPromise = undefined;
+      }
+      throw e;
+    }
+  }
+
+  async syscallGetServiceUrl(rawArgs: string): Promise<string> {
+    const operationName = "get service url";
+    const args = this.validateArgs(
+      rawArgs,
+      getServiceUrlSchema,
+      operationName,
+      false,
+    );
+    const pending = (this.aiGatewayUrlPromise ??= this.actionCallback({
+      version: args.version,
+      body: {},
+      path: "/api/actions/get_service_url",
+      operationName,
+      responseValidator: getServiceUrlReturn,
+      retryTransient: true,
+    }).then(({ url }) => url));
+    try {
+      return await pending;
+    } catch (e) {
+      if (this.aiGatewayUrlPromise === pending) {
+        this.aiGatewayUrlPromise = undefined;
       }
       throw e;
     }

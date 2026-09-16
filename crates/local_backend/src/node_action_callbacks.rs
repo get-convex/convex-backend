@@ -45,6 +45,7 @@ use common::{
         SessionRequestSeqNumber,
         UdfIdentifier,
         UdfType,
+        AI_GATEWAY_URL,
     },
     RequestContext,
     RequestId,
@@ -140,6 +141,18 @@ pub async fn create_service_token(
         .mint_ai_gateway_jwt(&identity, attribution)
         .await?;
     Ok(Json(CreateServiceTokenResponse { token }))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetServiceUrlResponse {
+    pub url: String,
+}
+
+pub async fn get_service_url() -> impl IntoResponse {
+    Json(GetServiceUrlResponse {
+        url: AI_GATEWAY_URL.to_owned(),
+    })
 }
 
 impl TryFrom<MutationIdentifierJson> for SessionRequestIdentifier {

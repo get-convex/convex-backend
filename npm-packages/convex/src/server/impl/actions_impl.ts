@@ -87,3 +87,25 @@ export async function getServiceToken(service: "ai-gateway"): Promise<string> {
     version,
   });
 }
+
+/**
+ * Get the base URL of a Convex-managed service.
+ *
+ * This function can only be called while an action is running. Pair it with
+ * {@link getServiceToken} to reach the service.
+ *
+ * @param service - The service to address.
+ * @returns The service's origin, without a trailing slash.
+ *
+ * @internal
+ */
+export async function getServiceUrl(service: "ai-gateway"): Promise<string> {
+  validateArg(service, 1, "getServiceUrl", "service");
+  if (service !== "ai-gateway") {
+    throw new Error(`Unsupported service "${String(service)}"`);
+  }
+  return await performAsyncSyscall("1.0/getServiceUrl", {
+    service,
+    version,
+  });
+}

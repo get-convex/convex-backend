@@ -16,6 +16,7 @@ pub use value::{
 
 mod actions;
 mod admin_key;
+mod ai_gateway;
 mod attribution;
 mod backend_info;
 mod backend_state;
@@ -49,6 +50,7 @@ pub use admin_key::{
     AdminKeyParts,
     SystemKey,
 };
+pub use ai_gateway::AI_GATEWAY_URL;
 pub use attribution::{
     AttributedCaller,
     AttributionClaims,

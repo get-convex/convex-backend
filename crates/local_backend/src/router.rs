@@ -99,6 +99,7 @@ use crate::{
         cancel_developer_job,
         create_function_handle,
         create_service_token,
+        get_service_url,
         internal_action_post,
         internal_mutation_post,
         internal_query_post,
@@ -460,6 +461,7 @@ where
         .route("/mutation", post(internal_mutation_post))
         .route("/action", post(internal_action_post))
         .route("/create_service_token", post(create_service_token))
+        .route("/get_service_url", post(get_service_url))
         .route("/schedule_job", post(schedule_job))
         .route("/vector_search", post(vector_search))
         .route("/cancel_job", post(cancel_developer_job))

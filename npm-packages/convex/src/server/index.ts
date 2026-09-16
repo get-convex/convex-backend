@@ -104,6 +104,10 @@ export {
   internalQueryGeneric,
 } from "./impl/registration_impl.js";
 export { getServiceToken } from "./impl/actions_impl.js";
+/**
+ * @internal
+ */
+export { getServiceUrl } from "./impl/actions_impl.js";
 export type {
   TransactionMetric,
   TransactionMetrics,
