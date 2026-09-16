@@ -2965,6 +2965,86 @@
         }
       }
     },
+    "/teams/{team_id}/domains": {
+      "get": {
+        "operationId": "list_team_domains",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListTeamDomainsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/domains/{domain_id}": {
+      "delete": {
+        "operationId": "delete_team_domain",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "domain_id",
+            "in": "path",
+            "description": "WorkOS organization domain ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/domains/portal_link": {
+      "post": {
+        "operationId": "generate_domain_portal_link",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateDomainPortalLinkResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/directory_sync": {
       "get": {
         "operationId": "get_directory_sync",
@@ -4559,6 +4639,17 @@
           }
         }
       },
+      "GenerateDomainPortalLinkResponse": {
+        "type": "object",
+        "required": [
+          "link"
+        ],
+        "properties": {
+          "link": {
+            "type": "string"
+          }
+        }
+      },
       "GenerateSSOConfigurationLinkRequest": {
         "type": "object",
         "required": [
@@ -5036,6 +5127,20 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CustomRoleResponse"
+            }
+          }
+        }
+      },
+      "ListTeamDomainsResponse": {
+        "type": "object",
+        "required": [
+          "domains"
+        ],
+        "properties": {
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SSOOrganizationDomain"
             }
           }
         }

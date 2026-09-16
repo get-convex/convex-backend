@@ -880,22 +880,32 @@ impl MockWorkOSClient {
         domain: &str,
         state: WorkOSDomainState,
     ) -> Self {
-        {
-            let mut guard = self.state.write();
-            guard.next_id += 1;
-            let id = format!("org_domain_mock{}", guard.next_id);
-            guard
-                .organization_domains
-                .entry(organization_id.to_string())
-                .or_default()
-                .push(WorkOSOrganizationDomain {
-                    object: "organization_domain".to_string(),
-                    id,
-                    domain: domain.to_string(),
-                    state,
-                });
-        }
+        self.add_organization_domain(organization_id, domain, state);
         self
+    }
+
+    /// Like [`MockWorkOSClient::with_organization_domain`], for a client that
+    /// is already shared, returning the id WorkOS assigned the domain.
+    pub fn add_organization_domain(
+        &self,
+        organization_id: &str,
+        domain: &str,
+        state: WorkOSDomainState,
+    ) -> String {
+        let mut guard = self.state.write();
+        guard.next_id += 1;
+        let id = format!("org_domain_mock{}", guard.next_id);
+        guard
+            .organization_domains
+            .entry(organization_id.to_string())
+            .or_default()
+            .push(WorkOSOrganizationDomain {
+                object: "organization_domain".to_string(),
+                id: id.clone(),
+                domain: domain.to_string(),
+                state,
+            });
+        id
     }
 
     /// Report `email` as MFA-enrolled from [`is_mfa_enrolled`].

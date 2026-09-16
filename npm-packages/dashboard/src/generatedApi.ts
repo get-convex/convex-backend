@@ -1675,6 +1675,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_team_domains"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/domains/{domain_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_team_domain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/domains/portal_link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["generate_domain_portal_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/directory_sync": {
         parameters: {
             query?: never;
@@ -2164,6 +2212,9 @@ export interface components {
         GenerateDirectorySyncConfigurationLinkResponse: {
             link: string;
         };
+        GenerateDomainPortalLinkResponse: {
+            link: string;
+        };
         GenerateSSOConfigurationLinkRequest: {
             intent: components["schemas"]["SSOPortalIntent"];
         };
@@ -2299,6 +2350,9 @@ export interface components {
              *     do; for `admin`/`developer` it is empty. */
             role: components["schemas"]["Role"];
             customRoles: components["schemas"]["CustomRoleResponse"][];
+        };
+        ListTeamDomainsResponse: {
+            domains: components["schemas"]["SSOOrganizationDomain"][];
         };
         LocalDeploymentAuthResponse: {
             adminKey: components["schemas"]["AdminKey"];
@@ -2947,6 +3001,7 @@ export type DiscordLoginUrlResponse = components['schemas']['DiscordLoginUrlResp
 export type DiscountedPlanResponse = components['schemas']['DiscountedPlanResponse'];
 export type EnableSsoRequest = components['schemas']['EnableSSORequest'];
 export type GenerateDirectorySyncConfigurationLinkResponse = components['schemas']['GenerateDirectorySyncConfigurationLinkResponse'];
+export type GenerateDomainPortalLinkResponse = components['schemas']['GenerateDomainPortalLinkResponse'];
 export type GenerateSsoConfigurationLinkRequest = components['schemas']['GenerateSSOConfigurationLinkRequest'];
 export type GenerateSsoConfigurationLinkResponse = components['schemas']['GenerateSSOConfigurationLinkResponse'];
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
@@ -2970,6 +3025,7 @@ export type JoinDirectorySyncedTeamRequest = components['schemas']['JoinDirector
 export type JoinDirectorySyncedTeamResponse = components['schemas']['JoinDirectorySyncedTeamResponse'];
 export type ListDirectorySyncGroupsResponse = components['schemas']['ListDirectorySyncGroupsResponse'];
 export type ListMyCustomRolesResponse = components['schemas']['ListMyCustomRolesResponse'];
+export type ListTeamDomainsResponse = components['schemas']['ListTeamDomainsResponse'];
 export type LocalDeploymentAuthResponse = components['schemas']['LocalDeploymentAuthResponse'];
 export type ManagedBy = components['schemas']['ManagedBy'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
@@ -5398,6 +5454,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerateSSOConfigurationLinkResponse"];
+                };
+            };
+        };
+    };
+    list_team_domains: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListTeamDomainsResponse"];
+                };
+            };
+        };
+    };
+    delete_team_domain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: components["schemas"]["TeamId"];
+                /** @description WorkOS organization domain ID */
+                domain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    generate_domain_portal_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateDomainPortalLinkResponse"];
                 };
             };
         };
