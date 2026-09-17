@@ -48,6 +48,24 @@ import udfs from "@common/udfs";
 import { useUpdateCanonicalUrl } from "hooks/deploymentApi";
 import { Loading } from "@ui/Loading";
 
+const CLOUD_SUFFIX = ".convex.cloud";
+const SITE_SUFFIX = ".convex.site";
+
+// `*.<region>.convex.cloud` and `*.<region>.convex.site` are provisioned as a
+// pair, so the site host is the cloud host with the suffix swapped.
+export function defaultSiteUrl(deploymentUrl: string): string | null {
+  const url = new URL(deploymentUrl);
+  if (!url.hostname.endsWith(CLOUD_SUFFIX)) {
+    return null;
+  }
+  url.hostname = `${url.hostname.slice(0, -CLOUD_SUFFIX.length)}${SITE_SUFFIX}`;
+  return url.origin;
+}
+
+function withHost(label: string, url: string | null): string {
+  return url === null ? label : `${label} (${new URL(url).host})`;
+}
+
 export function CustomDomains({
   team,
   deployment,
@@ -82,10 +100,7 @@ export function CustomDomains({
           />
         </Sheet>
       ) : (
-        <CanonicalDomainForm
-          deploymentName={deployment.name}
-          vanityDomains={vanityDomains}
-        />
+        <CanonicalDomainForm vanityDomains={vanityDomains} />
       )}
     </div>
   );
@@ -206,6 +221,9 @@ export function CustomDomainsForm({
                   )
             }
             deploymentName={deployment.name}
+            deploymentUrl={
+              deployment.kind === "cloud" ? deployment.deploymentUrl : null
+            }
           />
           {vanityDomains && vanityDomains.length > 0 && (
             <>
@@ -251,13 +269,12 @@ export function CustomDomainsForm({
 }
 
 export function CanonicalDomainForm({
-  deploymentName,
   vanityDomains,
 }: {
-  deploymentName: string;
   vanityDomains?: PlatformCustomDomainResponse[];
 }) {
   const deploymentUrl = useDeploymentUrl();
+  const siteUrl = defaultSiteUrl(deploymentUrl);
   const canonicalCloudUrl = useQuery(udfs.convexCloudUrl.default);
   const canonicalSiteUrl = useQuery(udfs.convexSiteUrl.default);
 
@@ -293,12 +310,9 @@ export function CanonicalDomainForm({
             </span>
           }
           defaultUrl={
-            deploymentUrl === `https://${deploymentName}.convex.cloud`
-              ? {
-                  kind: "default",
-                  url: `https://${deploymentName}.convex.site`,
-                }
-              : { kind: "unknownDefault" }
+            siteUrl === null
+              ? { kind: "unknownDefault" }
+              : { kind: "default", url: siteUrl }
           }
           canonicalUrl={
             canonicalSiteUrl === undefined
@@ -480,14 +494,17 @@ export function CanonicalUrlCombobox({
 
 function VanityDomainForm({
   deploymentName,
+  deploymentUrl,
   disabled,
   disabledTip,
 }: {
   deploymentName: string;
+  deploymentUrl: string | null;
   disabled?: boolean;
   disabledTip?: ReactNode;
 }) {
   const createVanityDomain = useCreateVanityDomain(deploymentName);
+  const siteUrl = deploymentUrl === null ? null : defaultSiteUrl(deploymentUrl);
   const formState = useFormik<PlatformDeleteCustomDomainArgs>({
     validateOnChange: true,
     initialValues: {
@@ -556,11 +573,11 @@ function VanityDomainForm({
             label="Request Destination"
             options={[
               {
-                label: `HTTP Actions (${deploymentName}.convex.site)`,
+                label: withHost("HTTP Actions", siteUrl),
                 value: "convexSite",
               },
               {
-                label: `Convex API (${deploymentName}.convex.cloud)`,
+                label: withHost("Convex API", deploymentUrl),
                 value: "convexCloud",
               },
             ]}
