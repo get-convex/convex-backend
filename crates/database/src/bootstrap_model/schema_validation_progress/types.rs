@@ -16,7 +16,7 @@ use value::{
 /// Documents keyed by `schemaId` instead of `validationId` are the aggregate
 /// format written before attempts existed; see `legacy::types`.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct SchemaValidationProgressMetadata {
+pub struct SchemaValidationProgress {
     /// The attempt these counters belong to. Should correspond to a document in
     /// the `_schema_validations` table.
     pub validation_id: DeveloperDocumentId,
@@ -32,16 +32,16 @@ pub struct SchemaValidationProgressMetadata {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SerializedSchemaValidationProgressMetadata {
+pub struct SerializedSchemaValidationProgress {
     pub validation_id: String,
     pub num_docs_validated: i64,
     pub total_docs: Option<i64>,
 }
 
-impl TryFrom<SchemaValidationProgressMetadata> for SerializedSchemaValidationProgressMetadata {
+impl TryFrom<SchemaValidationProgress> for SerializedSchemaValidationProgress {
     type Error = anyhow::Error;
 
-    fn try_from(value: SchemaValidationProgressMetadata) -> anyhow::Result<Self> {
+    fn try_from(value: SchemaValidationProgress) -> anyhow::Result<Self> {
         Ok(Self {
             validation_id: value.validation_id.to_string(),
             num_docs_validated: value.num_docs_validated.try_into()?,
@@ -50,10 +50,10 @@ impl TryFrom<SchemaValidationProgressMetadata> for SerializedSchemaValidationPro
     }
 }
 
-impl TryFrom<SerializedSchemaValidationProgressMetadata> for SchemaValidationProgressMetadata {
+impl TryFrom<SerializedSchemaValidationProgress> for SchemaValidationProgress {
     type Error = anyhow::Error;
 
-    fn try_from(value: SerializedSchemaValidationProgressMetadata) -> anyhow::Result<Self> {
+    fn try_from(value: SerializedSchemaValidationProgress) -> anyhow::Result<Self> {
         Ok(Self {
             validation_id: value.validation_id.parse()?,
             num_docs_validated: value.num_docs_validated.try_into()?,
@@ -61,7 +61,4 @@ impl TryFrom<SerializedSchemaValidationProgressMetadata> for SchemaValidationPro
         })
     }
 }
-codegen_convex_serialization!(
-    SchemaValidationProgressMetadata,
-    SerializedSchemaValidationProgressMetadata
-);
+codegen_convex_serialization!(SchemaValidationProgress, SerializedSchemaValidationProgress);
