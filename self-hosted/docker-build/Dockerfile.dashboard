@@ -18,6 +18,17 @@ apt-get install -y --no-install-recommends nodejs=${NODE_VERSION}-1nodesource1
 EOF
 
 WORKDIR /app
+# `npm-packages/convex`'s build script is a `uv run --script`, so provision uv via
+# mise (version + checksum from mise.toml/mise.lock; mise's own version from
+# min_version) and put it on PATH for the turbo build below.
+COPY mise.toml mise.lock ./
+ENV MISE_INSTALL_PATH="/usr/local/bin/mise" \
+    MISE_DATA_DIR="/mise" \
+    MISE_CONFIG_DIR="/mise" \
+    MISE_CACHE_DIR="/mise/cache"
+RUN curl -fsSL https://mise.run | MISE_VERSION="v$(sed -nE 's/^min_version = "([^"]+)"/\1/p' mise.toml)" sh \
+    && mise trust && mise install --locked uv \
+    && ln -s "$(mise which uv)" /usr/local/bin/uv
 # pnpm/turbo come pinned from scripts/package-lock.json, so release builds
 # always use the exact vetted versions.
 COPY scripts ./scripts
