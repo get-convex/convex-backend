@@ -7,33 +7,33 @@ use serde::{
 
 use super::{
     check_usages_subset,
+    ensure,
     CryptoHash,
     CryptoKey,
     CryptoKeyKind,
+    DOMExceptionName,
+    Error,
     ImportKeyInput,
     KeyType,
     KeyUsage,
-};
-use crate::convert_v8::{
-    DOMException,
-    DOMExceptionName,
+    Result,
 };
 
-pub(crate) struct HkdfKey {
+pub struct HkdfKey {
     secret: Vec<u8>,
 }
 #[derive(Deserialize, Debug)]
-pub(crate) struct HkdfParams {
+pub struct HkdfParams {
     #[serde(with = "super::nullary_algorithm")]
-    hash: CryptoHash,
-    salt: serde_bytes::ByteBuf,
-    info: serde_bytes::ByteBuf,
+    pub hash: CryptoHash,
+    pub salt: serde_bytes::ByteBuf,
+    pub info: serde_bytes::ByteBuf,
 }
 
 #[derive(Serialize, Debug)]
 #[serde(rename = "HKDF")]
 #[serde(tag = "name")]
-pub(crate) struct HkdfAlgorithm {}
+pub struct HkdfAlgorithm {}
 
 struct OutputLength(usize);
 
@@ -43,29 +43,29 @@ impl hkdf::KeyType for OutputLength {
     }
 }
 
-pub(crate) fn derive_bits(
+pub fn derive_bits(
     algorithm: HkdfParams,
     key: &CryptoKey,
     length: Option<usize>,
-) -> anyhow::Result<Vec<u8>> {
+) -> Result<Vec<u8>> {
     let Some(length) = length else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "length cannot be null",
-            DOMExceptionName::OperationError
-        ))
+            DOMExceptionName::OperationError,
+        ));
     };
-    anyhow::ensure!(
+    ensure!(
         length % 8 == 0,
-        DOMException::new(
+        Error::dom(
             "length must be a multiple of 8",
             DOMExceptionName::OperationError
         )
     );
     let CryptoKeyKind::Hkdf { key, .. } = &key.kind else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "Key algorithm mismatch",
-            DOMExceptionName::InvalidAccessError
-        ))
+            DOMExceptionName::InvalidAccessError,
+        ));
     };
     let HkdfParams { hash, salt, info } = algorithm;
     let algorithm = match hash {
@@ -79,33 +79,32 @@ pub(crate) fn derive_bits(
     let prk = salt.extract(&key.secret);
     let info = [info.as_ref()];
     let okm = prk.expand(&info, output_length).map_err(|_| {
-        DOMException::new(
+        Error::dom(
             "requested length exceeds the maximum for HKDF",
             DOMExceptionName::OperationError,
         )
     })?;
     let mut out = vec![0; length / 8];
-    okm.fill(&mut out).map_err(|_| {
-        DOMException::new("HKDF derivation failed", DOMExceptionName::OperationError)
-    })?;
+    okm.fill(&mut out)
+        .map_err(|_| Error::dom("HKDF derivation failed", DOMExceptionName::OperationError))?;
     Ok(out)
 }
 
-pub(crate) fn import_key(
+pub fn import_key(
     format: ImportKeyInput,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     let ImportKeyInput::Raw(secret) = format else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "unsupported input format",
-            DOMExceptionName::NotSupportedError
-        ))
+            DOMExceptionName::NotSupportedError,
+        ));
     };
     check_usages_subset(&usages, &[KeyUsage::DeriveKey, KeyUsage::DeriveBits])?;
-    anyhow::ensure!(
+    ensure!(
         !extractable,
-        DOMException::new(
+        Error::dom(
             "HKDF keys cannot be extractable",
             DOMExceptionName::SyntaxError
         )

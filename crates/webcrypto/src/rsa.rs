@@ -43,24 +43,22 @@ use spki::der::{
 
 use super::{
     check_usages_subset,
+    ensure,
     CryptoHash,
     CryptoKey,
     CryptoKeyKind,
     CryptoKeyPair,
+    CryptoRng,
+    DOMExceptionName,
+    Error,
     ImportKeyInput,
     JsonWebKey,
     KeyData,
     KeyFormat,
     KeyType,
     KeyUsage,
+    Result,
     URL_SAFE_FORGIVING,
-};
-use crate::{
-    convert_v8::{
-        DOMException,
-        DOMExceptionName,
-    },
-    environment::crypto_rng::CryptoRng,
 };
 
 // pkcs-1 OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840) rsadsi(113549)
@@ -69,7 +67,7 @@ const RSA_OID: const_oid::ObjectIdentifier =
     const_oid::ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.1");
 
 #[derive(Deserialize, Serialize, Copy, Clone, PartialEq, Debug)]
-pub(crate) enum RsaAlgorithm {
+pub enum RsaAlgorithm {
     #[serde(rename = "RSASSA-PKCS1-v1_5")]
     RsaSsaPkcs1v15,
     #[serde(rename = "RSA-PSS")]
@@ -80,45 +78,45 @@ pub(crate) enum RsaAlgorithm {
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct RsaHashedKeyGenParams {
-    name: RsaAlgorithm,
-    modulus_length: u32,
-    public_exponent: ByteBuf,
+pub struct RsaHashedKeyGenParams {
+    pub name: RsaAlgorithm,
+    pub modulus_length: u32,
+    pub public_exponent: ByteBuf,
     #[serde(with = "super::nullary_algorithm")]
-    hash: CryptoHash,
+    pub hash: CryptoHash,
 }
 
-pub(crate) type RsaHashedKeyAlgorithm = RsaHashedKeyGenParams;
+pub type RsaHashedKeyAlgorithm = RsaHashedKeyGenParams;
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct RsaHashedImportParams {
-    name: RsaAlgorithm,
+pub struct RsaHashedImportParams {
+    pub name: RsaAlgorithm,
     #[serde(with = "super::nullary_algorithm")]
-    hash: CryptoHash,
+    pub hash: CryptoHash,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct RsaOaepParams {
-    label: Option<ByteBuf>,
+pub struct RsaOaepParams {
+    pub label: Option<ByteBuf>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct RsaPssParams {
-    salt_length: u32,
+pub struct RsaPssParams {
+    pub salt_length: u32,
 }
 
-pub(crate) enum RsaParams {
+pub enum RsaParams {
     RsaSsaPkcs1v15,
     RsaPss(RsaPssParams),
 }
 
 const ALLOWED_MODULUS_LENGTHS: RangeInclusive<u32> = 512..=8192;
 
-pub(crate) struct RsaPrivateKey {
+pub struct RsaPrivateKey {
     private_key: PKey<Private>,
 }
-pub(crate) struct RsaPublicKey {
+pub struct RsaPublicKey {
     public_key: PKey<Public>,
 }
 
@@ -139,12 +137,12 @@ fn jwk_alg(name: RsaAlgorithm, hash: CryptoHash) -> &'static str {
     }
 }
 
-pub(crate) fn generate_keypair(
+pub fn generate_keypair(
     algorithm: RsaHashedKeyGenParams,
     _rng: &CryptoRng,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKeyPair> {
+) -> Result<CryptoKeyPair> {
     let (private_usages, public_usages) = match algorithm.name {
         RsaAlgorithm::RsaSsaPkcs1v15 | RsaAlgorithm::RsaPss => {
             check_usages_subset(&usages, &[KeyUsage::Sign, KeyUsage::Verify])?;
@@ -182,21 +180,21 @@ pub(crate) fn generate_keypair(
             )
         },
     };
-    anyhow::ensure!(
+    ensure!(
         ALLOWED_MODULUS_LENGTHS.contains(&algorithm.modulus_length),
-        DOMException::new(
+        Error::dom(
             "unsupported RSA modulus length",
             DOMExceptionName::OperationError
         )
     );
     let exp = BigNum::from_slice(&algorithm.public_exponent).map_err(|_| {
-        DOMException::new(
+        Error::dom(
             "invalid RSA public exponent",
             DOMExceptionName::OperationError,
         )
     })?;
     let private_key = Rsa::generate_with_e(algorithm.modulus_length, &exp).map_err(|_| {
-        DOMException::new(
+        Error::dom(
             "failed to generate RSA key",
             DOMExceptionName::OperationError,
         )
@@ -232,7 +230,7 @@ pub(crate) fn generate_keypair(
 fn key_info<T: HasPublic>(
     algorithm: RsaHashedImportParams,
     rsa: &Rsa<T>,
-) -> anyhow::Result<RsaHashedKeyAlgorithm> {
+) -> Result<RsaHashedKeyAlgorithm> {
     let modulus_length = rsa.n().num_bits() as u32;
     let public_exponent = ByteBuf::from(rsa.e().to_vec());
     Ok(RsaHashedKeyAlgorithm {
@@ -243,12 +241,12 @@ fn key_info<T: HasPublic>(
     })
 }
 
-pub(crate) fn import_key(
+pub fn import_key(
     input: ImportKeyInput,
     algorithm: RsaHashedImportParams,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     let (private_usages, public_usages, jwk_use) = match algorithm.name {
         RsaAlgorithm::RsaSsaPkcs1v15 | RsaAlgorithm::RsaPss => {
             (&[KeyUsage::Sign][..], &[KeyUsage::Verify][..], "sig")
@@ -264,21 +262,21 @@ pub(crate) fn import_key(
             check_usages_subset(&usages, public_usages)?;
             let spki = spki::SubjectPublicKeyInfo::<AnyRef, BitStringRef<'_>>::from_der(&der)
                 .map_err(|_| {
-                    DOMException::new(
+                    Error::dom(
                         "invalid RSA SubjectPublicKeyInfo",
                         DOMExceptionName::DataError,
                     )
                 })?;
-            anyhow::ensure!(
+            ensure!(
                 spki.algorithm.oid == RSA_OID,
-                DOMException::new(
+                Error::dom(
                     "SubjectPublicKeyInfo algorithm is not rsaEncryption",
                     DOMExceptionName::DataError,
                 )
             );
             let public_key = Rsa::public_key_from_der_pkcs1(spki.subject_public_key.raw_bytes())
                 .map_err(|_| {
-                    DOMException::new("invalid RSA SubjectPublicKey", DOMExceptionName::DataError)
+                    Error::dom("invalid RSA SubjectPublicKey", DOMExceptionName::DataError)
                 })?;
             Ok(CryptoKey {
                 kind: CryptoKeyKind::RsaPublic {
@@ -295,18 +293,17 @@ pub(crate) fn import_key(
         ImportKeyInput::Pkcs8(der) => {
             check_usages_subset(&usages, private_usages)?;
             let pki = pkcs8::PrivateKeyInfo::from_der(&der).map_err(|_| {
-                DOMException::new("invalid RSA PrivateKeyInfo", DOMExceptionName::DataError)
+                Error::dom("invalid RSA PrivateKeyInfo", DOMExceptionName::DataError)
             })?;
-            anyhow::ensure!(
+            ensure!(
                 pki.algorithm.oid == RSA_OID,
-                DOMException::new(
+                Error::dom(
                     "PrivateKeyInfo algorithm is not rsaEncryption",
                     DOMExceptionName::DataError,
                 )
             );
-            let private_key = Rsa::private_key_from_der(pki.private_key).map_err(|_| {
-                DOMException::new("invalid RSA PrivateKey", DOMExceptionName::DataError)
-            })?;
+            let private_key = Rsa::private_key_from_der(pki.private_key)
+                .map_err(|_| Error::dom("invalid RSA PrivateKey", DOMExceptionName::DataError))?;
             Ok(CryptoKey {
                 kind: CryptoKeyKind::RsaPrivate {
                     algorithm: key_info(algorithm, &private_key)?,
@@ -334,8 +331,7 @@ pub(crate) fn import_key(
                     .and_then(|a| base64::decode_config(a, URL_SAFE_FORGIVING).ok())
                     .and_then(|a| BigNum::from_slice(&a).ok())
             };
-            let data_error =
-                || DOMException::new("invalid RSA parameters", DOMExceptionName::DataError);
+            let data_error = || Error::dom("invalid RSA parameters", DOMExceptionName::DataError);
             let n = decode_number(&jwk.n).ok_or_else(data_error)?;
             let e = decode_number(&jwk.e).ok_or_else(data_error)?;
             if let Some(d) = jwk.d {
@@ -385,19 +381,19 @@ pub(crate) fn import_key(
                 })
             }
         },
-        ImportKeyInput::Raw(_) => anyhow::bail!(DOMException::new(
+        ImportKeyInput::Raw(_) => Err(Error::dom(
             "unsupported import format",
-            DOMExceptionName::NotSupportedError
+            DOMExceptionName::NotSupportedError,
         )),
     }
 }
 
 impl RsaPrivateKey {
-    pub(crate) fn export_key(
+    pub fn export_key(
         &self,
         algorithm: &RsaHashedKeyAlgorithm,
         format: KeyFormat,
-    ) -> anyhow::Result<KeyData> {
+    ) -> Result<KeyData> {
         match format {
             KeyFormat::Pkcs8 => Ok(KeyData::Raw(self.private_key.private_key_to_pkcs8()?)),
             KeyFormat::Jwk => {
@@ -421,24 +417,24 @@ impl RsaPrivateKey {
                 };
                 Ok(KeyData::Jwk(jwk))
             },
-            KeyFormat::Spki => anyhow::bail!(DOMException::new(
+            KeyFormat::Spki => Err(Error::dom(
                 "invalid export format for RSA private key",
-                DOMExceptionName::InvalidAccessError
+                DOMExceptionName::InvalidAccessError,
             )),
-            KeyFormat::Raw => anyhow::bail!(DOMException::new(
+            KeyFormat::Raw => Err(Error::dom(
                 "invalid export format for RSA",
-                DOMExceptionName::NotSupportedError
+                DOMExceptionName::NotSupportedError,
             )),
         }
     }
 
-    pub(crate) fn sign(
+    pub fn sign(
         &self,
         params: RsaParams,
         algorithm: &RsaHashedKeyAlgorithm,
-        rng: impl FnOnce() -> anyhow::Result<CryptoRng>,
+        rng: impl FnOnce() -> Result<CryptoRng>,
         data: &[u8],
-    ) -> anyhow::Result<Vec<u8>> {
+    ) -> Result<Vec<u8>> {
         let hash_algorithm = algorithm.hash.openssl_message_digest();
         let mut signer = Signer::new(hash_algorithm, &self.private_key)?;
         match (algorithm.name, params) {
@@ -453,16 +449,18 @@ impl RsaPrivateKey {
                 signer.set_rsa_padding(Padding::PKCS1_PSS)?;
                 signer.set_rsa_pss_saltlen(RsaPssSaltlen::custom(
                     params.salt_length.try_into().map_err(|_| {
-                        DOMException::new("invalid saltLength", DOMExceptionName::OperationError)
+                        Error::dom("invalid saltLength", DOMExceptionName::OperationError)
                     })?,
                 ))?;
             },
-            _ => anyhow::bail!(DOMException::new(
-                "invalid algorithm for key",
-                DOMExceptionName::InvalidAccessError
-            )),
+            _ => {
+                return Err(Error::dom(
+                    "invalid algorithm for key",
+                    DOMExceptionName::InvalidAccessError,
+                ))
+            },
         };
-        Ok(signer
+        signer
             .len()
             .and_then(|len| {
                 let mut out = vec![0; len];
@@ -470,20 +468,18 @@ impl RsaPrivateKey {
                 out.truncate(len);
                 Ok(out)
             })
-            .map_err(|_| {
-                DOMException::new("RSA signing failed", DOMExceptionName::OperationError)
-            })?)
+            .map_err(|_| Error::dom("RSA signing failed", DOMExceptionName::OperationError))
     }
 
-    pub(crate) fn decrypt_oaep(
+    pub fn decrypt_oaep(
         &self,
         params: RsaOaepParams,
         algorithm: &RsaHashedKeyAlgorithm,
         data: &[u8],
-    ) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(
+    ) -> Result<Vec<u8>> {
+        ensure!(
             algorithm.name == RsaAlgorithm::RsaOaep,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
@@ -496,7 +492,7 @@ impl RsaPrivateKey {
         if let Some(label) = &params.label {
             decrypter.set_rsa_oaep_label(label)?;
         }
-        Ok(decrypter
+        decrypter
             .decrypt_len(data)
             .and_then(|len| {
                 let mut out = vec![0; len];
@@ -504,18 +500,16 @@ impl RsaPrivateKey {
                 out.truncate(len);
                 Ok(out)
             })
-            .map_err(|_| {
-                DOMException::new("OAEP decryption failed", DOMExceptionName::OperationError)
-            })?)
+            .map_err(|_| Error::dom("OAEP decryption failed", DOMExceptionName::OperationError))
     }
 }
 
 impl RsaPublicKey {
-    pub(crate) fn export_key(
+    pub fn export_key(
         &self,
         algorithm: &RsaHashedKeyAlgorithm,
         format: KeyFormat,
-    ) -> anyhow::Result<KeyData> {
+    ) -> Result<KeyData> {
         match format {
             KeyFormat::Spki => Ok(KeyData::Raw(self.public_key.public_key_to_der()?)),
             KeyFormat::Jwk => {
@@ -532,24 +526,24 @@ impl RsaPublicKey {
                 };
                 Ok(KeyData::Jwk(jwk))
             },
-            KeyFormat::Pkcs8 => anyhow::bail!(DOMException::new(
+            KeyFormat::Pkcs8 => Err(Error::dom(
                 "invalid export format for RSA public key",
-                DOMExceptionName::InvalidAccessError
+                DOMExceptionName::InvalidAccessError,
             )),
-            KeyFormat::Raw => anyhow::bail!(DOMException::new(
+            KeyFormat::Raw => Err(Error::dom(
                 "invalid export format for RSA",
-                DOMExceptionName::NotSupportedError
+                DOMExceptionName::NotSupportedError,
             )),
         }
     }
 
-    pub(crate) fn verify(
+    pub fn verify(
         &self,
         params: RsaParams,
         algorithm: &RsaHashedKeyAlgorithm,
         data: &[u8],
         signature: &[u8],
-    ) -> anyhow::Result<bool> {
+    ) -> Result<bool> {
         let hash_algorithm = algorithm.hash.openssl_message_digest();
         let mut verifier = Verifier::new(hash_algorithm, &self.public_key)?;
         match (algorithm.name, params) {
@@ -560,30 +554,32 @@ impl RsaPublicKey {
                 verifier.set_rsa_padding(Padding::PKCS1_PSS)?;
                 verifier.set_rsa_pss_saltlen(RsaPssSaltlen::custom(
                     params.salt_length.try_into().map_err(|_| {
-                        DOMException::new("invalid saltLength", DOMExceptionName::OperationError)
+                        Error::dom("invalid saltLength", DOMExceptionName::OperationError)
                     })?,
                 ))?;
             },
-            _ => anyhow::bail!(DOMException::new(
-                "invalid algorithm for key",
-                DOMExceptionName::InvalidAccessError
-            )),
+            _ => {
+                return Err(Error::dom(
+                    "invalid algorithm for key",
+                    DOMExceptionName::InvalidAccessError,
+                ))
+            },
         };
-        Ok(verifier.verify_oneshot(signature, data).map_err(|_| {
-            DOMException::new("RSA verification failed", DOMExceptionName::OperationError)
-        })?)
+        verifier
+            .verify_oneshot(signature, data)
+            .map_err(|_| Error::dom("RSA verification failed", DOMExceptionName::OperationError))
     }
 
-    pub(crate) fn encrypt_oaep(
+    pub fn encrypt_oaep(
         &self,
         params: RsaOaepParams,
         algorithm: &RsaHashedKeyAlgorithm,
         _rng: &CryptoRng,
         data: &[u8],
-    ) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(
+    ) -> Result<Vec<u8>> {
+        ensure!(
             algorithm.name == RsaAlgorithm::RsaOaep,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
@@ -596,7 +592,7 @@ impl RsaPublicKey {
         if let Some(label) = &params.label {
             encrypter.set_rsa_oaep_label(label)?;
         }
-        Ok(encrypter
+        encrypter
             .encrypt_len(data)
             .and_then(|len| {
                 let mut out = vec![0; len];
@@ -604,8 +600,6 @@ impl RsaPublicKey {
                 out.truncate(len);
                 Ok(out)
             })
-            .map_err(|_| {
-                DOMException::new("OAEP encryption failed", DOMExceptionName::OperationError)
-            })?)
+            .map_err(|_| Error::dom("OAEP encryption failed", DOMExceptionName::OperationError))
     }
 }

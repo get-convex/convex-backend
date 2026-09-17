@@ -22,23 +22,21 @@ use spki::der::{
 
 use super::{
     check_usages_subset,
+    ensure,
     CryptoKey,
     CryptoKeyKind,
     CryptoKeyPair,
+    CryptoRng,
+    DOMExceptionName,
+    Error,
     ImportKeyInput,
     JsonWebKey,
     KeyData,
     KeyFormat,
     KeyType,
     KeyUsage,
+    Result,
     URL_SAFE_FORGIVING,
-};
-use crate::{
-    convert_v8::{
-        DOMException,
-        DOMExceptionName,
-    },
-    environment::crypto_rng::CryptoRng,
 };
 
 // id-Ed25519 OBJECT IDENTIFIER ::= { 1 3 101 112 }
@@ -48,20 +46,20 @@ const ED25519_OID: const_oid::ObjectIdentifier =
 #[derive(Serialize)]
 #[serde(tag = "name")]
 #[serde(rename = "Ed25519")]
-pub(crate) struct Ed25519Algorithm {}
+pub struct Ed25519Algorithm {}
 
-pub(crate) struct Ed25519PrivateKey {
+pub struct Ed25519PrivateKey {
     keypair: Ed25519KeyPair,
 }
-pub(crate) struct Ed25519PublicKey {
+pub struct Ed25519PublicKey {
     x: [u8; 32],
 }
 
-pub(crate) fn generate_keypair(
+pub fn generate_keypair(
     _rng: &CryptoRng,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKeyPair> {
+) -> Result<CryptoKeyPair> {
     let keypair = Ed25519KeyPair::generate().context("failed to generate ed25519 keypair")?;
     let public_key = <[u8; 32]>::try_from(keypair.public_key().as_ref())?;
     check_usages_subset(&usages, &[KeyUsage::Sign, KeyUsage::Verify])?;
@@ -93,16 +91,16 @@ pub(crate) fn generate_keypair(
     })
 }
 
-pub(crate) fn import_key(
+pub fn import_key(
     format: ImportKeyInput,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     match format {
         ImportKeyInput::Raw(raw) => {
             check_usages_subset(&usages, &[KeyUsage::Verify])?;
             let raw = <[u8; 32]>::try_from(raw).map_err(|_| {
-                DOMException::new(
+                Error::dom(
                     "Ed25519 public key must be 256 bits",
                     DOMExceptionName::DataError,
                 )
@@ -120,7 +118,7 @@ pub(crate) fn import_key(
         ImportKeyInput::Pkcs8(der) => {
             check_usages_subset(&usages, &[KeyUsage::Sign])?;
             let keypair = Ed25519KeyPair::from_pkcs8(&der).map_err(|_| {
-                DOMException::new("Invalid Ed25519 private key", DOMExceptionName::DataError)
+                Error::dom("Invalid Ed25519 private key", DOMExceptionName::DataError)
             })?;
             Ok(CryptoKey {
                 kind: CryptoKeyKind::Ed25519Private {
@@ -136,21 +134,21 @@ pub(crate) fn import_key(
             check_usages_subset(&usages, &[KeyUsage::Verify])?;
             let spki = spki::SubjectPublicKeyInfo::<AnyRef, BitStringRef<'_>>::from_der(&der)
                 .map_err(|_| {
-                    DOMException::new(
+                    Error::dom(
                         "invalid SubjectPublicKeyInfo document",
                         DOMExceptionName::DataError,
                     )
                 })?;
-            anyhow::ensure!(
+            ensure!(
                 spki.algorithm.oid == ED25519_OID,
-                DOMException::new(
+                Error::dom(
                     "SubjectPublicKeyInfo algorithm is not id-Ed25519",
                     DOMExceptionName::DataError
                 )
             );
-            anyhow::ensure!(
+            ensure!(
                 spki.algorithm.parameters.is_none(),
-                DOMException::new(
+                Error::dom(
                     "SubjectPublicKeyInfo parameters must not be present",
                     DOMExceptionName::DataError
                 )
@@ -160,7 +158,7 @@ pub(crate) fn import_key(
                 .as_bytes()
                 .and_then(|x| <[u8; 32]>::try_from(x).ok())
                 .ok_or_else(|| {
-                    DOMException::new(
+                    Error::dom(
                         "SubjectPublicKeyInfo public key has wrong length",
                         DOMExceptionName::DataError,
                     )
@@ -191,24 +189,14 @@ pub(crate) fn import_key(
                 .as_ref()
                 .and_then(|k| base64::decode_config(k, URL_SAFE_FORGIVING).ok())
                 .and_then(|x| <[u8; 32]>::try_from(x).ok())
-                .ok_or_else(|| {
-                    anyhow::anyhow!(DOMException::new(
-                        "invalid key `x`",
-                        DOMExceptionName::DataError
-                    ))
-                })?;
+                .ok_or_else(|| Error::dom("invalid key `x`", DOMExceptionName::DataError))?;
             if let Some(d) = jwk.d {
                 let d = base64::decode_config(&d, URL_SAFE_FORGIVING)
                     .ok()
                     .and_then(|d| <[u8; 32]>::try_from(d).ok())
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(DOMException::new(
-                            "invalid key `d`",
-                            DOMExceptionName::DataError
-                        ))
-                    })?;
+                    .ok_or_else(|| Error::dom("invalid key `d`", DOMExceptionName::DataError))?;
                 let keypair = Ed25519KeyPair::from_seed_and_public_key(&d, &x).map_err(|_| {
-                    DOMException::new("JWT `d` and `x` do not match", DOMExceptionName::DataError)
+                    Error::dom("JWT `d` and `x` do not match", DOMExceptionName::DataError)
                 })?;
                 Ok(CryptoKey {
                     kind: CryptoKeyKind::Ed25519Private {
@@ -235,7 +223,7 @@ pub(crate) fn import_key(
 }
 
 impl Ed25519PrivateKey {
-    pub(crate) fn export_key(&self, format: KeyFormat) -> anyhow::Result<KeyData> {
+    pub fn export_key(&self, format: KeyFormat) -> Result<KeyData> {
         match format {
             KeyFormat::Pkcs8 => {
                 // N.B.: WebCrypto spec calls for version 1:
@@ -261,20 +249,20 @@ impl Ed25519PrivateKey {
                 };
                 Ok(KeyData::Jwk(jwk))
             },
-            KeyFormat::Raw | KeyFormat::Spki => anyhow::bail!(DOMException::new(
+            KeyFormat::Raw | KeyFormat::Spki => Err(Error::dom(
                 "invalid export format for Ed25519 private key",
-                DOMExceptionName::InvalidAccessError
+                DOMExceptionName::InvalidAccessError,
             )),
         }
     }
 
-    pub(crate) fn sign(&self, data: &[u8]) -> Vec<u8> {
+    pub fn sign(&self, data: &[u8]) -> Vec<u8> {
         self.keypair.sign(data).as_ref().to_vec()
     }
 }
 
 impl Ed25519PublicKey {
-    pub(crate) fn export_key(&self, format: KeyFormat) -> anyhow::Result<KeyData> {
+    pub fn export_key(&self, format: KeyFormat) -> Result<KeyData> {
         match format {
             KeyFormat::Spki => {
                 Ok(KeyData::Raw(
@@ -300,9 +288,9 @@ impl Ed25519PublicKey {
                 Ok(KeyData::Jwk(jwk))
             },
             KeyFormat::Raw => Ok(KeyData::Raw(self.x.to_vec())),
-            KeyFormat::Pkcs8 => anyhow::bail!(DOMException::new(
+            KeyFormat::Pkcs8 => Err(Error::dom(
                 "invalid export format for Ed25519 public key",
-                DOMExceptionName::InvalidAccessError
+                DOMExceptionName::InvalidAccessError,
             )),
         }
     }

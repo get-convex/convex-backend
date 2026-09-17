@@ -359,7 +359,8 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
             return;
         }
 
-        let err = match err.downcast::<JsException>() {
+        let js_exception = err.downcast::<JsException>();
+        let err = match js_exception {
             Ok(js_exception) => match js_exception.to_v8(scope) {
                 Ok(e) => {
                     scope.throw_exception(e);

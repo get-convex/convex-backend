@@ -7,14 +7,16 @@ use serde::{
     Serialize,
 };
 
-use super::KeyUsage;
-use crate::convert_v8::{
-    DOMException,
+use crate::{
+    ensure,
     DOMExceptionName,
+    Error,
+    KeyUsage,
+    Result,
 };
 
 #[derive(Deserialize, Serialize, Default)]
-pub(super) struct JsonWebKey {
+pub struct JsonWebKey {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kty: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -54,7 +56,7 @@ pub(super) struct JsonWebKey {
 }
 
 #[derive(Deserialize, Serialize)]
-pub(super) struct RsaOtherPrimesInfo {
+pub struct RsaOtherPrimesInfo {
     // The following fields are defined in Section 6.3.2.7 of JSON Web Algorithms
     #[serde(skip_serializing_if = "Option::is_none")]
     pub r: Option<String>,
@@ -65,10 +67,10 @@ pub(super) struct RsaOtherPrimesInfo {
 }
 
 impl JsonWebKey {
-    pub(super) fn check_kty(&self, kty: &str) -> anyhow::Result<()> {
-        anyhow::ensure!(
+    pub fn check_kty(&self, kty: &str) -> Result<()> {
+        ensure!(
             self.kty.as_deref() == Some(kty),
-            DOMException::new(
+            Error::dom(
                 format!("JWK \"kty\" must be {kty:?}"),
                 DOMExceptionName::DataError
             ),
@@ -76,10 +78,10 @@ impl JsonWebKey {
         Ok(())
     }
 
-    pub(super) fn check_crv(&self, crv: &str) -> anyhow::Result<()> {
-        anyhow::ensure!(
+    pub fn check_crv(&self, crv: &str) -> Result<()> {
+        ensure!(
             self.crv.as_deref() == Some(crv),
-            DOMException::new(
+            Error::dom(
                 format!("JWK \"crv\" must be {crv:?}"),
                 DOMExceptionName::DataError
             ),
@@ -87,29 +89,29 @@ impl JsonWebKey {
         Ok(())
     }
 
-    pub(super) fn check_ext(&self, extractable: bool) -> anyhow::Result<()> {
+    pub fn check_ext(&self, extractable: bool) -> Result<()> {
         if let Some(false) = self.ext
             && extractable
         {
-            anyhow::bail!(DOMException::new(
+            return Err(Error::dom(
                 "JWK \"ext\" must be true",
-                DOMExceptionName::DataError
+                DOMExceptionName::DataError,
             ));
         }
         Ok(())
     }
 
-    pub(super) fn check_key_ops_and_use(
+    pub fn check_key_ops_and_use(
         &self,
         key_usages: &IndexSet<KeyUsage>,
         expected_use: &str,
-    ) -> anyhow::Result<()> {
+    ) -> Result<()> {
         if !key_usages.is_empty()
             && let Some(r#use) = &self.r#use
         {
-            anyhow::ensure!(
+            ensure!(
                 r#use == expected_use,
-                DOMException::new(
+                Error::dom(
                     format!("JWK \"use\" must be {expected_use:?}"),
                     DOMExceptionName::DataError
                 ),
@@ -121,9 +123,9 @@ impl JsonWebKey {
                 .filter_map(|s| s.parse::<KeyUsage>().ok())
                 .collect();
             for usage in key_usages {
-                anyhow::ensure!(
+                ensure!(
                     allowed_usages.contains(usage),
-                    DOMException::new(
+                    Error::dom(
                         format!("JWK \"key_ops\" does not contain {usage:?}"),
                         DOMExceptionName::DataError
                     ),
@@ -133,11 +135,11 @@ impl JsonWebKey {
         Ok(())
     }
 
-    pub(super) fn check_alg_oneof(&self, expected: &[&str]) -> anyhow::Result<()> {
+    pub fn check_alg_oneof(&self, expected: &[&str]) -> Result<()> {
         if let Some(alg) = &self.alg {
-            anyhow::ensure!(
+            ensure!(
                 expected.contains(&alg.as_str()),
-                DOMException::new(
+                Error::dom(
                     format!(
                         "JWK \"alg\" must be {}",
                         expected.iter().map(|e| format!("{e:?}")).join(" or ")
@@ -149,7 +151,7 @@ impl JsonWebKey {
         Ok(())
     }
 
-    pub(super) fn check_alg(&self, expected: &str) -> anyhow::Result<()> {
+    pub fn check_alg(&self, expected: &str) -> Result<()> {
         self.check_alg_oneof(&[expected])
     }
 }

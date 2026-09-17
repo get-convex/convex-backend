@@ -27,22 +27,20 @@ use serde_bytes::ByteBuf;
 
 use super::{
     check_usages_subset,
+    ensure,
     CryptoKey,
     CryptoKeyKind,
+    CryptoRng,
+    DOMExceptionName,
+    Error,
     ImportKeyInput,
     JsonWebKey,
     KeyData,
     KeyFormat,
     KeyType,
     KeyUsage,
+    Result,
     URL_SAFE_FORGIVING,
-};
-use crate::{
-    convert_v8::{
-        DOMException,
-        DOMExceptionName,
-    },
-    environment::crypto_rng::CryptoRng,
 };
 
 const AES_BLOCK_SIZE: usize = 16;
@@ -67,7 +65,7 @@ pub enum AesAlgorithm {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct AesCtrParams {
+pub struct AesCtrParams {
     /// The counter member contains the initial value of the counter block.
     /// counter MUST be 16 bytes (the AES block size). The counter bits are the
     /// rightmost length bits of the counter block. The rest of the counter
@@ -75,37 +73,37 @@ pub(crate) struct AesCtrParams {
     /// standard incrementing function specified in NIST SP 800-38A Appendix
     /// B.1: the counter bits are interpreted as a big-endian integer and
     /// incremented by one.
-    counter: ByteBuf,
+    pub counter: ByteBuf,
     /// The length member contains the length, in bits, of the rightmost part of
     /// the counter block that is incremented.
-    length: u8,
+    pub length: u8,
 }
 
 #[derive(Deserialize)]
-pub(crate) struct AesCbcParams {
+pub struct AesCbcParams {
     /// The iv member represents the initialization vector. It MUST be 16 bytes.
-    iv: ByteBuf,
+    pub iv: ByteBuf,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AesGcmParams {
+pub struct AesGcmParams {
     /// The iv member represents the initialization vector to use. May be up to
     /// 2^64-1 bytes long.
-    iv: ByteBuf,
+    pub iv: ByteBuf,
     /// The additionalData member represents the additional authentication data
     /// to include.
-    additional_data: Option<ByteBuf>,
+    pub additional_data: Option<ByteBuf>,
     /// The tagLength member represents the desired length of the authentication
     /// tag. May be 0 - 128.
-    tag_length: Option<u8>,
+    pub tag_length: Option<u8>,
 }
 
 #[derive(Deserialize, Serialize)]
-pub(crate) struct AesKeyAlgorithm {
-    pub(crate) name: AesAlgorithm,
+pub struct AesKeyAlgorithm {
+    pub name: AesAlgorithm,
     /// The length member represents the length, in bits, of the key.
-    pub(crate) length: u16,
+    pub length: u16,
 }
 
 impl AesKeyAlgorithm {
@@ -118,14 +116,14 @@ impl AesKeyAlgorithm {
     }
 }
 
-pub(crate) type AesKeyGenParams = AesKeyAlgorithm;
-pub(crate) type AesDerivedKeyParams = AesKeyAlgorithm;
+pub type AesKeyGenParams = AesKeyAlgorithm;
+pub type AesDerivedKeyParams = AesKeyAlgorithm;
 
 impl AesDerivedKeyParams {
-    pub(crate) fn get_key_length(&self) -> anyhow::Result<usize> {
-        anyhow::ensure!(
+    pub fn get_key_length(&self) -> Result<usize> {
+        ensure!(
             [128, 192, 256].contains(&self.length),
-            DOMException::new(
+            Error::dom(
                 "AES key length must be 128, 192, or 256 bits",
                 DOMExceptionName::OperationError,
             )
@@ -134,22 +132,22 @@ impl AesDerivedKeyParams {
     }
 }
 
-pub(crate) struct AesKey {
+pub struct AesKey {
     key: Vec<u8>,
 }
 
-pub(crate) fn import_key(
+pub fn import_key(
     format: ImportKeyInput,
     algorithm: AesAlgorithm,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     let (data, algorithm) = match format {
         ImportKeyInput::Raw(data) => {
             let length = data.len() * 8;
-            anyhow::ensure!(
+            ensure!(
                 [128, 192, 256].contains(&length),
-                DOMException::new("invalid key length", DOMExceptionName::DataError)
+                Error::dom("invalid key length", DOMExceptionName::DataError)
             );
             (
                 data,
@@ -165,16 +163,11 @@ pub(crate) fn import_key(
                 .k
                 .as_ref()
                 .and_then(|k| base64::decode_config(k, URL_SAFE_FORGIVING).ok())
-                .ok_or_else(|| {
-                    anyhow::anyhow!(DOMException::new(
-                        "invalid key data",
-                        DOMExceptionName::DataError
-                    ))
-                })?;
+                .ok_or_else(|| Error::dom("invalid key data", DOMExceptionName::DataError))?;
             let length = data.len() * 8;
-            anyhow::ensure!(
+            ensure!(
                 [128, 192, 256].contains(&length),
-                DOMException::new("invalid key length", DOMExceptionName::DataError)
+                Error::dom("invalid key length", DOMExceptionName::DataError)
             );
             let algorithm = AesKeyAlgorithm {
                 name: algorithm,
@@ -186,9 +179,9 @@ pub(crate) fn import_key(
             (data, algorithm)
         },
         ImportKeyInput::Pkcs8(_) | ImportKeyInput::Spki(_) => {
-            anyhow::bail!(DOMException::new(
+            return Err(Error::dom(
                 "unsupported import format",
-                DOMExceptionName::NotSupportedError
+                DOMExceptionName::NotSupportedError,
             ))
         },
     };
@@ -204,36 +197,38 @@ pub(crate) fn import_key(
 }
 
 impl AesKey {
-    fn aes_key(&self) -> anyhow::Result<UnboundCipherKey> {
+    fn aes_key(&self) -> Result<UnboundCipherKey> {
         let alg = match self.key.len() {
             16 => &cipher::AES_128,
             24 => &cipher::AES_192,
             32 => &cipher::AES_256,
-            l => anyhow::bail!("unexpected key length {l}"),
+            l => {
+                return Err(Error::dom(
+                    format!("unexpected key length {l}"),
+                    DOMExceptionName::OperationError,
+                ))
+            },
         };
         Ok(UnboundCipherKey::new(alg, &self.key)?)
     }
 
-    fn aes_gcm_key(&self) -> anyhow::Result<LessSafeKey> {
+    fn aes_gcm_key(&self) -> Result<LessSafeKey> {
         let alg = match self.key.len() {
             16 => &aead::AES_128_GCM,
             24 => &aead::AES_192_GCM,
             32 => &aead::AES_256_GCM,
-            l => anyhow::bail!("unexpected key length {l}"),
+            l => {
+                return Err(Error::dom(
+                    format!("unexpected key length {l}"),
+                    DOMExceptionName::OperationError,
+                ))
+            },
         };
-        let key = LessSafeKey::new(
-            UnboundKey::new(alg, &self.key)
-                .ok()
-                .context("invalid AES-GCM key")?,
-        );
+        let key = LessSafeKey::new(UnboundKey::new(alg, &self.key).context("invalid AES-GCM key")?);
         Ok(key)
     }
 
-    pub(crate) fn export_key(
-        &self,
-        algorithm: &AesKeyAlgorithm,
-        format: KeyFormat,
-    ) -> anyhow::Result<KeyData> {
+    pub fn export_key(&self, algorithm: &AesKeyAlgorithm, format: KeyFormat) -> Result<KeyData> {
         match format {
             KeyFormat::Raw => Ok(KeyData::Raw(self.key.clone())),
             KeyFormat::Jwk => {
@@ -245,45 +240,43 @@ impl AesKey {
                 };
                 Ok(KeyData::Jwk(jwk))
             },
-            KeyFormat::Pkcs8 | KeyFormat::Spki => {
-                anyhow::bail!(DOMException::new(
-                    "unsupported export format",
-                    DOMExceptionName::NotSupportedError
-                ))
-            },
+            KeyFormat::Pkcs8 | KeyFormat::Spki => Err(Error::dom(
+                "unsupported export format",
+                DOMExceptionName::NotSupportedError,
+            )),
         }
     }
 
-    pub(crate) fn crypt_ctr(
+    pub fn crypt_ctr(
         &self,
         algorithm: AesCtrParams,
         key_algorithm: &AesKeyAlgorithm,
         mut data: Vec<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(
+    ) -> Result<Vec<u8>> {
+        ensure!(
             key_algorithm.name == AesAlgorithm::AesCtr,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
         );
         let AesCtrParams { counter, length } = algorithm;
         let Ok(counter) = <[u8; 16]>::try_from(&counter[..]) else {
-            anyhow::bail!(DOMException::new(
+            return Err(Error::dom(
                 "counter must be 16 bytes",
-                DOMExceptionName::OperationError
+                DOMExceptionName::OperationError,
             ));
         };
-        anyhow::ensure!(
+        ensure!(
             length > 0 && length <= 128,
-            DOMException::new("invalid counter length", DOMExceptionName::OperationError)
+            Error::dom("invalid counter length", DOMExceptionName::OperationError)
         );
         if let Some(limit) = AES_BLOCK_SIZE.checked_shl(length as u32)
             && data.len() > limit
         {
-            anyhow::bail!(DOMException::new(
+            return Err(Error::dom(
                 "too much data for counter length",
-                DOMExceptionName::OperationError
+                DOMExceptionName::OperationError,
             ));
         }
         let key = self.aes_key()?;
@@ -323,24 +316,24 @@ impl AesKey {
         Ok(data)
     }
 
-    pub(crate) fn encrypt_cbc(
+    pub fn encrypt_cbc(
         &self,
         algorithm: AesCbcParams,
         key_algorithm: &AesKeyAlgorithm,
         mut data: Vec<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(
+    ) -> Result<Vec<u8>> {
+        ensure!(
             key_algorithm.name == AesAlgorithm::AesCbc,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
         );
         let AesCbcParams { iv } = algorithm;
         let Ok(iv) = <[u8; 16]>::try_from(&iv[..]) else {
-            anyhow::bail!(DOMException::new(
+            return Err(Error::dom(
                 "iv must be 16 bytes",
-                DOMExceptionName::OperationError
+                DOMExceptionName::OperationError,
             ));
         };
         let key = self.aes_key()?;
@@ -349,45 +342,45 @@ impl AesKey {
         Ok(data)
     }
 
-    pub(crate) fn decrypt_cbc(
+    pub fn decrypt_cbc(
         &self,
         algorithm: AesCbcParams,
         key_algorithm: &AesKeyAlgorithm,
         mut data: Vec<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(
+    ) -> Result<Vec<u8>> {
+        ensure!(
             key_algorithm.name == AesAlgorithm::AesCbc,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
         );
         let AesCbcParams { iv } = algorithm;
         let Ok(iv) = <[u8; 16]>::try_from(&iv[..]) else {
-            anyhow::bail!(DOMException::new(
+            return Err(Error::dom(
                 "iv must be 16 bytes",
-                DOMExceptionName::OperationError
+                DOMExceptionName::OperationError,
             ));
         };
         let key = self.aes_key()?;
         let key = PaddedBlockDecryptingKey::cbc_pkcs7(key)?;
         let len = key
             .decrypt(&mut data, DecryptionContext::Iv128(iv.into()))
-            .map_err(|_| DOMException::new("invalid ciphertext", DOMExceptionName::OperationError))?
+            .map_err(|_| Error::dom("invalid ciphertext", DOMExceptionName::OperationError))?
             .len();
         data.truncate(len);
         Ok(data)
     }
 
-    pub(crate) fn encrypt_gcm(
+    pub fn encrypt_gcm(
         &self,
         algorithm: AesGcmParams,
         key_algorithm: &AesKeyAlgorithm,
         mut data: Vec<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(
+    ) -> Result<Vec<u8>> {
+        ensure!(
             key_algorithm.name == AesAlgorithm::AesGcm,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
@@ -400,9 +393,9 @@ impl AesKey {
         let key = self.aes_gcm_key()?;
         let alg = key.algorithm();
         // TODO: consider supporting shorter tag lengths (`ring` does not allow this)
-        anyhow::ensure!(
+        ensure!(
             tag_length.is_none_or(|l| usize::from(l) == 8 * alg.tag_len()),
-            DOMException::new(
+            Error::dom(
                 format!("tag length must be {} bits", 8 * alg.tag_len()),
                 DOMExceptionName::NotSupportedError
             )
@@ -411,7 +404,7 @@ impl AesKey {
             // TODO: consider supporting GHASH construction for nonces (`ring` does not
             // support this)
             Nonce::try_assume_unique_for_key(&iv).map_err(|_| {
-                DOMException::new(
+                Error::dom(
                     format!("AES-GCM IV must be {} bits", 8 * alg.nonce_len()),
                     DOMExceptionName::NotSupportedError,
                 )
@@ -419,20 +412,19 @@ impl AesKey {
             Aad::from(additional_data.as_ref().map_or(&[][..], |b| b.as_ref())),
             &mut data,
         )
-        .ok()
         .context("AES-GCM encryption failed")?;
         Ok(data)
     }
 
-    pub(crate) fn decrypt_gcm(
+    pub fn decrypt_gcm(
         &self,
         algorithm: AesGcmParams,
         key_algorithm: &AesKeyAlgorithm,
         mut data: Vec<u8>,
-    ) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(
+    ) -> Result<Vec<u8>> {
+        ensure!(
             key_algorithm.name == AesAlgorithm::AesGcm,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
@@ -445,16 +437,16 @@ impl AesKey {
         let key = self.aes_gcm_key()?;
         let alg = key.algorithm();
         // TODO: consider supporting shorter tag lengths (`ring` does not allow this)
-        anyhow::ensure!(
+        ensure!(
             tag_length.is_none_or(|l| usize::from(l) == 8 * alg.tag_len()),
-            DOMException::new(
+            Error::dom(
                 format!("tag length must be {} bits", 8 * alg.tag_len()),
                 DOMExceptionName::NotSupportedError
             )
         );
-        anyhow::ensure!(
+        ensure!(
             data.len() >= alg.tag_len(),
-            DOMException::new(
+            Error::dom(
                 "The provided data is too small.",
                 DOMExceptionName::OperationError
             )
@@ -462,7 +454,7 @@ impl AesKey {
         let plaintext_len = key
             .open_in_place(
                 Nonce::try_assume_unique_for_key(&iv).map_err(|_| {
-                    DOMException::new(
+                    Error::dom(
                         format!("AES-GCM IV must be {} bits", 8 * alg.nonce_len()),
                         DOMExceptionName::NotSupportedError,
                     )
@@ -471,7 +463,7 @@ impl AesKey {
                 &mut data,
             )
             .map_err(|Unspecified| {
-                DOMException::new("Decryption failed", DOMExceptionName::OperationError)
+                Error::dom("Decryption failed", DOMExceptionName::OperationError)
             })?
             .len();
         data.truncate(plaintext_len);
@@ -479,12 +471,12 @@ impl AesKey {
     }
 }
 
-pub(crate) fn generate_key(
+pub fn generate_key(
     algorithm: AesKeyGenParams,
     _rng: &CryptoRng,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     check_usages_subset(
         &usages,
         &[

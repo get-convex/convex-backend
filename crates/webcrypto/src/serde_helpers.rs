@@ -1,4 +1,4 @@
-pub(crate) mod nullary_algorithm {
+pub mod nullary_algorithm {
     use std::marker::PhantomData;
 
     use serde::{
@@ -59,13 +59,13 @@ pub(crate) mod nullary_algorithm {
     }
     // Used to deserialize algorithms that can be provided as either a plain string
     // "SHA-1" or as an object {"name": "SHA-1"}
-    pub(crate) fn deserialize<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    pub fn deserialize<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
         d: D,
     ) -> Result<T, D::Error> {
         d.deserialize_any(VisitNullary::<'de, T>(PhantomData))
     }
 
-    pub(crate) fn serialize<S: Serializer, T: Serialize>(
+    pub fn serialize<S: Serializer, T: Serialize>(
         value: &T,
         serializer: S,
     ) -> Result<S::Ok, S::Error> {

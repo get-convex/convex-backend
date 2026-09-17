@@ -176,6 +176,18 @@ impl From<TypeError> for anyhow::Error {
     }
 }
 
+impl From<webcrypto::DOMExceptionName> for DOMExceptionName {
+    fn from(name: webcrypto::DOMExceptionName) -> Self {
+        match name {
+            webcrypto::DOMExceptionName::NotSupportedError => DOMExceptionName::NotSupportedError,
+            webcrypto::DOMExceptionName::SyntaxError => DOMExceptionName::SyntaxError,
+            webcrypto::DOMExceptionName::InvalidAccessError => DOMExceptionName::InvalidAccessError,
+            webcrypto::DOMExceptionName::DataError => DOMExceptionName::DataError,
+            webcrypto::DOMExceptionName::OperationError => DOMExceptionName::OperationError,
+        }
+    }
+}
+
 impl fmt::Display for JsException {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

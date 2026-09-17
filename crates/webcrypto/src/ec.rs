@@ -1,6 +1,5 @@
 use std::rc::Rc;
 
-use deno_core::v8;
 use indexmap::{
     indexset,
     IndexSet,
@@ -44,27 +43,22 @@ use spki::{
 
 use super::{
     check_usages_subset,
+    ensure,
     CryptoHash,
     CryptoKey,
     CryptoKeyKind,
     CryptoKeyPair,
+    CryptoRng,
+    DOMExceptionName,
+    Error,
     ImportKeyInput,
     JsonWebKey,
     KeyData,
     KeyFormat,
     KeyType,
     KeyUsage,
+    Result,
     URL_SAFE_FORGIVING,
-};
-use crate::{
-    convert_v8::{
-        DOMException,
-        DOMExceptionName,
-        FromV8,
-        TypeError,
-    },
-    environment::crypto_rng::CryptoRng,
-    strings,
 };
 
 // id-ecPublicKey OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840)
@@ -79,7 +73,7 @@ const ID_SECP521R1_OID: const_oid::ObjectIdentifier =
     const_oid::ObjectIdentifier::new_unwrap("1.3.132.0.35");
 
 #[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
-pub(crate) enum EcAlgorithm {
+pub enum EcAlgorithm {
     /// The "ECDSA" algorithm identifier is used to perform signing and
     /// verification using the ECDSA algorithm specified in [RFC6090] and using
     /// the SHA hash functions and elliptic curves defined in this
@@ -95,7 +89,7 @@ pub(crate) enum EcAlgorithm {
 /// The NamedCurve type represents named elliptic curves, which are a convenient
 /// way to specify the domain parameters of well-known elliptic curves.
 #[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
-pub(crate) enum NamedCurve {
+pub enum NamedCurve {
     /// NIST recommended curve P-256, also known as secp256r1.
     #[serde(rename = "P-256")]
     P256,
@@ -109,25 +103,25 @@ pub(crate) enum NamedCurve {
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct EcKeyAlgorithm {
-    name: EcAlgorithm,
+pub struct EcKeyAlgorithm {
+    pub name: EcAlgorithm,
     /// The namedCurve member represents the named curve that the key uses.
-    named_curve: NamedCurve,
+    pub named_curve: NamedCurve,
 }
 
-pub(crate) type EcKeyImportParams = EcKeyAlgorithm;
-pub(crate) type EcKeyGenParams = EcKeyAlgorithm;
+pub type EcKeyImportParams = EcKeyAlgorithm;
+pub type EcKeyGenParams = EcKeyAlgorithm;
 
 #[derive(Deserialize)]
-pub(crate) struct EcdsaParams {
+pub struct EcdsaParams {
     #[serde(with = "super::nullary_algorithm")]
-    hash: CryptoHash,
+    pub hash: CryptoHash,
 }
 
-pub(crate) struct EcPrivateKey {
+pub struct EcPrivateKey {
     private_key: PKey<Private>,
 }
-pub(crate) struct EcPublicKey {
+pub struct EcPublicKey {
     public_key: PKey<Public>,
 }
 
@@ -151,12 +145,12 @@ impl NamedCurve {
     }
 }
 
-pub(crate) fn generate_keypair(
+pub fn generate_keypair(
     algorithm: EcKeyGenParams,
     _rng: &CryptoRng,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKeyPair> {
+) -> Result<CryptoKeyPair> {
     let (private_usages, public_usages) = match algorithm.name {
         EcAlgorithm::Ecdsa => {
             check_usages_subset(&usages, &[KeyUsage::Sign, KeyUsage::Verify])?;
@@ -205,12 +199,12 @@ pub(crate) fn generate_keypair(
     })
 }
 
-pub(crate) fn import_key(
+pub fn import_key(
     input: ImportKeyInput,
     algorithm: EcKeyImportParams,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     let (private_usages, public_usages) = match algorithm.name {
         EcAlgorithm::Ecdsa => (&[KeyUsage::Sign][..], &[KeyUsage::Verify][..]),
         EcAlgorithm::Ecdh => (&[KeyUsage::DeriveKey, KeyUsage::DeriveBits][..], &[][..]),
@@ -221,15 +215,15 @@ pub(crate) fn import_key(
             let spki =
                 spki::SubjectPublicKeyInfo::<ObjectIdentifier, BitStringRef<'_>>::from_der(&der)
                     .map_err(|_| {
-                        DOMException::new(
+                        Error::dom(
                             "invalid SubjectPublicKeyInfo document",
                             DOMExceptionName::DataError,
                         )
                     })?;
             // id-ecPublicKey
-            anyhow::ensure!(
+            ensure!(
                 spki.algorithm.oid == ALGORITHM_OID,
-                DOMException::new(
+                Error::dom(
                     "algorithm oid is not id-ecPublicKey",
                     DOMExceptionName::DataError,
                 )
@@ -238,14 +232,16 @@ pub(crate) fn import_key(
                 Some(ID_SECP256R1_OID) => NamedCurve::P256,
                 Some(ID_SECP384R1_OID) => NamedCurve::P384,
                 Some(ID_SECP521R1_OID) => NamedCurve::P521,
-                _ => anyhow::bail!(DOMException::new(
-                    "unknown ECParameters",
-                    DOMExceptionName::DataError,
-                )),
+                _ => {
+                    return Err(Error::dom(
+                        "unknown ECParameters",
+                        DOMExceptionName::DataError,
+                    ))
+                },
             };
-            anyhow::ensure!(
+            ensure!(
                 curve == algorithm.named_curve,
-                DOMException::new("EC curve mismatch", DOMExceptionName::DataError)
+                Error::dom("EC curve mismatch", DOMExceptionName::DataError)
             );
             let group = EcGroup::from_curve_name(curve.nid())?;
             let mut ctx = BigNumContext::new()?;
@@ -253,7 +249,7 @@ pub(crate) fn import_key(
                 EcPoint::from_bytes(&group, spki.subject_public_key.raw_bytes(), &mut ctx)
                     .and_then(|p| EcKey::from_public_key(&group, &p))
                     .map_err(|_| {
-                        DOMException::new("invalid SubjectPublicKey", DOMExceptionName::DataError)
+                        Error::dom("invalid SubjectPublicKey", DOMExceptionName::DataError)
                     })?;
             Ok(CryptoKey {
                 kind: CryptoKeyKind::EcPublic {
@@ -269,19 +265,18 @@ pub(crate) fn import_key(
         },
         ImportKeyInput::Pkcs8(der) => {
             check_usages_subset(&usages, private_usages)?;
-            let pki = PKey::private_key_from_pkcs8(&der).map_err(|_| {
-                DOMException::new("invalid PublicKeyInfo", DOMExceptionName::DataError)
-            })?;
+            let pki = PKey::private_key_from_pkcs8(&der)
+                .map_err(|_| Error::dom("invalid PublicKeyInfo", DOMExceptionName::DataError))?;
             let ec_key = pki
                 .ec_key()
-                .map_err(|_| DOMException::new("not an EC key", DOMExceptionName::DataError))?;
-            anyhow::ensure!(
+                .map_err(|_| Error::dom("not an EC key", DOMExceptionName::DataError))?;
+            ensure!(
                 ec_key.group().curve_name() == Some(algorithm.named_curve.nid()),
-                DOMException::new("EC curve mismatch", DOMExceptionName::DataError)
+                Error::dom("EC curve mismatch", DOMExceptionName::DataError)
             );
             ec_key
                 .check_key()
-                .map_err(|_| DOMException::new("invalid EC key", DOMExceptionName::DataError))?;
+                .map_err(|_| Error::dom("invalid EC key", DOMExceptionName::DataError))?;
             Ok(CryptoKey {
                 kind: CryptoKeyKind::EcPrivate {
                     algorithm,
@@ -307,9 +302,9 @@ pub(crate) fn import_key(
                 Some("P-521") => Some(NamedCurve::P521),
                 _ => None,
             };
-            anyhow::ensure!(
+            ensure!(
                 curve == Some(algorithm.named_curve),
-                DOMException::new("EC curve mismatch", DOMExceptionName::DataError)
+                Error::dom("EC curve mismatch", DOMExceptionName::DataError)
             );
             jwk.check_alg(match algorithm.named_curve {
                 NamedCurve::P256 => "ES256",
@@ -336,7 +331,7 @@ pub(crate) fn import_key(
                     })
             };
             let coord_error = || {
-                DOMException::new(
+                Error::dom(
                     "invalid EC public key coordinates",
                     DOMExceptionName::DataError,
                 )
@@ -364,7 +359,7 @@ pub(crate) fn import_key(
                         EcKey::from_private_components(&group, &bn, public_key.public_key()).ok()
                     })
                     .ok_or_else(|| {
-                        DOMException::new("invalid EC private key", DOMExceptionName::DataError)
+                        Error::dom("invalid EC private key", DOMExceptionName::DataError)
                     })?;
                 Ok(CryptoKey {
                     kind: CryptoKeyKind::EcPrivate {
@@ -397,9 +392,7 @@ pub(crate) fn import_key(
             let mut ctx = BigNumContext::new()?;
             let public_key = EcPoint::from_bytes(&group, &bytes, &mut ctx)
                 .and_then(|p| EcKey::from_public_key(&group, &p))
-                .map_err(|_| {
-                    DOMException::new("invalid EC public key", DOMExceptionName::DataError)
-                })?;
+                .map_err(|_| Error::dom("invalid EC public key", DOMExceptionName::DataError))?;
             Ok(CryptoKey {
                 kind: CryptoKeyKind::EcPublic {
                     algorithm,
@@ -415,10 +408,7 @@ pub(crate) fn import_key(
     }
 }
 
-fn public_jwt<T: HasPublic>(
-    algorithm: &EcKeyAlgorithm,
-    ec_key: &EcKey<T>,
-) -> anyhow::Result<JsonWebKey> {
+fn public_jwt<T: HasPublic>(algorithm: &EcKeyAlgorithm, ec_key: &EcKey<T>) -> Result<JsonWebKey> {
     let group = ec_key.group();
     let mut ctx = BigNumContext::new()?;
     let (mut p, mut _a, mut _b) = (BigNum::new()?, BigNum::new()?, BigNum::new()?);
@@ -451,11 +441,7 @@ fn public_jwt<T: HasPublic>(
 }
 
 impl EcPrivateKey {
-    pub(crate) fn export_key(
-        &self,
-        algorithm: &EcKeyAlgorithm,
-        format: KeyFormat,
-    ) -> anyhow::Result<KeyData> {
+    pub fn export_key(&self, algorithm: &EcKeyAlgorithm, format: KeyFormat) -> Result<KeyData> {
         match format {
             KeyFormat::Pkcs8 => Ok(KeyData::Raw(self.private_key.private_key_to_pkcs8()?)),
             KeyFormat::Jwk => {
@@ -469,29 +455,29 @@ impl EcPrivateKey {
                     ..public_jwt(algorithm, &ec_key)?
                 }))
             },
-            KeyFormat::Spki | KeyFormat::Raw => anyhow::bail!(DOMException::new(
+            KeyFormat::Spki | KeyFormat::Raw => Err(Error::dom(
                 "invalid export format for EC private key",
-                DOMExceptionName::InvalidAccessError
+                DOMExceptionName::InvalidAccessError,
             )),
         }
     }
 
-    pub(crate) fn sign(
+    pub fn sign(
         &self,
         params: EcdsaParams,
         algorithm: &EcKeyAlgorithm,
         _rng: &CryptoRng,
         data: &[u8],
-    ) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(
+    ) -> Result<Vec<u8>> {
+        ensure!(
             algorithm.name == EcAlgorithm::Ecdsa,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
         );
         let mut signer = Signer::new(params.hash.openssl_message_digest(), &self.private_key)?;
-        Ok(signer
+        signer
             .len()
             .and_then(|len| {
                 let mut der = vec![0; len];
@@ -507,18 +493,12 @@ impl EcPrivateKey {
                 fixed_sig.extend_from_slice(&sig.s().to_vec_padded(size as i32)?);
                 Ok(fixed_sig)
             })
-            .map_err(|_| {
-                DOMException::new("ECDSA signing failed", DOMExceptionName::OperationError)
-            })?)
+            .map_err(|_| Error::dom("ECDSA signing failed", DOMExceptionName::OperationError))
     }
 }
 
 impl EcPublicKey {
-    pub(crate) fn export_key(
-        &self,
-        algorithm: &EcKeyAlgorithm,
-        format: KeyFormat,
-    ) -> anyhow::Result<KeyData> {
+    pub fn export_key(&self, algorithm: &EcKeyAlgorithm, format: KeyFormat) -> Result<KeyData> {
         match format {
             KeyFormat::Spki => Ok(KeyData::Raw(self.public_key.ec_key()?.public_key_to_der()?)),
             KeyFormat::Jwk => {
@@ -535,23 +515,23 @@ impl EcPublicKey {
                     &mut ctx,
                 )?))
             },
-            KeyFormat::Pkcs8 => anyhow::bail!(DOMException::new(
+            KeyFormat::Pkcs8 => Err(Error::dom(
                 "invalid export format for EC public key",
-                DOMExceptionName::InvalidAccessError
+                DOMExceptionName::InvalidAccessError,
             )),
         }
     }
 
-    pub(crate) fn verify(
+    pub fn verify(
         &self,
         params: EcdsaParams,
         algorithm: &EcKeyAlgorithm,
         data: &[u8],
         signature: &[u8],
-    ) -> anyhow::Result<bool> {
-        anyhow::ensure!(
+    ) -> Result<bool> {
+        ensure!(
             algorithm.name == EcAlgorithm::Ecdsa,
-            DOMException::new(
+            Error::dom(
                 "invalid algorithm for key",
                 DOMExceptionName::InvalidAccessError
             )
@@ -566,56 +546,39 @@ impl EcPublicKey {
             EcdsaSig::from_private_components(BigNum::from_slice(r)?, BigNum::from_slice(s)?)?;
         let der = sig.to_der()?;
         let mut verifier = Verifier::new(params.hash.openssl_message_digest(), &self.public_key)?;
-        Ok(verifier.verify_oneshot(&der, data).map_err(|_| {
-            DOMException::new(
+        verifier.verify_oneshot(&der, data).map_err(|_| {
+            Error::dom(
                 "ECDSA verification failed",
                 DOMExceptionName::OperationError,
             )
-        })?)
+        })
     }
 }
 
 /// Parameters for ECDH deriveBits/deriveKey operations.
 /// Contains the public key of the other party for the key agreement.
-pub(crate) struct EcdhKeyDeriveParams {
-    public_key: Rc<CryptoKey>,
-}
-
-impl FromV8 for EcdhKeyDeriveParams {
-    type Output = EcdhKeyDeriveParams;
-
-    fn from_v8<'s>(
-        scope: &mut v8::PinScope<'s, '_>,
-        input: v8::Local<'s, v8::Value>,
-    ) -> anyhow::Result<Self::Output> {
-        let object: v8::Local<v8::Object> = input.try_cast()?;
-        let public_str = strings::public.create(scope)?;
-        let public_key_value = object.get(scope, public_str.into()).ok_or_else(|| {
-            anyhow::anyhow!(TypeError::new("ECDH algorithm requires 'public' parameter"))
-        })?;
-        let public_key = CryptoKey::from_v8(scope, public_key_value)?;
-        Ok(EcdhKeyDeriveParams { public_key })
-    }
+pub struct EcdhKeyDeriveParams {
+    pub public_key: Rc<CryptoKey>,
 }
 
 /// Perform ECDH key derivation to compute shared bits.
-pub(crate) fn derive_bits(
+pub fn derive_bits(
     params: EcdhKeyDeriveParams,
     base_key: &CryptoKey,
     length: Option<usize>,
-) -> anyhow::Result<Vec<u8>> {
+) -> Result<Vec<u8>> {
     // Get the private key from base_key
     let CryptoKeyKind::EcPrivate { algorithm, key } = &base_key.kind else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "Base key must be an EC private key",
-            DOMExceptionName::InvalidAccessError
-        ))
+            DOMExceptionName::InvalidAccessError,
+        ));
     };
 
     // Ensure the algorithm is ECDH
-    anyhow::ensure!(
+    ensure!(
         algorithm.name == EcAlgorithm::Ecdh,
-        DOMException::new(
+        Error::dom(
             "Base key algorithm must be ECDH",
             DOMExceptionName::InvalidAccessError
         )
@@ -627,25 +590,25 @@ pub(crate) fn derive_bits(
         key: public_key,
     } = &params.public_key.kind
     else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "Public key must be an EC public key",
-            DOMExceptionName::InvalidAccessError
-        ))
+            DOMExceptionName::InvalidAccessError,
+        ));
     };
 
     // Ensure the public key algorithm is ECDH
-    anyhow::ensure!(
+    ensure!(
         public_algorithm.name == EcAlgorithm::Ecdh,
-        DOMException::new(
+        Error::dom(
             "Public key algorithm must be ECDH",
             DOMExceptionName::InvalidAccessError
         )
     );
 
     // Ensure both keys use the same curve
-    anyhow::ensure!(
+    ensure!(
         algorithm.named_curve == public_algorithm.named_curve,
-        DOMException::new(
+        Error::dom(
             "Private and public keys must use the same curve",
             DOMExceptionName::InvalidAccessError
         )
@@ -655,7 +618,7 @@ pub(crate) fn derive_bits(
     let mut deriver = Deriver::new(&key.private_key)?;
     deriver.set_peer(&public_key.public_key)?;
     let shared_secret = deriver.derive_to_vec().map_err(|_| {
-        DOMException::new(
+        Error::dom(
             "ECDH key derivation failed",
             DOMExceptionName::OperationError,
         )
@@ -671,16 +634,16 @@ pub(crate) fn derive_bits(
             shared_secret
         },
         Some(length) => {
-            anyhow::ensure!(
+            ensure!(
                 length % 8 == 0,
-                DOMException::new(
+                Error::dom(
                     "length must be a multiple of 8",
                     DOMExceptionName::OperationError
                 )
             );
-            anyhow::ensure!(
+            ensure!(
                 length <= shared_secret_bits,
-                DOMException::new(
+                Error::dom(
                     format!(
                         "requested length {} exceeds shared secret length {}",
                         length, shared_secret_bits

@@ -5373,13 +5373,11 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "async_lru",
- "aws-lc-rs",
  "axum",
  "base64 0.13.1",
  "bytes",
  "cmd_util",
  "common",
- "const-oid 0.9.6",
  "convex_macro",
  "convex_sync_types",
  "database",
@@ -5408,12 +5406,10 @@ dependencies = [
  "model",
  "multer",
  "must-let",
- "openssl 0.10.81 (git+https://github.com/get-convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659)",
  "parking_lot",
  "paste",
  "pb",
  "phf 0.13.1",
- "pkcs8",
  "pretty_assertions",
  "prometheus",
  "proptest",
@@ -5435,7 +5431,6 @@ dependencies = [
  "shape_inference",
  "slab",
  "sourcemap",
- "spki",
  "storage",
  "strum 0.28.0",
  "thiserror 2.0.20",
@@ -5449,6 +5444,7 @@ dependencies = [
  "value",
  "vector",
  "walkdir",
+ "webcrypto",
 ]
 
 [[package]]
@@ -11934,6 +11930,25 @@ checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webcrypto"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "aws-lc-rs",
+ "base64 0.13.1",
+ "const-oid 0.9.6",
+ "indexmap 2.14.0",
+ "itertools 0.14.0",
+ "openssl 0.10.81 (git+https://github.com/get-convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659)",
+ "pkcs8",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "spki",
+ "strum 0.28.0",
 ]
 
 [[package]]

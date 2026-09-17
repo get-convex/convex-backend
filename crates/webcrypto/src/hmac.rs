@@ -7,44 +7,41 @@ use serde::{
 
 use super::{
     check_usages_subset,
+    ensure,
     CryptoHash,
     CryptoKey,
     CryptoKeyKind,
+    CryptoRng,
+    DOMExceptionName,
+    Error,
     ImportKeyInput,
     JsonWebKey,
     KeyData,
     KeyFormat,
     KeyType,
     KeyUsage,
+    Result,
     URL_SAFE_FORGIVING,
-};
-use crate::{
-    convert_v8::{
-        DOMException,
-        DOMExceptionName,
-        TypeError,
-    },
-    environment::crypto_rng::CryptoRng,
 };
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct HmacImportParams {
+pub struct HmacImportParams {
     /// The hash member represents the inner hash function to use.
     #[serde(with = "super::nullary_algorithm")]
-    hash: CryptoHash,
+    pub hash: CryptoHash,
     /// The length member represent the length (in bits) of the key.
-    length: Option<u32>,
+    pub length: Option<u32>,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "name")]
 #[serde(rename = "HMAC")]
-pub(crate) struct HmacKeyAlgorithm {
+pub struct HmacKeyAlgorithm {
     /// The hash member represents the inner hash function to use.
     #[serde(with = "super::nullary_algorithm")]
-    hash: CryptoHash,
+    pub hash: CryptoHash,
     /// The length member represent the length (in bits) of the key.
-    length: u32,
+    pub length: u32,
 }
 fn jwk_alg(hash: &CryptoHash) -> &'static str {
     match hash {
@@ -55,19 +52,19 @@ fn jwk_alg(hash: &CryptoHash) -> &'static str {
     }
 }
 
-pub(crate) type HmacKeyGenParams = HmacImportParams;
+pub type HmacKeyGenParams = HmacImportParams;
 
-pub(crate) struct HmacKey {
+pub struct HmacKey {
     data: Vec<u8>,
     key: hmac::Key,
 }
 
-pub(crate) fn generate_key(
+pub fn generate_key(
     algorithm: HmacKeyGenParams,
     _rng: &CryptoRng,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     check_usages_subset(&usages, &[KeyUsage::Sign, KeyUsage::Verify])?;
     let length = algorithm.get_key_length()?;
     let mut key_bytes = vec![0u8; length.div_ceil(8)];
@@ -89,12 +86,12 @@ pub(crate) fn generate_key(
     })
 }
 
-pub(crate) fn import_key(
+pub fn import_key(
     input: ImportKeyInput,
     algorithm: HmacImportParams,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     let data = match input {
         ImportKeyInput::Raw(data) => data,
         ImportKeyInput::Jwk(jwk) => {
@@ -103,41 +100,36 @@ pub(crate) fn import_key(
                 .k
                 .as_ref()
                 .and_then(|k| base64::decode_config(k, URL_SAFE_FORGIVING).ok())
-                .ok_or_else(|| {
-                    anyhow::anyhow!(DOMException::new(
-                        "invalid key data",
-                        DOMExceptionName::DataError
-                    ))
-                })?;
+                .ok_or_else(|| Error::dom("invalid key data", DOMExceptionName::DataError))?;
             jwk.check_alg(jwk_alg(&algorithm.hash))?;
             jwk.check_key_ops_and_use(&usages, "sig")?;
             jwk.check_ext(extractable)?;
             data
         },
         ImportKeyInput::Pkcs8(_) | ImportKeyInput::Spki(_) => {
-            anyhow::bail!(DOMException::new(
+            return Err(Error::dom(
                 "unsupported import format",
-                DOMExceptionName::NotSupportedError
+                DOMExceptionName::NotSupportedError,
             ))
         },
     };
     let mut length = data.len() * 8;
-    anyhow::ensure!(
+    ensure!(
         length > 0,
-        DOMException::new("provided HMAC key is empty", DOMExceptionName::DataError)
+        Error::dom("provided HMAC key is empty", DOMExceptionName::DataError)
     );
     if algorithm.length.is_some() {
         let requested_len = algorithm.get_key_length()?;
-        anyhow::ensure!(
+        ensure!(
             requested_len <= length,
-            DOMException::new(
+            Error::dom(
                 "provided HMAC key is shorter than requested length",
                 DOMExceptionName::DataError
             )
         );
-        anyhow::ensure!(
+        ensure!(
             requested_len > length - 8,
-            DOMException::new(
+            Error::dom(
                 "provided HMAC key is longer than requested length",
                 DOMExceptionName::DataError
             )
@@ -162,11 +154,7 @@ pub(crate) fn import_key(
 }
 
 impl HmacKey {
-    pub(crate) fn export_key(
-        &self,
-        algorithm: &HmacKeyAlgorithm,
-        format: KeyFormat,
-    ) -> anyhow::Result<KeyData> {
+    pub fn export_key(&self, algorithm: &HmacKeyAlgorithm, format: KeyFormat) -> Result<KeyData> {
         match format {
             KeyFormat::Raw => Ok(KeyData::Raw(self.data.clone())),
             KeyFormat::Jwk => {
@@ -178,24 +166,24 @@ impl HmacKey {
                 };
                 Ok(KeyData::Jwk(jwk))
             },
-            KeyFormat::Pkcs8 | KeyFormat::Spki => anyhow::bail!(DOMException::new(
+            KeyFormat::Pkcs8 | KeyFormat::Spki => Err(Error::dom(
                 "unsupported export format",
-                DOMExceptionName::NotSupportedError
+                DOMExceptionName::NotSupportedError,
             )),
         }
     }
 }
 
 impl HmacImportParams {
-    pub(crate) fn get_key_length(&self) -> anyhow::Result<usize> {
+    pub fn get_key_length(&self) -> Result<usize> {
         if let Some(length) = self.length {
-            anyhow::ensure!(length > 0, TypeError::new("length must not be zero"));
+            ensure!(length > 0, Error::type_error("length must not be zero"));
             // The spec allows any bit length, but node.js, Deno, Bun, Firefox, and Safari
             // don't implement fractional byte lengths; only Chrome does.
             // Node raises a TypeError.
-            anyhow::ensure!(
+            ensure!(
                 length % 8 == 0,
-                TypeError::new("length must be a multiple of 8")
+                Error::type_error("length must be a multiple of 8")
             );
             Ok(length as usize)
         } else {
@@ -214,16 +202,11 @@ fn hmac_algorithm(hash: CryptoHash) -> hmac::Algorithm {
 }
 
 impl HmacKey {
-    pub(crate) fn sign(&self, _algorithm: &HmacKeyAlgorithm, data: &[u8]) -> Vec<u8> {
+    pub fn sign(&self, _algorithm: &HmacKeyAlgorithm, data: &[u8]) -> Vec<u8> {
         hmac::sign(&self.key, data).as_ref().to_vec()
     }
 
-    pub(crate) fn verify(
-        &self,
-        _algorithm: &HmacKeyAlgorithm,
-        data: &[u8],
-        signature: &[u8],
-    ) -> bool {
+    pub fn verify(&self, _algorithm: &HmacKeyAlgorithm, data: &[u8], signature: &[u8]) -> bool {
         hmac::verify(&self.key, data, signature).is_ok()
     }
 }

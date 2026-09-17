@@ -9,81 +9,81 @@ use serde::{
 
 use super::{
     check_usages_subset,
+    ensure,
     CryptoHash,
     CryptoKey,
     CryptoKeyKind,
+    DOMExceptionName,
+    Error,
     ImportKeyInput,
     KeyType,
     KeyUsage,
+    Result,
     DERIVE_BITS_MAX,
 };
-use crate::convert_v8::{
-    DOMException,
-    DOMExceptionName,
-};
 
-pub(crate) struct Pbkdf2Key {
+pub struct Pbkdf2Key {
     secret: Vec<u8>,
 }
 
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
-pub(crate) struct ImportKeyAlgorithm;
+pub struct ImportKeyAlgorithm;
 
 #[derive(Deserialize, Debug)]
-pub(crate) struct Pbkdf2Params {
+pub struct Pbkdf2Params {
     #[serde(with = "super::nullary_algorithm")]
-    hash: CryptoHash,
-    iterations: u32,
-    salt: serde_bytes::ByteBuf,
+    pub hash: CryptoHash,
+    pub iterations: u32,
+    pub salt: serde_bytes::ByteBuf,
 }
 
 #[derive(Serialize, Debug)]
 #[serde(rename = "PBKDF2")]
 #[serde(tag = "name")]
-pub(crate) struct Pbkdf2Algorithm {}
+pub struct Pbkdf2Algorithm {}
 
-pub(crate) fn derive_bits(
+pub fn derive_bits(
     algorithm: Pbkdf2Params,
     key: &CryptoKey,
     length: Option<usize>,
-) -> anyhow::Result<Vec<u8>> {
+) -> Result<Vec<u8>> {
     let Pbkdf2Params {
         hash,
         iterations,
         salt,
     } = algorithm;
     let Some(iterations) = NonZeroU32::new(iterations) else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "iterations cannot be zero",
-            DOMExceptionName::OperationError
-        ))
+            DOMExceptionName::OperationError,
+        ));
     };
     let Some(length) = length else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "length cannot be null",
-            DOMExceptionName::OperationError
-        ))
+            DOMExceptionName::OperationError,
+        ));
     };
-    anyhow::ensure!(
+    ensure!(
         length % 8 == 0,
-        DOMException::new(
+        Error::dom(
             "length must be a multiple of 8",
             DOMExceptionName::OperationError
         )
     );
-    anyhow::ensure!(
+    ensure!(
         length <= DERIVE_BITS_MAX,
-        DOMException::new(
+        Error::dom(
             format!("cannot generate more than {DERIVE_BITS_MAX} bits"),
             DOMExceptionName::OperationError
         )
     );
     let CryptoKeyKind::Pbkdf2 { key, .. } = &key.kind else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "Key algorithm mismatch",
-            DOMExceptionName::InvalidAccessError
-        ))
+            DOMExceptionName::InvalidAccessError,
+        ));
     };
     let algorithm = match hash {
         CryptoHash::Sha1 => pbkdf2::PBKDF2_HMAC_SHA1,
@@ -97,21 +97,21 @@ pub(crate) fn derive_bits(
     Ok(out)
 }
 
-pub(crate) fn import_key(
+pub fn import_key(
     format: ImportKeyInput,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     let ImportKeyInput::Raw(secret) = format else {
-        anyhow::bail!(DOMException::new(
+        return Err(Error::dom(
             "unsupported input format",
-            DOMExceptionName::NotSupportedError
-        ))
+            DOMExceptionName::NotSupportedError,
+        ));
     };
     check_usages_subset(&usages, &[KeyUsage::DeriveKey, KeyUsage::DeriveBits])?;
-    anyhow::ensure!(
+    ensure!(
         !extractable,
-        DOMException::new(
+        Error::dom(
             "PBKDF2 keys cannot be extractable",
             DOMExceptionName::SyntaxError
         )

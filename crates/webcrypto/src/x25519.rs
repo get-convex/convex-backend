@@ -22,23 +22,21 @@ use spki::der::{
 
 use super::{
     check_usages_subset,
+    ensure,
     CryptoKey,
     CryptoKeyKind,
     CryptoKeyPair,
+    CryptoRng,
+    DOMExceptionName,
+    Error,
     ImportKeyInput,
     JsonWebKey,
     KeyData,
     KeyFormat,
     KeyType,
     KeyUsage,
+    Result,
     URL_SAFE_FORGIVING,
-};
-use crate::{
-    convert_v8::{
-        DOMException,
-        DOMExceptionName,
-    },
-    environment::crypto_rng::CryptoRng,
 };
 
 // id-X25519 OBJECT IDENTIFIER ::= { 1 3 101 110 }
@@ -48,21 +46,21 @@ const X25519_OID: const_oid::ObjectIdentifier =
 #[derive(Serialize)]
 #[serde(tag = "name")]
 #[serde(rename = "X25519")]
-pub(crate) struct X25519Algorithm {}
+pub struct X25519Algorithm {}
 
-pub(crate) struct X25519PrivateKey {
+pub struct X25519PrivateKey {
     private_key: agreement::PrivateKey,
 }
 
-pub(crate) struct X25519PublicKey {
+pub struct X25519PublicKey {
     public_key: agreement::UnparsedPublicKey<[u8; 32]>,
 }
 
-pub(crate) fn generate_keypair(
+pub fn generate_keypair(
     _rng: &CryptoRng,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKeyPair> {
+) -> Result<CryptoKeyPair> {
     check_usages_subset(&usages, &[KeyUsage::DeriveKey, KeyUsage::DeriveBits])?;
     let private_key = agreement::PrivateKey::generate(&X25519)?;
     let public_key = private_key.compute_public_key()?;
@@ -93,31 +91,31 @@ pub(crate) fn generate_keypair(
     })
 }
 
-pub(crate) fn import_key(
+pub fn import_key(
     format: ImportKeyInput,
     extractable: bool,
     usages: IndexSet<KeyUsage>,
-) -> anyhow::Result<CryptoKey> {
+) -> Result<CryptoKey> {
     match format {
         ImportKeyInput::Spki(der) => {
             check_usages_subset(&usages, &[])?;
             let spki = spki::SubjectPublicKeyInfo::<AnyRef, BitStringRef<'_>>::from_der(&der)
                 .map_err(|_| {
-                    DOMException::new(
+                    Error::dom(
                         "invalid SubjectPublicKeyInfo document",
                         DOMExceptionName::DataError,
                     )
                 })?;
-            anyhow::ensure!(
+            ensure!(
                 spki.algorithm.oid == X25519_OID,
-                DOMException::new(
+                Error::dom(
                     "SubjectPublicKeyInfo algorithm is not id-X25519",
                     DOMExceptionName::DataError
                 )
             );
-            anyhow::ensure!(
+            ensure!(
                 spki.algorithm.parameters.is_none(),
-                DOMException::new(
+                Error::dom(
                     "SubjectPublicKeyInfo parameters must not be present",
                     DOMExceptionName::DataError
                 )
@@ -127,7 +125,7 @@ pub(crate) fn import_key(
                 .as_bytes()
                 .and_then(|x| <[u8; 32]>::try_from(x).ok())
                 .ok_or_else(|| {
-                    DOMException::new(
+                    Error::dom(
                         "SubjectPublicKeyInfo public key has wrong length",
                         DOMExceptionName::DataError,
                     )
@@ -147,18 +145,18 @@ pub(crate) fn import_key(
         ImportKeyInput::Pkcs8(der) => {
             check_usages_subset(&usages, &[KeyUsage::DeriveKey, KeyUsage::DeriveBits])?;
             let pki = pkcs8::PrivateKeyInfo::from_der(&der).map_err(|_| {
-                DOMException::new("invalid X25519 PrivateKeyInfo", DOMExceptionName::DataError)
+                Error::dom("invalid X25519 PrivateKeyInfo", DOMExceptionName::DataError)
             })?;
-            anyhow::ensure!(
+            ensure!(
                 pki.algorithm.oid == X25519_OID,
-                DOMException::new(
+                Error::dom(
                     "PrivateKeyInfo algorithm is not id-X25519",
                     DOMExceptionName::DataError,
                 )
             );
-            anyhow::ensure!(
+            ensure!(
                 pki.algorithm.parameters.is_none(),
-                DOMException::new(
+                Error::dom(
                     "PrivateKeyInfo parameters must not be present",
                     DOMExceptionName::DataError
                 )
@@ -168,7 +166,7 @@ pub(crate) fn import_key(
                 .ok()
                 .and_then(|pk| agreement::PrivateKey::from_private_key(&X25519, pk.as_bytes()).ok())
                 .ok_or_else(|| {
-                    DOMException::new("invalid X25519 private key", DOMExceptionName::DataError)
+                    Error::dom("invalid X25519 private key", DOMExceptionName::DataError)
                 })?;
             Ok(CryptoKey {
                 kind: CryptoKeyKind::X25519Private {
@@ -195,26 +193,16 @@ pub(crate) fn import_key(
                 .as_ref()
                 .and_then(|k| base64::decode_config(k, URL_SAFE_FORGIVING).ok())
                 .and_then(|x| <[u8; 32]>::try_from(x).ok())
-                .ok_or_else(|| {
-                    anyhow::anyhow!(DOMException::new(
-                        "invalid key `x`",
-                        DOMExceptionName::DataError
-                    ))
-                })?;
+                .ok_or_else(|| Error::dom("invalid key `x`", DOMExceptionName::DataError))?;
             if let Some(d) = jwk.d {
                 let private_key = base64::decode_config(&d, URL_SAFE_FORGIVING)
                     .ok()
                     .and_then(|d| agreement::PrivateKey::from_private_key(&X25519, &d).ok())
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(DOMException::new(
-                            "invalid key `d`",
-                            DOMExceptionName::DataError
-                        ))
-                    })?;
+                    .ok_or_else(|| Error::dom("invalid key `d`", DOMExceptionName::DataError))?;
                 let public_key = private_key.compute_public_key()?;
-                anyhow::ensure!(
+                ensure!(
                     x == public_key.as_ref(),
-                    DOMException::new("JWT `d` and `x` do not match", DOMExceptionName::DataError)
+                    Error::dom("JWT `d` and `x` do not match", DOMExceptionName::DataError)
                 );
                 Ok(CryptoKey {
                     kind: CryptoKeyKind::X25519Private {
@@ -242,7 +230,7 @@ pub(crate) fn import_key(
         ImportKeyInput::Raw(raw) => {
             check_usages_subset(&usages, &[])?;
             let raw = <[u8; 32]>::try_from(raw).map_err(|_| {
-                DOMException::new(
+                Error::dom(
                     "X25519 public key must be 256 bits",
                     DOMExceptionName::DataError,
                 )
@@ -263,7 +251,7 @@ pub(crate) fn import_key(
 }
 
 impl X25519PrivateKey {
-    pub(crate) fn export_key(&self, format: KeyFormat) -> anyhow::Result<KeyData> {
+    pub fn export_key(&self, format: KeyFormat) -> Result<KeyData> {
         match format {
             KeyFormat::Pkcs8 => Ok(KeyData::Raw(
                 pkcs8::PrivateKeyInfo {
@@ -293,16 +281,16 @@ impl X25519PrivateKey {
                 };
                 Ok(KeyData::Jwk(jwk))
             },
-            KeyFormat::Raw | KeyFormat::Spki => anyhow::bail!(DOMException::new(
+            KeyFormat::Raw | KeyFormat::Spki => Err(Error::dom(
                 "invalid export format for X25519 private key",
-                DOMExceptionName::InvalidAccessError
+                DOMExceptionName::InvalidAccessError,
             )),
         }
     }
 }
 
 impl X25519PublicKey {
-    pub(crate) fn export_key(&self, format: KeyFormat) -> anyhow::Result<KeyData> {
+    pub fn export_key(&self, format: KeyFormat) -> Result<KeyData> {
         match format {
             KeyFormat::Spki => Ok(KeyData::Raw(
                 spki::SubjectPublicKeyInfo {
@@ -326,9 +314,9 @@ impl X25519PublicKey {
                 Ok(KeyData::Jwk(jwk))
             },
             KeyFormat::Raw => Ok(KeyData::Raw(self.public_key.bytes().to_vec())),
-            KeyFormat::Pkcs8 => anyhow::bail!(DOMException::new(
+            KeyFormat::Pkcs8 => Err(Error::dom(
                 "invalid export format for X25519 public key",
-                DOMExceptionName::InvalidAccessError
+                DOMExceptionName::InvalidAccessError,
             )),
         }
     }
