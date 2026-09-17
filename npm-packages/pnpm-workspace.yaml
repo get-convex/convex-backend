@@ -187,6 +187,7 @@ minimumReleaseAgeExclude:
   - brace-expansion
   # Renovate security update: svgo@4.1.0
   - svgo@4.1.0
+  - adm-zip@0.6.1
   # First-party publish; the convex-test docs often reference new features
   - convex-test
 
