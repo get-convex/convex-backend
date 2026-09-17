@@ -413,8 +413,19 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
         ExecutionScope::new(v8_scope)
     }
 
+    /// Drains the microtask queue and the message loop.
+    ///
+    /// An isolate with an isolate-level termination is discarded and must not
+    /// enter V8 again. Each drain can reach the heap limit and terminate the
+    /// isolate, so the check runs before each V8 call.
     pub fn checkpoint(&mut self) {
+        if self.handle.is_not_clean().is_some() {
+            return;
+        }
         self.scope.perform_microtask_checkpoint();
+        if self.handle.is_not_clean().is_some() {
+            return;
+        }
         pump_message_loop(self.scope);
     }
 

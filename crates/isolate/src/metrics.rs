@@ -668,6 +668,14 @@ pub fn log_isolate_out_of_memory() {
     log_counter(&ISOLATE_OUT_OF_MEMORY_TOTAL, 1);
 }
 
+register_convex_counter!(
+    ISOLATE_HEAP_LIMIT_CALLBACK_REPEATED_TOTAL,
+    "Number of near-heap-limit callbacks for an isolate that was already terminated"
+);
+pub fn log_isolate_heap_limit_callback_repeated(count: u64) {
+    log_counter(&ISOLATE_HEAP_LIMIT_CALLBACK_REPEATED_TOTAL, count);
+}
+
 pub fn record_component_function_path(component_function_path: &ResolvedComponentFunctionPath) {
     LocalSpan::add_event(Event::new("component_function_path").with_properties(|| {
         let mut labels = vec![(

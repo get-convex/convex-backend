@@ -4,7 +4,13 @@ use std::{
     mem::ManuallyDrop,
     os::raw::c_void,
     ptr,
-    sync::Arc,
+    sync::{
+        atomic::{
+            AtomicU32,
+            Ordering,
+        },
+        Arc,
+    },
     time::Duration,
 };
 
@@ -45,6 +51,7 @@ use crate::{
         create_isolate_timer,
         destroy_isolate_timer,
         log_heap_statistics,
+        log_isolate_heap_limit_callback_repeated,
         rejected_before_execution_error,
         RejectedBeforeExecutionReason,
     },
@@ -195,6 +202,7 @@ impl<RT: Runtime> Isolate<RT> {
         // we'll take back in the `Isolate`'s destructor.
         let heap_context = Box::new(HeapContext {
             handle: handle.clone(),
+            callback_count: AtomicU32::new(0),
         });
         let heap_ctx_ptr = Box::into_raw(heap_context);
         v8_isolate.add_near_heap_limit_callback(
@@ -273,16 +281,23 @@ impl<RT: Runtime> Isolate<RT> {
         &mut self,
         context_cache: &mut ContextCache,
     ) -> Result<(), IsolateNotClean> {
+        // A terminated isolate must not enter V8 again. Each V8 call below can
+        // reach the heap limit and terminate the isolate, so check after each.
+        if let Some(not_clean) = self.handle.is_not_clean() {
+            return Err(not_clean);
+        }
         // The microtask queue should be empty.
         // v8 doesn't expose whether it's empty, so we empty it ourselves.
         // TODO(CX-2874) use a different microtask queue for each context.
         self.v8_isolate.perform_microtask_checkpoint();
-        pump_message_loop(&self.v8_isolate);
-
-        // Isolate has not been terminated by heap overflow, system error, or timeout.
         if let Some(not_clean) = self.handle.is_not_clean() {
             return Err(not_clean);
         }
+        pump_message_loop(&self.v8_isolate);
+        if let Some(not_clean) = self.handle.is_not_clean() {
+            return Err(not_clean);
+        }
+
         // The heap should have enough memory available.
         let stats = self.v8_isolate.get_heap_statistics();
         log_heap_statistics(&stats);
@@ -352,6 +367,13 @@ impl<RT: Runtime> Drop for Isolate<RT> {
 
             // Now that the callback is gone, we can free its context.
             let heap_ctx = unsafe { Box::from_raw(self.heap_ctx_ptr) };
+            let repeats = heap_ctx
+                .callback_count
+                .load(Ordering::Relaxed)
+                .saturating_sub(1);
+            if repeats > 0 {
+                log_isolate_heap_limit_callback_repeated(repeats.into());
+            }
             drop(heap_ctx);
 
             self.heap_ctx_ptr = ptr::null_mut();
@@ -370,20 +392,31 @@ impl<RT: Runtime> Drop for Isolate<RT> {
 
 struct HeapContext {
     handle: ExecutionHandle,
+    // Number of times `near_heap_limit_callback` ran for this isolate.
+    callback_count: AtomicU32,
 }
+
+// V8 keeps the returned limit only if it is greater than the current one;
+// otherwise it aborts the process (`Heap::InvokeNearHeapLimitCallback`).
+const REPEAT_HEAP_LIMIT_INCREASE: usize = 8 << 20;
 
 extern "C" fn near_heap_limit_callback(
     data: *mut ffi::c_void,
     current_heap_limit: usize,
     initial_heap_limit: usize,
 ) -> usize {
+    let heap_ctx = unsafe { &*(data as *const HeapContext) };
+    // V8 calls this from its GC epilogue: no metrics registration here. Only
+    // the first call terminates the isolate; `Drop for Isolate` reports repeats.
+    if heap_ctx.callback_count.fetch_add(1, Ordering::Relaxed) > 0 {
+        return current_heap_limit + REPEAT_HEAP_LIMIT_INCREASE;
+    }
     LocalSpan::add_event(Event::new("isolate_out_of_memory").with_properties(|| {
         [
             ("current_heap_limit", current_heap_limit.to_string()),
             ("initial_heap_limit", initial_heap_limit.to_string()),
         ]
     }));
-    let heap_ctx = unsafe { &mut *(data as *mut HeapContext) };
     heap_ctx
         .handle
         .terminate(IsolateTerminationReason::OutOfMemory.into());
