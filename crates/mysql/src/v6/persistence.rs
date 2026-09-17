@@ -24,6 +24,7 @@ use common::{
     index::IndexKeyBytes,
     interval::Interval,
     knobs::{
+        INDEX_RETENTION_DELETE_CHUNK,
         MYSQL_FALLBACK_PAGE_SIZE,
         MYSQL_MAX_QUERY_BATCH_SIZE,
         MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE,
@@ -58,6 +59,7 @@ use common::{
     shutdown::ShutdownSignal,
     types::{
         IndexRef,
+        PersistenceIndexId,
         PersistenceVersion,
         Timestamp,
     },
@@ -75,6 +77,7 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use mysql_async::{
+    IsolationLevel,
     Row,
     Value,
 };
@@ -250,6 +253,8 @@ impl<RT: Runtime> Persistence<RT> {
             .collect();
         let expected = BTreeSet::from([
             "documents".to_owned(),
+            "indexes_latest".to_owned(),
+            "indexes_backfill_deletes".to_owned(),
             "leases".to_owned(),
             "persistence_globals".to_owned(),
             "read_only".to_owned(),
@@ -320,6 +325,28 @@ impl<RT: Runtime> Persistence<RT> {
             .query_optional(sql::HAS_LATEST_ROW, vec![self.inner.deployment_id.into()])
             .await?
             .is_some())
+    }
+
+    /// READ COMMITTED keeps the `LIMIT` scan from gap-locking the marker
+    /// range against the committer's concurrent marker inserts.
+    pub(crate) async fn delete_index_backfill_markers_chunk(
+        &self,
+        index: PersistenceIndexId,
+    ) -> anyhow::Result<u64> {
+        let chunk_size = u64::try_from(*INDEX_RETENTION_DELETE_CHUNK)?;
+        self.lease
+            .transact_read_committed(async |tx| {
+                tx.exec_iter(
+                    sql::DELETE_BACKFILL_MARKERS_CHUNK,
+                    vec![
+                        self.inner.deployment_id.into(),
+                        index.value().into(),
+                        chunk_size.into(),
+                    ],
+                )
+                .await
+            })
+            .await
     }
 
     fn document_params(&self, update: &DocumentLogEntry) -> anyhow::Result<Vec<Value>> {
@@ -756,6 +783,41 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
             .await?;
         if !document_updates.is_empty() || !index_updates.is_empty() {
             self.inner.fresh.store(false, Ordering::SeqCst);
+        }
+        Ok(())
+    }
+
+    async fn index_backfill_marker_indexes(&self) -> anyhow::Result<Vec<PersistenceIndexId>> {
+        self.inner
+            .pool
+            .acquire("v6_backfill_marker_indexes", &self.inner.db_name)
+            .await?
+            .query_collect(
+                sql::LIST_BACKFILL_MARKER_INDEXES,
+                vec![self.inner.deployment_id.into()],
+                16,
+                |row| {
+                    let id: u32 = row.get_opt(0).context("index_id")??;
+                    PersistenceIndexId::try_from(id)
+                },
+            )
+            .await
+    }
+
+    /// Deletes at most `INDEX_RETENTION_DELETE_CHUNK` rows per transaction.
+    /// The caller must ensure no new rows are added for these indexes.
+    async fn delete_index_backfill_markers(
+        &self,
+        indexes: &[PersistenceIndexId],
+    ) -> anyhow::Result<()> {
+        let chunk_size = u64::try_from(*INDEX_RETENTION_DELETE_CHUNK)?;
+        for index in indexes {
+            loop {
+                let deleted = self.delete_index_backfill_markers_chunk(*index).await?;
+                if deleted < chunk_size {
+                    break;
+                }
+            }
         }
         Ok(())
     }
@@ -1208,9 +1270,34 @@ impl<RT: Runtime> Lease<RT> {
     where
         F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
     {
+        self.transact_with_isolation(None, f).await
+    }
+
+    /// Like [`Self::transact`], but runs at READ COMMITTED instead of the
+    /// InnoDB session default (REPEATABLE READ). Index retention deletes use
+    /// this so their DELETEs take only record locks, sparing concurrent index
+    /// writers the next-key/gap locks REPEATABLE READ adds.
+    pub(crate) async fn transact_read_committed<F, T>(&self, f: F) -> anyhow::Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
+    {
+        self.transact_with_isolation(Some(IsolationLevel::ReadCommitted), f)
+            .await
+    }
+
+    async fn transact_with_isolation<F, T>(
+        &self,
+        isolation: Option<IsolationLevel>,
+        f: F,
+    ) -> anyhow::Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
+    {
         let mut client = self.pool.acquire("v6_transact", &self.db_name).await?;
         let result = async {
-            let mut tx = client.transaction(self.pool.cluster_name(), None).await?;
+            let mut tx = client
+                .transaction(self.pool.cluster_name(), isolation)
+                .await?;
             let timer = metrics::lease_precond_timer(self.pool.cluster_name());
             let lease: Option<Row> = tx
                 .exec_first(

@@ -472,6 +472,13 @@ pub(crate) fn insert_latest_chunk(chunk_size: usize) -> String {
     format!("INSERT INTO @db_name.indexes_latest {LATEST_COLUMNS} VALUES {values}")
 }
 
+pub(crate) const LIST_BACKFILL_MARKER_INDEXES: &str =
+    "SELECT DISTINCT index_id FROM @db_name.indexes_backfill_deletes WHERE deployment_id = ?";
+
+pub(crate) const DELETE_BACKFILL_MARKERS_CHUNK: &str = "DELETE FROM \
+                                                        @db_name.indexes_backfill_deletes WHERE \
+                                                        deployment_id = ? AND index_id = ? LIMIT ?";
+
 /// Records previous revisions. A revision has one successor, so recording it
 /// again is a duplicate-key error.
 pub(crate) fn insert_log_chunk(bucket: LogBucket, chunk_size: usize) -> String {
@@ -540,7 +547,7 @@ WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?
 pub(crate) const READ_V6_SCOPED_TABLES: &str = r#"
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = ?
-AND TABLE_NAME IN ('documents', 'leases', 'read_only', 'persistence_globals')
+AND TABLE_NAME IN ('documents', 'leases', 'read_only', 'persistence_globals', 'indexes_latest', 'indexes_backfill_deletes')
 AND COLUMN_NAME = 'deployment_id'
 "#;
 

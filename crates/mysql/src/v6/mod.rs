@@ -131,6 +131,20 @@ CREATE TABLE IF NOT EXISTS @db_name.indexes_latest (
 ) ROW_FORMAT=DYNAMIC PARTITION BY KEY(deployment_id, index_id) PARTITIONS 16;
 "#;
 
+/// Deletion markers used to reconcile index backfill rows. Each marker records
+/// the latest deletion timestamp for an index key.
+const INDEXES_BACKFILL_DELETES_DDL: &str = r#"
+CREATE TABLE IF NOT EXISTS @db_name.indexes_backfill_deletes (
+    deployment_id INT UNSIGNED NOT NULL,
+    index_id INT UNSIGNED NOT NULL,
+    key_prefix VARBINARY(2500) NOT NULL,
+    key_suffix LONGBLOB NULL,
+    key_suffix_hash VARBINARY(16) NOT NULL,
+    ts BIGINT NOT NULL,
+    PRIMARY KEY (deployment_id, index_id, key_prefix, key_suffix_hash)
+) ROW_FORMAT=DYNAMIC PARTITION BY KEY(deployment_id, index_id) PARTITIONS 16;
+"#;
+
 const LEASES_DDL: &str = r#"
 CREATE TABLE IF NOT EXISTS @db_name.leases (
     deployment_id INT UNSIGNED NOT NULL,
@@ -164,6 +178,7 @@ CREATE TABLE IF NOT EXISTS @db_name.persistence_globals (
 pub(crate) const fn init_sql() -> &'static str {
     concatcp!(
         INDEXES_LATEST_DDL,
+        INDEXES_BACKFILL_DELETES_DDL,
         DOCUMENTS_DDL,
         LEASES_DDL,
         READ_ONLY_DDL,
