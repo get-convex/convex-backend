@@ -15,6 +15,7 @@ use deno_core::v8::{
 use super::V8OpProvider;
 use crate::{
     environment::UncatchableDeveloperError,
+    error::source_mapped_stack,
     strings,
 };
 
@@ -75,11 +76,7 @@ pub fn op_error_stack<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     frame_data: Vec<FrameData>,
 ) -> anyhow::Result<String> {
-    let js_error = JsError::from_frames(String::new(), frame_data, None, |s| {
+    Ok(source_mapped_stack(frame_data, |s| {
         provider.lookup_source_map(s)
-    });
-    Ok(js_error
-        .frames
-        .expect("JsError::from_frames has frames=None")
-        .to_string())
+    }))
 }

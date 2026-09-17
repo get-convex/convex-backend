@@ -412,6 +412,8 @@ op_table! {
         "console/timeStart" => op_console_time_start,
         "console/timeLog" => op_console_time_log,
         "console/timeEnd" => op_console_time_end,
+        // The wasm runtime answers this one from `WasmSyscallHost`, which is
+        // where its module source maps live.
         "error/stack" => op_error_stack,
         "url/getUrlInfo" => op_url_get_url_info,
         "url/getUrlSearchParamPairs" => op_url_get_url_search_param_pairs,

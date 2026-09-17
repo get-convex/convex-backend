@@ -12,6 +12,7 @@ use deno_core::{
 };
 use errors::ErrorMetadataAnyhowExt;
 use sourcemap::SourceMap;
+use url::Url;
 use value::ConvexValue;
 
 use crate::{
@@ -106,6 +107,20 @@ impl<RT: Runtime, E: V8IsolateEnvironment<RT>> ExecutionScope<'_, '_, '_, RT, E>
             )
         }))
     }
+}
+
+/// The source-mapped frames of a stack trace, rendered the way
+/// `JsError::to_string` renders them. Both runtimes answer the `error/stack`
+/// op through this, so their stacks stay formatted alike.
+pub fn source_mapped_stack(
+    frame_data: Vec<FrameData>,
+    lookup_source_map: impl FnMut(&Url) -> anyhow::Result<Option<SourceMap>>,
+) -> String {
+    let js_error = JsError::from_frames(String::new(), frame_data, None, lookup_source_map);
+    js_error
+        .frames
+        .expect("JsError::from_frames has frames=None")
+        .to_string()
 }
 
 pub fn extract_source_mapped_error(
