@@ -44,18 +44,53 @@ export const schemaValidationProgress = queryPrivateSystem("ViewData")({
     if (!pending) {
       return null;
     }
-    const schemaValidationProgressDoc = await db
-      .query("_schema_validation_progress")
-      .withIndex("by_schema_id", (q) => q.eq("schemaId", pending._id))
-      .unique();
-    if (!schemaValidationProgressDoc) {
-      return null;
+    const attempts = await db
+      .query("_schema_validations")
+      .withIndex("by_schema_id_and_table_name", (q) =>
+        q.eq("schemaId", pending._id),
+      )
+      .collect();
+    const rows = await Promise.all(
+      attempts.map((attempt) => validationProgress(db, attempt)),
+    );
+    if (rows.length === 0) {
+      const legacy = await db
+        .query("_schema_validation_progress")
+        .withIndex("by_schema_id", (q) => q.eq("schemaId", pending._id))
+        .unique();
+      return legacy === null
+        ? null
+        : {
+            numDocsValidated: Number(legacy.numDocsValidated),
+            totalDocs:
+              legacy.totalDocs === null
+                ? null
+                : Number(legacy.totalDocs) || null,
+          };
     }
     return {
-      numDocsValidated: Number(schemaValidationProgressDoc.numDocsValidated),
-      totalDocs: schemaValidationProgressDoc.totalDocs
-        ? Number(schemaValidationProgressDoc.totalDocs)
+      numDocsValidated: rows.reduce(
+        (sum, row) => sum + Number(row.numDocsValidated),
+        0,
+      ),
+      totalDocs: rows.every((row) => row.totalDocs !== null)
+        ? rows.reduce((sum, row) => sum + Number(row.totalDocs), 0) || null
         : null,
     };
   },
 });
+
+async function validationProgress(
+  db: DatabaseReader,
+  attempt: Doc<"_schema_validations">,
+) {
+  const progress = await db
+    .query("_schema_validation_progress")
+    .withIndex("by_validation_id", (q) => q.eq("validationId", attempt._id))
+    .unique();
+  return {
+    ...attempt,
+    numDocsValidated: progress?.numDocsValidated ?? BigInt(0),
+    totalDocs: progress?.totalDocs ?? null,
+  };
+}

@@ -34,7 +34,7 @@ pub type DatabaseVersion = i64;
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 131; // ayush
+pub const DATABASE_VERSION: DatabaseVersion = 132; // ayush
 
 pub struct MigrationExecutor<RT: Runtime> {
     pub db: Database<RT>,
@@ -152,6 +152,10 @@ impl<RT: Runtime> MigrationExecutor<RT> {
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
             131 => {
                 // Bootstrap creates _schema_validations and its indexes before migration runs.
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
+            132 => {
+                // Bootstrap creates by_validation_id before attempt-owned counters are written.
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             _ => anyhow::bail!("Version did not define a migration! {}", to_version),

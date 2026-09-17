@@ -122,6 +122,7 @@ use database::{
     SCHEMA_VALIDATIONS_BY_SCHEMA_ID_AND_TABLE_NAME,
     SCHEMA_VALIDATIONS_TABLE,
     SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
+    SCHEMA_VALIDATION_PROGRESS_BY_VALIDATION_ID,
     SCHEMA_VALIDATION_PROGRESS_TABLE,
     TABLES_BY_NAME_INDEX,
 };
@@ -452,10 +453,10 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
         if component_id.is_root() {
             continue;
         }
-        for table in component_system_tables()
-            .into_iter()
-            .chain([&SchemaValidationTable as &dyn ErasedSystemTable])
-        {
+        for table in component_system_tables().into_iter().chain([
+            &SchemaValidationTable as &dyn ErasedSystemTable,
+            &SchemaValidationProgressTable,
+        ]) {
             initialize_application_system_table(
                 &mut tx,
                 table,
@@ -717,6 +718,7 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         BY_COMPONENT_PATH_INDEX.name() => 102,
         EXPORTS_BY_REQUESTOR.name() => 110,
         INDEX_BACKFILLS_BY_INDEX_ID.name() => 120,
+        SCHEMA_VALIDATION_PROGRESS_BY_VALIDATION_ID.name() => 132,
         SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID.name() => 122,
         SCHEMA_VALIDATIONS_BY_SCHEMA_ID_AND_TABLE_NAME.name() => 131,
         USAGE_LIMITS_INDEX_BY_SELECTOR.name() => 126,

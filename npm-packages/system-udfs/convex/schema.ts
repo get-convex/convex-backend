@@ -505,11 +505,22 @@ export default defineSchema({
       v.object({ state: v.literal("failed"), error: v.string() }),
     ),
   }).index("by_schema_id_and_table_name", ["schemaId", "tableName"]),
-  _schema_validation_progress: defineTable({
-    schemaId: v.id("_schemas"),
-    numDocsValidated: v.int64(),
-    totalDocs: v.union(v.int64(), v.null()),
-  }).index("by_schema_id", ["schemaId"]),
+  _schema_validation_progress: defineTable(
+    v.union(
+      v.object({
+        validationId: v.id("_schema_validations"),
+        numDocsValidated: v.int64(),
+        totalDocs: v.union(v.int64(), v.null()),
+      }),
+      v.object({
+        schemaId: v.id("_schemas"),
+        numDocsValidated: v.int64(),
+        totalDocs: v.union(v.int64(), v.null()),
+      }),
+    ),
+  )
+    .index("by_validation_id", ["validationId"])
+    .index("by_schema_id", ["schemaId"]),
   _log_sinks: logSinksTable,
   _backend_state: backendStateTable,
   _snapshot_imports: snapshotImportsTable,
