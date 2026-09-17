@@ -1,4 +1,3 @@
-use anyhow::Context;
 use common::{
     errors::{
         FrameData,
@@ -82,30 +81,24 @@ impl<RT: Runtime, E: V8IsolateEnvironment<RT>> ExecutionScope<'_, '_, '_, RT, E>
         e: anyhow::Error,
     ) -> anyhow::Result<!> {
         let source_map = self.lookup_source_map(name)?;
-        let line = location.get_line_number();
-        let col = location.get_column_number();
-        let Some(ref source_map) = source_map else {
-            return Err(e.wrap_error_message(|m| format!("{name}:{line}:{col}: {m}")));
-        };
-        let Some(token) = source_map.lookup_token(
-            location.get_line_number() as u32,
-            location.get_column_number() as u32,
-        ) else {
-            return Err(e.wrap_error_message(|m| format!("{name}:{line}:{col}: {m}")));
-        };
-        let (line, col) = token.get_src();
-        let ctx = token
-            .get_source_view()
-            .context("Source View missing?")?
-            .get_line(line)
-            .context("Line missing?")?;
-        Err(e.wrap_error_message(|m| {
-            format!(
-                "{name}:{line}:{col}: {m}\n\n{ctx}\n{}{}",
-                " ".repeat(col as usize),
-                "~".repeat(ctx.len() - col as usize)
-            )
-        }))
+        let orig_line = location.get_line_number();
+        let orig_col = location.get_column_number();
+        if let Some(ref source_map) = source_map
+            && let Some(token) = source_map.lookup_token(orig_line as u32, orig_col as u32)
+            && let (line, col) = token.get_src()
+            && let Some(source_view) = token.get_source_view()
+            && let Some(ctx) = source_view.get_line(line)
+        {
+            Err(e.wrap_error_message(|m| {
+                format!(
+                    "{name}:{line}:{col}: {m}\n\n{ctx}\n{}{}",
+                    " ".repeat(col as usize),
+                    "~".repeat(ctx.len() - col as usize)
+                )
+            }))
+        } else {
+            Err(e.wrap_error_message(|m| format!("{name}:{orig_line}:{orig_col}: {m}")))
+        }
     }
 }
 
