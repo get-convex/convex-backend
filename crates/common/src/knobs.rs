@@ -166,6 +166,12 @@ pub static APP_METRICS_SEED_STARTUP_JITTER: LazyLock<Duration> = LazyLock::new(|
 pub static KILL_APP_METRICS_SEED_WORKER: LazyLock<bool> =
     LazyLock::new(|| env_config("KILL_APP_METRICS_SEED_WORKER", false));
 
+/// Conductor-scoped kill switch for AI gateway token minting. Function
+/// execution remains available, but calls to `getServiceToken("ai-gateway")`
+/// fail before a token is signed.
+pub static DISABLE_AI_GATEWAY: LazyLock<bool> =
+    LazyLock::new(|| env_config("DISABLE_AI_GATEWAY", false));
+
 /// Minimum spacing between a deployment's deploy reports to big brain. Deploys
 /// landing within this window of the previous report coalesce into a single
 /// request carrying the newest deploy time.
