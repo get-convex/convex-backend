@@ -1,16 +1,17 @@
 import { decode, encodeURI, isValid } from "js-base64";
 import { useRouter } from "next/router";
 
-import { useContext, useMemo } from "react";
+import { useMemo } from "react";
 import {
   FilterExpression,
   FilterExpressionSchema,
   isValidFilter,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import isEqual from "lodash/isEqual";
-import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useFilterMap } from "@common/lib/useTableMetadata";
+import {
+  FiltersAppliedProperties,
+  summarizeFilters,
+} from "@common/features/data/lib/filterAnalytics";
 
 // An expression with no clauses, no index, and no explicit order carries no
 // selection and reads as "no filters". This mirrors the condition under which
@@ -53,10 +54,9 @@ export function filterParamForQuery(raw: string | null): string | null {
 
 export const useTableFilters = (
   tableName: string,
-  componentId: string | null,
+  onFiltersApplied?: (properties: FiltersAppliedProperties) => void,
 ) => {
   const { query, replace } = useRouter();
-  const { appendFilterHistory } = useFilterHistory(tableName, componentId);
   const [, setFilterMap] = useFilterMap();
 
   const rawFilters = query.filters as string | undefined;
@@ -66,6 +66,7 @@ export const useTableFilters = (
     filters,
     applyFiltersWithHistory: async (newFilters?: FilterExpression) => {
       if (newFilters) {
+        onFiltersApplied?.(summarizeFilters(newFilters));
         if (
           newFilters.clauses.length === 0 &&
           !newFilters.index &&
@@ -82,7 +83,6 @@ export const useTableFilters = (
           ...prev,
           [tableName]: query.filters as string | undefined,
         }));
-        appendFilterHistory(newFilters);
         await replace(
           {
             query,
@@ -124,61 +124,4 @@ function hasValidEnabledFilters(filters?: FilterExpression) {
 
 export function areAllFiltersValid(filters?: FilterExpression) {
   return filters === undefined || filters.clauses.every(isValidFilter);
-}
-
-export function useFilterHistory(
-  tableName: string,
-  componentId: string | null,
-): {
-  filterHistory: FilterExpression[];
-  appendFilterHistory: (value: FilterExpression) => void;
-} {
-  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
-  const deployment = useCurrentDeployment();
-  const [filterHistory, setFilterHistory] = useGlobalLocalStorage(
-    `filterHistory/${deployment?.name}/${componentId ? `${componentId}/` : ""}${tableName}`,
-    [] as FilterExpression[],
-  );
-
-  return {
-    filterHistory,
-    appendFilterHistory: (value) => {
-      setFilterHistory((prev: FilterExpression[]) => {
-        if (
-          // Don’t add a history entry if the new value is the same as the most recent one
-          (prev.length > 0 && isEqual(prev[0], value)) ||
-          // Don’t add filters with no clauses to the history
-          isFilterDiscardable(value)
-        ) {
-          return prev;
-        }
-        const updatedHistory = [value, ...prev];
-        if (updatedHistory.length > 25) {
-          updatedHistory.pop();
-        }
-        return updatedHistory;
-      });
-    },
-  };
-}
-
-/**
- * Determines whether the filter expression is empty,
- * hence it has no meaningful value to the user
- * and can safely be discarded from the history.
- */
-function isFilterDiscardable(f?: FilterExpression) {
-  if (f === undefined) return true;
-
-  if (f.clauses.length > 0) return false;
-
-  if (!f.index) {
-    return true;
-  }
-
-  if ("search" in f.index && f.index.search !== "") {
-    return false;
-  }
-
-  return f.index.clauses.length === 0;
 }

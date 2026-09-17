@@ -9,6 +9,7 @@ ignored = [
     # build dependencies not understood
     "pb_build",
     # Prost/Tonic required via tonic macro
+    "pb",
     "prost",
 ]
 

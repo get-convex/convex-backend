@@ -28,7 +28,9 @@ import {
 export type GenericValidator = Validator<any, any, any>;
 
 export function isValidator(v: any): v is GenericValidator {
-  return !!v.isConvexValidator;
+  // Check for the literal `true` marker: a field map can contain a field
+  // *named* `isConvexValidator` whose value is a (truthy) validator object.
+  return v?.isConvexValidator === true;
 }
 
 /**

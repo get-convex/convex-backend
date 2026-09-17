@@ -1,5 +1,8 @@
 import { Link } from "@ui/Link";
-import { useFeedbackFormOpen } from "./FeedbackForm";
+import {
+  commandPaletteFeedback,
+  useFeedbackFormOpen,
+} from "elements/FeedbackForm";
 
 export function NoResultsMessage({ onClose }: { onClose: () => void }) {
   const [, setFeedbackOpen] = useFeedbackFormOpen();
@@ -15,7 +18,7 @@ export function NoResultsMessage({ onClose }: { onClose: () => void }) {
             // Close the palette first: the feedback form lives outside it, and
             // this releases the Radix focus trap so the form can take focus.
             onClose();
-            setFeedbackOpen(true);
+            setFeedbackOpen(commandPaletteFeedback);
           }}
         >
           Send feedback

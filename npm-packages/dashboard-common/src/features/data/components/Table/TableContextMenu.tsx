@@ -15,13 +15,15 @@ import { GenericDocument } from "convex/server";
 import { Value, convexToJson } from "convex/values";
 import {
   Filter,
+  FilterByBuiltin,
+  FilterByType,
   typeOf,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { UrlObject } from "url";
 import { Key } from "@ui/KeyboardShortcut";
+import type { Option } from "@ui/Combobox";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { PopupState } from "@common/features/data/lib/useToolPopup";
-import { operatorOptions } from "@common/features/data/components/FilterEditor/FilterEditor";
 import {
   ActionHotkeysProps,
   OpenContextMenu,
@@ -209,6 +211,19 @@ export function TableContextMenu({
     </ContextMenu>
   );
 }
+
+const operatorOptions: Readonly<
+  Option<(FilterByType | FilterByBuiltin)["op"]>[]
+> = [
+  { value: "eq", label: "equals" },
+  { value: "neq", label: "not equal" },
+  { value: "gt", label: ">" },
+  { value: "lt", label: "<" },
+  { value: "gte", label: ">=" },
+  { value: "lte", label: "<=" },
+  { value: "type", label: "is type" },
+  { value: "notype", label: "is not type" },
+];
 
 function showFilter(
   operator: (typeof operatorOptions)[number]["value"],

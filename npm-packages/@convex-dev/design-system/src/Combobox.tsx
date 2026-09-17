@@ -20,6 +20,7 @@ import {
   flip,
   shift,
 } from "@floating-ui/react";
+import { usePortalContainer } from "./PortalContainer";
 import { Tooltip } from "./Tooltip";
 import { Spinner } from "./Spinner";
 import { useIsNarrowScreen } from "./useIsNarrowScreen";
@@ -89,6 +90,7 @@ export function Combobox<T>({
   icon?: React.ReactNode;
 }) {
   const [query, setQuery] = useState("");
+  const portalContainer = usePortalContainer();
   const [referenceElement, setReferenceElement] =
     useState<HTMLDivElement | null>(null);
   const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(
@@ -110,7 +112,11 @@ export function Combobox<T>({
 
   // Restore focus to the button when the dropdown closes
   useEffect(() => {
-    if (wasOpen.current && !isOpen) {
+    if (
+      wasOpen.current &&
+      !isOpen &&
+      document.activeElement === document.body
+    ) {
       const button = referenceElement?.querySelector("button");
       button?.focus();
     }
@@ -408,7 +414,7 @@ export function Combobox<T>({
                       </div>
                     </HeadlessComboboxOptions>
                   </div>,
-                  document.body,
+                  portalContainer ?? document.body,
                 )}
             </div>
           </>

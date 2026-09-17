@@ -208,6 +208,9 @@ pub struct Writes {
     user_tx_size: TransactionWriteSize,
     // Size of writes to system tables
     system_tx_size: TransactionWriteSize,
+    // New `_index` documents, tracked so commit finalization can assign a
+    // persistence ID to database indexes that do not already have one.
+    new_index_document_ids: OrdSet<ResolvedDocumentId>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -226,6 +229,7 @@ impl Writes {
             updates: OrdSet::new(),
             user_tx_size: TransactionWriteSize::default(),
             system_tx_size: TransactionWriteSize::default(),
+            new_index_document_ids: OrdSet::new(),
         }
     }
 
@@ -337,6 +341,15 @@ impl Writes {
                 ),
             },
         };
+        if document_id.tablet_id == bootstrap_tables.index_id.tablet_id {
+            if prev.is_none() && new_document.is_some() {
+                self.new_index_document_ids.insert(document_id);
+            } else {
+                // if the index was created and deleted in the same transaction, we don't
+                // want to bother creating a new index id for it.
+                self.new_index_document_ids.remove(&document_id);
+            }
+        }
         self.updates
             .insert(Update(Arc::new(PendingDocumentUpdate::new(
                 document_id,
@@ -455,6 +468,10 @@ impl Writes {
     /// The staged write for `id`, if any.
     pub fn get(&self, id: &ResolvedDocumentId) -> Option<&PendingDocumentUpdate> {
         self.updates.get(id).map(|update| &**update)
+    }
+
+    pub(crate) fn new_index_document_ids(&self) -> impl Iterator<Item = ResolvedDocumentId> + '_ {
+        self.new_index_document_ids.iter().copied()
     }
 
     pub fn generated_ids(&self) -> Vec<ResolvedDocumentId> {

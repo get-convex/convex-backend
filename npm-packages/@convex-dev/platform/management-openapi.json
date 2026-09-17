@@ -651,6 +651,9 @@
           },
           {
             "OAuth Project Token": []
+          },
+          {
+            "Preview Deploy Key": []
           }
         ]
       }
@@ -688,6 +691,9 @@
           },
           {
             "OAuth Project Token": []
+          },
+          {
+            "Preview Deploy Key": []
           }
         ]
       }
@@ -735,6 +741,9 @@
           },
           {
             "OAuth Project Token": []
+          },
+          {
+            "Preview Deploy Key": []
           }
         ]
       },
@@ -783,6 +792,9 @@
           },
           {
             "OAuth Project Token": []
+          },
+          {
+            "Preview Deploy Key": []
           }
         ]
       }
@@ -1060,6 +1072,60 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ListLocalDeploymentsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
+      }
+    },
+    "/deployments/{deployment_name}/mint_ai_gateway_jwt": {
+      "post": {
+        "tags": [
+          "Deployments"
+        ],
+        "summary": "Mint an AI gateway JWT",
+        "description": "Mints a short-lived AI gateway JWT for a local deployment.",
+        "operationId": "mint ai gateway jwt",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "Local deployment name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MintLocalAiGatewayJwtArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MintLocalAiGatewayJwtResponse"
                 }
               }
             }
@@ -1828,6 +1894,7 @@
           "Teams"
         ],
         "summary": "Create a team",
+        "description": "This endpoint is not publicly accessible. It is reserved for specific\nintegrations that have been granted permission to create teams on behalf of\nusers. To request access, contact platforms@convex.dev.",
         "operationId": "create team",
         "requestBody": {
           "content": {
@@ -1850,8 +1917,11 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid team name or deployment region"
+          },
           "403": {
-            "description": "Caller is not authorized to create teams"
+            "description": "This application is not authorized to create teams. This endpoint is reserved for specific integrations that are allowed to create users. If you need to create teams for your users, please contact us at platforms@convex.dev"
           }
         },
         "security": []
@@ -2015,6 +2085,8 @@
                 "deployment:token:update",
                 "deployment:token:delete",
                 "deployment:token:view",
+                "team:domain:create",
+                "team:domain:delete",
                 "deployment:customDomain:create",
                 "deployment:customDomain:delete",
                 "deployment:backups:create",
@@ -2042,6 +2114,10 @@
                 "sso:enable",
                 "sso:disable",
                 "sso:update",
+                "directorySync:enable",
+                "directorySync:disable",
+                "directorySync:updateGroupMapping",
+                "directorySync:deleteGroupMapping",
                 "deployment:transfer",
                 "deployment:receive",
                 "deployment:update",
@@ -2381,9 +2457,6 @@
             "PAT": []
           },
           {
-            "OAuth Team Token": []
-          },
-          {
             "Team Token": []
           }
         ]
@@ -2444,9 +2517,6 @@
             "PAT": []
           },
           {
-            "OAuth Team Token": []
-          },
-          {
             "Team Token": []
           }
         ]
@@ -2498,9 +2568,6 @@
             "PAT": []
           },
           {
-            "OAuth Team Token": []
-          },
-          {
             "Team Token": []
           }
         ]
@@ -2543,9 +2610,6 @@
         "security": [
           {
             "PAT": []
-          },
-          {
-            "OAuth Team Token": []
           },
           {
             "Team Token": []
@@ -2605,6 +2669,31 @@
       "AdminKey": {
         "type": "string",
         "description": "Encrypted admin key"
+      },
+      "AttributionClaims": {
+        "type": "object",
+        "description": "The wire format of the claims sent to the gateway.\n\nAll three are absent when we cannot identify the caller. A caller in the\nroot component has a `function_name` but no `component_path`.",
+        "properties": {
+          "componentPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "functionName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "functionType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "AuditLogActor": {
         "oneOf": [
@@ -2767,6 +2856,8 @@
               "deployment:token:update",
               "deployment:token:delete",
               "deployment:token:view",
+              "team:domain:create",
+              "team:domain:delete",
               "deployment:customDomain:create",
               "deployment:customDomain:delete",
               "deployment:backups:create",
@@ -2794,6 +2885,10 @@
               "sso:enable",
               "sso:disable",
               "sso:update",
+              "directorySync:enable",
+              "directorySync:disable",
+              "directorySync:updateGroupMapping",
+              "directorySync:deleteGroupMapping",
               "deployment:transfer",
               "deployment:receive",
               "deployment:update",
@@ -3324,6 +3419,29 @@
         "format": "int64",
         "minimum": 0
       },
+      "MintLocalAiGatewayJwtArgs": {
+        "type": "object",
+        "required": [
+          "attribution"
+        ],
+        "properties": {
+          "attribution": {
+            "$ref": "#/components/schemas/AttributionClaims"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MintLocalAiGatewayJwtResponse": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
+      },
       "PaginatedDefaultEnvironmentVariablesResponse": {
         "type": "object",
         "required": [
@@ -3479,7 +3597,8 @@
                 "deployment:auditLog:view",
                 "deployment:usageLimits:view",
                 "deployment:usageLimits:write",
-                "deployment:usage:view"
+                "deployment:usage:view",
+                "deployment:aiGateway:use"
               ]
             }
           },
@@ -3849,7 +3968,8 @@
                 "deployment:auditLog:view",
                 "deployment:usageLimits:view",
                 "deployment:usageLimits:write",
-                "deployment:usage:view"
+                "deployment:usage:view",
+                "deployment:aiGateway:use"
               ]
             }
           }
@@ -4454,6 +4574,9 @@
           "billing:view",
           "billing:invoices:view",
           "team:auditLog:view",
+          "team:domain:create",
+          "team:domain:delete",
+          "team:domain:view",
           "team:token:create",
           "team:token:update",
           "team:token:delete",
@@ -4483,6 +4606,11 @@
           "sso:disable",
           "sso:update",
           "sso:view",
+          "directorySync:enable",
+          "directorySync:disable",
+          "directorySync:updateGroupMapping",
+          "directorySync:deleteGroupMapping",
+          "directorySync:view",
           "customRole:view",
           "integration:view",
           "integration:create",
@@ -4506,7 +4634,8 @@
           "deployment:auditLog:view",
           "deployment:usageLimits:view",
           "deployment:usageLimits:write",
-          "deployment:usage:view"
+          "deployment:usage:view",
+          "deployment:aiGateway:use"
         ]
       },
       "RoleStatementActions": {
@@ -4626,6 +4755,13 @@
               "$ref": "#/components/schemas/TeamMemberCustomRole"
             },
             "description": "The custom roles attached to this team member. Present iff\n`role` is `custom`."
+          },
+          "dsyncSuspended": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Present only on directory-sync teams. `true` means the member's IdP\naccount is suspended."
           }
         }
       },
@@ -4825,6 +4961,11 @@
         "scheme": "bearer",
         "bearerFormat": "PAT",
         "description": "Personal access token created in the Convex dashboard under user settings."
+      },
+      "Preview Deploy Key": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Preview deploy key scoped to a project. Allowed only when operating on preview deployments in the key's project."
       },
       "Team Token": {
         "type": "http",

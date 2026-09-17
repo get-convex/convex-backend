@@ -84,7 +84,7 @@ function Functions() {
           onChange={setSelectedTabIndex}
           className="flex min-h-0 grow flex-col"
         >
-          <div className="sticky top-0 z-10 scrollbar min-h-fit overflow-x-auto bg-background-secondary">
+          <div className="sticky top-0 z-10 scrollbar shrink-0 overflow-x-auto overflow-y-hidden bg-background-secondary">
             <div className="flex-none px-6 pt-4">
               <FunctionSummary currentOpenFunction={currentOpenFunction} />
             </div>
@@ -94,7 +94,7 @@ function Functions() {
             </div>
           </div>
 
-          <HeadlessTabPanels className="scrollbar flex w-full max-w-440 min-w-0 grow flex-col overflow-x-auto p-6">
+          <HeadlessTabPanels className="scrollbar flex min-h-0 w-full max-w-440 min-w-0 grow flex-col overflow-auto p-6">
             <HeadlessTabPanel className="grow">
               <PerformanceGraphs />
             </HeadlessTabPanel>
@@ -136,7 +136,7 @@ export function EmptyFunctions() {
       >
         <div className="flex size-full flex-col">
           {/* Example Function Summary */}
-          <div className="sticky top-0 z-10 mb-6 bg-background-secondary">
+          <div className="sticky top-0 z-10 mb-6 shrink-0 bg-background-secondary">
             <div className="flex-none px-6 pt-4">
               <div className="flex items-center gap-4">
                 <div className="flex flex-col gap-1">

@@ -25,6 +25,7 @@ import {
   flip,
   shift,
 } from "@floating-ui/react";
+import { usePortalContainer } from "./PortalContainer";
 import { useIsNarrowScreen } from "./useIsNarrowScreen";
 
 const MAX_DISPLAYED_OPTIONS = 100;
@@ -55,6 +56,7 @@ export function MultiSelectCombobox({
   processFilterOption?: (option: string) => string;
 }) {
   const [query, setQuery] = useState("");
+  const portalContainer = usePortalContainer();
   const [referenceElement, setReferenceElement] =
     useState<HTMLDivElement | null>(null);
   const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(
@@ -274,7 +276,7 @@ export function MultiSelectCombobox({
                       </div>
                     </HeadlessComboboxOptions>
                   </div>,
-                  document.body,
+                  portalContainer ?? document.body,
                 )}
             </div>
           </>
@@ -293,8 +295,9 @@ function ComboboxOption({
   label: React.ReactNode | string;
   onOnly: () => void;
 }) {
-  const onlyRefs = useRef(null);
-  const isHoveringOnly = useHoverDirty(onlyRefs);
+  const onlyRefs = useRef<HTMLElement | null>(null);
+  // react-use's types predate React 19's nullable RefObject.
+  const isHoveringOnly = useHoverDirty(onlyRefs as React.RefObject<Element>);
   return (
     <HeadlessComboboxOption
       value={value}

@@ -1,5 +1,8 @@
 import { setupURL } from "./00_url.js";
 import { setupCrypto } from "./00_crypto.js";
+import { setupDate } from "./00_date.js";
+import { setupTemporal } from "./00_temporal.js";
+import { setupWeakRefs } from "./00_weakref.js";
 import { setupDOMException } from "./01_dom_exception.js";
 import { setupConsole } from "./02_console";
 import { setupEvent } from "./02_event";
@@ -30,10 +33,13 @@ import { setupStructuredClone } from "./02_structured_clone.js";
 export function setup(global: any) {
   setupSourceMapping();
   setupDate(global);
+  // V8 installs Temporal when deserializing a context, after snapshot setup.
+  global.Convex.setupTemporal = () => setupTemporal(global);
   // NB: It's important we call into `setupMisc` before the other setup functions
   // since those may call into 3rd party libraries we bundle, which may then
   // retain references to globals we modify, like `Date` or `FinalizationRegistry`.
   setupMisc(global);
+  setupWeakRefs(global);
 
   // These need to be set up in order of the numbers in their filenames (taken
   // from Deno) since later ones depend on the earlier ones.
@@ -72,37 +78,6 @@ export function setup(global: any) {
   };
 }
 
-function setupDate(global) {
-  // Patch `Date` with our own version that returns a consistent result.
-  // We only patch the paths that refer to the current time because for all
-  // other paths, we have already ensured determinism by pinning the system
-  // time to UTC via the TZ environment variable.
-  const originalDate = global.Date;
-  delete global.Date;
-
-  function Date(this: any, ...args) {
-    // `Date()` was called directly, not as a constructor.
-    if (!(this instanceof Date)) {
-      const date = new (Date as any)();
-      return date.toString();
-    }
-    if (args.length === 0) {
-      const unixTsMs = Date.now();
-      return new originalDate(unixTsMs);
-    }
-    return new originalDate(...args);
-  }
-  Date.now = function () {
-    return performOp("now");
-  };
-  Date.parse = originalDate.parse;
-  Date.UTC = originalDate.UTC;
-  Date.prototype = originalDate.prototype;
-  Date.prototype.constructor = Date;
-
-  global.Date = Date;
-}
-
 function setupMisc(global) {
   // Patch `Math.random` with our own deterministic RNG.
   delete global.Math.random;
@@ -135,75 +110,4 @@ function setupMisc(global) {
   // defined in browsers and required by the WinterCG Minimum Common Web Platform API draft
   // https://common-min-api.proposal.wintercg.org/
   global.self = global;
-
-  // Patch `WeakRef` with a noop implementation since it externalizes non-deterministic GC decisions.
-  delete global.WeakRef;
-  global.WeakRef = WeakRef;
-
-  // Patch `FinalizationRegistry` with our own version that does nothing.
-  delete global.FinalizationRegistry;
-  global.FinalizationRegistry = FinalizationRegistry;
-}
-
-// No-op implementation of https://tc39.es/ecma262/multipage/managing-memory.html#sec-finalization-registry.prototype.register
-class FinalizationRegistry {
-  constructor(callbackFn: (heldValue: any) => void) {
-    if (typeof callbackFn !== "function") {
-      throw new TypeError("cleanup must be callable");
-    }
-  }
-
-  register(target, heldValue, unregisterToken) {
-    if (!CanBeHeldWeakly(target)) {
-      throw new TypeError("target must be an object");
-    }
-    if (target === heldValue) {
-      throw new TypeError("target and holdings must not be same");
-    }
-    if (unregisterToken !== undefined && !CanBeHeldWeakly(unregisterToken)) {
-      throw new TypeError("unregisterToken must be an object");
-    }
-  }
-
-  unregister(unregisterToken) {
-    if (!CanBeHeldWeakly(unregisterToken)) {
-      throw new TypeError("unregisterToken must be an object");
-    }
-  }
-
-  get [Symbol.toStringTag]() {
-    return "FinalizationRegistry";
-  }
-}
-
-// Implementation of https://tc39.es/ecma262/multipage/managing-memory.html#sec-weak-ref-objects
-// that is just a strong reference under the hood.
-class WeakRef {
-  #target: any;
-
-  constructor(target) {
-    if (target === undefined || !CanBeHeldWeakly(target)) {
-      throw new TypeError("target must be an object");
-    }
-    this.#target = target;
-  }
-
-  deref() {
-    return this.#target;
-  }
-
-  get [Symbol.toStringTag]() {
-    return "WeakRef";
-  }
-}
-
-// https://tc39.es/ecma262/multipage/executable-code-and-execution-contexts.html#sec-canbeheldweakly
-function CanBeHeldWeakly(v: any) {
-  if (typeof v === "object" || typeof v === "function") {
-    return true;
-  }
-  if (typeof v === "symbol" || Symbol.keyFor(v) === undefined) {
-    return true;
-  }
-  return false;
 }

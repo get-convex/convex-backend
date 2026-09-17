@@ -129,8 +129,10 @@ export function useDeploymentAuditLogs(
   // briefly return only the newest page, making older events disappear and then
   // reappear as pagination catches up; keeping the longest results avoids this
   // flicker. When any of those inputs change we clear the cache and start over.
-  const longestResultsRef = useRef<DeploymentAuditLogEvent[] | undefined>();
-  const resetKeyRef = useRef<string | undefined>();
+  const longestResultsRef = useRef<DeploymentAuditLogEvent[] | undefined>(
+    undefined,
+  );
+  const resetKeyRef = useRef<string | undefined>(undefined);
   const resetKey = [
     team?.id ?? "no-team",
     fromTimestamp ?? "no-timestamp",

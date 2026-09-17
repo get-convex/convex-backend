@@ -77,7 +77,7 @@ export function FilesList({
   setSelectedFiles: React.Dispatch<
     React.SetStateAction<Record<Id<"_storage">, boolean>>
   >;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   totalNumFiles: number | undefined;
   files: FileMetadata[];
   status: "LoadingFirstPage" | "LoadingMore" | "CanLoadMore" | "Exhausted";
@@ -92,7 +92,7 @@ export function FilesList({
   setFilters: (filters: FileFilters) => void;
 }) {
   // Remove the selection of files that no longer exist
-  const prevResults = useRef<FileMetadata[]>();
+  const prevResults = useRef<FileMetadata[] | undefined>(undefined);
   useEffect(() => {
     if (prevResults.current === files) return;
     prevResults.current = files;

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import {
   query,
   action,
+  env,
   internalMutation,
   mutation,
   internalAction,
@@ -14,10 +15,7 @@ export type Result = Doc<"movies"> & { _score: number };
 export type SearchResult = { _id: Id<"movieEmbeddings">; _score: number };
 
 export async function embed(text: string): Promise<number[]> {
-  const key = process.env.OPENAI_KEY;
-  if (!key) {
-    throw new Error("OPENAI_KEY environment variable not set!");
-  }
+  const key = env.OPENAI_KEY;
   const req = { input: text, model: "text-embedding-ada-002" };
   const resp = await fetch("https://api.openai.com/v1/embeddings", {
     method: "POST",

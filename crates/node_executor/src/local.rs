@@ -39,6 +39,7 @@ use crate::{
         EXECUTE_TIMEOUT_RESPONSE_JSON,
     },
     handle_node_executor_stream,
+    InvokeCompletion,
     NodeExecutorStreamPart,
 };
 
@@ -226,15 +227,19 @@ impl LocalNodeExecutor {
                                 anyhow::Ok(NodeExecutorStreamPart::Chunk(chunk))
                             }
                             None => {
-                                anyhow::Ok(NodeExecutorStreamPart::InvokeComplete(Ok(())))
+                                anyhow::Ok(NodeExecutorStreamPart::InvokeComplete(
+                                    InvokeCompletion::Success,
+                                ))
                             }
                         }
                     },
                     _ = timeout_future.fuse() => {
-                        anyhow::Ok(NodeExecutorStreamPart::InvokeComplete(Err(InvokeResponse {
-                            response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
-                            aws_request_id: None,
-                        })))
+                        anyhow::Ok(NodeExecutorStreamPart::InvokeComplete(
+                            InvokeCompletion::ExplicitError(InvokeResponse {
+                                response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
+                                aws_request_id: None,
+                            }),
+                        ))
                     },
                 }
             };

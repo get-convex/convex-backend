@@ -4,13 +4,12 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from typing import Optional
 
 CLA_TEXT = "By submitting this pull request, I confirm that you can use, modify, copy, and redistribute this contribution, under the terms of your choice."
 ORGANIZATION = "get-convex"
 
 
-def is_org_member(username: str, github_token: Optional[str]) -> Optional[bool]:
+def is_org_member(username: str, github_token: str | None) -> bool | None:
     """
     Check if a user is a member of the get-convex GitHub organization.
     Returns True if the user is a confirmed member.

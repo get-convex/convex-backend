@@ -15,8 +15,8 @@ use value::{
 
 use super::OpProvider;
 
-#[convex_macro::v8_op]
-pub fn op_validate_args<'b, P: OpProvider<'b>>(
+#[convex_macro::op]
+pub fn op_validate_args<P: OpProvider>(
     provider: &mut P,
     validator: String,
     args: String,

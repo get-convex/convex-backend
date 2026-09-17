@@ -13,7 +13,7 @@ use serde::Serialize;
 use serde_bytes::ByteBuf;
 use uuid::Uuid;
 
-use super::OpProvider;
+use super::V8OpProvider;
 use crate::{
     environment::{
         helpers::resolve_promise,
@@ -23,7 +23,7 @@ use crate::{
     request_scope::StreamListener,
 };
 
-pub fn async_op_stream_read_part<'b, P: OpProvider<'b>>(
+pub fn async_op_stream_read_part<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     args: v8::FunctionCallbackArguments,
     resolver: v8::Global<v8::PromiseResolver>,
@@ -33,12 +33,12 @@ pub fn async_op_stream_read_part<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_stream_create<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<Uuid> {
+pub fn op_stream_create<'b, P: V8OpProvider<'b>>(provider: &mut P) -> anyhow::Result<Uuid> {
     provider.create_stream()
 }
 
 #[convex_macro::v8_op]
-pub fn op_stream_extend<'b, P: OpProvider<'b>>(
+pub fn op_stream_extend<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     id: Uuid,
     bytes: Option<ByteBuf>,

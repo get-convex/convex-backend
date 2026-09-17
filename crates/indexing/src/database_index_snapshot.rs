@@ -45,6 +45,7 @@ use common::{
     types::{
         IndexId,
         IndexName,
+        IndexRef,
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
@@ -208,12 +209,13 @@ fn log_index_page_mismatch(
 impl IndexReader for IndexCacheReader {
     async fn index_page(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
         max_results: usize,
     ) -> anyhow::Result<IndexPage> {
+        let index_id = index.id();
         let interval = Arc::new(interval.clone());
         let maybe_page = self.handle.get(
             index_id,
@@ -228,7 +230,7 @@ impl IndexReader for IndexCacheReader {
             if verify_cache_results {
                 let index_page = self
                     .reader
-                    .index_page(index_id, tablet_id, &interval, order, max_results)
+                    .index_page(index, tablet_id, &interval, order, max_results)
                     .await?;
                 if index_page != cached_page {
                     let index_name = self
@@ -259,7 +261,7 @@ impl IndexReader for IndexCacheReader {
         } else {
             let index_page = self
                 .reader
-                .index_page(index_id, tablet_id, &interval, order, max_results)
+                .index_page(index, tablet_id, &interval, order, max_results)
                 .await?;
             self.handle.populate(
                 index_id,
@@ -306,7 +308,7 @@ enum RangeFetchResult {
     /// Some documents may still have been served from the
     /// `DatabaseIndexSnapshotCache`.
     NonCached {
-        index_id: IndexId,
+        index: IndexRef,
         cache_results: Vec<DatabaseIndexSnapshotCacheResult>,
     },
 }
@@ -387,7 +389,7 @@ impl DatabaseIndexSnapshot {
         if let Some(range) = self
             .in_memory_indexes
             .range(
-                index.id(),
+                IndexRef::try_from(&index)?,
                 &range_request.interval,
                 range_request.order,
                 *range_request.index_name.table(),
@@ -422,7 +424,7 @@ impl DatabaseIndexSnapshot {
             range_request.max_size,
         );
         Ok(RangeFetchResult::NonCached {
-            index_id: index.id(),
+            index: IndexRef::try_from(&index)?,
             cache_results,
         })
     }
@@ -535,7 +537,7 @@ impl DatabaseIndexSnapshot {
                 None,
             )),
             RangeFetchResult::NonCached {
-                index_id,
+                index,
                 cache_results,
             } => {
                 let any_misses = cache_results
@@ -543,7 +545,7 @@ impl DatabaseIndexSnapshot {
                     .any(|result| matches!(result, DatabaseIndexSnapshotCacheResult::CacheMiss(_)));
                 let fut = Self::fetch_cache_misses(
                     self.reader.clone(),
-                    index_id,
+                    index,
                     range_request.clone(),
                     cache_results,
                 );
@@ -563,7 +565,7 @@ impl DatabaseIndexSnapshot {
                     .split(cursor.clone(), range_request.order);
                 Ok((
                     (fetch_result_vec, cursor),
-                    Some((index_id, cache_miss_results, interval_read)),
+                    Some((index.id(), cache_miss_results, interval_read)),
                 ))
             },
         }
@@ -611,7 +613,7 @@ impl DatabaseIndexSnapshot {
 
     async fn fetch_cache_misses(
         reader: Arc<dyn IndexReader>,
-        index_id: IndexId,
+        index: IndexRef,
         range_request: RangeRequest,
         cache_results: Vec<DatabaseIndexSnapshotCacheResult>,
     ) -> anyhow::Result<(
@@ -640,7 +642,7 @@ impl DatabaseIndexSnapshot {
                     // Query persistence.
                     let index_page = reader
                         .index_page(
-                            index_id,
+                            index,
                             *range_request.index_name.table(),
                             &interval,
                             range_request.order,

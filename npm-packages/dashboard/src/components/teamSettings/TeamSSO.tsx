@@ -2,7 +2,6 @@ import { TeamResponse, UpdateSsoRequest } from "generatedApi";
 import { Sheet } from "@ui/Sheet";
 import { Callout } from "@ui/Callout";
 import { Checkbox } from "@ui/Checkbox";
-import { Spinner } from "@ui/Spinner";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import {
@@ -12,7 +11,6 @@ import {
 import {
   useTeamEntitlements,
   useGetSSO,
-  useEnableSSO,
   useDisableSSO,
   useGenerateSSOConfigurationLink,
   useUpdateSSO,
@@ -84,7 +82,6 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
   const canUpdate = isTeamAdmin || canUpdateCustom === true;
   const entitlements = useTeamEntitlements(team.id);
   const { data: ssoOrganization, isLoading: isSSOLoading } = useGetSSO(team.id);
-  const enableSSO = useEnableSSO(team.id);
   const disableSSO = useDisableSSO(team.id);
   const generateSSOConfigurationLink = useGenerateSSOConfigurationLink(team.id);
   const updateSSO = useUpdateSSO(team.id);
@@ -107,22 +104,15 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
   const isGeneratingAnyLink = isGeneratingDomainsLink || isGeneratingSSOLink;
 
   const ssoEnabled = entitlements?.ssoEnabled ?? false;
-  const isSSOConfigured = !!ssoOrganization;
   const domains = ssoOrganization?.domains ?? [];
   const requireSsoLogin = ssoOrganization?.requireSsoLogin ?? false;
+  const hasConnection = (ssoOrganization?.connections?.length ?? 0) > 0;
 
   useEffect(() => {
-    if (isSSOConfigured && ssoOrganization) {
-      setRequireSsoLoginValue(ssoOrganization.requireSsoLogin);
-    } else if (!isSSOConfigured) {
-      setRequireSsoLoginValue(false);
-    }
-  }, [isSSOConfigured, ssoOrganization]);
+    setRequireSsoLoginValue(ssoOrganization?.requireSsoLogin ?? false);
+  }, [ssoOrganization]);
 
   const pendingChanges = useMemo(() => {
-    if (!isSSOConfigured) {
-      return [] as { title: string; body: string }[];
-    }
     const changes: { title: string; body: string }[] = [];
 
     if (requireSsoLoginValue !== requireSsoLogin) {
@@ -140,7 +130,7 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
     }
 
     return changes;
-  }, [isSSOConfigured, requireSsoLogin, requireSsoLoginValue]);
+  }, [requireSsoLogin, requireSsoLoginValue]);
   const hasChanges = pendingChanges.length > 0;
 
   // Determine if any domain needs verification
@@ -149,11 +139,10 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
     (d) => d.state === "verified" || d.state === "legacyVerified",
   );
 
-  // The Enable SSO checkbox toggles enable vs. disable depending on state, so
-  // pick the right granular permission for whichever transition it would do.
-  const canToggleEnableState = isSSOConfigured ? canDisable : canEnable;
   const baseSettingDisabled = isSubmitting || !canUpdate || !ssoEnabled;
-  const requireSsoLoginDisabled = baseSettingDisabled;
+  const requireSsoLoginDisabled =
+    baseSettingDisabled || (!hasConnection && !requireSsoLogin);
+  const canDisableSSO = hasConnection || requireSsoLogin;
 
   const handleSaveSettings = async () => {
     const payload: UpdateSsoRequest = {
@@ -190,7 +179,7 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
         </Callout>
       )}
 
-      {isSSOConfigured && hasFailedDomain && (
+      {hasFailedDomain && (
         <Callout variant="error">
           Domain verification failed for:{" "}
           {domains
@@ -210,289 +199,257 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
 
         <LoadingTransition>
           {(ssoOrganization || !isSSOLoading) && (
-            <div className="flex flex-col">
-              <Tooltip
-                tip={
-                  !canToggleEnableState
-                    ? permissionDeniedTip(
-                        `You do not have permission to ${
-                          isSSOConfigured ? "disable" : "enable"
-                        } SSO.`,
-                        isSSOConfigured ? "sso:disable" : "sso:enable",
-                      )
-                    : !ssoEnabled
-                      ? "SSO is not available on your plan."
-                      : undefined
-                }
-              >
-                <label className="ml-1 flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={isSSOConfigured}
-                    disabled={
-                      isSubmitting || !canToggleEnableState || !ssoEnabled
-                    }
-                    onChange={async () => {
-                      if (isSSOConfigured) {
-                        setShowDisableConfirmation(true);
-                      } else {
-                        // Enable SSO
-                        setIsSubmitting(true);
-                        try {
-                          await enableSSO({});
-                        } finally {
-                          setIsSubmitting(false);
-                        }
-                      }
-                    }}
-                  />
-                  Enable SSO
-                  {isSubmitting && (
-                    <div>
-                      <Spinner />
-                    </div>
-                  )}
-                </label>
-              </Tooltip>
-
-              {isSSOConfigured && (
-                <div className="mt-4 flex flex-col gap-4">
-                  <div className="flex flex-col gap-4">
-                    {domains.length > 0 && (
-                      <div className="flex flex-col gap-2">
-                        <span className="flex items-center gap-1 text-sm font-semibold">
-                          {domains.length === 1
-                            ? "Current Domain"
-                            : "Current Domains"}
-                          <Tooltip
-                            tip="You may remove all domains by disable and re-enabling SSO. This will require re-configuring SSO."
-                            side="right"
-                          >
-                            <QuestionMarkCircledIcon />
-                          </Tooltip>
-                        </span>
-                        <div className="flex flex-col gap-1">
-                          {domains.map((d) => {
-                            const isVerified =
-                              d.state === "verified" ||
-                              d.state === "legacyVerified";
-                            const isPending = d.state === "pending";
-                            const isError = d.state === "failed";
-
-                            const tooltipText = isVerified
-                              ? "This domain has been verified and may be used with SSO"
-                              : isPending
-                                ? "This domain has not yet completed verification. Check the status by clicking 'Manage domains' below."
-                                : "An error occured verifying this domain. Check the status by clicking 'Manage domains' below.";
-
-                            // Check if user has a verified email for this domain
-                            const hasVerifiedEmailForDomain =
-                              profileEmails?.some((email) => {
-                                if (!email.isVerified) return false;
-                                const emailDomain = email.email
-                                  .split("@")[1]
-                                  ?.toLowerCase();
-                                return emailDomain === d.domain.toLowerCase();
-                              });
-
-                            return (
-                              <div
-                                key={d.id}
-                                className="flex items-center gap-2"
-                              >
-                                <span>{d.domain}</span>
-                                <Tooltip tip={tooltipText} side="right">
-                                  <span
-                                    className={cn(
-                                      "rounded-full border px-2 py-0.5 text-xs",
-                                      isVerified &&
-                                        "bg-background-success text-content-success",
-                                      isPending &&
-                                        "bg-background-warning text-content-warning",
-                                      isError &&
-                                        "bg-background-error text-content-error",
-                                    )}
-                                  >
-                                    {isVerified
-                                      ? "Verified"
-                                      : isPending
-                                        ? "Pending"
-                                        : "Error"}
-                                  </span>
-                                </Tooltip>
-                                {!hasVerifiedEmailForDomain && (
-                                  <Tooltip
-                                    tip={
-                                      <div className="flex flex-col gap-1">
-                                        <span>
-                                          You do not have a verified email on
-                                          your Convex account matching this
-                                          domain. If you do not add your email,
-                                          you will not be able to log in with
-                                          SSO with this domain.
-                                        </span>
-                                        <Link href="/profile">
-                                          You may verify an email on the profile
-                                          page.
-                                        </Link>
-                                      </div>
-                                    }
-                                    side="right"
-                                  >
-                                    <span className="flex items-center rounded-md border bg-background-warning p-1 text-content-warning">
-                                      <ExclamationTriangleIcon className="text-content-warning" />
-                                    </span>
-                                  </Tooltip>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <ManageSSOConfigurationButton
-                        loading={isGeneratingSSOLink}
-                        onClick={async () => {
-                          setIsGeneratingSSOLink(true);
-                          try {
-                            const result = await generateSSOConfigurationLink({
-                              intent: "sso",
-                            });
-                            if (result?.link) {
-                              window.open(result.link, "_blank");
-                            }
-                          } finally {
-                            setIsGeneratingSSOLink(false);
-                          }
-                        }}
-                        disabled={
-                          isSubmitting ||
-                          !canUpdate ||
-                          !hasVerifiedDomain ||
-                          isGeneratingAnyLink
-                        }
-                        tooltip={
-                          !canUpdate
-                            ? permissionDeniedTip(
-                                "You do not have permission to update SSO configuration.",
-                                "sso:update",
-                              )
-                            : !hasVerifiedDomain
-                              ? "You must verify at least one domain before managing the SSO configuration."
-                              : undefined
-                        }
-                      />
-                      <ManageDomainsButton
-                        loading={isGeneratingDomainsLink}
-                        onClick={async () => {
-                          setIsGeneratingDomainsLink(true);
-                          try {
-                            const result = await generateSSOConfigurationLink({
-                              intent: "domainVerification",
-                            });
-                            if (result?.link) {
-                              window.open(result.link, "_blank");
-                            }
-                          } finally {
-                            setIsGeneratingDomainsLink(false);
-                          }
-                        }}
-                        disabled={
-                          isSubmitting || !canUpdate || isGeneratingAnyLink
-                        }
-                        tooltip={
-                          !canUpdate
-                            ? permissionDeniedTip(
-                                "You do not have permission to update SSO configuration.",
-                                "sso:update",
-                              )
-                            : undefined
-                        }
-                      />
-                      <CertificateRenewalButton
-                        loading={isGeneratingCertificateRenewalLink}
-                        onClick={async () => {
-                          try {
-                            setIsGeneratingCertificateRenewalLink(true);
-                            const result = await generateSSOConfigurationLink({
-                              intent: "certificateRenewal",
-                            });
-                            if (result) {
-                              window.open(result.link, "_blank");
-                            }
-                          } finally {
-                            setIsGeneratingCertificateRenewalLink(false);
-                          }
-                        }}
-                        disabled={
-                          isSubmitting ||
-                          !canUpdate ||
-                          !hasVerifiedDomain ||
-                          isGeneratingAnyLink
-                        }
-                        tooltip={
-                          !canUpdate
-                            ? permissionDeniedTip(
-                                "You do not have permission to update SSO configuration.",
-                                "sso:update",
-                              )
-                            : !hasVerifiedDomain
-                              ? "You must verify at least one domain before managing the SSO configuration."
-                              : undefined
-                        }
-                      />
-                    </div>
-                    <hr />
-                    <h4 className="text-sm font-semibold text-content-primary">
-                      Additional Options
-                    </h4>
+            <div className="flex flex-col gap-4">
+              {domains.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <span className="flex items-center gap-1 text-sm font-semibold">
+                    {domains.length === 1
+                      ? "Current Domain"
+                      : "Current Domains"}
                     <Tooltip
-                      tip={
-                        !canUpdate
-                          ? permissionDeniedTip(
-                              "You do not have permission to change SSO settings.",
-                              "sso:update",
-                            )
-                          : !ssoEnabled
-                            ? "SSO is not available on your plan."
-                            : undefined
-                      }
+                      tip="Add or remove domains with the 'Manage domains' button below."
+                      side="right"
                     >
-                      <label className="ml-px flex items-center gap-2">
-                        <Checkbox
-                          checked={requireSsoLoginValue}
-                          disabled={requireSsoLoginDisabled}
-                          onChange={() => {
-                            setRequireSsoLoginValue(!requireSsoLoginValue);
-                          }}
-                        />
-                        <span className="ml-px flex items-center gap-2">
-                          Require SSO to access team
-                          <Tooltip
-                            tip="Require that team members log in with SSO to access the team."
-                            side="right"
-                          >
-                            <QuestionMarkCircledIcon className="size-4 text-content-secondary" />
-                          </Tooltip>
-                        </span>
-                      </label>
+                      <QuestionMarkCircledIcon />
                     </Tooltip>
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    {domains.map((d) => {
+                      const isVerified =
+                        d.state === "verified" || d.state === "legacyVerified";
+                      const isPending = d.state === "pending";
+                      const isError = d.state === "failed";
 
-                    <div className="flex">
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        loading={isSavingSettings}
-                        disabled={!hasChanges || baseSettingDisabled}
-                        onClick={handleSaveClick}
-                      >
-                        Save
-                      </Button>
-                    </div>
+                      const tooltipText = isVerified
+                        ? "This domain has been verified and may be used with SSO"
+                        : isPending
+                          ? "This domain has not yet completed verification. Check the status by clicking 'Manage domains' below."
+                          : "An error occured verifying this domain. Check the status by clicking 'Manage domains' below.";
+
+                      // Check if user has a verified email for this domain
+                      const hasVerifiedEmailForDomain = profileEmails?.some(
+                        (email) => {
+                          if (!email.isVerified) return false;
+                          const emailDomain = email.email
+                            .split("@")[1]
+                            ?.toLowerCase();
+                          return emailDomain === d.domain.toLowerCase();
+                        },
+                      );
+
+                      return (
+                        <div key={d.id} className="flex items-center gap-2">
+                          <span>{d.domain}</span>
+                          <Tooltip tip={tooltipText} side="right">
+                            <span
+                              className={cn(
+                                "rounded-full border px-2 py-0.5 text-xs",
+                                isVerified &&
+                                  "bg-background-success text-content-success",
+                                isPending &&
+                                  "bg-background-warning text-content-warning",
+                                isError &&
+                                  "bg-background-error text-content-error",
+                              )}
+                            >
+                              {isVerified
+                                ? "Verified"
+                                : isPending
+                                  ? "Pending"
+                                  : "Error"}
+                            </span>
+                          </Tooltip>
+                          {!hasVerifiedEmailForDomain && (
+                            <Tooltip
+                              tip={
+                                <div className="flex flex-col gap-1">
+                                  <span>
+                                    You do not have a verified email on your
+                                    Convex account matching this domain. If you
+                                    do not add your email, you will not be able
+                                    to log in with SSO with this domain.
+                                  </span>
+                                  <Link href="/profile">
+                                    You may verify an email on the profile page.
+                                  </Link>
+                                </div>
+                              }
+                              side="right"
+                            >
+                              <span className="flex items-center rounded-md border bg-background-warning p-1 text-content-warning">
+                                <ExclamationTriangleIcon className="text-content-warning" />
+                              </span>
+                            </Tooltip>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
+              <div className="flex gap-2">
+                <SSOConfigurationButton
+                  label={
+                    hasConnection ? "Manage SSO configuration" : "Configure SSO"
+                  }
+                  loading={isGeneratingSSOLink}
+                  onClick={async () => {
+                    setIsGeneratingSSOLink(true);
+                    try {
+                      const result = await generateSSOConfigurationLink({
+                        intent: "sso",
+                      });
+                      if (result?.link) {
+                        window.open(result.link, "_blank");
+                      }
+                    } finally {
+                      setIsGeneratingSSOLink(false);
+                    }
+                  }}
+                  disabled={
+                    isSubmitting ||
+                    !canEnable ||
+                    !hasVerifiedDomain ||
+                    isGeneratingAnyLink
+                  }
+                  tooltip={
+                    !canEnable
+                      ? permissionDeniedTip(
+                          "You do not have permission to configure SSO.",
+                          "sso:enable",
+                        )
+                      : !hasVerifiedDomain
+                        ? "You must verify at least one domain before configuring SSO."
+                        : undefined
+                  }
+                />
+                <ManageDomainsButton
+                  loading={isGeneratingDomainsLink}
+                  onClick={async () => {
+                    setIsGeneratingDomainsLink(true);
+                    try {
+                      const result = await generateSSOConfigurationLink({
+                        intent: "domainVerification",
+                      });
+                      if (result?.link) {
+                        window.open(result.link, "_blank");
+                      }
+                    } finally {
+                      setIsGeneratingDomainsLink(false);
+                    }
+                  }}
+                  disabled={isSubmitting || !canUpdate || isGeneratingAnyLink}
+                  tooltip={
+                    !canUpdate
+                      ? permissionDeniedTip(
+                          "You do not have permission to update SSO configuration.",
+                          "sso:update",
+                        )
+                      : undefined
+                  }
+                />
+                <CertificateRenewalButton
+                  loading={isGeneratingCertificateRenewalLink}
+                  onClick={async () => {
+                    try {
+                      setIsGeneratingCertificateRenewalLink(true);
+                      const result = await generateSSOConfigurationLink({
+                        intent: "certificateRenewal",
+                      });
+                      if (result) {
+                        window.open(result.link, "_blank");
+                      }
+                    } finally {
+                      setIsGeneratingCertificateRenewalLink(false);
+                    }
+                  }}
+                  disabled={
+                    isSubmitting ||
+                    !canUpdate ||
+                    !hasVerifiedDomain ||
+                    isGeneratingAnyLink
+                  }
+                  tooltip={
+                    !canUpdate
+                      ? permissionDeniedTip(
+                          "You do not have permission to update SSO configuration.",
+                          "sso:update",
+                        )
+                      : !hasVerifiedDomain
+                        ? "You must verify at least one domain before managing the SSO configuration."
+                        : undefined
+                  }
+                />
+                {canDisableSSO && (
+                  <Button
+                    variant="danger"
+                    className="w-fit"
+                    size="sm"
+                    onClick={() => setShowDisableConfirmation(true)}
+                    disabled={isSubmitting || !canDisable || !ssoEnabled}
+                    tip={
+                      !canDisable
+                        ? permissionDeniedTip(
+                            "You do not have permission to disable SSO.",
+                            "sso:disable",
+                          )
+                        : undefined
+                    }
+                  >
+                    Disable SSO
+                  </Button>
+                )}
+              </div>
+              <hr />
+              <h4 className="text-sm font-semibold text-content-primary">
+                Additional Options
+              </h4>
+              <Tooltip
+                tip={
+                  !canUpdate
+                    ? permissionDeniedTip(
+                        "You do not have permission to change SSO settings.",
+                        "sso:update",
+                      )
+                    : !ssoEnabled
+                      ? "SSO is not available on your plan."
+                      : !hasConnection && !requireSsoLogin
+                        ? "Configure SSO before requiring team members to log in with it."
+                        : undefined
+                }
+              >
+                <label className="ml-px flex items-center gap-2">
+                  <Checkbox
+                    checked={requireSsoLoginValue}
+                    disabled={requireSsoLoginDisabled}
+                    onChange={() => {
+                      setRequireSsoLoginValue(!requireSsoLoginValue);
+                    }}
+                  />
+                  <span className="ml-px flex items-center gap-2">
+                    Require SSO to access team
+                    <Tooltip
+                      tip="Require that team members log in with SSO to access the team."
+                      side="right"
+                    >
+                      <QuestionMarkCircledIcon className="size-4 text-content-secondary" />
+                    </Tooltip>
+                  </span>
+                </label>
+              </Tooltip>
+
+              <div className="flex">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  loading={isSavingSettings}
+                  disabled={!hasChanges || baseSettingDisabled}
+                  onClick={handleSaveClick}
+                >
+                  Save
+                </Button>
+              </div>
             </div>
           )}
         </LoadingTransition>
@@ -577,7 +534,7 @@ function TeamSSOContents({ team }: { team: TeamResponse }) {
           confirmText="Disable"
           variant="danger"
           dialogTitle="Disable Single Sign-On"
-          dialogBody="Disabling Single Sign-on will remove all configuration related to SSO. You will need to re-configure all settings to re-enable SSO."
+          dialogBody="Disabling Single Sign-On removes the team's identity provider connection and stops requiring SSO login. You will need to configure SSO again to use it."
           error={disableError}
           validationText="DISABLE SSO"
         />
@@ -613,12 +570,14 @@ function ManageDomainsButton({
   );
 }
 
-function ManageSSOConfigurationButton({
+function SSOConfigurationButton({
+  label,
   onClick,
   disabled,
   loading,
   tooltip,
 }: {
+  label: string;
   onClick: () => Promise<void>;
   disabled: boolean;
   loading: boolean;
@@ -635,7 +594,7 @@ function ManageSSOConfigurationButton({
       tip={tooltip}
       icon={<ExternalLinkIcon />}
     >
-      Manage SSO configuration
+      {label}
     </Button>
   );
 }

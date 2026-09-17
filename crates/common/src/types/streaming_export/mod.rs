@@ -12,6 +12,7 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
+use tuple_struct::tuple_struct_string;
 use utoipa::ToSchema;
 
 use crate::http::PaginationMetadata;
@@ -130,6 +131,12 @@ pub struct ListSnapshotValue {
     pub fields: BTreeMap<String, JsonValue>,
 }
 
+tuple_struct_string!(
+    /// Unique id of a data sync, assigned by `/api/v1/data/sync` on the sync's
+    /// first page and stable across its lifetime.
+    SyncId
+);
+
 /// Arguments to the data sync (streaming export) API (`/api/v1/data/sync`).
 #[derive(Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -170,8 +177,9 @@ pub struct DataSyncResponse {
     /// Documents created, updated, or deleted in this page.
     pub values: Vec<DataSyncValue>,
     /// Unique id of the sync, assigned on the first page and stable across
-    /// the sync's lifetime. Identifies this sync in `/data/list_active_syncs`.
-    pub sync_id: String,
+    /// the sync's lifetime. Identifies this sync in `/data/sync/{syncId}` and
+    /// `/data/list_active_syncs`.
+    pub sync_id: SyncId,
     /// Pagination information. The data sync endpoint is an infinite streaming
     /// endpoint, so `nextCursor` is always present and `hasMore` is always
     /// `true` — another page can always be fetched with the cursor. Use
@@ -259,9 +267,10 @@ pub enum DataSyncStatus {
 /// The sync has not yet reached a consistent snapshot. The entries emitted
 /// so far are an incomplete initial traversal of the selected tables.
 /// Syncs begin in this state. The sync's
-/// progress can be monitored via `/data/list_active_syncs`, keyed by the
-/// response's `syncId`. Syncs may return to this state if the table
-/// selection has changes that requires large data sync.
+/// progress can be monitored via `/data/sync/{syncId}` or
+/// `/data/list_active_syncs`, keyed by the response's `syncId`. Syncs may
+/// return to this state if the table selection has changes that requires large
+/// data sync.
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct DataSyncSnapshotting {
@@ -334,7 +343,9 @@ pub struct ListActiveSyncsResponse {
     pub pagination: PaginationMetadata,
 }
 
-/// The status of one active data sync, as of its most recent page.
+/// The status of one active data sync, as of its most recent page. Returned
+/// by `/api/v1/data/sync/{syncId}` and for each sync listed by
+/// `/api/v1/data/list_active_syncs`.
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -342,7 +353,7 @@ pub struct ActiveDataSync {
     /// Unique id of the sync, assigned when it started (i.e. when
     /// `/api/v1/data/sync` was called without a cursor) and stable across its
     /// pages.
-    pub sync_id: String,
+    pub sync_id: SyncId,
     /// Wall-clock time of the last `/data/sync` call made by this sync, as a
     /// unix timestamp in milliseconds.
     pub last_updated: i64,

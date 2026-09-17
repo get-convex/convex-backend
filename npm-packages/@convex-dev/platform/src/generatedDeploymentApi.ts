@@ -461,18 +461,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/data/sync/{sync_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an active data sync
+         * @description Returns the progress of a single data sync (/v1/data/sync), identified by
+         *     the `syncId` that endpoint returns. The status is the same one
+         *     `/data/list_active_syncs` reports for each sync it lists.
+         *
+         *     A data sync is considered active for 3 days after the most recent API call
+         *     from `/data/sync`. Ids of syncs that are unknown or no longer active return
+         *     a 404.
+         *
+         *     The caller must have the `deployment:data:view` permission.
+         */
+        get: operations["get_active_sync"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** Format: int64 */
         AccessTokenId: number;
-        /** @description The status of one active data sync, as of its most recent page. */
+        /** @description The status of one active data sync, as of its most recent page. Returned
+         *     by `/api/v1/data/sync/{syncId}` and for each sync listed by
+         *     `/api/v1/data/list_active_syncs`. */
         ActiveDataSync: {
             /** @description Unique id of the sync, assigned when it started (i.e. when
              *     `/api/v1/data/sync` was called without a cursor) and stable across its
              *     pages. */
-            syncId: string;
+            syncId: components["schemas"]["SyncId"];
             /**
              * Format: int64
              * @description Wall-clock time of the last `/data/sync` call made by this sync, as a
@@ -774,8 +804,9 @@ export interface components {
             /** @description Documents created, updated, or deleted in this page. */
             values: components["schemas"]["DataSyncValue"][];
             /** @description Unique id of the sync, assigned on the first page and stable across
-             *     the sync's lifetime. Identifies this sync in `/data/list_active_syncs`. */
-            syncId: string;
+             *     the sync's lifetime. Identifies this sync in `/data/sync/{syncId}` and
+             *     `/data/list_active_syncs`. */
+            syncId: components["schemas"]["SyncId"];
             /** @description Pagination information. The data sync endpoint is an infinite streaming
              *     endpoint, so `nextCursor` is always present and `hasMore` is always
              *     `true` — another page can always be fetched with the cursor. Use
@@ -786,9 +817,10 @@ export interface components {
         /** @description The sync has not yet reached a consistent snapshot. The entries emitted
          *     so far are an incomplete initial traversal of the selected tables.
          *     Syncs begin in this state. The sync's
-         *     progress can be monitored via `/data/list_active_syncs`, keyed by the
-         *     response's `syncId`. Syncs may return to this state if the table
-         *     selection has changes that requires large data sync. */
+         *     progress can be monitored via `/data/sync/{syncId}` or
+         *     `/data/list_active_syncs`, keyed by the response's `syncId`. Syncs may
+         *     return to this state if the table selection has changes that requires large
+         *     data sync. */
         DataSyncSnapshotting: {
             /**
              * @description Always `snapshotting`. (enum property replaced by openapi-typescript)
@@ -1000,7 +1032,7 @@ export interface components {
          * @description The user-facing unit a metric's limits and usage are expressed in.
          * @enum {string}
          */
-        MetricUnit: "calls" | "GB" | "Query-GB" | "GB-hours";
+        MetricUnit: "calls" | "GB" | "Query-GB" | "GB-hours" | "dollars";
         /** @description Current-window usage for a single metric. */
         MetricUsageResponse: {
             /** @description The unit `usage` is expressed in, matching the unit this metric's
@@ -1080,6 +1112,9 @@ export interface components {
                 [key: string]: string;
             } | null;
         };
+        /** @description Unique id of a data sync, assigned by `/api/v1/data/sync` on the sync's
+         *     first page and stable across its lifetime. */
+        SyncId: string;
         TableSelection: ({
             /** @description Whether columns not explicitly listed are exported */
             _other: components["schemas"]["InclusionDefault"];
@@ -1203,7 +1238,7 @@ export interface components {
             enabled: boolean;
         };
         /** @enum {string} */
-        UsageLimitMetric: "functionCalls" | "databaseIoGb" | "dataEgressGb" | "searchQueryGb" | "queryMutationComputeGbHours" | "actionComputeConvexGbHours" | "actionComputeNodeJsGbHours" | "actionComputeCpuGbHours";
+        UsageLimitMetric: "functionCalls" | "databaseIoGb" | "dataEgressGb" | "searchQueryGb" | "queryMutationComputeGbHours" | "actionComputeConvexGbHours" | "actionComputeNodeJsGbHours" | "actionComputeCpuGbHours" | "aiGatewayCostDollars";
         UsageLimitResponse: {
             usageLimit: components["schemas"]["UsageLimitConfigResponse"];
         };
@@ -1304,6 +1339,7 @@ export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStre
 export type SeedStatusResponse = components['schemas']['SeedStatusResponse'];
 export type Selection = components['schemas']['Selection'];
 export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
+export type SyncId = components['schemas']['SyncId'];
 export type TableSelection = components['schemas']['TableSelection'];
 export type TeamId = components['schemas']['TeamId'];
 export type UpdateAxiomSinkArgs = components['schemas']['UpdateAxiomSinkArgs'];
@@ -1768,6 +1804,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListActiveSyncsResponse"];
+                };
+            };
+        };
+    };
+    get_active_sync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `syncId` of the sync, as returned by /data/sync */
+                sync_id: components["schemas"]["SyncId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveDataSync"];
                 };
             };
         };

@@ -17,6 +17,7 @@ use common::{
         ComponentName,
         Resource,
     },
+    document::udf_unix_timestamp,
     errors::JsError,
     execution_context::ExecutionContext,
     http::{
@@ -367,7 +368,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 // `unix_timestamp` below, the UDF is only deterministic modulo this
                 // system-generated input.
                 let rng_seed = self.rt.rng().random();
-                let unix_timestamp = self.rt.unix_timestamp();
+                let unix_timestamp = udf_unix_timestamp(transaction.next_creation_time());
                 let (tx, outcome) = self
                     .isolate_client
                     .execute_udf(

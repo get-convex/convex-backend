@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.46.0
+
+- Added `.optional()` to all validators. For example, `v.string().optional()` is
+  equivalent to `v.optional(v.string())`. This changes TypeScript compatibility
+  between validators from different Convex versions; projects sharing validators
+  across packages may need to align their `convex` dependency versions.
+- `npx convex deploy --dry-run` now warns when a schema change requires checking
+  every document in large tables against the new schema, since these deploys can
+  take a long time. The warning lists the affected tables along with their
+  document counts and sizes.
+- Fixed a bug where `npx convex deploy` could fail with a `deployment:data:view`
+  permission error when deleting indexes with a deploy key that only has
+  `deployment:deploy`. The CLI now reuses the schema evaluation response to size
+  the affected tables instead of reading them directly, so
+  `deployment:data:view` is no longer required.
+- `convex/server` exports `FunctionReference_future`, a reference type whose
+  arguments are checked similar to the way Convex checks them at runtime. Use it
+  instead of `FunctionReference` when you accept someone else's Convex function
+  as a callback and know which arguments you will pass it. Behavior summary: it
+  rejects a function requiring arguments you never pass, rejects a function that
+  does not declare a top-level argument you do pass, and accepts a function
+  taking broader values than you pass. A plain `FunctionReference` gets the
+  first and third backwards. The surplus-key check stops at the top level: a
+  surplus key inside a nested object, array element, or union arm is not
+  detected. A value of the type is usable with `ctx.runMutation`,
+  `ctx.scheduler.runAfter`, `createFunctionHandle`, and every other API in this
+  package that takes a reference, all of which now accept
+  `FunctionReference | FunctionReference_future`. It is deliberately not
+  assignable to a plain `FunctionReference`, so forwarding one into code typed
+  that way is a compile error rather than a silent loss of argument checking.
+  Library code that wants to accept either kind of reference should take that
+  same union and read arguments and return types through `FunctionArgs` and
+  `FunctionReturnType`, which accept either kind.
+- As a part of the `FunctionReference_future` work, the `_args` and
+  `_returnType` slots on `FunctionReference` are deprecated. They'll be removed
+  in a future version. `FunctionReference` gains an optional `_fn` slot that
+  enables the checked comparison of args.
+
 ## 1.45.0
 
 - Local deployments now upgrade to a new backend version in place, instead of
@@ -193,12 +231,14 @@
 - Adds `npx convex deployment token create my-token --save-env`, enabling
   scripts to configure agent environments with access only to develop and deploy
   against their own cloud deployment. e.g.
+
   ```sh
   npx convex deployment create dev/foo --select --expiration "in 7 days" --type dev
   # npx convex env set ... (optional - typically default env vars suffice)
   npx convex deployment token create foo --save-env
   # npx convex dev --once (optional)
   ```
+
 - Re-exports ValidatorTypeToReturnType from convex/server
 - AI Files will no longer prompt when connecting to an existing project.
 - Updates the `VisibilityProperties` type to allow types like `RegisteredQuery`
@@ -369,11 +409,13 @@
   not push code. This is useful for `predev` package.json scripts that want to
   do interactive selection steps before running the frontend and backend in
   parallel. It also enables agents to initialize and set environment variables:
+
   ```
   export CONVEX_AGENT_MODE=anonymous
   npx convex init
   convex env set < .env.defaults
   ```
+
 - No longer overwrites the `tsconfig.json` and `README.md` files in the
   `convex/` folder when configuring a new deployment, only when first creating
   the `convex/` folder.
@@ -525,7 +567,7 @@
 
 - Add .pick(), .omit(), .partial(), and .extend() methods to v.objects()
   validators. This makes reusing validator with small changes simpler. See
-  https://docs.convex.dev/functions/validation#reusing-and-extending-validators
+  <https://docs.convex.dev/functions/validation#reusing-and-extending-validators>
   for more.
 
 - Add a pagination result validation helper
@@ -725,7 +767,7 @@
 
 - Increase a network timeout that was causing Node.js v20+ issues on slow
   connections, good old Happy Eyeballs
-  https://github.com/nodejs/node/issues/54359.
+  <https://github.com/nodejs/node/issues/54359>.
 
 ## 1.25.1
 
@@ -913,7 +955,7 @@ To upgrade to this release you'll need to upgrade any Convex components you use.
 ## 1.19.3
 
 - Upgrade esbuild from 0.23 to 0.25 to address security warnings about
-  https://github.com/evanw/esbuild/security/advisories/GHSA-67mh-4wv8-2f99
+  <https://github.com/evanw/esbuild/security/advisories/GHSA-67mh-4wv8-2f99>
 
   Convex does not use the development server functionality of esbuild which
   contains the vulnerability.
@@ -926,7 +968,7 @@ To upgrade to this release you'll need to upgrade any Convex components you use.
   The environment variables `CONVEX_SELF_HOSTED_URL` and
   `CONVEX_SELF_HOSTED_ADMIN_KEY` are now used to identity self-hosted
   deployments.
-  https://github.com/get-convex/convex-backend/tree/main/self-hosted#self-hosting-convex
+  <https://github.com/get-convex/convex-backend/tree/main/self-hosted#self-hosting-convex>
   for more.
 
 - export the `ValidatorJSON` record types.
@@ -934,7 +976,7 @@ To upgrade to this release you'll need to upgrade any Convex components you use.
 ## 1.19.0
 
 - Support for Local Deployments, now in beta. See
-  https://docs.convex.dev/cli/local-deployments for more.
+  <https://docs.convex.dev/cli/local-deployments> for more.
 
   Local deployments run your Convex dev deployment for your project on your
   local machine, which should make syncing your code faster. It also makes
@@ -977,7 +1019,7 @@ To upgrade to this release you'll need to upgrade any Convex components you use.
      gain isolation and atomicity because it runs as a subtransaction.
 
   See
-  https://docs.convex.dev/understanding/best-practices/#use-helper-functions-to-write-shared-code
+  <https://docs.convex.dev/understanding/best-practices/#use-helper-functions-to-write-shared-code>
   for more.
 
   Filter to warnings in the convex dashboard logs to see if you're using this

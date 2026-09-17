@@ -644,6 +644,37 @@ pub fn log_num_segments_searched_total(num_segments: usize) {
 }
 
 register_convex_counter!(
+    TEXT_SEARCH_BYTES_SEARCHED_TOTAL,
+    "Text index bytes attributed to searches. `attribution` is `index_size` for the whole index \
+     per search or `filter_weighted` for segment sizes scaled by the share of documents matching \
+     the search's filter conditions",
+    &["attribution", "filtered"]
+);
+pub fn log_text_search_bytes(
+    total_size_bytes: u64,
+    filtered_bytes_searched: u64,
+    has_filter_conditions: bool,
+) {
+    let filtered_label = StaticMetricLabel::new("filtered", has_filter_conditions.to_string());
+    log_counter_with_labels(
+        &TEXT_SEARCH_BYTES_SEARCHED_TOTAL,
+        total_size_bytes,
+        vec![
+            StaticMetricLabel::new("attribution", "index_size"),
+            filtered_label.clone(),
+        ],
+    );
+    log_counter_with_labels(
+        &TEXT_SEARCH_BYTES_SEARCHED_TOTAL,
+        filtered_bytes_searched,
+        vec![
+            StaticMetricLabel::new("attribution", "filter_weighted"),
+            filtered_label,
+        ],
+    );
+}
+
+register_convex_counter!(
     SEARCH_MISSING_INDEX_KEY_TOTAL,
     "Number of times an index was not found in DocumentIndexKeys"
 );

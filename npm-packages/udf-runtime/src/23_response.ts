@@ -262,10 +262,6 @@ export class Response {
     return this[_responseType];
   }
 
-  get [Symbol.toStringTag]() {
-    return "Response";
-  }
-
   inspect() {
     const properties = {
       bodyUsed: this._bodyUsed,
@@ -290,6 +286,13 @@ export class Response {
     return this[_redirected];
   }
 }
+
+Object.defineProperty(Response.prototype, Symbol.toStringTag, {
+  value: "Response",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 export const convexJsonFromResponse = ({ response }: { response: any }) => {
   if (!(response instanceof Response)) {

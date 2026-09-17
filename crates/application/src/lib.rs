@@ -144,6 +144,7 @@ use common::{
         FunctionCaller,
         IndexId,
         IndexName,
+        IndexRef,
         ModuleEnvironment,
         NodeDependency,
         ObjectKey,
@@ -330,11 +331,11 @@ use roles::RequireDeploymentOp;
 use scheduled_jobs::ScheduledJobRunner;
 use schema_worker::SchemaWorker;
 use search::{
-    query::RevisionWithKeys,
     searcher::{
         Searcher,
         SegmentTermMetadataFetcher,
     },
+    TextSearchResults,
 };
 use search_index_workers::{
     FastForwardIndexWorker,
@@ -646,6 +647,22 @@ pub async fn create_storage<RT: Runtime>(
 
 const DEFAULT_AUDIT_LOG_LIMIT: usize = 15;
 const MAX_AUDIT_LOG_LIMIT: usize = 100;
+
+fn ensure_export_file_storage_within_limit(
+    format: ExportFormat,
+    latest_file_storage_size: Option<u64>,
+) -> anyhow::Result<()> {
+    if matches!(
+        format,
+        ExportFormat::Zip {
+            include_storage: true
+        }
+    ) && let Some(file_storage_size) = latest_file_storage_size
+    {
+        ::exports::ensure_file_storage_export_size(file_storage_size)?;
+    }
+    Ok(())
+}
 
 impl<RT: Runtime> Application<RT> {
     pub async fn initialize_storage(
@@ -995,8 +1012,12 @@ impl<RT: Runtime> Application<RT> {
         self.runner.clone()
     }
 
-    pub async fn mint_ai_gateway_jwt(&self, claims: AttributionClaims) -> anyhow::Result<String> {
-        self.runner.mint_ai_gateway_jwt(claims).await
+    pub async fn mint_ai_gateway_jwt(
+        &self,
+        identity: &Identity,
+        claims: AttributionClaims,
+    ) -> anyhow::Result<String> {
+        self.runner.mint_ai_gateway_jwt(identity, claims).await
     }
 
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {
@@ -1119,7 +1140,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn index_page(
         &self,
         ts: RepeatableTimestamp,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
@@ -1129,7 +1150,7 @@ impl<RT: Runtime> Application<RT> {
         CursorPosition,
     )> {
         self.database
-            .index_page(ts, index_id, tablet_id, interval, order, max_size)
+            .index_page(ts, index, tablet_id, interval, order, max_size)
             .await
     }
 
@@ -1165,7 +1186,7 @@ impl<RT: Runtime> Application<RT> {
         query: pb::searchlight::TextQuery,
         pending_updates: Vec<DocumentUpdate>,
         ts: RepeatableTimestamp,
-    ) -> anyhow::Result<RevisionWithKeys> {
+    ) -> anyhow::Result<TextSearchResults> {
         self.database
             .text_search_at_ts(index_id, printable_index_name, query, pending_updates, ts)
             .await
@@ -1629,6 +1650,12 @@ impl<RT: Runtime> Application<RT> {
         expiration_ts_ns: Option<u64>,
     ) -> anyhow::Result<DeveloperDocumentId> {
         identity.require_operation(DeploymentOp::CreateBackups)?;
+        ensure_export_file_storage_within_limit(
+            format,
+            self.workers
+                .usage_gauges_tracking_worker
+                .latest_file_storage_size(),
+        )?;
         if let Some(expiration_ts_ns) = expiration_ts_ns {
             let now = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -2673,6 +2700,13 @@ impl<RT: Runtime> Application<RT> {
         caller: FunctionCaller,
         component: ComponentId,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        anyhow::ensure!(
+            module.environment == ModuleEnvironment::Isolate,
+            ErrorMetadata::bad_request(
+                "InvalidTestQueryEnvironment",
+                "Test queries must use the Convex runtime.",
+            ),
+        );
         let request_id = request_context.request_id.clone();
         let block_logging = self
             .log_visibility
@@ -2970,12 +3004,8 @@ impl<RT: Runtime> Application<RT> {
                     .drop_index(existing_index_metadata.id())
                     .await?;
             }
-            let index_metadata = IndexMetadata::new_backfilling(
-                *tx.begin_timestamp(),
-                index_name,
-                index_fields,
-                tx.allocate_persistence_index_id().await,
-            );
+            let index_metadata =
+                IndexMetadata::new_backfilling(*tx.begin_timestamp(), index_name, index_fields);
             IndexModel::new(&mut tx)
                 .add_system_index(namespace, index_metadata)
                 .await?;

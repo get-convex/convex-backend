@@ -26,6 +26,7 @@ testing = [
     "usage_tracking/testing",
     "value/testing",
     "convex_macro/testing",
+    "packed_value/testing",
 ]
 
 [dependencies]
@@ -53,6 +54,7 @@ maplit = { workspace = true }
 metrics = { workspace = true }
 migrations_model = { workspace = true }
 openidconnect = { workspace = true }
+packed_value = { workspace = true }
 pb = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
@@ -88,6 +90,7 @@ fivetran_destination = { workspace = true, features = ["testing"] }
 keybroker = { workspace = true, features = ["testing"] }
 metrics = { workspace = true, features = ["testing"] }
 migrations_model = { workspace = true, features = ["testing"] }
+packed_value = { workspace = true, features = ["testing"] }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }

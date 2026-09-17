@@ -13,6 +13,9 @@ type Update =
       href: string;
     }
   | {
+      password: string;
+    }
+  | {
       port: string | null;
     }
   | {
@@ -26,6 +29,9 @@ type Update =
     }
   | {
       searchParams: [string, string][];
+    }
+  | {
+      username: string;
     };
 
 // Private symbols for URL to poke at the internals of URLSearchParams
@@ -154,10 +160,6 @@ class URLSearchParams {
     return this[_searchParamPairs].map(([, value]) => value)[Symbol.iterator]();
   }
 
-  get [Symbol.toStringTag]() {
-    return "URLSearchParams";
-  }
-
   inspect() {
     let inner = "";
     if (this[_searchParamPairs].length !== 0) {
@@ -171,6 +173,13 @@ class URLSearchParams {
     return `${this.constructor.name} {${inner}}`;
   }
 }
+
+Object.defineProperty(URLSearchParams.prototype, Symbol.toStringTag, {
+  value: "URLSearchParams",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 type UrlInfo = {
   scheme: string;
@@ -276,8 +285,10 @@ class URL {
     return this.#urlInfo.password;
   }
 
-  set password(_password: string) {
-    throwNotImplementedMethodError("set password", "URL");
+  set password(password: string) {
+    this.#updateUrl({
+      password: `${password}`,
+    });
   }
 
   get pathname() {
@@ -332,8 +343,10 @@ class URL {
     return this.#urlInfo.username;
   }
 
-  set username(_username: string) {
-    throwNotImplementedMethodError("set username", "URL");
+  set username(username: string) {
+    this.#updateUrl({
+      username: `${username}`,
+    });
   }
 
   toString() {
@@ -354,10 +367,6 @@ class URL {
     this.#searchParams[_searchParamPairs] = searchPairs;
   }
 
-  get [Symbol.toStringTag]() {
-    return "URL";
-  }
-
   inspect() {
     const object = {
       href: this.href,
@@ -375,6 +384,13 @@ class URL {
     return `${this.constructor.name} ${inspect(object)}`;
   }
 }
+
+Object.defineProperty(URL.prototype, Symbol.toStringTag, {
+  value: "URL",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 export const setupURL = (global: any) => {
   global.URL = URL;

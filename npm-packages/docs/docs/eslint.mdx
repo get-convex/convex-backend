@@ -114,8 +114,11 @@ const nextConfig: NextConfig = {
 | [`@convex-dev/no-filter-in-query`](#no-filter-in-query)<br/>Warn on `.filter()` in database queries (inefficient)                       |     ✅      |              |
 | [`@convex-dev/no-top-of-hour-crons`](#no-top-of-hour-crons)<br/>Warn on cron jobs scheduled exactly on the hour                         |     ✅      |              |
 | [`@convex-dev/no-schema-import-cycle`](#no-schema-import-cycle)<br/>Prevent using the schema in a file that the schema imports          |     ✅      |              |
+| [`@convex-dev/no-duplicate-indexes`](#no-duplicate-indexes)<br/>Warn on indexes whose fields are a prefix of another index's            |     ✅      |              |
+| [`@convex-dev/no-process-env`](#no-process-env)<br/>Prefer the typed `env` object over `process.env`                                    |     ✅      |      🔧      |
 | [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Prevent Convex runtime files from importing from Node runtime files     |             |              |
 | [`@convex-dev/no-collect-in-query`](#no-collect-in-query)<br/>Prefer `.take()` / `.paginate()` over `.collect()` in queries             |             |              |
+| [`@convex-dev/require-access-control`](#require-access-control)<br/>Require an access control check in public functions                 |             |              |
 
 ### no-old-registered-function-syntax
 
@@ -380,6 +383,98 @@ Files the schema doesn't import — the usual home for queries and mutations —
 use `schema.doc()` and `schema.id()` freely. References inside a function body
 are also fine, since they run after both modules have loaded.
 
+### no-duplicate-indexes
+
+Warn when a table's index indexes a prefix of the fields of another of its
+indexes.
+
+A Convex index sorts documents by its fields in order, so a query can filter on
+any leading subset of them. An index on `["author", "channel"]` selects the same
+documents as an index on `["author"]` for any query that only constrains
+`author`, so keeping both costs write throughput and storage — every insert and
+update to the table writes a row to every index on it — without widening what
+you can query.
+
+```ts
+// ❌ "by_author" indexes a prefix of "by_author_and_channel":
+defineTable({ author: v.string(), channel: v.string() })
+  .index("by_author", ["author"])
+  .index("by_author_and_channel", ["author", "channel"]);
+
+// ✅ Query the longer index with a prefix of its fields:
+defineTable({ author: v.string(), channel: v.string() }).index(
+  "by_author_and_channel",
+  ["author", "channel"],
+);
+
+await ctx.db
+  .query("messages")
+  .withIndex("by_author_and_channel", (q) => q.eq("author", author))
+  .collect();
+
+// ✅ Neither indexes a prefix of the other, so both are needed:
+defineTable({ author: v.string(), channel: v.string() })
+  .index("by_channel", ["channel"])
+  .index("by_author_and_channel", ["author", "channel"]);
+```
+
+[Staged indexes](/database/reading-data/indexes#staged-indexes) are exempt from
+this rule, since staging the longer index while the shorter one is still live is
+how you replace one index with another without a slow backfill blocking your
+deploy.
+
+#### When not to use this rule
+
+There is one case where this rule might trigger a false positive. Convex
+[appends `_creationTime`](/database/reading-data/indexes/indexes.mdx) to every
+index. If you need to query documents ordered by the fields of the shorter index
+_then_ `_creationTime`, you will need to keep both indexes. For example, if in
+the example below you need to query documents sorted by `author` _then_
+`_creationTime`, keep the `by_author` index and disable the ESLint rule where
+the index is defined:
+
+```ts
+// eslint-disable-next-line @convex-dev/no-duplicate-indexes
+.index("by_author", ["author"])
+```
+
+### no-process-env
+
+Prefer the typed `env` object over `process.env`.
+
+[Declaring your environment variables](/production/environment-variables.mdx#declaring)
+in `convex/convex.config.ts` gives you a typed `env` object to import from
+`_generated/server`. Reading them that way means TypeScript catches typos and
+tells you which variables are optional, and the deploy fails early when a
+required variable is missing.
+
+```ts
+// ❌ Not allowed by this rule:
+const apiKey = process.env.GIPHY_KEY; // `string | undefined`, and typos compile
+
+// ✅ Allowed by this rule:
+import { env } from "./_generated/server";
+
+const apiKey = env.GIPHY_KEY; // `string`, and typos are a build error
+```
+
+The rule provides an autofix when the environment variable is already declared
+in your `convex.config.ts` (or is one of the
+[system environment variables](/production/environment-variables.mdx#system-environment-variables)).
+If the variable isn't declared, the rewrite is offered as an editor suggestion
+instead of a fix.
+
+```ts title="convex/convex.config.ts"
+import { defineApp } from "convex/server";
+import { v } from "convex/values";
+
+const app = defineApp({
+  env: { GIPHY_KEY: v.string() },
+});
+
+export default app;
+```
+
 ### import-wrong-runtime
 
 Prevent Convex runtime files from importing from Node runtime files (files with
@@ -427,3 +522,91 @@ disable this rule for that line with:
 // eslint-disable-next-line @convex-dev/no-collect-in-query
 const results = await ctx.db.query("roles").collect();
 ```
+
+### require-access-control
+
+Require an access control check in public functions.
+
+Public queries, mutations and actions
+[can be called by anyone](/understanding/best-practices/best-practices.mdx#use-some-form-of-access-control-for-all-public-functions),
+so forgetting an access control check might cause malicious users to read or
+write data they shouldn’t have access to.
+
+This rule reports every exported `query`, `mutation` or `action` whose handler
+doesn’t call one of your access control functions. It recognizes these functions
+by name: by default, any call whose name starts with `require`, `assert`,
+`check`, `ensure`, `can` or `has`. This covers helpers that throw
+(`requireUser(ctx)`) as well as helpers that return a boolean
+(`canEditNote(ctx)`).
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    // …
+  },
+});
+
+// ✅ Allowed by this rule: a boolean check in the condition of an `if`
+export const update = mutation({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await canEditNote(ctx))) {
+      throw new Error("Unauthorized");
+    }
+    // …
+  },
+});
+
+// ✅ Allowed by this rule: methods count too
+export const remove = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await authz.require(ctx, userId, "documents:delete");
+    // …
+  },
+});
+
+// ✅ Not checked: internal functions can’t be called from the internet
+export const cleanup = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    // …
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const send = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.db.insert("messages", { body: "hello" });
+  },
+});
+```
+
+If your access control functions are named differently, you can customize the
+pattern in the ESLint settings:
+
+```ts
+"@convex-dev/require-access-control": [
+  "error",
+  {
+    pattern: "^(require|authorize)",
+  },
+],
+```
+
+When using this rule, please consider the following limitations:
+
+- The rule only verifies that a matching function is called. It can’t tell
+  whether that check is the right one for this function (e.g.
+  `requireIsLoggedIn` vs `requireIsAdmin`), or whether you act on the boolean it
+  returns.
+- The call has to be a top-level statement of the handler or the condition of a
+  top-level `if`, so a check nested in an `if` body or a `try` block isn’t
+  detected.
+- This rule doesn’t check HTTP actions.
+- This rule doesn’t check
+  [custom functions](https://github.com/get-convex/convex-helpers/blob/main/packages/convex-helpers/README.md#custom-functions).

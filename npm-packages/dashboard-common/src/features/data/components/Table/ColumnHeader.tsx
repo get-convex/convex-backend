@@ -1,4 +1,5 @@
 import {
+  CaretSortIcon,
   CaretUpIcon,
   CalendarIcon,
   DragHandleDots2Icon,
@@ -19,6 +20,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import { Button } from "@ui/Button";
 import { useStoredShowFieldsAsDates } from "@common/features/data/components/Table/utils/useDataColumns";
+import { SortOption } from "@common/features/data/components/IndexFilterBar/filterModel";
 
 type ColumnHeaderProps = {
   header: Header<GenericDocument, unknown>;
@@ -31,8 +33,10 @@ type ColumnHeaderProps = {
   isLastColumn: boolean;
   openContextMenu: DataCellProps["onOpenContextMenu"];
   sort?: "asc" | "desc";
+  sortOption: SortOption;
+  onSort: () => void;
   localStorageKey: string;
-  tableContainerRef: RefObject<HTMLDivElement>;
+  tableContainerRef: RefObject<HTMLDivElement | null>;
 };
 
 export function ColumnHeader({
@@ -46,6 +50,8 @@ export function ColumnHeader({
   isLastColumn,
   openContextMenu,
   sort,
+  sortOption,
+  onSort,
   localStorageKey,
   tableContainerRef,
 }: ColumnHeaderProps) {
@@ -120,13 +126,13 @@ export function ColumnHeader({
       )}
       <div
         ref={headerNode}
-        className="flex w-full items-center space-x-2"
+        className="flex size-full items-center"
         style={{
           padding: `${densityValues.paddingY}px ${columnIndex === 0 ? "12" : densityValues.paddingX}px`,
           width,
         }}
       >
-        <div className="flex items-center space-x-2">
+        <div className="flex min-w-0 flex-1 items-center space-x-2">
           {columnIndex === 0 ? (
             // Disable the "Select all" checkbox when filtering
             allRowsSelected === false &&
@@ -136,16 +142,26 @@ export function ColumnHeader({
             )
           ) : columnName === emptyColumnName ? (
             <i>empty</i>
-          ) : identifierNeedsEscape(columnName) ? (
-            <span
-              className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
-            >
-              {flexRender(column.columnDef.header, header.getContext())}
-            </span>
           ) : (
-            <div>
-              {flexRender(column.columnDef.header, header.getContext())}
-            </div>
+            <SortableColumnName
+              columnName={columnName}
+              sort={sort}
+              sortOption={sortOption}
+              onSort={onSort}
+              isHovered={isHovered}
+            >
+              {identifierNeedsEscape(columnName) ? (
+                <span
+                  className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
+                >
+                  {flexRender(column.columnDef.header, header.getContext())}
+                </span>
+              ) : (
+                <div>
+                  {flexRender(column.columnDef.header, header.getContext())}
+                </div>
+              )}
+            </SortableColumnName>
           )}
           {columnName !== "_creationTime" &&
             column.columnDef.meta?.isDateLike && (
@@ -155,33 +171,23 @@ export function ColumnHeader({
                 localStorageKey={localStorageKey}
               />
             )}
-          {sort && (
-            <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
-              <CaretUpIcon
-                className={cn(
-                  "transition-all",
-                  sort === "asc" ? "" : "rotate-180",
-                )}
-              />
-            </Tooltip>
-          )}
         </div>
-        {canDragOrDrop && isHovered && (
-          <Button
-            {...attributes}
-            {...listeners}
-            className={cn(
-              "absolute right-1.5 animate-fadeInFromLoading cursor-grab items-center bg-background-secondary/50 text-content-secondary backdrop-blur-[2px]",
-              isDragging && "cursor-grabbing",
-            )}
-            aria-label="Drag column"
-            variant="neutral"
-            inline
-            size="xs"
-            icon={<DragHandleDots2Icon />}
-          />
-        )}
       </div>
+      {canDragOrDrop && isHovered && (
+        <Button
+          {...attributes}
+          {...listeners}
+          className={cn(
+            "absolute top-1/2 right-1.5 -translate-y-1/2 animate-fadeInFromLoading cursor-grab items-center bg-background-secondary/50 text-content-secondary backdrop-blur-[2px]",
+            isDragging && "cursor-grabbing",
+          )}
+          aria-label="Drag column"
+          variant="neutral"
+          inline
+          size="xs"
+          icon={<DragHandleDots2Icon />}
+        />
+      )}
       {!isHovering && column.getCanResize() && columnName !== "*select" && (
         // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- mouse/touch-driven column resize handle
         <div
@@ -196,6 +202,85 @@ export function ColumnHeader({
         />
       )}
     </div>
+  );
+}
+
+// The column name doubles as the sort control. Sorting follows an index, so a
+// column can only be sorted when some index starts with it (or continues the
+// applied indexed filters); otherwise the tooltip says which index to add.
+function SortableColumnName({
+  columnName,
+  sort,
+  sortOption,
+  onSort,
+  isHovered,
+  children,
+}: {
+  columnName: string;
+  sort?: "asc" | "desc";
+  sortOption: SortOption;
+  onSort: () => void;
+  isHovered: boolean;
+  children: React.ReactNode;
+}) {
+  if (sortOption.kind === "switch" && sortOption.dropsClauses) {
+    return (
+      <span className="flex items-center gap-1">
+        {children}
+        {isHovered && (
+          <Tooltip
+            tip="Sorting by this field will clear your active indexed filters."
+            side="bottom"
+          >
+            <span className="cursor-not-allowed opacity-40">
+              <CaretSortIcon className="shrink-0 text-content-tertiary" />
+            </span>
+          </Tooltip>
+        )}
+      </span>
+    );
+  }
+  if (sortOption.kind === "unavailable") {
+    return (
+      <span className="flex items-center gap-1">
+        {children}
+        {isHovered && (
+          <Tooltip
+            tip="To sort by this field, add an index for it to your schema."
+            side="bottom"
+          >
+            <span className="cursor-not-allowed opacity-40">
+              <CaretSortIcon className="shrink-0 text-content-tertiary" />
+            </span>
+          </Tooltip>
+        )}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1">
+      {children}
+      {(sort || isHovered) && (
+        <Button
+          variant="unstyled"
+          onClick={onSort}
+          className="flex size-5 cursor-pointer items-center justify-center rounded-full hover:bg-background-tertiary"
+          aria-label={`Sort by ${columnName}`}
+          icon={
+            sort ? (
+              <CaretUpIcon
+                className={cn(
+                  "transition-all",
+                  sort === "asc" ? "" : "rotate-180",
+                )}
+              />
+            ) : (
+              <CaretSortIcon className="text-content-tertiary" />
+            )
+          }
+        />
+      )}
+    </span>
   );
 }
 

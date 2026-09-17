@@ -14,8 +14,8 @@ use common::{
         Order,
     },
     types::{
-        IndexId,
         IndexName,
+        IndexRef,
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
@@ -33,28 +33,11 @@ use crate::metrics::{
     log_index_page_point_lookup,
 };
 
-/// N.B. It is unsound to compare only on key but to use ts and value fields for
-/// equality, but we want to be able to get map-like functionality out of
-/// OrdSet<IndexEntry> (hence implementing Ord only comparing keys) and we want
-/// to be able to compare the contents in tests (which is why we derive
-/// PartialEq and Eq).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexEntry {
     pub key: IndexKeyBytes,
     pub ts: Timestamp,
     pub value: PackedDocument,
-}
-
-impl Ord for IndexEntry {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.key.cmp(&other.key)
-    }
-}
-
-impl PartialOrd for IndexEntry {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
 }
 
 impl HeapSize for IndexEntry {
@@ -65,6 +48,8 @@ impl HeapSize for IndexEntry {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IndexPage {
+    /// Entries have unique keys and are ordered according to the requested
+    /// [`Order`].
     pub entries: Vec<Arc<IndexEntry>>,
     pub cursor: CursorPosition,
 }
@@ -72,7 +57,7 @@ pub struct IndexPage {
 pub trait IndexReader: Send + Sync {
     async fn index_page(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
@@ -86,7 +71,7 @@ pub trait IndexReader: Send + Sync {
 impl IndexReader for PersistenceSnapshot {
     async fn index_page(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         interval: &Interval,
         order: Order,
@@ -99,7 +84,7 @@ impl IndexReader for PersistenceSnapshot {
         let result = async {
             let mut stream = PersistenceSnapshot::index_scan(
                 self,
-                index_id,
+                index,
                 tablet_id,
                 interval,
                 order,
@@ -141,7 +126,7 @@ impl dyn IndexReader {
     #[try_stream(ok = IndexEntry, error = anyhow::Error)]
     pub async fn index_scan<'a>(
         &'a self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         mut interval: Interval,
         order: Order,
@@ -149,7 +134,7 @@ impl dyn IndexReader {
     ) {
         while !interval.is_empty() {
             let page = self
-                .index_page(index_id, tablet_id, &interval, order, page_size)
+                .index_page(index, tablet_id, &interval, order, page_size)
                 .await?;
             for entry in page.entries {
                 yield Arc::unwrap_or_clone(entry);

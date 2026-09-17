@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { InvoiceResponse } from "generatedApi";
+import type { CreditResponse, InvoiceResponse } from "generatedApi";
 import { BILLING_RESOURCE, Permissioned } from "lib/permissions";
 import {
   useHasCustomRolePermission,
@@ -19,9 +19,9 @@ export function useTeamOrbSubscription(teamId?: number) {
     swrOptions: { refreshInterval: 0, keepPreviousData: false },
   });
   if (error) {
-    return { isLoading, subscription: null };
+    return { isLoading, subscription: null, hasError: true };
   }
-  return { isLoading, subscription };
+  return { isLoading, subscription, hasError: false };
 }
 
 export function useCreateSetupIntent(teamId: number) {
@@ -249,6 +249,48 @@ export function useGetCurrentSpend(
   }
   if (isLoading) return { status: "loading" };
   return { status: "ok", data: { totalCents: data?.totalCents } };
+}
+
+type CreditsResult = Permissioned<CreditResponse[]> & {
+  refreshCredits: () => Promise<void>;
+};
+
+export function useListCredits(teamId: number | null): CreditsResult {
+  const canView = useHasCustomRolePermission(
+    teamId ?? undefined,
+    "billing:view",
+    BILLING_RESOURCE,
+    true,
+  );
+  const { data, isLoading, mutate } = useBBQuery({
+    path: "/teams/{team_id}/list_credits",
+    pathParams: {
+      team_id: canView === true ? (teamId?.toString() ?? "") : "",
+    },
+    // Credits are granted out of band and don't change over the life of a page
+    // view, so don't poll Orb for them.
+    swrOptions: { refreshInterval: 0 },
+  });
+  const refreshCredits = async () => {
+    await mutate();
+  };
+  if (canView === undefined) {
+    return { status: "loading", refreshCredits } as const;
+  }
+  if (canView === false) {
+    return {
+      status: "denied",
+      deniedAction: "billing:view",
+      refreshCredits,
+    } as const;
+  }
+  if (isLoading) return { status: "loading", refreshCredits } as const;
+  // The response is paged-shaped, but the server returns every credit today.
+  return {
+    status: "ok",
+    data: data?.items ?? [],
+    refreshCredits,
+  } as const;
 }
 
 export type SpendingLimits = {

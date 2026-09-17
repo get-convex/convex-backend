@@ -38,8 +38,8 @@ use common::{
     types::{
         IndexDescriptor,
         IndexDiff,
-        IndexId,
         IndexName,
+        IndexRef,
         StableIndexName,
         TableName,
         TabletIndexName,
@@ -436,7 +436,6 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                         *self.tx.begin_timestamp(),
                         index_name.clone(),
                         index_schema.fields.clone(),
-                        None,
                     ),
                 );
                 anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
@@ -449,7 +448,6 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                         *self.tx.begin_timestamp(),
                         index_name.clone(),
                         index_schema.fields.clone(),
-                        None,
                     ),
                 );
                 anyhow::ensure!(exists.is_none(), "Index appears twice: {index_name}");
@@ -661,20 +659,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         namespace: TableNamespace,
         schema: &DatabaseSchema,
     ) -> anyhow::Result<IndexDiff> {
-        let mut diff: IndexDiff = self.get_index_diff(namespace, &schema.tables).await?;
-
-        // Diffing is used by read-only schema operations, so allocate only for
-        // database indexes that this prepare operation will insert.
-        for index in &mut diff.added {
-            if let IndexConfig::Database {
-                persistence_index_id,
-                ..
-            } = &mut index.config
-                && persistence_index_id.is_none()
-            {
-                *persistence_index_id = self.tx.allocate_persistence_index_id().await;
-            }
-        }
+        let diff: IndexDiff = self.get_index_diff(namespace, &schema.tables).await?;
 
         // If an index is currently pending and we're mutating it, we need to drop the
         // currently pending index immediately so that we avoid having multiple pending
@@ -883,12 +868,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     }
 
     /// Returns by_id indexes for *all tablets*, including hidden ones.
-    pub async fn by_id_indexes(&mut self) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
+    pub async fn by_id_indexes(&mut self) -> anyhow::Result<BTreeMap<TabletId, IndexRef>> {
         let all_indexes = self.get_all_indexes()?;
-        Ok(all_indexes
+        all_indexes
             .filter(|index| index.name.is_by_id())
-            .map(|index| (*index.name.table(), index.id().internal_id().into()))
-            .collect())
+            .map(|index| Ok((*index.name.table(), IndexRef::try_from(index)?)))
+            .collect()
     }
 
     pub async fn by_id_index_metadata(
@@ -1110,12 +1095,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 IndexConfig::Database {
                     spec: DatabaseIndexSpec { fields },
                     ..
-                } => IndexMetadata::new_backfilling(
-                    *self.tx.begin_timestamp(),
-                    index_name,
-                    fields,
-                    self.tx.allocate_persistence_index_id().await,
-                ),
+                } => IndexMetadata::new_backfilling(*self.tx.begin_timestamp(), index_name, fields),
                 IndexConfig::Text {
                     spec:
                         TextIndexSpec {

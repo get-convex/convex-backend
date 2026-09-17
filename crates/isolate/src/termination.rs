@@ -173,7 +173,7 @@ impl ExecutionHandle {
         self.interrupt.interrupt();
         if let Some(existing_reason) = &inner.reason {
             report_error_sync(&mut anyhow::anyhow!(
-                "termination after already terminated: {reason:?}"
+                "termination after already terminated: existing={existing_reason:?} new={reason:?}"
             ));
             // Replace the termination reason if the new one is more serious.
             if matches!(existing_reason, TerminationReason::Context(_))

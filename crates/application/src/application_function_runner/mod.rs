@@ -76,7 +76,6 @@ use common::{
         NodeDependency,
         QueryInvocation,
         Timestamp,
-        UdfIdentifier,
         UdfType,
     },
 };
@@ -106,6 +105,7 @@ use futures::{
     FutureExt,
 };
 use keybroker::{
+    DeploymentOp,
     Identity,
     KeyBroker,
 };
@@ -158,6 +158,7 @@ use node_executor::{
     ExecuteRequest,
     NodeActions,
 };
+use roles::RequireDeploymentOp;
 use serde_json::Value as JsonValue;
 use storage::Storage;
 use sync_types::{
@@ -742,9 +743,23 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     /// claims from Conductor's gRPC handler.
     pub async fn mint_ai_gateway_jwt(
         &self,
+        identity: &Identity,
         attribution: AttributionClaims,
     ) -> anyhow::Result<String> {
+        match identity {
+            // Deploy keys and dashboard members carry an op set, from the key's
+            // `allowed_operations` or the member's custom roles, so hold them to
+            // it.
+            Identity::DeploymentAdmin(_) | Identity::ActingUser(..) => {
+                identity.require_operation(DeploymentOp::UseAiGateway)?
+            },
+            // End users authenticate against the app's own auth config and have
+            // no op set. Gating them would reject the ordinary case of an app
+            // user triggering an action that calls the gateway.
+            Identity::System(_) | Identity::User(_) | Identity::Unknown(_) => {},
+        }
         let mut tx = self.database.begin_system().await?;
+        self.bail_if_backend_not_running(&mut tx).await?;
         let ai_gateway_disabled = BackendInfoModel::new(&mut tx)
             .get()
             .await?
@@ -767,7 +782,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                  provider directly with your own API key."
             ));
         };
-        minter.mint(&self.deployment, attribution)
+        minter.mint(&self.deployment, attribution).await
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
@@ -910,14 +925,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
-        let write_source = {
-            let component_path = path.clone().debug_into_component_path();
-            if path.is_system() {
-                WriteSource::SystemUdf(Arc::new(UdfIdentifier::Function(component_path)))
-            } else {
-                WriteSource::Udf(Arc::new(UdfIdentifier::Function(component_path)))
-            }
-        };
+        let write_source = WriteSource::mutation(path.clone().debug_into_component_path());
 
         let mut backoff = Backoff::new(
             *UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
@@ -2103,8 +2111,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     #[fastrace::trace]
-    async fn create_ai_gateway_token(&self, caller: AttributedCaller) -> anyhow::Result<String> {
-        self.mint_ai_gateway_jwt(AttributionClaims::from(caller))
+    async fn create_ai_gateway_token(
+        &self,
+        identity: Identity,
+        caller: AttributedCaller,
+    ) -> anyhow::Result<String> {
+        self.mint_ai_gateway_jwt(&identity, AttributionClaims::from(caller))
             .await
     }
 

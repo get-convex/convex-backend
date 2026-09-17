@@ -56,6 +56,17 @@ export const BUSINESS_DATABASE_GROUP_BY_OPTIONS: SegmentedControlOption<Business
     { label: "Deployment class", value: "byDeploymentClass" },
   ];
 
+// Type for the AI Gateway section (byModel instead of byType; the section has
+// no per-type query yet)
+export type AiGatewayGroupBy = "byProject" | "byModel";
+
+// Options for AiGatewayGroupBy (byProject, byModel)
+export const AI_GATEWAY_GROUP_BY_OPTIONS: SegmentedControlOption<AiGatewayGroupBy>[] =
+  [
+    { label: "Project", value: "byProject" },
+    { label: "Model", value: "byModel" },
+  ];
+
 export function GroupBySelector<T extends string>({
   value,
   onChange,

@@ -5,7 +5,7 @@ edition = "2024"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
 [package.metadata.cargo-machete]
-ignored = ["tonic_prost_build"]
+ignored = ["tonic-prost-build"]
 
 [lib]
 doctest = false

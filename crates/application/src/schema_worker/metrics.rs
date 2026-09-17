@@ -1,5 +1,8 @@
+use std::time::Duration;
+
 use metrics::{
     log_counter,
+    log_distribution,
     register_convex_counter,
     register_convex_histogram,
     StatusTimer,
@@ -29,4 +32,12 @@ register_convex_counter!(
 );
 pub fn log_document_bytes(bytes: usize) {
     log_counter(&SCHEMA_VALIDATION_DOCUMENT_BYTES, bytes as u64);
+}
+
+register_convex_histogram!(
+    SCHEMA_VALIDATION_WALK_TS_LAG_SECONDS,
+    "How far a schema walk's last page timestamp is ahead of its starting timestamp"
+);
+pub fn log_walk_ts_lag(lag: Duration) {
+    log_distribution(&SCHEMA_VALIDATION_WALK_TS_LAG_SECONDS, lag.as_secs_f64());
 }

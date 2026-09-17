@@ -147,7 +147,7 @@ const llmTool = createTool({
   }),
   handler: async (ctx, args): Promise<string> => {
     const result = await generateText({
-      system: "You are a helpful assistant.",
+      instructions: "You are a helpful assistant.",
       // Pass through all messages from the current generation
       prompt: [...options.messages, { role: "user", content: args.message }],
       model: myLanguageModel,

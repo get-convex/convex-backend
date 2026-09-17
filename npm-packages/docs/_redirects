@@ -1,5 +1,9 @@
 # Redirects from what the browser requests to what we serve
 # THIS LIST IS NOT ALPHABETICAL! It mostly is, but order matters for wildcards.
+# The security policy lives on the marketing site; 302 so the canonical
+# location can move without browsers caching a stale target.
+/security.txt                       https://www.convex.dev/.well-known/security.txt  302
+/.well-known/security.txt           https://www.convex.dev/.well-known/security.txt  302
 /ai                                 /ai/overview
 /api/interfaces/server.DatabaseWriter   /api/interfaces/server.GenericDatabaseWriter
 /api/interfaces/server.DatabaseReader   /api/interfaces/server.GenericDatabaseReader

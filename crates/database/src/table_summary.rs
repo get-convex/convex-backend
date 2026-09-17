@@ -33,7 +33,7 @@ use common::{
     query::Order,
     runtime::Runtime,
     types::{
-        IndexId,
+        IndexRef,
         RepeatableReason,
         RepeatableTimestamp,
         Timestamp,
@@ -455,7 +455,7 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         snapshot_ts: Timestamp,
         table_iterator: impl Fn() -> TableIterator<RT>,
         table_mapping: &TableMapping,
-        by_id_indexes: &BTreeMap<TabletId, IndexId>,
+        by_id_indexes: &BTreeMap<TabletId, IndexRef>,
     ) -> anyhow::Result<TableSummarySnapshot> {
         let mut snapshot = BTreeMap::new();
         for (tablet_id, ..) in table_mapping.iter() {
@@ -587,7 +587,7 @@ pub async fn bootstrap<RT: Runtime>(
     let (base_snapshot, base_snapshot_ts) = match stored_snapshot {
         Some(base) => base,
         None => {
-            let by_id_indexes = index_registry.by_id_indexes();
+            let by_id_indexes = index_registry.by_id_indexes()?;
             let base_snapshot = TableSummaryWriter::<RT>::collect_snapshot(
                 *recent_ts,
                 || {

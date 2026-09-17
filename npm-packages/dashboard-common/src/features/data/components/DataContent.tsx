@@ -24,6 +24,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useSelectionState } from "@common/features/data/lib/useSelectionState";
 import { useDataToolbarActions } from "@common/features/data/lib/useDataToolbarActions";
 import { useTableFilters } from "@common/features/data/lib/useTableFilters";
+import { FiltersAppliedProperties } from "@common/features/data/lib/filterAnalytics";
 import { useToolPopup } from "@common/features/data/lib/useToolPopup";
 import { useEditsAuthorization } from "@common/features/data/lib/useEditsAuthorization";
 import { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
@@ -43,7 +44,6 @@ import {
 } from "@common/features/data/components/Table/utils/useDataColumns";
 import { useQueryFilteredTable } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
 import { useSingleTableSchemaStatus } from "@common/features/data/components/TableSchema";
-import { DataFilters } from "@common/features/data/components/DataFilters/DataFilters";
 import { useTableFields } from "@common/features/data/components/Table/utils/useTableFields";
 import { useDefaultDocument } from "@common/features/data/lib/useDefaultDocument";
 import {
@@ -53,30 +53,40 @@ import {
 } from "react-resizable-panels";
 import { cn } from "@ui/cn";
 
-import { getDefaultIndex } from "@common/features/data/components/DataFilters/IndexFilters";
 import { api } from "system-udfs/convex/_generated/api";
 import { useNents } from "@common/lib/useNents";
 import omit from "lodash/omit";
-import { clearFilters } from "./DataFilters/clearFilters";
+import { IndexFilterBar } from "./IndexFilterBar/IndexFilterBar";
+import { clearFilters } from "./IndexFilterBar/clearFilters";
+import {
+  EMPTY_FILTERS,
+  buildIndexDefs,
+  currentOrder,
+  effectiveSortField,
+} from "./IndexFilterBar/filterModel";
+import { useFilterActions } from "./IndexFilterBar/useFilterActions";
 
 export function DataContent({
   tableName,
   componentId,
   activeSchema,
   onDocumentsAdded,
+  onFiltersApplied,
 }: {
   tableName: string;
   componentId: string | null;
   activeSchema: SchemaJson | null;
   onDocumentsAdded?: (count: number) => void;
+  onFiltersApplied?: (properties: FiltersAppliedProperties) => void;
 }) {
   const { filters, applyFiltersWithHistory, hasFilters } = useTableFilters(
     tableName,
-    componentId,
+    onFiltersApplied,
   );
 
-  const [draftFilters, setDraftFilters] = useState(filters);
-  const [showFilters, setShowFilters] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<
+    FilterExpression | undefined
+  >(filters);
   useEffect(() => {
     setDraftFilters(filters);
   }, [filters]);
@@ -277,12 +287,20 @@ export function DataContent({
       tableName,
       tableNamespace: selectedNent?.id ?? null,
     }) ?? undefined;
-  const sortField =
-    (
-      indexes?.find((index) => index.name === filters?.index?.name)?.fields as
-        | string[]
-        | undefined
-    )?.[0] || "_creationTime";
+  const indexDefs = useMemo(() => buildIndexDefs(indexes), [indexes]);
+  const appliedFilters = filters ?? EMPTY_FILTERS;
+  const filterActions = useFilterActions({
+    filters,
+    draftFilters,
+    setDraftFilters,
+    applyFilters: applyFiltersWithHistory,
+    indexDefs,
+    defaultDocument,
+  });
+  const sort = {
+    order: currentOrder(appliedFilters),
+    field: effectiveSortField(indexDefs, appliedFilters),
+  };
 
   const { captureMessage } = useContext(DeploymentInfoContext);
   useEffect(() => {
@@ -340,22 +358,17 @@ export function DataContent({
 
         <div className="flex h-full max-h-full flex-col overflow-y-hidden rounded-b-lg">
           {numRowsInTable !== undefined && numRowsInTable > 0 && (
-            <DataFilters
+            <IndexFilterBar
+              actions={filterActions}
+              indexDefs={indexDefs}
               tableName={tableName}
-              componentId={componentId}
               tableFields={tableFields}
               defaultDocument={defaultDocument}
-              filters={filters}
-              onFiltersChange={applyFiltersWithHistory}
               dataFetchErrors={errors}
-              draftFilters={draftFilters}
-              setDraftFilters={setDraftFilters}
               activeSchema={activeSchema}
               numRows={numRowsInTable}
               numRowsLoaded={data.length}
               hasFilters={hasFiltersAndAtLeastOneDocument}
-              showFilters={showFilters}
-              setShowFilters={setShowFilters}
               allFields={allFields}
               hiddenColumns={hiddenColumns}
               setHiddenColumns={setHiddenColumns}
@@ -390,10 +403,9 @@ export function DataContent({
                     activeSchema={activeSchema}
                     listRef={listRef}
                     loadMore={loadNextPage}
-                    sort={{
-                      order: filters?.order || "desc",
-                      field: sortField,
-                    }}
+                    sort={sort}
+                    getSortOption={filterActions.sortOptionFor}
+                    onSortColumn={filterActions.sortByField}
                     totalRowCount={
                       filters
                         ? status === "Exhausted"
@@ -420,20 +432,9 @@ export function DataContent({
                     defaultDocument={defaultDocument}
                     hiddenColumns={hiddenColumns}
                     onColumnOrderChange={setColumnOrder}
-                    onAddDraftFilter={(filter: Filter) => {
-                      setDraftFilters((prev) =>
-                        prev
-                          ? {
-                              clauses: [...prev.clauses, filter],
-                              index: prev.index ?? getDefaultIndex(),
-                            }
-                          : {
-                              clauses: [filter],
-                              index: getDefaultIndex(),
-                            },
-                      );
-                      setShowFilters(true);
-                    }}
+                    onAddDraftFilter={(filter: Filter) =>
+                      filterActions.addComplete(filter)
+                    }
                   />
                 </Sheet>
               ) : hasFiltersAndAtLeastOneDocument ? (
@@ -448,7 +449,7 @@ export function DataContent({
                     />
                   </Sheet>
                 ) : isEmptySearchFilter(filters) ? (
-                  <div className="flex h-full flex-1 flex-col items-center gap-2 rounded-t-none border bg-background-secondary pt-8">
+                  <div className="flex h-full flex-1 flex-col items-center gap-3 rounded-t-none border bg-background-secondary pt-8">
                     <div className="text-content-secondary">
                       Enter a search term to find matching documents.
                     </div>
@@ -462,7 +463,7 @@ export function DataContent({
                     </Button>
                   </div>
                 ) : (
-                  <div className="flex h-full flex-1 flex-col items-center gap-2 rounded-t-none border bg-background-secondary pt-8">
+                  <div className="flex h-full flex-1 flex-col items-center gap-3 rounded-t-none border bg-background-secondary pt-8">
                     <div className="text-content-secondary">
                       No documents match the selected filters.
                     </div>

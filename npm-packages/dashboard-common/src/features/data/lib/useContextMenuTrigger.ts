@@ -17,7 +17,7 @@ export function useContextMenuHandlers(
   onCloseContextMenu: () => void,
 ) {
   const allowMouseUpCloseRef = useRef(false);
-  const timeoutRef = useRef<number>();
+  const timeoutRef = useRef<number | undefined>(undefined);
 
   const onContextMenu = useCallback(
     (e: ReactMouseEvent) => {
@@ -45,7 +45,7 @@ export function useContextMenuHandlers(
 
 // Based on https://codesandbox.io/s/trusting-rui-2duieo
 export function useContextMenuTrigger(
-  triggerRef: RefObject<HTMLElement>,
+  triggerRef: RefObject<HTMLElement | null>,
   onOpenContextMenu: (position: { x: number; y: number }) => void,
   onCloseContextMenu: () => void,
 ) {

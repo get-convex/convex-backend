@@ -59,8 +59,9 @@ class Crypto {
 Object.defineProperties(Crypto.prototype, {
   [Symbol.toStringTag]: {
     value: "Crypto",
-    writable: false,
     enumerable: false,
+    writable: false,
+    configurable: true,
   },
   subtle: { enumerable: true },
   getRandomValues: { enumerable: true, configurable: true, writable: true },
@@ -245,8 +246,9 @@ class SubtleCrypto {
 Object.defineProperties(SubtleCrypto.prototype, {
   [Symbol.toStringTag]: {
     value: "SubtleCrypto",
-    writable: false,
     enumerable: false,
+    writable: false,
+    configurable: true,
   },
   encrypt: { enumerable: true, configurable: true, writable: true },
   decrypt: { enumerable: true, configurable: true, writable: true },

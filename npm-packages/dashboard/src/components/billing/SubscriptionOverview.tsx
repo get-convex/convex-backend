@@ -6,6 +6,7 @@ import {
   useResumeSubscription,
   useGetCurrentSpend,
   useGetSpendingLimits,
+  useListCredits,
 } from "api/billing";
 import { Loading } from "@ui/Loading";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
@@ -20,6 +21,7 @@ import { formatDate } from "@common/lib/format";
 import { Sheet } from "@ui/Sheet";
 import { useFormik } from "formik";
 import { useStripeAddressSetup, useStripePaymentSetup } from "hooks/useStripe";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { Elements } from "@stripe/react-stripe-js";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useMount } from "react-use";
@@ -38,6 +40,7 @@ import { BillingContactInputs } from "./BillingContactInputs";
 import { CreateSubscriptionSchema } from "./UpgradePlanContent";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { Invoices } from "./Invoices";
+import { PrepaidCredits } from "./PrepaidCredits";
 import { SubscriptionCredits } from "./SubscriptionCredits";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import {
@@ -84,7 +87,7 @@ export function SubscriptionOverview({
   const canResumeSubscription =
     hasAdminPermissions || canResumeSubscriptionCustom;
 
-  if (isLoading || invoicesResult.status === "loading") {
+  if (isLoading) {
     return <Loading className="h-60 w-full" fullHeight={false} />;
   }
   const invoices =
@@ -96,6 +99,23 @@ export function SubscriptionOverview({
   const nextInvoiceDate = invoices?.find(
     (i) => i.status === "draft",
   )?.invoiceDate;
+  const renewalDateContent =
+    invoicesResult.status === "loading" ? (
+      <Loading
+        className="h-4 w-32 bg-neutral-8/30 dark:bg-neutral-3/20"
+        fullHeight={false}
+      />
+    ) : typeof nextInvoiceDate === "number" ? (
+      <span className="font-semibold">
+        {formatDate(new Date(nextInvoiceDate))}
+      </span>
+    ) : null;
+  const renewalDate = renewalDateContent && (
+    <div className="flex items-center gap-1 text-sm">
+      Subscription renews on
+      {renewalDateContent}
+    </div>
+  );
   return (
     <>
       {subscription && (
@@ -141,20 +161,16 @@ export function SubscriptionOverview({
                 Resume Subscription
               </Button>
             </>
-          ) : typeof nextInvoiceDate === "number" ? (
-            <div className="text-sm">
-              Subscription renews on{" "}
-              <span className="font-semibold">
-                {formatDate(new Date(nextInvoiceDate))}
-              </span>
-            </div>
-          ) : null}
+          ) : (
+            renewalDate
+          )}
           {/* The backend only populates these financial fields for actors that
               can view billing details. */}
           {canViewBillingDetails === true && (
             <SubscriptionCredits accountBalance={subscription.accountBalance} />
           )}
           <hr />
+          <PrepaidCreditsContainer team={team} />
           <SpendingLimitsSectionContainer
             subscription={subscription}
             team={team}
@@ -209,6 +225,9 @@ export function SubscriptionOverview({
           )}
         </Sheet>
       )}
+      {team.managedBy !== "vercel" && invoicesResult.status === "loading" && (
+        <Loading className="h-60 w-full" fullHeight={false} />
+      )}
       {team.managedBy !== "vercel" && invoicesResult.status === "denied" && (
         <Sheet className="flex w-full flex-col gap-4">
           <h3>Invoices</h3>
@@ -237,6 +256,20 @@ export function SubscriptionOverview({
         )}
     </>
   );
+}
+
+function PrepaidCreditsContainer({ team }: { team: TeamResponse }) {
+  const { promos } = useLaunchDarkly();
+  // A null team id pauses the query, so an unflagged team costs no Orb call.
+  const creditsResult = useListCredits(promos ? team.id : null);
+  if (
+    !promos ||
+    creditsResult.status !== "ok" ||
+    creditsResult.data.length === 0
+  ) {
+    return null;
+  }
+  return <PrepaidCredits credits={creditsResult.data} />;
 }
 
 function SpendingLimitsSectionContainer({

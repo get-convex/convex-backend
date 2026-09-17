@@ -28,6 +28,7 @@ import {
 import { CommandPalette } from "elements/CommandPalette";
 import { CreateProjectModal } from "hooks/useCreateProjectModal";
 import { CreateTeamModal } from "components/header/CreateTeamModal";
+import { JoinDirectorySyncedTeamModal } from "components/header/JoinDirectorySyncedTeamModal";
 import { Fallback } from "pages/500";
 import { UIProvider } from "@ui/UIContext";
 import Link from "next/link";
@@ -134,6 +135,7 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
                 <DashboardHeader />
                 <CreateProjectModal />
                 <CreateTeamModal />
+                <JoinDirectorySyncedTeamModal />
                 {isSsoLocked ? (
                   <div className="flex size-full items-center justify-center">
                     <Sheet className="flex max-w-prose flex-col gap-4">

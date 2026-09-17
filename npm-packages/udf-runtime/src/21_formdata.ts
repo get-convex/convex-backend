@@ -109,11 +109,14 @@ export class FormData {
   [Symbol.iterator](): IterableIterator<[string, FormDataEntryValue]> {
     return this.entries();
   }
-
-  get [Symbol.toStringTag]() {
-    return "FormData";
-  }
 }
+
+Object.defineProperty(FormData.prototype, Symbol.toStringTag, {
+  value: "FormData",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
 
 export type MimeType = {
   essence: string;

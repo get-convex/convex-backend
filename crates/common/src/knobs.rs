@@ -542,14 +542,14 @@ pub static SCHEDULED_JOB_RETENTION: LazyLock<Duration> = LazyLock::new(|| {
 
 /// Maximum number of scheduled jobs to garbage collect in a single transaction
 pub static SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE", 1000));
+    LazyLock::new(|| env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE", 100));
 
 /// Delay between runs of the scheduled job garbage collector.
 /// If too low, the garbage collector will run frequently with small batches,
 /// which is less efficient. If too high, the garbage collector might fall
 /// behind.
 pub static SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY", 10)));
+    LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY", 1)));
 
 /// Exclusive upper bound, in seconds, for the stable random offset applied to
 /// cron runs so jobs sharing a schedule don't all fire at once and spike load.
@@ -641,6 +641,17 @@ pub static DOCUMENT_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
 /// Smaller window means we break snapshot reads faster.
 pub static INDEX_RETENTION_DELAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("INDEX_RETENTION_DELAY", 4 * 60)));
+
+/// How often each conductor checks that the MySQL V6 `indexes_log_<bucket>`
+/// tables its cluster needs exist, and that buckets past retention are gone.
+pub static INDEXES_LOG_MAINTENANCE_INTERVAL: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("INDEXES_LOG_MAINTENANCE_INTERVAL", 60).max(1))
+});
+
+/// How many `indexes_log_<bucket>` tables to create beyond the one taking
+/// writes now.
+pub static INDEXES_LOG_LOOKAHEAD_BUCKETS: LazyLock<usize> =
+    LazyLock::new(|| env_config("INDEXES_LOG_LOOKAHEAD_BUCKETS", 3));
 
 /// DOCUMENT_RETENTION_DELAY determines the size of the document retention
 /// window.
@@ -1351,9 +1362,15 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
 pub static TICKETMASTER_CLUSTER_NAME: LazyLock<String> =
     LazyLock::new(|| env_config("TICKETMASTER_CLUSTER_NAME", String::from("ticketmaster")));
 
-/// Timeout applied to each individual probe request the prober makes.
+/// Timeout on each probe request, bounding how long a hung deployment holds
+/// one of the round's `probe_concurrency` slots. 99.995% of probes finish
+/// inside a second, and the handful a week that run longer take over five.
+///
+/// Also bounds picking the round's targets, which is a handful of indexed
+/// queries and so the same order of work; without it a hung pick stops the
+/// probe loop with its gauges frozen.
 pub static PROBER_PROBE_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("PROBER_PROBE_TIMEOUT", 30)));
+    LazyLock::new(|| Duration::from_secs(env_config("PROBER_PROBE_TIMEOUT", 5)));
 
 /// The maximum number of CPU cores that can be used simultaneously by the
 /// isolates. Zero means no limit.
@@ -1385,6 +1402,8 @@ pub static FUNRUN_MAX_CPU_PRESSURE: LazyLock<f64> =
 /// larger than (N / 15) where N is the number of instances with lambdas.
 ///
 /// You can check go/num-instances-with-lambdas
+///
+/// NOTE: the true value of this is overridden in big brain knob overrides
 pub static AWS_LAMBDA_DEPLOY_SPLAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 32400)));
 
@@ -1745,10 +1764,10 @@ pub static USHER_SERVICE_CACHE_MAX_ENTRIES: LazyLock<u64> =
     LazyLock::new(|| env_config("USHER_SERVICE_CACHE_MAX_ENTRIES", 1000));
 
 /// Usher cache for instance -> partition lookups.
-/// Arbitrarily chosen cache size. From metrics, a single Usher processes
-/// requests for about 250 unique instances in a 10 minute period.
+/// The five-minute idle expiry bounds idle memory, while the higher capacity
+/// leaves headroom for the per-host working set without size-based churn.
 pub static USHER_PARTITION_CACHE_MAX_ENTRIES: LazyLock<u64> =
-    LazyLock::new(|| env_config("USHER_PARTITION_CACHE_MAX_ENTRIES", 1000));
+    LazyLock::new(|| env_config("USHER_PARTITION_CACHE_MAX_ENTRIES", 100_000));
 
 /// Initial backoff duration when retrying a query in the sync worker.
 pub static SYNC_WORKER_QUERY_RETRY_INITIAL_BACKOFF_MS: LazyLock<Duration> = LazyLock::new(|| {

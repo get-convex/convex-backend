@@ -31,6 +31,23 @@ export function IndexIcon({
   }
 }
 
+// Outline funnel for "filter" affordances.
+export function FunnelIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className={cn("size-4 shrink-0", className)}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M2 3h12L9.5 8.5v5h-3v-5L2 3Z" />
+    </svg>
+  );
+}
+
 // A "field" glyph. Fields can hold any type (not just strings), so a `{}` reads
 // better than a text icon — and neither icon set ships a curly-brace icon, so
 // render it as monospace text. `whitespace-nowrap` keeps the braces on one line;
@@ -46,6 +63,29 @@ export function FieldIcon({ className }: { className?: string }) {
     >
       {"{}"}
     </span>
+  );
+}
+
+export function PackageVersionIcon({
+  className,
+  ...props
+}: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      {...props}
+      viewBox="0 0 16 16"
+      className={cn("size-4 shrink-0", className)}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    >
+      <g transform="translate(1.98 -1.98) rotate(-45 8 8)">
+        <path d="M2.1 3.7h7.3l4.3 4.3-4.3 4.3H2.1A1.1 1.1 0 0 1 1 11.2V4.8a1.1 1.1 0 0 1 1.1-1.1Z" />
+        <circle cx="3.4" cy="8" r="1.05" fill="currentColor" stroke="none" />
+      </g>
+    </svg>
   );
 }
 

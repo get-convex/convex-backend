@@ -17,6 +17,7 @@ import { SelfHostedDisconnectOverlay } from "@common/features/disconnectOverlay/
 import { Menu, MenuItem } from "@ui/Menu";
 import { ThemeProvider } from "next-themes";
 import React, {
+  JSX,
   useCallback,
   useContext,
   useEffect,
@@ -45,7 +46,12 @@ import { z } from "zod";
 import { UIProvider } from "@ui/UIContext";
 import Link from "next/link";
 
-if (process.env.NEXT_PUBLIC_LOAD_MONACO_INTERNALLY === "true") {
+// Monaco only runs in the browser, and pulling it into the server bundle makes
+// it fail to evaluate there.
+if (
+  typeof window !== "undefined" &&
+  process.env.NEXT_PUBLIC_LOAD_MONACO_INTERNALLY === "true"
+) {
   import("../lib/monacoInternalLoader").then((a) => a).catch(console.error);
 }
 
@@ -217,6 +223,8 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     slug: "team",
   }),
   useTeamMembers: () => [],
+  useCurrentMemberName: () => undefined,
+  useMemberPreference: () => ({ value: false, set: async () => {} }),
   useTeamEntitlements: () => ({
     auditLogRetentionDays: -1,
     logStreamingEnabled: true,

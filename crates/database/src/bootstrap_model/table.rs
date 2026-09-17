@@ -262,19 +262,26 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         Ok(table_metadata.number)
     }
 
-    /// This method should only be called after all documents in the tablet have
-    /// been deleted by retention
+    /// Removes a `Deleting` tablet's `_tables` document, finalizing the drop.
+    /// Only call this once document retention has emptied the tablet.
+    ///
+    /// `Deleting` tablets are absent from the table mapping, so the document is
+    /// resolved by id. A missing document means the drop is already finalized
+    /// and the call is a no-op, making it safe to retry.
     pub async fn hard_delete_tablet_document(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
-        if self.tx.table_mapping().tablet_id_exists(tablet_id) {
-            let doc = self.get_table_metadata(tablet_id).await?;
-            anyhow::ensure!(
-                doc.state == TableState::Deleting,
-                "Cannot delete a tablet that is not in deleting state"
-            );
-            SystemMetadataModel::new(self.tx, TableNamespace::Global)
-                .delete(doc.id())
-                .await?;
-        }
+        let table_doc_id = self.tx.bootstrap_tables().table_resolved_doc_id(tablet_id);
+        let Some(doc) = self.tx.get(table_doc_id).await? else {
+            return Ok(());
+        };
+        let doc: ParsedDocument<TableMetadata> = doc.parse()?;
+        anyhow::ensure!(
+            doc.state == TableState::Deleting,
+            "Cannot hard-delete tablet {tablet_id} in state {:?}, expected Deleting",
+            doc.state,
+        );
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+            .delete(doc.id())
+            .await?;
         Ok(())
     }
 
@@ -489,7 +496,6 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                     .name
                     .map_table(&|_| anyhow::Ok(S::TABLE_NAME.clone()))?,
                 index.fields,
-                self.tx.allocate_persistence_index_id().await,
             );
             IndexModel::new(self.tx)
                 .add_system_index(namespace, index_metadata)
@@ -558,19 +564,14 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
             // Add the system defined indexes for the newly created table. Since the newly
             // created table is empty, we can start these indexes as `Enabled`.
-            let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_id(tablet_id),
-                IndexedFields::by_id(),
-                self.tx.allocate_persistence_index_id().await,
-            );
+            let by_id = GenericIndexName::by_id(tablet_id);
+            let metadata = IndexMetadata::new_enabled(by_id, IndexedFields::by_id());
             SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
-            let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_creation_time(tablet_id),
-                IndexedFields::creation_time(),
-                self.tx.allocate_persistence_index_id().await,
-            );
+            let by_creation_time = GenericIndexName::by_creation_time(tablet_id);
+            let metadata =
+                IndexMetadata::new_enabled(by_creation_time, IndexedFields::creation_time());
             SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;

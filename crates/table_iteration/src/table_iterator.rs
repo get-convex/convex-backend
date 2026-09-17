@@ -39,7 +39,7 @@ use common::{
     runtime::Runtime,
     try_chunks::TryChunksExt,
     types::{
-        IndexId,
+        IndexRef,
         RepeatableTimestamp,
         Timestamp,
     },
@@ -143,7 +143,7 @@ impl<RT: Runtime> TableIterator<RT> {
     /// # async fn iterate_example<RT: common::runtime::Runtime>(
     /// #     db: &database::Database<RT>,
     /// #     [table1, table2, table3]: [value::TabletId; 3],
-    /// #     by_id: common::types::IndexId,
+    /// #     by_id: common::types::IndexRef,
     /// #     ts: common::types::RepeatableTimestamp,
     /// # ) -> anyhow::Result<()> {
     /// # use futures::stream::TryStreamExt;
@@ -175,18 +175,43 @@ impl<RT: Runtime> TableIterator<RT> {
 
     pub async fn fetch_page(
         &self,
-        index_id: IndexId,
+        index_id: IndexRef,
         tablet_id: TabletId,
         cursor: &mut TableScanCursor,
     ) -> anyhow::Result<(Vec<(IndexKeyBytes, LatestDocument)>, RepeatableTimestamp)> {
         self.inner.fetch_page(index_id, tablet_id, cursor).await
     }
 
+    /// Stream every document in the table, where each page is read at a fresh
+    /// repeatable timestamp (>= the constructor's `snapshot_ts`). Page
+    /// timestamps are weakly monotonic, but the stream as a whole is NOT a
+    /// consistent snapshot of the table: each document is its latest revision
+    /// as of its page's timestamp, and a document modified concurrently with
+    /// the walk may be observed at either revision (or, for an insert or
+    /// delete, in either state). Every document that exists unchanged for the
+    /// whole walk is yielded exactly once, in `by_id` order.
+    #[try_stream(ok = (LatestDocument, RepeatableTimestamp), error = anyhow::Error)]
+    pub async fn stream_latest_documents_in_table(self, tablet_id: TabletId, by_id: IndexRef) {
+        let mut cursor = TableScanCursor::default();
+        loop {
+            let pause_client = self.inner.runtime.pause_client();
+            pause_client.wait("before_latest_page").await;
+            let (page, ts) = self.inner.fetch_page(by_id, tablet_id, &mut cursor).await?;
+            for (_, doc) in page {
+                tokio::task::consume_budget().await;
+                yield (doc, ts);
+            }
+            if matches!(cursor.index_key, Some(CursorPosition::End)) {
+                break;
+            }
+        }
+    }
+
     #[try_stream(ok = LatestDocument, error = anyhow::Error)]
     pub async fn stream_documents_in_table(
         self,
         tablet_id: TabletId,
-        by_id: IndexId,
+        by_id: IndexRef,
         cursor: Option<ResolvedDocumentId>,
     ) {
         let mut iterator = self.multi(vec![]);
@@ -201,7 +226,7 @@ impl<RT: Runtime> TableIterator<RT> {
     pub async fn stream_documents_in_table_by_index(
         self,
         tablet_id: TabletId,
-        index_id: IndexId,
+        index_id: IndexRef,
         indexed_fields: IndexedFields,
         cursor: Option<CursorPosition>,
     ) {
@@ -263,7 +288,7 @@ impl<RT: Runtime> MultiTableIterator<RT> {
     pub async fn stream_documents_in_table(
         &mut self,
         tablet_id: TabletId,
-        by_id: IndexId,
+        by_id: IndexRef,
         cursor: Option<ResolvedDocumentId>,
     ) {
         let stream = self.stream_documents_in_table_by_index(
@@ -285,7 +310,7 @@ impl<RT: Runtime> MultiTableIterator<RT> {
     pub async fn into_stream_documents_in_table(
         mut self,
         tablet_id: TabletId,
-        by_id: IndexId,
+        by_id: IndexRef,
         cursor: Option<ResolvedDocumentId>,
     ) {
         {
@@ -327,7 +352,7 @@ impl<RT: Runtime> MultiTableIterator<RT> {
     pub async fn stream_documents_in_table_by_index(
         &mut self,
         tablet_id: TabletId,
-        index_id: IndexId,
+        index_id: IndexRef,
         indexed_fields: IndexedFields,
         cursor: Option<CursorPosition>,
     ) {
@@ -585,7 +610,7 @@ impl<RT: Runtime> TableIteratorInner<RT> {
     #[fastrace::trace]
     async fn fetch_page(
         &self,
-        index_id: IndexId,
+        index_id: IndexRef,
         tablet_id: TabletId,
         cursor: &mut TableScanCursor,
     ) -> anyhow::Result<(Vec<(IndexKeyBytes, LatestDocument)>, RepeatableTimestamp)> {

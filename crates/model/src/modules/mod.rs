@@ -78,14 +78,9 @@ pub const MODULES_TABLE: TableName = TableName::const_new("_modules");
 /// Field for a module's path in `ModuleMetadata`.
 static PATH_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "path".parse().expect("Invalid built-in field"));
-/// Field for a module's deleted flag in `ModuleMetadata`.
-static DELETED_FIELD: LazyLock<FieldPath> =
-    LazyLock::new(|| "deleted".parse().expect("Invalid built-in field"));
 
 pub static MODULE_INDEX_BY_PATH: LazyLock<SystemIndex<ModulesTable>> =
     LazyLock::new(|| SystemIndex::new("by_path", [&PATH_FIELD]).unwrap());
-pub static MODULE_INDEX_BY_DELETED: LazyLock<SystemIndex<ModulesTable>> =
-    LazyLock::new(|| SystemIndex::new("by_deleted", [&DELETED_FIELD, &PATH_FIELD]).unwrap());
 
 pub static HTTP_MODULE_PATH: LazyLock<CanonicalizedModulePath> =
     LazyLock::new(|| "http.js".parse().unwrap());
@@ -97,10 +92,7 @@ impl SystemTable for ModulesTable {
     const TABLE_NAME: TableName = MODULES_TABLE;
 
     fn indexes() -> Vec<SystemIndex<Self>> {
-        vec![
-            MODULE_INDEX_BY_PATH.clone(),
-            MODULE_INDEX_BY_DELETED.clone(),
-        ]
+        vec![MODULE_INDEX_BY_PATH.clone()]
     }
 }
 

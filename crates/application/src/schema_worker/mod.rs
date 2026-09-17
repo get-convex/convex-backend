@@ -16,9 +16,12 @@ use common::{
     errors::report_error,
     persistence::LatestDocument,
     runtime::Runtime,
-    schemas::DatabaseSchema,
+    schemas::{
+        DatabaseSchema,
+        TableValidationOutcome,
+    },
     types::{
-        IndexId,
+        IndexRef,
         RepeatableTimestamp,
     },
     virtual_system_mapping::VirtualSystemMapping,
@@ -45,6 +48,7 @@ use keybroker::Identity;
 use metrics::{
     log_document_bytes,
     log_document_validated,
+    log_walk_ts_lag,
     schema_validation_timer,
 };
 use shape_inference::{
@@ -83,7 +87,7 @@ pub struct PendingSchemaValidation {
     db_schema: Arc<DatabaseSchema>,
     ts: RepeatableTimestamp,
     active_schema: Option<Arc<DatabaseSchema>>,
-    by_id_indexes: BTreeMap<TabletId, IndexId>,
+    by_id_indexes: BTreeMap<TabletId, IndexRef>,
 }
 
 pub struct SchemaValidationResult {
@@ -192,13 +196,28 @@ impl<RT: Runtime> SchemaWorker<RT> {
         for pending_validation in pending_validations {
             // FIXME: Remove clone
             let db_schema = pending_validation.db_schema.clone();
-            let tables_to_validate = DatabaseSchema::tables_to_validate(
+            let outcomes = DatabaseSchema::table_validation_outcomes(
                 &db_schema,
                 pending_validation.active_schema.as_deref(),
                 &pending_validation.table_mapping,
                 &pending_validation.virtual_system_mapping,
-                &Self::table_shape_provider(&table_shapes, &pending_validation),
+                &table_shape_provider(
+                    &table_shapes,
+                    &pending_validation.table_mapping,
+                    pending_validation.ts,
+                ),
             )?;
+            tracing::info!(
+                "SchemaWorker: table validation outcomes for {:?}: {:?}",
+                pending_validation.namespace,
+                outcomes,
+            );
+            let tables_to_validate: BTreeSet<&TableName> = outcomes
+                .iter()
+                .filter_map(|(table_name, outcome)| {
+                    matches!(outcome, TableValidationOutcome::MustWalk).then_some(*table_name)
+                })
+                .collect();
             walked_tables.insert(
                 pending_validation.namespace,
                 tables_to_validate.iter().map(|&t| t.clone()).collect(),
@@ -220,39 +239,22 @@ impl<RT: Runtime> SchemaWorker<RT> {
         })
     }
 
-    /// Shape provider for [`DatabaseSchema::tables_to_validate`]: a table
-    /// whose shape at the validation timestamp is already a subset of the
-    /// schema being validated can skip the document walk. Returning `None`
-    /// means "shape unavailable" and the table gets walked.
-    fn table_shape_provider<'a>(
-        table_shapes: &'a Option<Arc<TableShapes>>,
-        pending_validation: &'a PendingSchemaValidation,
-    ) -> impl Fn(&TableName) -> anyhow::Result<Option<CountedShape<ProdConfig>>> + 'a {
-        move |table_name| {
-            let Some(table_shapes) = table_shapes.as_ref() else {
-                return Ok(None);
-            };
-            let Ok(table_id) = pending_validation.table_mapping.id(table_name) else {
-                // Nonexistent tables have no documents to validate, so an
-                // empty shape lets them skip validation.
-                return Ok(Some(TableShape::empty().inferred_type().clone()));
-            };
-            // The shapes are caught up to exactly the validation timestamp the
-            // table mapping is from, so every tablet in the mapping must have
-            // a shape.
-            let shape = table_shapes
-                .tablet_shape(&table_id.tablet_id)
-                .with_context(|| {
-                    format!(
-                        "table {table_name} (tablet {}) is in the table mapping at ts {} but has \
-                         no shape in the table shapes at ts {}",
-                        table_id.tablet_id, *pending_validation.ts, table_shapes.ts,
-                    )
-                })?;
-            Ok(Some(shape.inferred_type().clone()))
-        }
-    }
-
+    /// Validate tables by walking them at fresh timestamps rather than
+    /// reconstructing the snapshot at the schema's pending timestamp.
+    ///
+    /// Soundness: every document write while a schema is Pending (or
+    /// Validated) is checked against it in the writing transaction
+    /// (`SchemaModel::enforce_with_table_mapping`), and a violation marks the
+    /// schema Failed. So a document modified after the schema became pending
+    /// is already covered, and a document unchanged since then looks the same
+    /// at any timestamp in between — including each page's fresh timestamp.
+    /// Deletes need no validation. The OCC read on `_schemas.by_state` taken
+    /// by every write serializes those mark-Failed transitions with
+    /// `mark_validated` below.
+    ///
+    /// This avoids reconstructing the pending-timestamp snapshot in
+    /// `stream_documents_in_table`, which re-walks the instance's document
+    /// log once per page and grows with concurrent write traffic.
     async fn validate_tables(
         &self,
         tables_to_validate: BTreeSet<&TableName>,
@@ -270,7 +272,6 @@ impl<RT: Runtime> SchemaWorker<RT> {
             active_schema: _,
             by_id_indexes,
         } = pending_validation;
-        tracing::info!("SchemaWorker: Tables to check: {:?}", tables_to_validate);
 
         let mut schema_validation_progress_tracker = SchemaValidationProgressTracker::new(
             self.database.clone(),
@@ -284,79 +285,93 @@ impl<RT: Runtime> SchemaWorker<RT> {
             .into_iter()
             .map(|table_name| table_mapping.name_to_tablet()(table_name.clone()))
             .collect::<Result<Vec<_>, _>>()?;
-        let mut table_iterator = self
-            .database
-            .table_iterator(ts, 1000)
-            .multi(tablet_ids.clone());
-        for tablet_id in tablet_ids {
-            let stream = table_iterator.stream_documents_in_table(
-                tablet_id,
-                *by_id_indexes.get(&tablet_id).ok_or_else(|| {
-                    anyhow::anyhow!("Failed to find id index for table id {tablet_id}")
-                })?,
-                None,
-            );
-
+        let mut last_page_ts = ts;
+        'tables: for tablet_id in tablet_ids {
+            let by_id = *by_id_indexes.get(&tablet_id).ok_or_else(|| {
+                anyhow::anyhow!("Failed to find id index for table id {tablet_id}")
+            })?;
+            let stream = self
+                .database
+                .table_iterator(ts, 1000)
+                .stream_latest_documents_in_table(tablet_id, by_id);
+            pin_mut!(stream);
+            // The walk observes *current* documents, so it must validate with
+            // current table mappings (a snapshot import can replace a table
+            // mid-walk). Refresh once per page.
+            let mut current_page_ts = None;
+            let mut fresh_mapping = table_mapping.clone();
+            let mut table_name = fresh_mapping.tablet_name(tablet_id)?;
+            while let Some((LatestDocument { value: doc, .. }, page_ts)) = stream.try_next().await?
             {
-                pin_mut!(stream);
-                let table_name = table_mapping.tablet_name(tablet_id)?;
-                while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
-                    log_document_validated();
-                    log_document_bytes(doc.size());
-                    // If we finish with an error, we should delete progress. In all the
-                    // mark_failed, mark_success or whatever methods.
-                    if let Err(schema_error) = db_schema.check_existing_document(
-                        &doc,
-                        table_name.clone(),
-                        &table_mapping,
-                        &virtual_system_mapping,
-                    ) {
-                        let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
-                        while backoff.failures() < MAX_COMMIT_FAILURES {
-                            let mut tx = self.database.begin_system().await?;
-                            SchemaModel::new(&mut tx, namespace)
-                                .mark_failed(id, schema_error.clone())
-                                .await?;
-                            if let Err(e) = self
-                                .database
-                                .commit_with_write_source(tx, "schema_worker_mark_failed")
-                                .await
-                            {
-                                if e.is_occ() {
-                                    let delay = backoff.fail(&mut self.runtime.rng());
-                                    tracing::error!(
-                                        "Schema worker failed to commit ({e}), retrying after \
-                                         {delay:?}"
-                                    );
-                                    self.runtime.wait(delay).await;
-                                } else {
-                                    return Err(e);
-                                }
-                            } else {
-                                break;
-                            }
-                        }
-
-                        tracing::info!("Schema is invalid");
-                        timer.finish_developer_error();
-                        return Ok(());
-                    }
-                    // Update schema validation progress periodically, when we hit the
-                    // threshold.
-                    let progress_exists = schema_validation_progress_tracker
-                        .record_document_validated()
-                        .await?;
-                    // Return early if progress does not exist - this means the schema
-                    // validation has been canceled either by a document update that does
-                    // not match the pending schema or by the submission of a new pending
-                    // schema.
-                    if !progress_exists {
-                        return Ok(());
+                if current_page_ts != Some(page_ts) {
+                    current_page_ts = Some(page_ts);
+                    last_page_ts = page_ts;
+                    let snapshot = self.database.latest_snapshot()?;
+                    fresh_mapping = snapshot.table_mapping().namespace(namespace);
+                    match fresh_mapping.tablet_name(tablet_id) {
+                        Ok(name) => table_name = name,
+                        Err(_) => {
+                            // The table was deleted or replaced mid-walk. Its
+                            // documents no longer exist at current timestamps,
+                            // and a replacement table's documents were
+                            // validated at insert time.
+                            continue 'tables;
+                        },
                     }
                 }
+                log_document_validated();
+                log_document_bytes(doc.size());
+                if let Err(schema_error) = db_schema.check_existing_document(
+                    &doc,
+                    table_name.clone(),
+                    &fresh_mapping,
+                    &virtual_system_mapping,
+                ) {
+                    let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
+                    while backoff.failures() < MAX_COMMIT_FAILURES {
+                        let mut tx = self.database.begin_system().await?;
+                        SchemaModel::new(&mut tx, namespace)
+                            .mark_failed(id, schema_error.clone())
+                            .await?;
+                        if let Err(e) = self
+                            .database
+                            .commit_with_write_source(tx, "schema_worker_mark_failed")
+                            .await
+                        {
+                            if e.is_occ() {
+                                let delay = backoff.fail(&mut self.runtime.rng());
+                                tracing::error!(
+                                    "Schema worker failed to commit ({e}), retrying after \
+                                     {delay:?}"
+                                );
+                                self.runtime.wait(delay).await;
+                            } else {
+                                return Err(e);
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+
+                    tracing::info!("Schema is invalid");
+                    timer.finish_developer_error();
+                    return Ok(());
+                }
+                // Return early if progress does not exist - this means the
+                // schema validation has been canceled either by a document
+                // update that does not match the pending schema or by the
+                // submission of a new pending schema.
+                let progress_exists = schema_validation_progress_tracker
+                    .record_document_validated()
+                    .await?;
+                if !progress_exists {
+                    return Ok(());
+                }
             }
-            table_iterator.unregister_table(tablet_id)?;
         }
+        log_walk_ts_lag(Duration::from_nanos(
+            (i64::from(*last_page_ts) - i64::from(*ts)).max(0) as u64,
+        ));
         schema_validation_progress_tracker
             .record_validation_finished()
             .await?;
@@ -476,6 +491,41 @@ impl<RT: Runtime> SchemaValidationProgressTracker<RT> {
             .commit_with_write_source(tx, "schema_validation_progress_finished")
             .await?;
         Ok(())
+    }
+}
+
+/// Shape provider for [`DatabaseSchema::tables_to_validate`] and
+/// [`DatabaseSchema::table_validation_outcomes`]: a table whose shape at the
+/// given timestamp is already a subset of the schema being validated can skip
+/// the document walk. Returning `None` means "shape unavailable" and the table
+/// gets walked. `table_shapes` must be caught up to exactly `ts`, the
+/// timestamp `table_mapping` is from.
+pub(crate) fn table_shape_provider<'a>(
+    table_shapes: &'a Option<Arc<TableShapes>>,
+    table_mapping: &'a NamespacedTableMapping,
+    ts: RepeatableTimestamp,
+) -> impl Fn(&TableName) -> anyhow::Result<Option<CountedShape<ProdConfig>>> + 'a {
+    move |table_name| {
+        let Some(table_shapes) = table_shapes.as_ref() else {
+            return Ok(None);
+        };
+        let Ok(table_id) = table_mapping.id(table_name) else {
+            // Nonexistent tables have no documents to validate, so an
+            // empty shape lets them skip validation.
+            return Ok(Some(TableShape::empty().inferred_type().clone()));
+        };
+        // Every tablet in the table mapping must have a shape because the
+        // shapes are caught up to exactly the mapping's timestamp.
+        let shape = table_shapes
+            .tablet_shape(&table_id.tablet_id)
+            .with_context(|| {
+                format!(
+                    "table {table_name} (tablet {}) is in the table mapping at ts {} but has no \
+                     shape in the table shapes at ts {}",
+                    table_id.tablet_id, *ts, table_shapes.ts,
+                )
+            })?;
+        Ok(Some(shape.inferred_type().clone()))
     }
 }
 

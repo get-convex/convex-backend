@@ -183,6 +183,7 @@ use crate::{
         },
         AsyncOpRequest,
         JsEnvironment,
+        OpProvider,
         SyscallProvider,
     },
     helpers::{
@@ -256,7 +257,7 @@ fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
     )
 }
 
-impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
+impl<RT: Runtime> OpProvider for DatabaseUdfSyscallProvider<RT> {
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         self.emit_log_line(LogLine::new_developer_log_line(
             level,
@@ -309,7 +310,9 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
         let tx = self.phase.tx()?;
         Ok(tx.table_mapping().namespace(namespace))
     }
+}
 
+impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfSyscallProvider<RT> {
     async fn lookup_source(
         &mut self,
         path: &str,

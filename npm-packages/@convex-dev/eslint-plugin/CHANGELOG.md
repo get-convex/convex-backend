@@ -1,5 +1,19 @@
 # Changelog
 
+### 5.0.0
+
+- Add a new rule `@convex-dev/no-process-env` (enabled by default as an error)
+  that flags `process.env` in Convex code and, where it can, autofixes it to the
+  typed `env` object exported by `_generated/server`. This is a major version
+  bump because the new default-enabled rule can surface new errors in existing
+  codebases.
+- Add a new rule `@convex-dev/no-duplicate-indexes` (enabled by default as an
+  error) that detects cases where indexes duplicate the same order of fields and
+  can be combined.
+- Add a new rule `@convex-dev/require-access-control` (disabled by default) that
+  ensures that every public Convex function calls an access control helper (e.g.
+  `requireAdmin`, `assertIsLoggedIn`, etc).
+
 ### 4.0.0
 
 - Add a new rule `@convex-dev/no-schema-import-cycle` (enabled by default as an

@@ -40,7 +40,10 @@ use model::{
     },
 };
 use roles::RequireDeploymentOp;
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use storage::StorageGetStream;
 use sync_types::Timestamp;
 use value::DeveloperDocumentId;
@@ -53,6 +56,10 @@ use crate::{
 
 // Export GETs are immutable. Browser can cache for a long time.
 const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 30);
+
+// Export download tokens are minted right before the download starts, so they
+// only need to live long enough to cover the redirect to the download URL.
+const EXPORT_DOWNLOAD_TOKEN_VALIDITY: Duration = Duration::from_secs(5 * 60);
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,12 +99,59 @@ pub struct ZipExportRequest {
     id: String,
 }
 
-pub async fn get_zip_export(
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZipExportTokenResponse {
+    token: String,
+}
+
+/// Mints a short-lived token authorizing the download of a single snapshot
+/// export. This lets the dashboard trigger a browser download (an `<a href>`
+/// navigation, which can't carry an `Authorization` header) without putting
+/// the long-lived admin key in the URL.
+#[fastrace::trace]
+pub async fn request_zip_export_token(
     MtState(st): MtState<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
     Path(ZipExportRequest { id }): Path<ZipExportRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::DownloadBackups)?;
+    let actor = keybroker::ExportDownloadActor {
+        member_id: identity.member_id(),
+        token_id: identity.token_id(),
+    };
+    let token = st
+        .application
+        .key_broker()
+        .issue_export_download_token(id, actor);
+    Ok(Json(ZipExportTokenResponse { token }))
+}
+
+#[derive(Deserialize)]
+pub struct GetZipExportQueryArgs {
+    token: Option<String>,
+}
+
+pub async fn get_zip_export(
+    MtState(st): MtState<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Path(ZipExportRequest { id }): Path<ZipExportRequest>,
+    Query(GetZipExportQueryArgs { token }): Query<GetZipExportQueryArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let identity = match token {
+        Some(token) => {
+            let _actor = st.application.key_broker().check_export_download_token(
+                &token,
+                &id,
+                EXPORT_DOWNLOAD_TOKEN_VALIDITY,
+            )?;
+            keybroker::Identity::system()
+        },
+        None => {
+            identity.require_operation(keybroker::DeploymentOp::DownloadBackups)?;
+            identity
+        },
+    };
     let id: Either<DeveloperDocumentId, Timestamp> = match id.parse() {
         Ok(id) => Either::Left(id),
         Err(_) => Either::Right(id.parse().context(ErrorMetadata::bad_request(

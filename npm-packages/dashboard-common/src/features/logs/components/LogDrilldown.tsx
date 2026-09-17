@@ -57,7 +57,7 @@ export function LogDrilldown({
   onFilterByRequestId?: (requestId: string) => void;
   onSelectLog: (log: InterleavedLog) => void;
   onHitBoundary: (boundary: "top" | "bottom" | null) => void;
-  logListContainerRef?: React.RefObject<HTMLDivElement>;
+  logListContainerRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
   const tabGroupRef = useRef<HTMLDivElement>(null);
@@ -374,8 +374,8 @@ export function useNavigateLogs(
   onSelectLog: (log: InterleavedLog) => void,
   onClose: () => void,
   onHitBoundary: (boundary: "top" | "bottom" | null) => void,
-  rightPanelRef: React.RefObject<HTMLDivElement>,
-  logListContainerRef?: React.RefObject<HTMLDivElement>,
+  rightPanelRef: React.RefObject<HTMLDivElement | null>,
+  logListContainerRef?: React.RefObject<HTMLDivElement | null>,
 ) {
   // Calculate the number of items that fit in one page based on container height
   const calculatePageSize = useCallback(() => {
@@ -653,7 +653,7 @@ function LogContentLayout({
   allUdfLogs: UdfLog[];
   selectedTabIndex: number;
   setSelectedTabIndex: (index: number) => void;
-  tabGroupRef: React.RefObject<HTMLDivElement>;
+  tabGroupRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const hasLogOutput =
     selectedLog.kind === "DeploymentEvent" ||

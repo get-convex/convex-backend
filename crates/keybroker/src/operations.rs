@@ -38,6 +38,7 @@ pub enum DeploymentOp {
     ViewUsageLimits,
     WriteUsageLimits,
     ViewUsage,
+    UseAiGateway,
     #[serde(other)]
     Unknown,
 }
@@ -74,6 +75,7 @@ impl From<DeploymentOp> for ProtoDeploymentOperation {
             DeploymentOp::ViewUsageLimits => ProtoDeploymentOperation::ViewUsageLimits,
             DeploymentOp::WriteUsageLimits => ProtoDeploymentOperation::WriteUsageLimits,
             DeploymentOp::ViewUsage => ProtoDeploymentOperation::ViewUsage,
+            DeploymentOp::UseAiGateway => ProtoDeploymentOperation::UseAiGateway,
             DeploymentOp::Unknown => ProtoDeploymentOperation::Unspecified,
         }
     }
@@ -108,6 +110,7 @@ impl From<ProtoDeploymentOperation> for DeploymentOp {
             ProtoDeploymentOperation::ViewUsageLimits => Self::ViewUsageLimits,
             ProtoDeploymentOperation::WriteUsageLimits => Self::WriteUsageLimits,
             ProtoDeploymentOperation::ViewUsage => Self::ViewUsage,
+            ProtoDeploymentOperation::UseAiGateway => Self::UseAiGateway,
         }
     }
 }

@@ -14,8 +14,9 @@ use common::{
     bootstrap_model::{
         index::{
             database_index::IndexedFields,
+            IndexConfig,
             IndexMetadata,
-            INDEX_TABLE,
+            TabletIndexMetadata,
         },
         schema::SchemaState,
         tables::{
@@ -60,7 +61,6 @@ use common::{
         GenericIndexName,
         IndexId,
         IndexName,
-        PersistenceIndexId,
         RepeatableTimestamp,
         StableIndexName,
         TableName,
@@ -91,6 +91,7 @@ use keybroker::{
 use search::{
     metrics::SearchType,
     CandidateRevision,
+    TextSearchResults,
 };
 use sync_types::{
     AuthenticationToken,
@@ -112,6 +113,7 @@ use value::{
 use crate::{
     bootstrap_model::{
         defaults::BootstrapTableIds,
+        next_persistence_index_id::NextPersistenceIndexIdModel,
         table::{
             NUM_RESERVED_LEGACY_TABLE_NUMBERS,
             NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
@@ -267,15 +269,49 @@ impl<RT: Runtime> Transaction<RT> {
         &self.virtual_system_mapping
     }
 
-    pub async fn allocate_persistence_index_ids(
-        &self,
-        _count: usize,
-    ) -> Option<Vec<PersistenceIndexId>> {
-        None
-    }
+    pub(crate) async fn assign_missing_persistence_index_ids(&mut self) -> anyhow::Result<()> {
+        let writes = self.writes.as_flat()?;
+        let mut missing_index_id_updates = Vec::new();
+        for id in writes.new_index_document_ids() {
+            let update = writes
+                .get(&id)
+                .expect("tracked index metadata insert must have a pending write");
+            let Some(new_document) = &update.new_document else {
+                unreachable!("tracked index metadata insert must have a new document")
+            };
+            let PendingDocument::Concrete(document) = new_document else {
+                anyhow::bail!("new index metadata must be concrete before commit")
+            };
+            let metadata = TabletIndexMetadata::from_document(document.clone())?;
+            if matches!(
+                &metadata.config,
+                IndexConfig::Database {
+                    persistence_index_id: None,
+                    ..
+                }
+            ) {
+                missing_index_id_updates.push((update.id, metadata));
+            }
+        }
+        if missing_index_id_updates.is_empty() {
+            return Ok(());
+        }
+        let persistence_index_ids = NextPersistenceIndexIdModel::new(self)
+            .allocate(missing_index_id_updates.len())
+            .await
+            .context("Failed to allocate persistence index IDs")?;
 
-    pub async fn allocate_persistence_index_id(&self) -> Option<PersistenceIndexId> {
-        None
+        for ((id, mut metadata), persistence_index_id) in missing_index_id_updates
+            .into_iter()
+            .zip(persistence_index_ids)
+        {
+            metadata.assign_persistence_index_id(persistence_index_id);
+
+            SystemMetadataModel::new_global(self)
+                .replace(id, metadata.into_value().try_into()?)
+                .await?;
+        }
+        Ok(())
     }
 
     /// Checks both virtual tables and tables to get the table number to name
@@ -348,6 +384,10 @@ impl<RT: Runtime> Transaction<RT> {
 
     pub fn begin_timestamp(&self) -> RepeatableTimestamp {
         self.index.base_snapshot().timestamp()
+    }
+
+    pub fn next_creation_time(&self) -> CreationTime {
+        self.next_creation_time
     }
 
     pub fn index_registry(&self) -> &indexing::index_registry::IndexRegistry {
@@ -931,26 +971,19 @@ impl<RT: Runtime> Transaction<RT> {
                 .table_number_for_system_table(namespace, table_name, default_table_number)
                 .await?;
             let metadata = TableMetadata::new(namespace, table_name.clone(), table_number);
-            let table_doc_id = SystemMetadataModel::new_global(self)
+            SystemMetadataModel::new_global(self)
                 .insert(&TABLES_TABLE, metadata.try_into()?)
                 .await?;
-            let tablet_id = TabletId(table_doc_id.internal_id());
-
-            let by_id_index = IndexMetadata::new_enabled(
-                GenericIndexName::by_id(tablet_id),
-                IndexedFields::by_id(),
-                self.allocate_persistence_index_id().await,
-            );
-            SystemMetadataModel::new_global(self)
-                .insert(&INDEX_TABLE, by_id_index.try_into()?)
+            let by_id = GenericIndexName::by_id(table_name.clone());
+            let by_id_index = IndexMetadata::new_enabled(by_id, IndexedFields::by_id());
+            IndexModel::new(self)
+                .add_system_index(namespace, by_id_index)
                 .await?;
-            let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_creation_time(tablet_id),
-                IndexedFields::creation_time(),
-                self.allocate_persistence_index_id().await,
-            );
-            SystemMetadataModel::new_global(self)
-                .insert(&INDEX_TABLE, metadata.try_into()?)
+            let by_creation_time = GenericIndexName::by_creation_time(table_name.clone());
+            let metadata =
+                IndexMetadata::new_enabled(by_creation_time, IndexedFields::creation_time());
+            IndexModel::new(self)
+                .add_system_index(namespace, metadata)
                 .await?;
             tracing::info!("Created system table: {table_name}");
         } else {
@@ -1152,9 +1185,10 @@ impl<RT: Runtime> Transaction<RT> {
         }
         let bootstrap_tables = self.bootstrap_tables();
         let old_document = old_document_and_ts.as_ref().map(|(doc, _)| doc);
-        let index_update = self
-            .index
-            .begin_update(old_document.cloned(), new_document_view.as_deref().cloned())?;
+        let index_update = self.index.begin_update(
+            old_document_and_ts.clone(),
+            new_document_view.as_deref().cloned(),
+        )?;
         let schema_update = self.schema_registry.begin_update(
             self.metadata.table_mapping(),
             id,
@@ -1270,14 +1304,21 @@ impl<RT: Runtime> Transaction<RT> {
             .index_registry()
             .require_enabled(tablet_index_name, &index_name)?;
         let index_size = index.metadata().config.estimate_pricing_size_bytes()?;
-        let results = self
+        let TextSearchResults {
+            revisions_with_keys,
+            filtered_bytes_searched,
+        } = self
             .index
             .search(&mut self.reads, &search, tablet_index_name.clone(), version)
             .await?;
 
-        self.usage_tracker
-            .track_text_query(component_path, index_name, index_size);
-        Ok(results)
+        self.usage_tracker.track_text_query(
+            component_path,
+            index_name,
+            index_size,
+            filtered_bytes_searched,
+        );
+        Ok(revisions_with_keys)
     }
 
     // Preload an index range against the transaction, building a snapshot of

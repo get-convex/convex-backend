@@ -5,7 +5,7 @@ use indexmap::{
     indexset,
     IndexSet,
 };
-use openssl::{
+use openssl_aws_lc::{
     bn::{
         BigNum,
         BigNumContext,

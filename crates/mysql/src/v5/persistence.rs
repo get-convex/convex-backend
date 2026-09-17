@@ -44,11 +44,17 @@ use common::{
         MYSQL_MIN_QUERY_BATCH_SIZE,
     },
     persistence::{
+        row_index_retention::{
+            delete_expired_entries,
+            IndexRowPersistence,
+        },
         ConflictStrategy,
         DocumentLogEntry,
         DocumentPrevTsQuery,
         DocumentRevisionStream,
         DocumentStream,
+        IndexRetentionProgress,
+        IndexRetentionRequest,
         IndexStream,
         LatestDocument,
         Persistence as PersistenceTrait,
@@ -73,6 +79,7 @@ use common::{
     try_anyhow,
     types::{
         IndexId,
+        IndexRef,
         PersistenceVersion,
         Timestamp,
     },
@@ -91,6 +98,7 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use mysql_async::{
+    IsolationLevel,
     Row,
     Value,
 };
@@ -104,6 +112,7 @@ use crate::{
         ApproxSize,
     },
     connection::{
+        is_message_too_large_error,
         MySqlConnection,
         MySqlTransaction,
     },
@@ -120,21 +129,6 @@ use crate::{
     MySqlOptions,
     MySqlReaderOptions,
 };
-
-/// Checks if an error is the Vitess "message too large" error that occurs
-/// when query results exceed 64MiB.
-fn is_message_too_large_error(error: &anyhow::Error) -> Option<&mysql_async::ServerError> {
-    error
-        .chain()
-        .find_map(|e| e.downcast_ref::<mysql_async::ServerError>())
-        .filter(|db_err| {
-            // matches both "trying to send message larger than max" and "received message
-            // larger than max"
-            db_err.state == "HY000"
-                && db_err.code == 1105
-                && db_err.message.contains("message larger than max")
-        })
-}
 
 pub struct Persistence<RT: Runtime> {
     newly_created: AtomicBool,
@@ -289,6 +283,13 @@ impl<RT: Runtime> Persistence<RT> {
 }
 
 #[async_trait]
+impl<RT: Runtime> IndexRowPersistence for Persistence<RT> {
+    async fn delete_index_rows(&self, expired_entries: Vec<IndexEntry>) -> anyhow::Result<usize> {
+        super::indexes::delete_index_rows(self, expired_entries).await
+    }
+}
+
+#[async_trait]
 impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
     fn is_fresh(&self) -> bool {
         self.newly_created.load(SeqCst)
@@ -311,7 +312,7 @@ impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
         indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(documents.len() <= super::documents::MAX_INSERT_SIZE);
+        anyhow::ensure!(documents.len() <= crate::MAX_INSERT_SIZE);
         let mut write_size = 0;
         for update in documents {
             match &update.value {
@@ -456,19 +457,15 @@ impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
         Ok(())
     }
 
-    async fn load_index_chunk(
-        &self,
-        cursor: Option<IndexEntry>,
-        chunk_size: usize,
-    ) -> anyhow::Result<Vec<IndexEntry>> {
-        super::indexes::load_index_chunk(self, cursor, chunk_size).await
+    async fn has_index_entries(&self) -> anyhow::Result<bool> {
+        super::indexes::has_index_entries(self).await
     }
 
-    async fn delete_index_entries(
+    async fn reclaim_index_history(
         &self,
-        expired_entries: Vec<IndexEntry>,
-    ) -> anyhow::Result<usize> {
-        super::indexes::delete_index_entries(self, expired_entries).await
+        request: IndexRetentionRequest<'_>,
+    ) -> anyhow::Result<IndexRetentionProgress> {
+        delete_expired_entries(self, request).await
     }
 
     async fn delete(
@@ -1049,32 +1046,6 @@ impl<RT: Runtime> Reader<RT> {
         Ok(Some(LatestDocument { ts, value, prev_ts }))
     }
 
-    pub(super) fn _index_cursor_params(cursor: Option<&IndexEntry>) -> Vec<mysql_async::Value> {
-        let (last_id_param, last_key_prefix, last_sha256, last_ts): (
-            Vec<u8>,
-            Vec<u8>,
-            Vec<u8>,
-            u64,
-        ) = match cursor {
-            Some(cursor) => (
-                cursor.index_id.0.into(),
-                cursor.key_prefix.clone(),
-                cursor.key_sha256.clone(),
-                cursor.ts.into(),
-            ),
-            None => (Self::initial_id_param(Order::Asc), vec![], vec![], 0),
-        };
-        vec![
-            last_id_param.clone().into(),
-            last_id_param.into(),
-            last_key_prefix.clone().into(),
-            last_key_prefix.into(),
-            last_sha256.clone().into(),
-            last_sha256.into(),
-            last_ts.into(),
-        ]
-    }
-
     pub(super) fn _index_delete_params(query: &mut Vec<mysql_async::Value>, entry: &IndexEntry) {
         let last_id_param: Vec<u8> = entry.index_id.0.into();
         let last_key_prefix: Vec<u8> = entry.key_prefix.clone();
@@ -1426,7 +1397,7 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
 
     fn index_scan(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         tablet_id: TabletId,
         read_timestamp: Timestamp,
         range: &Interval,
@@ -1435,7 +1406,7 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
         self._index_scan(
-            index_id,
+            index.id(),
             tablet_id,
             read_timestamp,
             range.clone(),
@@ -1585,9 +1556,36 @@ impl<RT: Runtime> Lease<RT> {
     where
         F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
     {
+        self.transact_with_isolation(None, f).await
+    }
+
+    /// Like [`Self::transact`], but runs at READ COMMITTED instead of the
+    /// InnoDB session default (REPEATABLE READ). Index retention deletes use
+    /// this so their DELETEs take only record locks, sparing concurrent index
+    /// writers the next-key/gap locks REPEATABLE READ adds.
+    #[fastrace::trace]
+    pub(super) async fn transact_read_committed<F, T>(&self, f: F) -> anyhow::Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
+    {
+        self.transact_with_isolation(Some(IsolationLevel::ReadCommitted), f)
+            .await
+    }
+
+    #[fastrace::trace]
+    async fn transact_with_isolation<F, T>(
+        &self,
+        isolation: Option<IsolationLevel>,
+        f: F,
+    ) -> anyhow::Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
+    {
         let mut client = self.pool.acquire("transact", &self.db_name).await?;
         let r = try_anyhow!({
-            let mut tx = client.transaction(self.pool.cluster_name()).await?;
+            let mut tx = client
+                .transaction(self.pool.cluster_name(), isolation)
+                .await?;
 
             let timer = metrics::lease_precond_timer(self.pool.cluster_name());
             let mut params = vec![mysql_async::Value::Int(self.lease_ts)];

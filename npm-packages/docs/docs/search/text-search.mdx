@@ -247,3 +247,10 @@ The source of truth for these limits is our
 [source code](https://github.com/get-convex/convex-backend/blob/main/crates/search/src/constants.rs).
 
 For information on other limits, see [here](/production/state/limits.mdx).
+
+## Costs
+
+Search queries are billed in
+[query-GBs](/production/state/limits.mdx#search-pricing): each query counts the
+full size of the search index it runs against, regardless of how many results it
+returns and regardless of which `filterFields` it uses.

@@ -66,6 +66,7 @@ use value::{
 use super::{
     AsyncOpRequest,
     JsEnvironment,
+    OpProvider,
     SyscallProvider,
 };
 use crate::{
@@ -491,7 +492,7 @@ struct DefinitionEnvironment {
     environment_variables: Option<BTreeMap<EnvVarName, EnvVarValue>>,
 }
 
-impl<RT: Runtime> SyscallProvider<RT> for DefinitionEnvironment {
+impl OpProvider for DefinitionEnvironment {
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access when evaluating app definition: {}",
@@ -554,7 +555,9 @@ impl<RT: Runtime> SyscallProvider<RT> for DefinitionEnvironment {
             "Getting the table mapping unsupported when evaluating app definition"
         ))
     }
+}
 
+impl<RT: Runtime> SyscallProvider<RT> for DefinitionEnvironment {
     async fn lookup_source(
         &mut self,
         path: &str,

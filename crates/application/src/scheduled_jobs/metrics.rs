@@ -12,6 +12,7 @@ use metrics::{
     register_convex_gauge,
     register_convex_histogram,
     StaticMetricLabel,
+    StatusTimer,
     Timer,
     STATUS_LABEL,
 };
@@ -104,4 +105,13 @@ register_convex_histogram!(
 );
 pub fn run_scheduled_jobs_loop() -> Timer<VMHistogram> {
     Timer::new(&RUN_SCHEDULED_JOBS_LOOP_SECONDS)
+}
+
+register_convex_histogram!(
+    SCHEDULED_JOBS_QUERY_SECONDS,
+    "Time to query for the next runnable scheduled job",
+    &STATUS_LABEL
+);
+pub fn query_scheduled_jobs_timer() -> StatusTimer {
+    StatusTimer::new(&SCHEDULED_JOBS_QUERY_SECONDS)
 }

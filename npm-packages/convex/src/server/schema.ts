@@ -204,6 +204,9 @@ export class TableDefinition<
   private stagedVectorIndexes: VectorIndex[];
   // The type of documents stored in this table.
   validator: DocumentType;
+  // The proposed next validator for this table, validated against existing
+  // documents in the background while `validator` remains enforced.
+  private stagedValidator: Validator<any, any, any> | undefined;
 
   /**
    * @internal
@@ -558,6 +561,45 @@ export class TableDefinition<
   }
 
   /**
+   * Stage a new document validator for this table.
+   *
+   * Convex validates the staged validator against the table's existing
+   * documents in the background, while the validator passed to
+   * {@link defineTable} remains the one enforced on reads and writes. Once
+   * the background validation succeeds, make the staged validator the
+   * table's validator and remove `.staged()`.
+   *
+   * ```ts
+   * defineTable({
+   *   author: v.string(),
+   * }).staged({
+   *   author: v.array(v.string()),
+   * })
+   * ```
+   *
+   * TODO: link a worked staged-schema example from the docs once one exists.
+   *
+   * @param documentSchema - The proposed next type of documents stored in
+   * this table, as an object of field validators or a schema validator.
+   * @returns A {@link TableDefinition} with the staged validator attached.
+   *
+   * @internal
+   */
+  staged(
+    documentSchema:
+      | Validator<Record<string, any>, "required", any>
+      | Record<string, GenericValidator>,
+  ): TableDefinition<DocumentType, Indexes, SearchIndexes, VectorIndexes> {
+    if (this.stagedValidator !== undefined) {
+      throw new Error("Table cannot have more than one staged validator.");
+    }
+    this.stagedValidator = isValidator(documentSchema)
+      ? documentSchema
+      : v.object(documentSchema);
+    return this.self();
+  }
+
+  /**
    * Work around for https://github.com/microsoft/TypeScript/issues/57035
    */
   protected self(): TableDefinition<
@@ -582,6 +624,16 @@ export class TableDefinition<
       );
     }
 
+    let stagedDocumentType = undefined;
+    if (this.stagedValidator !== undefined) {
+      stagedDocumentType = this.stagedValidator.json;
+      if (typeof stagedDocumentType !== "object") {
+        throw new Error(
+          "Invalid staged validator: please make sure that the parameter of `.staged()` is valid (see https://docs.convex.dev/database/schemas)",
+        );
+      }
+    }
+
     return {
       indexes: this.indexes,
       stagedDbIndexes: this.stagedDbIndexes,
@@ -590,6 +642,7 @@ export class TableDefinition<
       vectorIndexes: this.vectorIndexes,
       stagedVectorIndexes: this.stagedVectorIndexes,
       documentType,
+      stagedDocumentType,
     };
   }
 }
@@ -884,6 +937,7 @@ export class SchemaDefinition<
           vectorIndexes,
           stagedVectorIndexes,
           documentType,
+          stagedDocumentType,
         } = definition.export();
         return {
           tableName,
@@ -894,6 +948,7 @@ export class SchemaDefinition<
           vectorIndexes,
           stagedVectorIndexes,
           documentType,
+          stagedDocumentType,
         };
       }),
       schemaValidation: this.schemaValidation,

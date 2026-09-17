@@ -8,6 +8,7 @@ mod document_encoding;
 mod metrics;
 mod sql;
 mod v5;
+mod v6;
 use std::{
     ops::Deref,
     sync::Arc,
@@ -20,12 +21,29 @@ use common::{
     },
     runtime::Runtime,
     shutdown::ShutdownSignal,
-    types::PersistenceVersion,
+    types::{
+        DeploymentId,
+        PersistenceVersion,
+    },
 };
 pub use connection::ConvexMySqlPool;
+pub use v6::maintenance::{
+    IndexesLogMaintenance,
+    MaintenanceRound,
+};
+
+/// Maximum number of documents in one write: the sum of
+/// TRANSACTION_MAX_SYSTEM_NUM_WRITES and TRANSACTION_MAX_NUM_USER_WRITES.
+pub(crate) const MAX_INSERT_SIZE: usize = 56000;
 
 pub type MySqlPersistence<RT> = v5::Persistence<RT>;
 pub type MySqlReader<RT> = v5::Reader<RT>;
+pub use v5::{
+    DeploymentDeleter,
+    DeploymentDeletionBatch,
+    DeploymentDeletionCursor,
+    DeploymentDeletionPool,
+};
 
 #[derive(Clone, Debug)]
 pub struct MySqlInstanceName {
@@ -66,6 +84,7 @@ pub struct MySqlOptions {
     pub version: PersistenceVersion,
     pub instance_name: MySqlInstanceName,
     pub multitenant: bool,
+    pub deployment_id: Option<DeploymentId>,
 }
 
 #[derive(Debug)]
@@ -74,6 +93,7 @@ pub struct MySqlReaderOptions {
     pub version: PersistenceVersion,
     pub instance_name: MySqlInstanceName,
     pub multitenant: bool,
+    pub deployment_id: Option<DeploymentId>,
 }
 
 pub async fn connect_persistence<RT: Runtime>(
@@ -82,7 +102,10 @@ pub async fn connect_persistence<RT: Runtime>(
     options: MySqlOptions,
     lease_lost_shutdown: ShutdownSignal,
 ) -> anyhow::Result<Arc<dyn Persistence>> {
-    v5::connect(pool, db_name, options, lease_lost_shutdown).await
+    match options.version {
+        PersistenceVersion::V5 => v5::connect(pool, db_name, options, lease_lost_shutdown).await,
+        PersistenceVersion::V6 => v6::connect(pool, db_name, options, lease_lost_shutdown).await,
+    }
 }
 
 pub fn connect_persistence_reader<RT: Runtime>(
@@ -90,7 +113,10 @@ pub fn connect_persistence_reader<RT: Runtime>(
     db_name: String,
     options: MySqlReaderOptions,
 ) -> anyhow::Result<Arc<dyn PersistenceReader>> {
-    v5::connect_reader(pool, db_name, options)
+    match options.version {
+        PersistenceVersion::V5 => v5::connect_reader(pool, db_name, options),
+        PersistenceVersion::V6 => v6::connect_reader(pool, db_name, options),
+    }
 }
 
 pub async fn set_persistence_read_only<RT: Runtime>(
@@ -99,5 +125,12 @@ pub async fn set_persistence_read_only<RT: Runtime>(
     options: MySqlOptions,
     read_only: bool,
 ) -> anyhow::Result<()> {
-    v5::set_persistence_read_only(pool, db_name, options, read_only).await
+    match options.version {
+        PersistenceVersion::V5 => {
+            v5::set_persistence_read_only(pool, db_name, options, read_only).await
+        },
+        PersistenceVersion::V6 => {
+            v6::set_persistence_read_only(pool, db_name, options, read_only).await
+        },
+    }
 }

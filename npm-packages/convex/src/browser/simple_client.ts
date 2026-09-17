@@ -1,9 +1,10 @@
 import { validateDeploymentUrl } from "../common/index.js";
 import {
   FunctionArgs,
-  FunctionReference,
   FunctionReturnType,
   PaginationResult,
+  FunctionReference,
+  FunctionReference_future,
 } from "../server/index.js";
 import { getFunctionName } from "../server/api.js";
 import { AuthTokenFetcher } from "./sync/authentication_manager.js";
@@ -184,14 +185,18 @@ export class ConvexClient {
    *
    * @return an {@link Unsubscribe} function to stop calling the onUpdate function.
    */
-  onUpdate<Query extends FunctionReference<"query">>(
+  onUpdate<
+    Query extends
+      | FunctionReference<"query">
+      | FunctionReference_future<"query">,
+  >(
     query: Query,
     args: FunctionArgs<Query>,
     callback: (result: FunctionReturnType<Query>) => unknown,
     onError?: (e: Error) => unknown,
-  ): Unsubscribe<Query["_returnType"]> {
+  ): Unsubscribe<FunctionReturnType<Query>> {
     if (this.disabled) {
-      return this.createDisabledUnsubscribe<Query["_returnType"]>();
+      return this.createDisabledUnsubscribe<FunctionReturnType<Query>>();
     }
 
     // BaseConvexClient takes care of deduplicating queries subscriptions...
@@ -227,7 +232,7 @@ export class ConvexClient {
     }
 
     const unsubscribeProps: RemoveCallSignature<
-      Unsubscribe<Query["_returnType"]>
+      Unsubscribe<FunctionReturnType<Query>>
     > = {
       unsubscribe: () => {
         if (this.closed) {
@@ -241,7 +246,7 @@ export class ConvexClient {
       getQueryLogs: () => this.client.localQueryLogs(queryToken),
     };
     const ret = unsubscribeProps.unsubscribe as Unsubscribe<
-      Query["_returnType"]
+      FunctionReturnType<Query>
     >;
     Object.assign(ret, unsubscribeProps);
     return ret;
@@ -262,7 +267,11 @@ export class ConvexClient {
    *
    * @return an {@link Unsubscribe} function to stop calling the callback.
    */
-  onPaginatedUpdate_experimental<Query extends FunctionReference<"query">>(
+  onPaginatedUpdate_experimental<
+    Query extends
+      | FunctionReference<"query">
+      | FunctionReference_future<"query">,
+  >(
     query: Query,
     args: FunctionArgs<Query>,
     options: { initialNumItems: number },
@@ -487,7 +496,11 @@ export class ConvexClient {
    * @param options - A {@link MutationOptions} options object for the mutation.
    * @returns A promise of the mutation's result.
    */
-  async mutation<Mutation extends FunctionReference<"mutation">>(
+  async mutation<
+    Mutation extends
+      | FunctionReference<"mutation">
+      | FunctionReference_future<"mutation">,
+  >(
     mutation: Mutation,
     args: FunctionArgs<Mutation>,
     options?: MutationOptions,
@@ -504,7 +517,11 @@ export class ConvexClient {
    * @param args - An arguments object for the action.
    * @returns A promise of the action's result.
    */
-  async action<Action extends FunctionReference<"action">>(
+  async action<
+    Action extends
+      | FunctionReference<"action">
+      | FunctionReference_future<"action">,
+  >(
     action: Action,
     args: FunctionArgs<Action>,
   ): Promise<Awaited<FunctionReturnType<Action>>> {
@@ -520,13 +537,17 @@ export class ConvexClient {
    * @param args - An arguments object for the query.
    * @returns A promise of the query's result.
    */
-  async query<Query extends FunctionReference<"query">>(
+  async query<
+    Query extends
+      | FunctionReference<"query">
+      | FunctionReference_future<"query">,
+  >(
     query: Query,
-    args: Query["_args"],
-  ): Promise<Awaited<Query["_returnType"]>> {
+    args: FunctionArgs<Query>,
+  ): Promise<Awaited<FunctionReturnType<Query>>> {
     if (this.disabled) throw new Error("ConvexClient is disabled");
     const value = this.client.localQueryResult(getFunctionName(query), args) as
-      | Awaited<Query["_returnType"]>
+      | Awaited<FunctionReturnType<Query>>
       | undefined;
     if (value !== undefined) return Promise.resolve(value);
 
@@ -583,7 +604,7 @@ type QueryInfo = {
   queryToken: QueryToken | PaginatedQueryToken;
   hasEverRun: boolean;
   // query, args and paginationOptions are just here for debugging, the queryToken is authoritative
-  query: FunctionReference<"query">;
+  query: FunctionReference<"query"> | FunctionReference_future<"query">;
   args: any;
   paginationOptions: { initialNumItems: number; id: number } | undefined;
 };

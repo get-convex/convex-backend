@@ -52,6 +52,7 @@ import { DeploymentType } from "./api.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { formatIndex, LargeIndexDeletionCheck } from "./indexes.js";
 import { checkForLargeIndexDeletion } from "./checkForLargeIndexDeletion.js";
+import { checkForSlowSchemaValidation } from "./checkForSlowSchemaValidation.js";
 import { LogManager } from "./logs.js";
 import { createHash } from "crypto";
 import { Bundle, BundleHash } from "../../bundler/index.js";
@@ -75,6 +76,10 @@ export type PushOptions = {
   pushAllModules: boolean;
   logManager?: LogManager | undefined;
   largeIndexDeletionCheck: LargeIndexDeletionCheck;
+  // Whether a dry run should warn when the schema change would block the
+  // deploy on a slow table walk. On for deploys; off for commands whose dry
+  // runs never deploy (e.g. codegen).
+  warnOnSlowSchemaValidation: boolean;
   message: string | null;
 };
 
@@ -229,6 +234,7 @@ async function startComponentsPushAndCodegen(
     pushAllModules?: boolean;
     debugNodeApis: boolean;
     largeIndexDeletionCheck: LargeIndexDeletionCheck;
+    warnOnSlowSchemaValidation: boolean;
     codegenOnlyThisComponent?: string | undefined;
   },
 ): Promise<StartPushResponse | null> {
@@ -454,6 +460,17 @@ async function startComponentsPushAndCodegen(
         options,
         askForConfirmation:
           options.largeIndexDeletionCheck === "ask for confirmation",
+      }),
+    );
+  }
+
+  if (options.dryRun && options.warnOnSlowSchemaValidation) {
+    await parentSpan.enterAsync("checkForSlowSchemaValidation", (span) =>
+      checkForSlowSchemaValidation({
+        ctx,
+        span,
+        request: startPushRequest,
+        options,
       }),
     );
   }

@@ -112,8 +112,6 @@ export function TeamSettings({ team }: { team: TeamResponse }) {
             variant="danger"
             onClick={() => setShowDeleteTeamModal(true)}
             disabled={
-              // TODO: what to do about team lifecycle and Expo?
-              !!team.managedBy ||
               !canDelete ||
               !teams ||
               teams.length === 1 ||

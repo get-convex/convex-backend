@@ -4,11 +4,16 @@ use std::{
 };
 
 use application::deploy_config::{
+    ComponentSchemaPrediction,
     EvaluatePushResponse,
+    EvaluateSchemaPredictionResponse,
     FinishPushDiff,
+    IndexChangePrediction,
+    IndexPrediction,
     SchemaStatusJson,
     StartPushRequest,
     StartPushResponse,
+    TablePrediction,
 };
 use axum::{
     debug_handler,
@@ -30,6 +35,7 @@ use common::{
         ExtractRequestMetadata,
         HttpResponseError,
     },
+    schemas::TableValidationOutcome,
 };
 use errors::{
     ErrorMetadata,
@@ -54,7 +60,13 @@ use model::{
         type_checking::SerializedCheckedComponent,
         types::SerializedEvaluatedComponentDefinition,
     },
-    deployment_audit_log::types::PushMessage,
+    deployment_audit_log::{
+        developer_index_config::{
+            SerializedDeveloperIndexConfig,
+            SerializedNamedDeveloperIndexConfig,
+        },
+        types::PushMessage,
+    },
     external_packages::types::ExternalDepsPackageId,
     modules::module_versions::SerializedAnalyzedModule,
     source_packages::types::SourcePackage,
@@ -192,6 +204,99 @@ pub struct SerializedEvaluatePushResponse {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SerializedEvaluateSchemaResponse {
+    /// Keyed by component path; "" is the root component.
+    component_schema_evaluations: BTreeMap<String, SerializedComponentSchemaPrediction>,
+    new_component_definitions: Vec<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedComponentSchemaPrediction {
+    definition_path: String,
+    schema_validation: bool,
+    tables: Vec<SerializedTablePrediction>,
+    indexes: Vec<SerializedIndexPrediction>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedTablePrediction {
+    name: String,
+    outcome: TableValidationOutcome,
+    num_docs: u64,
+    size_bytes: u64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedIndexPrediction {
+    #[serde(flatten)]
+    index: SerializedNamedDeveloperIndexConfig,
+    change: IndexChangePrediction,
+    needs_backfill: bool,
+    num_docs: u64,
+}
+
+impl TryFrom<EvaluateSchemaPredictionResponse> for SerializedEvaluateSchemaResponse {
+    type Error = anyhow::Error;
+
+    fn try_from(value: EvaluateSchemaPredictionResponse) -> Result<Self, Self::Error> {
+        Ok(Self {
+            component_schema_evaluations: value
+                .component_schema_evaluations
+                .into_iter()
+                .map(|(path, prediction)| Ok((String::from(path), prediction.try_into()?)))
+                .collect::<anyhow::Result<_>>()?,
+            new_component_definitions: value
+                .new_component_definitions
+                .into_iter()
+                .map(String::from)
+                .collect(),
+        })
+    }
+}
+
+impl TryFrom<ComponentSchemaPrediction> for SerializedComponentSchemaPrediction {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ComponentSchemaPrediction) -> Result<Self, Self::Error> {
+        Ok(Self {
+            definition_path: String::from(value.definition_path),
+            schema_validation: value.schema_validation,
+            tables: value.tables.into_iter().map(Into::into).collect(),
+            indexes: value.indexes.into_iter().map(Into::into).collect(),
+        })
+    }
+}
+
+impl From<TablePrediction> for SerializedTablePrediction {
+    fn from(value: TablePrediction) -> Self {
+        Self {
+            name: String::from(value.name),
+            outcome: value.outcome,
+            num_docs: value.num_docs,
+            size_bytes: value.size_bytes,
+        }
+    }
+}
+
+impl From<IndexPrediction> for SerializedIndexPrediction {
+    fn from(value: IndexPrediction) -> Self {
+        Self {
+            index: SerializedNamedDeveloperIndexConfig {
+                name: value.name.to_string(),
+                index_config: SerializedDeveloperIndexConfig::from(value.config),
+            },
+            change: value.change,
+            needs_backfill: value.needs_backfill,
+            num_docs: value.num_docs,
+        }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalyzedComponent {
     definition: SerializedComponentDefinitionMetadata,
     schema: Option<JsonValue>,
@@ -246,6 +351,29 @@ pub async fn evaluate_push(
         })?;
 
     Ok(Json(SerializedEvaluatePushResponse::try_from(resp)?))
+}
+
+// Predicts, without side effects, the schema validation and index backfill
+// work that pushing this config would trigger: which tables must be walked
+// (and why the others can skip), with document counts and sizes, and which
+// indexes need backfill. Unlike `evaluate_push`, only the schema bundles are
+// evaluated; modules are neither analyzed nor uploaded.
+pub async fn evaluate_schema(
+    MtState(st): MtState<LocalAppState>,
+    Json(req): Json<StartPushRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let identity = must_be_admin_from_key(
+        st.application.app_auth(),
+        st.instance_name.clone(),
+        req.admin_key.clone(),
+    )
+    .await?;
+    identity.require_operation(keybroker::DeploymentOp::Deploy)?;
+    let config = req.into_project_config().map_err(|e| {
+        anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
+    })?;
+    let resp = st.application.evaluate_schema_prediction(&config).await?;
+    Ok(Json(SerializedEvaluateSchemaResponse::try_from(resp)?))
 }
 
 const DEFAULT_SCHEMA_TIMEOUT_MS: u32 = 10_000;

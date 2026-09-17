@@ -17,6 +17,8 @@ pub enum MetricUnit {
     QueryGb,
     #[serde(rename = "GB-hours")]
     GbHours,
+    #[serde(rename = "dollars")]
+    Dollars,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,6 +111,8 @@ pub enum UsageLimitMetric {
     ActionComputeNodeJsGBHours,
     #[serde(rename = "actionComputeCpuGbHours")]
     ActionComputeCpuGBHours,
+    #[serde(rename = "aiGatewayCostDollars")]
+    AiGatewayCostDollars,
 }
 
 const BYTES_PER_GB: f64 = (1u64 << 30) as f64;
@@ -128,6 +132,7 @@ impl UsageLimitMetric {
             Self::ActionComputeConvexGBHours => "action_compute_convex_gbs",
             Self::ActionComputeNodeJsGBHours => "action_compute_nodejs_gbs",
             Self::ActionComputeCpuGBHours => "action_compute_cpu_gbs",
+            Self::AiGatewayCostDollars => "ai_gateway_cost_dollars",
         }
     }
 
@@ -145,6 +150,7 @@ impl UsageLimitMetric {
             "action_gbs" => Self::ActionComputeConvexGBHours,
             "action_node_gbs" => Self::ActionComputeNodeJsGBHours,
             "action_user_gbs" => Self::ActionComputeCpuGBHours,
+            "ai_gateway_cost" => Self::AiGatewayCostDollars,
             "db_ingress" | "db_egress" => Self::DatabaseIoGB,
             "text_query_search_gb" | "vector_query_search_gb_dims" => Self::SearchQueryGB,
             "network_egress" | "storage_bandwidth_egress" | "udf_storage_bandwidth_egress" => {
@@ -162,6 +168,7 @@ impl UsageLimitMetric {
             Self::FunctionCalls => MetricUnit::Calls,
             Self::DatabaseIoGB | Self::DataEgressGB => MetricUnit::Gb,
             Self::SearchQueryGB => MetricUnit::QueryGb,
+            Self::AiGatewayCostDollars => MetricUnit::Dollars,
             Self::QueryMutationComputeGBHours
             | Self::ActionComputeConvexGBHours
             | Self::ActionComputeNodeJsGBHours
@@ -174,7 +181,7 @@ impl UsageLimitMetric {
     /// (calls, bytes, GB, or GB·s).
     pub fn limit_in_raw_units(&self, limit: u64) -> f64 {
         match self {
-            Self::FunctionCalls | Self::SearchQueryGB => limit as f64,
+            Self::FunctionCalls | Self::SearchQueryGB | Self::AiGatewayCostDollars => limit as f64,
             Self::DatabaseIoGB | Self::DataEgressGB => limit as f64 * BYTES_PER_GB,
             Self::QueryMutationComputeGBHours
             | Self::ActionComputeConvexGBHours
@@ -188,7 +195,7 @@ impl UsageLimitMetric {
     /// a configured limit. The inverse of `limit_in_raw_units`.
     pub fn usage_in_display_units(&self, raw: f64) -> f64 {
         match self {
-            Self::FunctionCalls | Self::SearchQueryGB => raw,
+            Self::FunctionCalls | Self::SearchQueryGB | Self::AiGatewayCostDollars => raw,
             Self::DatabaseIoGB | Self::DataEgressGB => raw / BYTES_PER_GB,
             Self::QueryMutationComputeGBHours
             | Self::ActionComputeConvexGBHours

@@ -448,30 +448,13 @@ pub const fn insert_overwrite_document(multitenant: bool) -> &'static str {
     )
 }
 
-pub const fn load_indexes_page(multitenant: bool) -> &'static str {
+pub const fn has_index_entries(multitenant: bool) -> &'static str {
     tableify!(
         multitenant,
         formatcp!(
-            r#"
-/*+
-    Set(enable_seqscan OFF)
-    Set(enable_sort OFF)
-    Set(enable_incremental_sort OFF)
-    Set(enable_hashjoin OFF)
-    Set(enable_mergejoin OFF)
-    Set(enable_material OFF)
-    Set(plan_cache_mode force_generic_plan)
-*/
-SELECT
-    index_id, key_prefix, key_sha256, key_suffix, ts, deleted
-    FROM @db_name.indexes
-    WHERE (index_id, key_prefix, key_sha256, ts) > ($1, $2, $3, $4)
-    {where_clause}
-    ORDER BY index_id ASC, key_prefix ASC, key_sha256 ASC, ts ASC
-    LIMIT $5
-"#,
+            "SELECT 1 FROM @db_name.indexes{where_clause} LIMIT 1",
             where_clause = if multitenant {
-                "AND instance_name = $6"
+                " WHERE instance_name = $1"
             } else {
                 ""
             }

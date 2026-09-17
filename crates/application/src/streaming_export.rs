@@ -154,6 +154,20 @@ impl<RT: Runtime> Application<RT> {
         Ok((syncs, next_cursor))
     }
 
+    /// The progress row of a single active data sync — one that fetched a page
+    /// within the active window — or `None` if no such sync exists.
+    pub async fn active_data_sync(
+        &self,
+        identity: Identity,
+        sync_id: &str,
+    ) -> anyhow::Result<Option<DataSyncProgressMetadata>> {
+        let now_ms = self.runtime.unix_timestamp().as_ms_since_epoch()?;
+        let mut tx = self.begin(identity).await?;
+        DataSyncProgressModel::new(&mut tx)
+            .active_sync(now_ms, sync_id)
+            .await
+    }
+
     /// Upsert this sync's `_data_sync_progress` row from the page's outcome.
     ///
     /// If the sync has no row yet, this page records its creation: the insert

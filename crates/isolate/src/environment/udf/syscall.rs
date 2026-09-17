@@ -56,6 +56,8 @@ pub trait SyscallProviderInternal<RT: Runtime> {
     fn cleanup_query(&mut self, query_id: u32) -> bool;
 
     fn require_operation(&mut self, op: DeploymentOp) -> anyhow::Result<()>;
+
+    fn snapshot_ts(&mut self) -> anyhow::Result<ConvexValue>;
 }
 
 impl<RT: Runtime> SyscallProviderInternal<RT> for DatabaseUdfSyscallProvider<RT> {
@@ -112,6 +114,14 @@ impl<RT: Runtime> SyscallProviderInternal<RT> for DatabaseUdfSyscallProvider<RT>
         self.phase.observe_identity()?;
         self.phase.tx()?.identity().require_operation(op)
     }
+
+    fn snapshot_ts(&mut self) -> anyhow::Result<ConvexValue> {
+        // The timestamp differs on every execution, so mark the outcome as
+        // time-dependent (like `Date.now()`) to bound query-cache staleness.
+        self.phase.observe_time();
+        let ts = *self.phase.tx()?.begin_timestamp();
+        Ok(ConvexValue::Int64(ts.into()))
+    }
 }
 
 pub fn syscall_impl<RT: Runtime, P: SyscallProviderInternal<RT>>(
@@ -125,6 +135,7 @@ pub fn syscall_impl<RT: Runtime, P: SyscallProviderInternal<RT>>(
         "1.0/db/normalizeId" => syscall_normalize_id(provider, args),
         "1.0/componentArgument" => syscall_component_argument(provider, args),
         "1.0/requireOperation" => syscall_require_operation(provider, args),
+        "1.0/getSnapshotTs" => syscall_snapshot_ts(provider, args),
 
         "throwOcc" => anyhow::bail!(ErrorMetadata::user_occ(None, None, None)),
         "throwOverloaded" => {
@@ -272,4 +283,16 @@ fn syscall_require_operation<RT: Runtime, P: SyscallProviderInternal<RT>>(
     })?;
     provider.require_operation(operation)?;
     Ok(json!({}))
+}
+
+/// Returns the timestamp of the database snapshot this transaction reads
+/// from: all commits at or before it are observable within the transaction,
+/// and no later ones are. Encoded as an Int64 of nanoseconds since the Unix
+/// epoch, on the same clock as commit timestamps.
+fn syscall_snapshot_ts<RT: Runtime, P: SyscallProviderInternal<RT>>(
+    provider: &mut P,
+    _args: JsonValue,
+) -> anyhow::Result<JsonValue> {
+    let _s = static_span!();
+    Ok(provider.snapshot_ts()?.to_internal_json())
 }

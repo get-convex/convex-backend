@@ -552,6 +552,7 @@ impl UsageCounter {
             TextIndexQueryUsage {
                 num_searches,
                 bytes_searched,
+                filtered_bytes_searched,
             },
         ) in stats.text_query_usage
         {
@@ -563,6 +564,7 @@ impl UsageCounter {
                 index_name: index_name.to_string(),
                 num_searches,
                 bytes_searched,
+                filtered_bytes_searched,
             })
         }
         for (
@@ -888,6 +890,14 @@ impl FunctionUsageTracker {
             .or_default() += ingress_rows;
     }
 
+    pub fn track_database_ingress_index_rows(&self, ingress_index_rows: u64, skip_logging: bool) {
+        if skip_logging {
+            return;
+        }
+
+        self.state.lock().database_ingress_index_rows += ingress_index_rows;
+    }
+
     // Tracks the vector ingress surcharge for documents
     // that have one or more vectors in a vector index.
     //
@@ -982,12 +992,14 @@ impl FunctionUsageTracker {
         component_path: ComponentPath,
         index_name: IndexName,
         index_size: u64,
+        filtered_bytes_searched: u64,
     ) {
         let mut state = self.state.lock();
         let key = (component_path, index_name);
         *state.text_query_usage.entry(key).or_default() += TextIndexQueryUsage {
             num_searches: 1,
             bytes_searched: index_size,
+            filtered_bytes_searched,
         };
     }
 
@@ -1066,7 +1078,12 @@ type StorageAPI = String;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Add, Default, AddAssign)]
 pub struct TextIndexQueryUsage {
     pub num_searches: u64,
+    /// Total size of the index's disk segments, once per search.
     pub bytes_searched: u64,
+    /// Segment bytes scaled by the share of documents matching each search's
+    /// filter conditions. Reported alongside `bytes_searched` so the two can
+    /// be compared; billing reads `bytes_searched`.
+    pub filtered_bytes_searched: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, AddAssign)]
@@ -1110,6 +1127,10 @@ pub struct FunctionUsageStats {
     pub virtual_table_egress: BTreeMap<(ComponentPath, TableNameString), u64>,
     pub database_egress_rows: BTreeMap<(ComponentPath, TableNameString), u64>,
     pub database_ingress_rows: BTreeMap<(ComponentPath, TableNameString), u64>,
+    /// Entries written to user tables' database indexes. Counted per document
+    /// write, so it covers the same writes as `database_ingress_rows`, but not
+    /// broken down per table: nothing reads that breakdown for either counter.
+    pub database_ingress_index_rows: u64,
     pub vector_ingress: BTreeMap<(ComponentPath, TableNameString), u64>,
     pub vector_ingress_v2: BTreeMap<(ComponentPath, TableNameString), u64>,
     pub vector_egress: BTreeMap<(ComponentPath, TableNameString), u64>,
@@ -1134,6 +1155,7 @@ impl FunctionUsageStats {
             database_io_write_bytes: self.database_ingress_v2.values().sum(),
             database_read_documents: self.database_egress_rows.values().sum(),
             database_write_documents: self.database_ingress_rows.values().sum(),
+            database_write_index_rows: self.database_ingress_index_rows,
             storage_read_bytes: self.storage_egress.values().sum(),
             storage_write_bytes: self.storage_ingress.values().sum(),
             vector_index_read_bytes: self.vector_egress.values().sum(),
@@ -1169,6 +1191,7 @@ impl FunctionUsageStats {
             virtual_table_egress,
             database_egress_rows,
             database_ingress_rows,
+            database_ingress_index_rows,
             vector_ingress,
             vector_ingress_v2,
             vector_egress,
@@ -1235,6 +1258,7 @@ impl FunctionUsageStats {
             *self.fetch_egress.entry(key.clone()).or_default() += egress;
         }
         self.audit_log_egress += audit_log_egress;
+        self.database_ingress_index_rows += database_ingress_index_rows;
     }
 }
 
@@ -1326,6 +1350,7 @@ fn to_text_query_usage(
                 index_name: Some(index_name.to_string()),
                 num_searches: Some(usage.num_searches),
                 bytes_searched: Some(usage.bytes_searched),
+                filtered_bytes_searched: Some(usage.filtered_bytes_searched),
             },
         )
         .collect()
@@ -1363,11 +1388,14 @@ fn from_text_query_usage(
             let bytes_searched = u
                 .bytes_searched
                 .context("Missing `num_segment_searches` field")?;
+            // Absent from records written before the field existed.
+            let filtered_bytes_searched = u.filtered_bytes_searched.unwrap_or(0);
             Ok((
                 (component_path, index_name),
                 TextIndexQueryUsage {
                     num_searches,
                     bytes_searched,
+                    filtered_bytes_searched,
                 },
             ))
         })
@@ -1416,6 +1444,7 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             database_egress_v2: to_by_tag_count(stats.database_egress_v2.into_iter()),
             database_egress_rows: to_by_tag_count(stats.database_egress_rows.into_iter()),
             database_ingress_rows: to_by_tag_count(stats.database_ingress_rows.into_iter()),
+            database_ingress_index_rows: stats.database_ingress_index_rows,
             vector_ingress: to_by_tag_count(stats.vector_ingress.into_iter()),
             vector_egress: to_by_tag_count(stats.vector_egress.into_iter()),
             text_ingress: to_by_tag_count(stats.text_ingress.into_iter()),
@@ -1445,6 +1474,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
         let database_egress_v2 = from_by_tag_count(stats.database_egress_v2)?.collect();
         let database_egress_rows = from_by_tag_count(stats.database_egress_rows)?.collect();
         let database_ingress_rows = from_by_tag_count(stats.database_ingress_rows)?.collect();
+        let database_ingress_index_rows = stats.database_ingress_index_rows;
         let vector_ingress = from_by_tag_count(stats.vector_ingress)?.collect();
         let vector_egress = from_by_tag_count(stats.vector_egress)?.collect();
         let text_ingress = from_by_tag_count(stats.text_ingress)?.collect();
@@ -1464,6 +1494,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             database_ingress_v2,
             database_egress_rows,
             database_ingress_rows,
+            database_ingress_index_rows,
             database_egress,
             database_egress_v2,
             virtual_table_ingress,
@@ -1491,6 +1522,7 @@ pub struct AggregatedFunctionUsageStats {
     pub database_io_write_bytes: u64,
     pub database_read_documents: u64,
     pub database_write_documents: u64,
+    pub database_write_index_rows: u64,
     pub storage_read_bytes: u64,
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,

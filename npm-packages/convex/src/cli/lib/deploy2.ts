@@ -23,6 +23,10 @@ import {
   StartPushResponse,
 } from "./deployApi/startPush.js";
 import {
+  EvaluateSchemaResponse,
+  evaluateSchemaResponse,
+} from "./deployApi/evaluateSchema.js";
+import {
   AppDefinitionConfig,
   ComponentDefinitionConfig,
 } from "./deployApi/definitionConfig.js";
@@ -103,6 +107,35 @@ export async function evaluatePush(
   return evaluatePushResponse.parse(response);
 }
 
+export async function evaluateSchema(
+  ctx: Context,
+  span: Span,
+  request: StartPushRequest,
+  options: {
+    url: string;
+    deploymentName: string | null;
+    deploymentType?: DeploymentType;
+  },
+  // When set, a failed evaluation throws the raw error instead of crashing
+  // the process, so best-effort callers (e.g. advisory checks) can recover.
+  bestEffort?: boolean,
+): Promise<EvaluateSchemaResponse> {
+  const response = await pushCode(
+    ctx,
+    span,
+    request,
+    options,
+    "/api/deploy2/evaluate_schema",
+    bestEffort,
+  );
+  return evaluateSchemaResponse.parse(response);
+}
+
+// Retries for best-effort requests, where a transient failure should be
+// ridden out if possible but the command proceeds without the result
+// otherwise.
+const BEST_EFFORT_RETRIES = 5;
+
 async function pushCode(
   ctx: Context,
   span: Span,
@@ -112,7 +145,11 @@ async function pushCode(
     deploymentName: string | null;
     deploymentType?: DeploymentType;
   },
-  endpoint: "/api/deploy2/start_push" | "/api/deploy2/evaluate_push",
+  endpoint:
+    | "/api/deploy2/start_push"
+    | "/api/deploy2/evaluate_push"
+    | "/api/deploy2/evaluate_schema",
+  bestEffort?: boolean,
 ): Promise<unknown> {
   // Log a summary of the push request instead of the full object
   const unchangedModuleCount =
@@ -136,6 +173,18 @@ async function pushCode(
     deploymentUrl: options.url,
     adminKey: request.adminKey,
     onError,
+    // Best-effort callers tolerate failure, so retry only plausibly
+    // transient conditions — network errors and 5xx responses (e.g. table
+    // summaries still bootstrapping) — and fail fast on everything else,
+    // like a 404 from a deployment whose backend doesn't yet expose the
+    // endpoint.
+    ...(bestEffort
+      ? {
+          maxRetries: BEST_EFFORT_RETRIES,
+          shouldRetry: (error: Error | null, response: Response | null) =>
+            error !== null || (response !== null && response.status >= 500),
+        }
+      : {}),
   });
   try {
     const response = await fetch(endpoint, {
@@ -149,6 +198,11 @@ async function pushCode(
     });
     return await response.json();
   } catch (error: unknown) {
+    if (bestEffort) {
+      // The caller handles this itself instead of crashing the process.
+      // eslint-disable-next-line no-restricted-syntax
+      throw error;
+    }
     return await handlePushConfigError(
       ctx,
       error,
@@ -453,6 +507,7 @@ export async function deployToDeployment(
     largeIndexDeletionCheck: options.allowDeletingLargeIndexes
       ? "has confirmation"
       : "ask for confirmation",
+    warnOnSlowSchemaValidation: true,
     message: options.message,
   };
   showSpinner(`Deploying to ${url}...${options.dryRun ? " [dry run]" : ""}`);

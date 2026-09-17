@@ -105,10 +105,6 @@ export function PersonalAccessTokens() {
           showPageSize={false}
         />
       )}
-      <p className="max-w-prose text-xs text-content-secondary">
-        The Convex Dashboard uses your oldest personal access token to
-        authenticate with deployments.
-      </p>
       {showCreateDialog && (
         <CreatePersonalTokenDialog
           onClose={() => setShowCreateDialog(false)}

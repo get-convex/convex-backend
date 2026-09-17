@@ -273,8 +273,8 @@ function WindowedLogList({
   setManuallyPaused(paused: boolean): void;
   shownLog?: InterleavedLog;
   hitBoundary: "top" | "bottom" | null;
-  listRef: React.RefObject<FixedSizeList>;
-  outerRef: React.RefObject<HTMLDivElement>;
+  listRef: React.RefObject<FixedSizeList | null>;
+  outerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="scrollbar flex h-full min-w-0 flex-col overflow-x-auto overflow-y-hidden">
@@ -495,8 +495,8 @@ function LogListHeader({
   hasLogOpen: boolean;
   paused: boolean;
   setManuallyPaused(paused: boolean): void;
-  listRef: React.RefObject<FixedSizeList>;
-  outerRef: React.RefObject<HTMLDivElement>;
+  listRef: React.RefObject<FixedSizeList | null>;
+  outerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="flex w-full items-center gap-4 border-b p-1 pl-2.5 text-xs text-content-secondary">

@@ -264,7 +264,7 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
   // Remove elements from editedVars/deletedVars that refer to variables that
   // don’t exist anymore. This can be caused by a realtime update
   // of `environmentVariables` (see CX-5439).
-  const prevEnvironmentVariables = useRef<Array<T>>();
+  const prevEnvironmentVariables = useRef<Array<T> | undefined>(undefined);
   useEffect(() => {
     if (
       !environmentVariables ||

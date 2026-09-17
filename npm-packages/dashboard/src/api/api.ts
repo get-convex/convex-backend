@@ -169,36 +169,51 @@ async function handleMutationSuccess(
 
 // Helper to handle query errors
 function handleQueryError(res: any, path: string) {
-  if ("error" in res && !!res.error && typeof res.error === "object") {
-    if (
-      res.error instanceof TypeError &&
-      fetchErrorMessages.some((msg) => (res.error as TypeError).message === msg)
-    ) {
-      // Check if we're online when we encounter network errors
-      // Use forceCheckIsOnline to bypass the cache and get the current status
+  if (!("error" in res) || !res.error || typeof res.error !== "object") {
+    return;
+  }
+
+  // `fetch` rejects with an Error (network failure, abort) rather than a Big
+  // Brain error body. This must be checked before the body shape below: a
+  // DOMException inherits `code` and `message`, so it would otherwise be
+  // captured as "Server responded with 20 The operation was aborted.". It
+  // must also be checked before `Object.keys`: Sentry's fetch instrumentation
+  // backfills `error.stack` when the browser leaves it undefined (Safari, for
+  // DOMExceptions), turning `stack` into an own enumerable property.
+  if (res.error instanceof Error) {
+    // Sentry's fetch instrumentation appends the request host to these
+    // messages ("Failed to fetch (api.convex.dev)"), hence prefix matching.
+    if (fetchErrorMessages.some((m) => res.error.message.startsWith(m))) {
+      // Bypass the cache to learn whether we really went offline.
       void forceCheckIsOnline();
     }
-    if ("code" in res.error && "message" in res.error) {
-      captureException(
-        new Error(
-          `Server responded with ${res.error.code} ${res.error.message}`,
-        ),
-        {
-          fingerprint:
-            res.error.code === "AccessTokenInvalid" ||
-            res.error.code === "InvalidIdentity"
-              ? [res.error.code]
-              : [path, res.error.code as string],
-        },
-      );
-    } else if (Object.keys(res.error).length > 0) {
-      captureException(
-        new Error(`Server responded with error: ${JSON.stringify(res.error)}`),
-        {
-          fingerprint: [path, JSON.stringify(res.error)],
-        },
-      );
-    }
+    return;
+  }
+
+  if ("code" in res.error && "message" in res.error) {
+    captureException(
+      new Error(`Server responded with ${res.error.code} ${res.error.message}`),
+      {
+        fingerprint:
+          res.error.code === "AccessTokenInvalid" ||
+          res.error.code === "InvalidIdentity"
+            ? [res.error.code]
+            : [path, res.error.code as string],
+      },
+    );
+    return;
+  }
+
+  if (Object.keys(res.error).length > 0) {
+    captureException(
+      new Error(`Server responded with error: ${JSON.stringify(res.error)}`),
+      {
+        // The body is interpolated into the message but kept out of the
+        // fingerprint: it varies per occurrence, which would mint a fresh
+        // Sentry issue (and a fresh alert) for every one of them.
+        fingerprint: [path],
+      },
+    );
   }
 }
 

@@ -5,9 +5,8 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2024"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
-[package.metadata.cargo-udeps.ignore]
-normal = ["proptest", "proptest-derive"]
-development = ["proptest", "proptest-derive"]
+[package.metadata.cargo-machete]
+ignored = ["flate2"]
 
 [lib]
 doctest = false
@@ -68,7 +67,6 @@ json_trait = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 mime = { workspace = true }
-native-tls = { workspace = true }
 openidconnect = { workspace = true }
 packed_value = { workspace = true }
 parking_lot = { workspace = true }
@@ -84,6 +82,8 @@ rand = { workspace = true }
 rand_chacha = { workspace = true, optional = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
+rustls = { workspace = true }
+rustls-platform-verifier = { workspace = true }
 semver = { workspace = true }
 sentry = { workspace = true }
 serde = { workspace = true }

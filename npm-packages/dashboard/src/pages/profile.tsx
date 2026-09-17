@@ -15,7 +15,7 @@ import {
   PersonIcon,
   TrashIcon,
 } from "@radix-ui/react-icons";
-import { KeyIcon } from "@heroicons/react/24/outline";
+import { KeyIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { logout } from "lib/logout";
 import Head from "next/head";
@@ -27,30 +27,43 @@ import {
 } from "api/profile";
 import { useState } from "react";
 import { Emails } from "components/profile/Emails";
+import { AvailableTeams } from "components/profile/AvailableTeams";
 import { DiscordAccounts } from "components/profile/DiscordAccounts";
 import { MemberResponse } from "generatedApi";
 import { Loading } from "@ui/Loading";
 import { useTheme } from "next-themes";
 import { Security } from "components/profile/Security";
 import { PersonalAccessTokens } from "components/profile/PersonalAccessTokens";
-import { PROFILE_SECTIONS } from "lib/sectionAnchors";
+import { useDirectorySyncOffers } from "api/directorySync";
+import {
+  PROFILE_AVAILABLE_TEAMS_SECTION,
+  PROFILE_SECTIONS,
+} from "lib/sectionAnchors";
 import { SettingsLayout, type SettingsSection } from "elements/SettingsLayout";
 
 export { getServerSideProps } from "lib/ssr";
 
-const sections: SettingsSection[] = [
-  { ...PROFILE_SECTIONS.profileInformation, Icon: PersonIcon },
-  { ...PROFILE_SECTIONS.emails, Icon: EnvelopeClosedIcon },
-  { ...PROFILE_SECTIONS.security, Icon: LockClosedIcon },
-  { ...PROFILE_SECTIONS.personalAccessTokens, Icon: KeyIcon },
-  { ...PROFILE_SECTIONS.dashboardTheme, Icon: Half2Icon },
-  { ...PROFILE_SECTIONS.discordAccounts, Icon: DiscordLogoIcon },
-  { ...PROFILE_SECTIONS.deleteAccount, Icon: TrashIcon },
-];
+// The Available Teams section renders only when there is a team to join, so
+// `sections` is assembled per render rather than being a module constant.
+function profileSections(hasAvailableTeams: boolean): SettingsSection[] {
+  return [
+    { ...PROFILE_SECTIONS.profileInformation, Icon: PersonIcon },
+    { ...PROFILE_SECTIONS.emails, Icon: EnvelopeClosedIcon },
+    ...(hasAvailableTeams
+      ? [{ ...PROFILE_AVAILABLE_TEAMS_SECTION, Icon: UserGroupIcon }]
+      : []),
+    { ...PROFILE_SECTIONS.security, Icon: LockClosedIcon },
+    { ...PROFILE_SECTIONS.personalAccessTokens, Icon: KeyIcon },
+    { ...PROFILE_SECTIONS.dashboardTheme, Icon: Half2Icon },
+    { ...PROFILE_SECTIONS.discordAccounts, Icon: DiscordLogoIcon },
+    { ...PROFILE_SECTIONS.deleteAccount, Icon: TrashIcon },
+  ];
+}
 
 export function Profile() {
   const profile = useProfile();
   const emails = useProfileEmails();
+  const availableTeams = useDirectorySyncOffers();
 
   const [showConfirmation, setShowConfirmation] = useState(false);
   const deleteAccount = useDeleteAccount();
@@ -77,7 +90,7 @@ export function Profile() {
       <PageContent>
         <SettingsLayout
           title="Profile"
-          sections={sections}
+          sections={profileSections(!!availableTeams?.length)}
           contentReady={!!(emails && profile)}
         >
           {emails && profile ? (
@@ -91,6 +104,10 @@ export function Profile() {
               </Sheet>
 
               <Emails emails={emails} />
+
+              {availableTeams && availableTeams.length > 0 && (
+                <AvailableTeams offers={availableTeams} />
+              )}
 
               <Security />
 

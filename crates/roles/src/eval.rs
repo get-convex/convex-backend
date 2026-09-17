@@ -1,4 +1,7 @@
-use common::types::MemberId;
+use common::types::{
+    DeploymentType,
+    MemberId,
+};
 use errors::ErrorMetadata;
 use keybroker::{
     bad_admin_key_error,
@@ -94,6 +97,15 @@ impl ResourceSegment {
                 DeploymentSelector::Type(t) => t == deployment_type,
                 DeploymentSelector::Creator(c) => *creator == Some(c.resolve(actor)),
             }),
+            (
+                ResourceSegment::Deployment(selectors),
+                ConcreteSegment::LocalDeployment { owner },
+            ) => selectors.iter().any(|s| match s {
+                DeploymentSelector::Any => true,
+                DeploymentSelector::Id(_) => false,
+                DeploymentSelector::Type(t) => *t == DeploymentType::Dev,
+                DeploymentSelector::Creator(c) => *owner == c.resolve(actor),
+            }),
             (ResourceSegment::Member, ConcreteSegment::Member) => true,
             (ResourceSegment::Token(selectors), ConcreteSegment::Token(token)) => {
                 selectors.iter().any(|s| s.matches(token, actor))
@@ -102,6 +114,7 @@ impl ResourceSegment {
             (ResourceSegment::Billing, ConcreteSegment::Billing) => true,
             (ResourceSegment::OauthApplication, ConcreteSegment::OauthApplication) => true,
             (ResourceSegment::Sso, ConcreteSegment::Sso) => true,
+            (ResourceSegment::DirectorySync, ConcreteSegment::DirectorySync) => true,
             (ResourceSegment::Integration, ConcreteSegment::Integration) => true,
             (
                 ResourceSegment::DefaultEnvironmentVariable,
@@ -220,6 +233,7 @@ pub const ALL_DEPLOYMENT_OPS: &[DeploymentOp] = &[
     DeploymentOp::ViewUsageLimits,
     DeploymentOp::WriteUsageLimits,
     DeploymentOp::ViewUsage,
+    DeploymentOp::UseAiGateway,
 ];
 
 /// Authoritative mapping from a keybroker [`DeploymentOp`] to the
@@ -253,6 +267,7 @@ pub fn deployment_op_action(op: DeploymentOp) -> Option<RoleStatementAction> {
         O::ViewUsageLimits => A::ViewUsageLimits,
         O::WriteUsageLimits => A::WriteUsageLimits,
         O::ViewUsage => A::ViewDeploymentUsage,
+        O::UseAiGateway => A::UseAiGateway,
         O::Unknown => return None,
     })
 }

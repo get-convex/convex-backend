@@ -47,8 +47,10 @@ use common::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
         IndexId,
+        IndexRef,
         TabletIndexName,
         Timestamp,
+        WriteTimestamp,
     },
     value::Size,
 };
@@ -73,7 +75,7 @@ pub trait InMemoryIndexes: Send + Sync {
     /// memory, returns None so it is safe to call on any index.
     async fn range(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         interval: &Interval,
         order: Order,
         tablet_id: TabletId,
@@ -95,13 +97,13 @@ pub struct BackendInMemoryIndexes {
 impl InMemoryIndexes for BackendInMemoryIndexes {
     async fn range(
         &self,
-        index_id: IndexId,
+        index: IndexRef,
         interval: &Interval,
         order: Order,
         _tablet_id: TabletId,
         _table_name: TableName,
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, MemoryDocument)>>> {
-        self.range(index_id, interval, order)
+        self.range(index.id(), interval, order)
     }
 }
 
@@ -119,7 +121,7 @@ impl BackendInMemoryIndexes {
         let mut meta_index_map = DatabaseIndexMap::new_at(ts);
         for (ts, index_doc) in index_documents {
             let index_key = IndexKey::new(vec![], index_doc.developer_id());
-            meta_index_map.insert(index_key.to_bytes(), ts, index_doc);
+            meta_index_map.insert(index_key.to_bytes(), ts, MemoryDocument::new(index_doc));
         }
 
         let mut in_memory_indexes = OrdMap::new();
@@ -223,7 +225,7 @@ impl BackendInMemoryIndexes {
         // Read the table using an arbitrary index from the list
         let entries: Vec<_> = snapshot
             .index_scan(
-                indexes[0].id().internal_id().into(),
+                IndexRef::try_from(&indexes[0])?,
                 tablet_id,
                 &Interval::all(),
                 Order::Asc,
@@ -237,7 +239,7 @@ impl BackendInMemoryIndexes {
         for (_, rev) in entries.into_iter() {
             num_keys += 1;
             total_size += rev.value.value().size();
-            let doc = PackedDocument::pack(&rev.value);
+            let doc = MemoryDocument::new(PackedDocument::pack(&rev.value));
             // Calculate all the index keys. For simplicity we throw away the
             // index key that we read from persistence and recalculate it.
             for ((index, index_map), doc) in indexes
@@ -248,7 +250,7 @@ impl BackendInMemoryIndexes {
                 let IndexConfig::Database { spec, .. } = &index.config else {
                     unreachable!()
                 };
-                let key = doc.index_key_owned(&spec.fields);
+                let key = doc.packed().index_key_owned(&spec.fields);
                 index_map.insert(key, rev.ts, doc);
             }
         }
@@ -270,6 +272,12 @@ impl BackendInMemoryIndexes {
         documents: Vec<(Timestamp, PackedDocument)>,
         snapshot_timestamp: Timestamp,
     ) {
+        // Build the shared document once so that every index on the table stores
+        // (and parses) the same one.
+        let documents: Vec<(Timestamp, MemoryDocument)> = documents
+            .into_iter()
+            .map(|(ts, doc)| (ts, MemoryDocument::new(doc)))
+            .collect();
         for index_doc in index_registry.enabled_indexes_for_table(tablet_id) {
             let IndexConfig::Database {
                 spec,
@@ -282,7 +290,7 @@ impl BackendInMemoryIndexes {
             assert_eq!(*on_disk_state, DatabaseIndexState::Enabled); // ensured by IndexRegistry
             let mut index_map = DatabaseIndexMap::new_at(snapshot_timestamp);
             for (ts, doc) in &documents {
-                let key = doc.index_key_owned(&spec.fields);
+                let key = doc.packed().index_key_owned(&spec.fields);
                 index_map.insert(key, *ts, doc.clone());
             }
             self.in_memory_indexes.insert(index_doc.id(), index_map);
@@ -294,10 +302,10 @@ impl BackendInMemoryIndexes {
         // NB: We assume that `index_registry` has already received this update.
         index_registry: &IndexRegistry,
         ts: Timestamp,
-        deletion: Option<ResolvedDocument>,
+        deletion: Option<(ResolvedDocument, WriteTimestamp)>,
         insertion: Option<ResolvedDocument>,
     ) -> Vec<DatabaseIndexUpdate> {
-        if let (Some(old_document), None) = (&deletion, &insertion)
+        if let (Some((old_document, _)), None) = (&deletion, &insertion)
             && old_document.id().tablet_id == index_registry.index_table()
         {
             // Drop the index from memory.
@@ -306,13 +314,16 @@ impl BackendInMemoryIndexes {
         }
 
         // Build up the list of updates to apply to all database indexes.
-        let updates = index_registry.index_updates(deletion.as_ref(), insertion.as_ref());
+        let updates = index_registry.index_updates(
+            deletion.as_ref().map(|(document, ts)| (document, *ts)),
+            insertion.as_ref(),
+        );
 
-        let mut packed = None;
+        let mut memory_doc = None;
 
         // Apply the updates to the subset of database indexes in memory.
         for update in &updates {
-            match self.in_memory_indexes.get_mut(&update.index_id) {
+            match self.in_memory_indexes.get_mut(&update.index.id()) {
                 Some(key_set) => match &update.value {
                     DatabaseIndexValue::Deleted => {
                         key_set.remove(&update.key.to_bytes(), ts);
@@ -323,11 +334,14 @@ impl BackendInMemoryIndexes {
                         match insertion {
                             Some(ref doc) => {
                                 assert_eq!(*doc_id, doc.id());
-                                // reuse the PackedDocument if inserting into more than one index
-                                let packed = packed
-                                    .get_or_insert_with(|| PackedDocument::pack(doc))
+                                // reuse the MemoryDocument if inserting into more than one
+                                // index
+                                let memory_doc = memory_doc
+                                    .get_or_insert_with(|| {
+                                        MemoryDocument::new(PackedDocument::pack(doc))
+                                    })
                                     .clone();
-                                key_set.insert(update.key.to_bytes(), ts, packed);
+                                key_set.insert(update.key.to_bytes(), ts, memory_doc);
                             },
                             None => panic!("Unexpected index update: {:?}", update.value),
                         }
@@ -367,7 +381,7 @@ pub struct NoInMemoryIndexes;
 impl InMemoryIndexes for NoInMemoryIndexes {
     async fn range(
         &self,
-        _index_id: IndexId,
+        _index: IndexRef,
         _interval: &Interval,
         _order: Order,
         _tablet_id: TabletId,
@@ -442,14 +456,11 @@ impl DatabaseIndexMap {
             .map(|e| (e.key.clone(), e.ts, e.document.clone()))
     }
 
-    fn insert(&mut self, key: IndexKeyBytes, ts: Timestamp, document: PackedDocument) {
+    fn insert(&mut self, key: IndexKeyBytes, ts: Timestamp, document: MemoryDocument) {
         self.inner.insert(ArcIndexDocument(Arc::new(IndexDocument {
             key,
             ts,
-            document: MemoryDocument {
-                packed_document: document,
-                cached_system_document: SystemDocument::new(),
-            },
+            document,
         })));
         self.last_modified = cmp::max(self.last_modified, ts);
     }
@@ -466,31 +477,59 @@ pub enum LazyDocument {
 }
 
 /// A system document fetched from an in-memory index. This is internally
-/// reference-counted and cheaply cloneable.
+/// reference-counted and cheaply cloneable. All indexes on a table share the
+/// same `MemoryDocument` for a given document, so the parse cache is populated
+/// at most once per document.
 #[derive(Clone, Debug)]
-pub struct MemoryDocument {
-    pub packed_document: PackedDocument,
-    pub cached_system_document: SystemDocument,
+pub struct MemoryDocument(Arc<MemoryDocumentInner>);
+
+#[derive(Debug)]
+struct MemoryDocumentInner {
+    packed_document: PackedDocument,
+    cached_system_document: SystemDocument,
 }
+
 impl MemoryDocument {
+    pub fn new(packed_document: PackedDocument) -> Self {
+        Self(Arc::new(MemoryDocumentInner {
+            packed_document: packed_document.shrink(),
+            cached_system_document: SystemDocument::new(),
+        }))
+    }
+
+    pub fn packed(&self) -> &PackedDocument {
+        &self.0.packed_document
+    }
+
     /// Parse and return the document. The same document must not be parsed
     /// twice with different types `T`.
     pub fn force<T: Send + Sync + 'static>(&self) -> anyhow::Result<Arc<ParsedDocument<T>>>
     where
         for<'a> &'a PackedDocument: ParseDocument<T>,
     {
-        self.cached_system_document.force(&self.packed_document)
+        self.0.cached_system_document.force(&self.0.packed_document)
+    }
+
+    /// Parse without populating the shared cache. For one-shot scans whose
+    /// result is used once and dropped.
+    pub fn parse_uncached<T>(&self) -> anyhow::Result<ParsedDocument<T>>
+    where
+        for<'a> &'a PackedDocument: ParseDocument<T>,
+    {
+        ParseDocument::parse(&self.0.packed_document)
     }
 }
 
 const _: () = {
-    assert!(mem::size_of::<LazyDocument>() == mem::size_of::<MemoryDocument>());
+    // `MemoryDocument` is stored in every index on a table and cloned out of
+    // every range scan, so keep it pointer-sized.
+    assert!(mem::size_of::<MemoryDocument>() == mem::size_of::<usize>());
 };
 
 /// Stores a lazily-populated, cached `ParsedDocument` of the right type for
 /// this system document.
-#[derive(Clone, Default, Debug)]
-pub struct SystemDocument(Arc<OnceLock<Arc<dyn Any + Send + Sync>>>);
+#[derive(Default, Debug)]
+pub struct SystemDocument(OnceLock<Arc<dyn Any + Send + Sync>>);
 
 impl SystemDocument {
     pub fn new() -> Self {
@@ -537,28 +576,28 @@ impl LazyDocument {
     pub fn unpack(self) -> ResolvedDocument {
         match self {
             LazyDocument::Packed(doc) => doc.unpack(),
-            LazyDocument::Memory(doc) => doc.packed_document.unpack(),
+            LazyDocument::Memory(doc) => doc.packed().unpack(),
         }
     }
 
     pub fn size(&self) -> usize {
         match self {
             LazyDocument::Packed(doc) => doc.size(),
-            LazyDocument::Memory(doc) => doc.packed_document.size(),
+            LazyDocument::Memory(doc) => doc.packed().size(),
         }
     }
 
     pub fn id(&self) -> ResolvedDocumentId {
         match self {
             LazyDocument::Packed(doc) => doc.id(),
-            LazyDocument::Memory(doc) => doc.packed_document.id(),
+            LazyDocument::Memory(doc) => doc.packed().id(),
         }
     }
 
     pub fn pack(self) -> PackedDocument {
         match self {
             LazyDocument::Packed(doc) => doc,
-            LazyDocument::Memory(doc) => doc.packed_document,
+            LazyDocument::Memory(doc) => doc.packed().clone(),
         }
     }
 }

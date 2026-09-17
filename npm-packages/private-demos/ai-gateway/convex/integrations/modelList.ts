@@ -11,7 +11,7 @@ export type ModelList = {
   data: Array<{ id: string }>;
 };
 
-export type ListModels = (gatewayUrl?: string) => Promise<ModelListSummary>;
+export type ListModels = () => Promise<ModelListSummary>;
 
 export function summarizeModels(models: ModelList): ModelListSummary {
   return {

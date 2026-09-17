@@ -21,6 +21,7 @@ pub use crate::executor::{
     BuildDepsRequest,
     ExecuteRequest,
     ExecutorRequest,
+    InvokeCompletion,
     InvokeResponse,
     NodeActionOutcome,
     NodeActions,

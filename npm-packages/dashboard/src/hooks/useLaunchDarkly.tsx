@@ -7,12 +7,18 @@ export const flagDefaults: {
   connectionStateCheckIntervalMs: number;
   nonDefaultTeamDevsInMainMenu: number;
   showAiGatewayUsage: boolean;
+  ephemeralZipExportToken: boolean;
+  directorySync: boolean;
+  promos: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
   connectionStateCheckIntervalMs: 2500,
   nonDefaultTeamDevsInMainMenu: 10,
   showAiGatewayUsage: false,
+  ephemeralZipExportToken: false,
+  directorySync: false,
+  promos: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

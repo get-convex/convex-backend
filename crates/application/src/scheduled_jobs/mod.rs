@@ -73,6 +73,7 @@ use database::{
     ResolvedQuery,
     TimestampedIndexCache,
     Transaction,
+    WriteSource,
 };
 use errors::{
     ErrorMetadata,
@@ -468,7 +469,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let mut queries = BTreeMap::new();
         for namespace in namespaces {
             let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
-            if let Some(doc) = query.next(tx, None).await? {
+            let doc = {
+                let timer = metrics::query_scheduled_jobs_timer();
+                let doc = query.next(tx, None).await?;
+                timer.finish();
+                doc
+            };
+            if let Some(doc) = doc {
                 let job_metadata: ParsedDocument<ScheduledJobMetadata> = doc.parse()?;
                 let job_metadata_id = job_metadata.id();
                 let next_ts = job_metadata.next_ts.ok_or_else(|| {
@@ -485,7 +492,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         }
         while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
             yield min_job;
-            if let Some(doc) = query.next(tx, None).await? {
+            let doc = {
+                let timer = metrics::query_scheduled_jobs_timer();
+                let doc = query.next(tx, None).await?;
+                timer.finish();
+                doc
+            };
+            if let Some(doc) = doc {
                 let job_metadata: ParsedDocument<ScheduledJobMetadata> = doc.parse()?;
                 let job_metadata_id = job_metadata.id();
                 let next_ts = job_metadata.next_ts.with_context(|| {
@@ -789,7 +802,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                             Err(e)
                         } else {
                             self.database
-                                .commit_with_write_source(tx, "scheduled_job_mutation_success")
+                                .commit_with_write_source(tx, WriteSource::mutation(path.clone()))
                                 .await
                         };
                         if let Err(err) = commit_result {
@@ -903,7 +916,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
                 // NOTE: We should not be getting developer errors here.
                 self.database
-                    .commit_with_write_source(tx, "scheduled_job_mutation_error")
+                    .commit_with_write_source(tx, WriteSource::mutation(job.path.clone()))
                     .await?;
             }
             self.function_log

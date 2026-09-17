@@ -18,12 +18,12 @@ import {
   Pencil2Icon,
   RocketIcon,
   ArchiveIcon,
-  CubeIcon,
   CodeIcon,
   DimensionsIcon,
   ExternalLinkIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
+import { PackageVersionIcon } from "@common/elements/icons";
 import { Link } from "@ui/Link";
 import { useContext, useEffect, useState } from "react";
 import semver from "semver";
@@ -307,8 +307,8 @@ export function DeploymentSummary({
             {lastPushEvent && (
               <div className="flex items-center gap-2">
                 <Tooltip tip="Convex package version">
-                  <CubeIcon
-                    className="size-4 shrink-0 text-content-secondary"
+                  <PackageVersionIcon
+                    className="text-content-secondary"
                     aria-label="Convex package version"
                   />
                 </Tooltip>

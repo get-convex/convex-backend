@@ -1,5 +1,4 @@
 use std::{
-    iter,
     marker::PhantomData,
     num::NonZeroU32,
     ops::Bound,
@@ -141,7 +140,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
         index_name: TabletIndexName,
         start_compaction_ts: Timestamp,
         segments_to_compact: Vec<T::Segment>,
-        new_segment: T::Segment,
+        new_segment: Option<T::Segment>,
         rate_limit_pages_per_second: NonZeroU32,
         schema: T::Schema,
     ) -> anyhow::Result<()> {
@@ -271,7 +270,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         index_name: TabletIndexName,
         start_compaction_ts: Timestamp,
         segments_to_compact: Vec<T::Segment>,
-        mut new_segment: T::Segment,
+        mut new_segment: Option<T::Segment>,
         rate_limit_pages_per_second: NonZeroU32,
         schema: T::Schema,
     ) -> anyhow::Result<()> {
@@ -290,18 +289,20 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             // Drop and then restart the transaction, it could take a while to
             // merge deletes.
             drop(tx);
-            let results = self
-                .merge_deletes(
-                    vec![new_segment],
-                    start_compaction_ts,
-                    snapshot_ts,
-                    index_name.clone(),
-                    rate_limit_pages_per_second,
-                    schema,
-                )
-                .await?;
-            anyhow::ensure!(results.len() == 1);
-            new_segment = results.into_iter().next().unwrap();
+            if let Some(segment) = new_segment {
+                let results = self
+                    .merge_deletes(
+                        vec![segment],
+                        start_compaction_ts,
+                        snapshot_ts,
+                        index_name.clone(),
+                        rate_limit_pages_per_second,
+                        schema,
+                    )
+                    .await?;
+                anyhow::ensure!(results.len() == 1);
+                new_segment = results.into_iter().next();
+            }
             tx = self.database.begin(Identity::system()).await?;
             metadata = Self::require_index_metadata(&mut tx, index_id).await?;
             let (_, disk_state) = T::extract_metadata(metadata)?;
@@ -316,7 +317,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .iter()
             .filter(|segment| !removed_segment_ids.contains(&segment.id().to_string()))
             .cloned()
-            .chain(iter::once(new_segment))
+            .chain(new_segment)
             .collect_vec();
 
         self.write_metadata(

@@ -33,7 +33,10 @@ use aggregation::PostingListMatchAggregator;
 use anyhow::Context;
 use common::{
     bootstrap_model::index::{
-        text_index::TextIndexSpec,
+        text_index::{
+            FragmentedTextSegment,
+            TextIndexSpec,
+        },
         IndexConfig,
     },
     document::ResolvedDocument,
@@ -139,7 +142,10 @@ pub use self::{
 use crate::{
     aggregation::TokenMatchAggregator,
     constants::MAX_UNIQUE_QUERY_TERMS,
-    metrics::log_num_segments_searched_total,
+    metrics::{
+        log_num_segments_searched_total,
+        log_text_search_bytes,
+    },
     searcher::{
         Bm25Stats,
         PostingListQuery,
@@ -221,6 +227,42 @@ impl TryFrom<&Token> for FieldPosition {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextIndexWriteSize(pub u64);
+
+#[derive(Debug)]
+pub struct TextSearchResults {
+    pub revisions_with_keys: RevisionWithKeys,
+    /// Disk index bytes attributed to this query: each segment's size scaled
+    /// by the share of its live documents that match the query's filter
+    /// conditions. Documents in the memory index are excluded.
+    pub filtered_bytes_searched: u64,
+}
+
+/// The share of `segment_size_bytes` attributed to a query, given the segment's
+/// BM25 statistics for the query's terms. With several filter conditions the
+/// matching set is their intersection, whose size is unknown before the
+/// posting lists are read, so the smallest filter term's document frequency
+/// bounds it from above.
+fn filtered_segment_bytes(
+    segment_size_bytes: u64,
+    stats: &Bm25Stats,
+    filter_terms: &[Term],
+) -> u64 {
+    if filter_terms.is_empty() {
+        return segment_size_bytes;
+    }
+    if stats.num_documents == 0 {
+        return 0;
+    }
+    let min_doc_frequency = filter_terms
+        .iter()
+        .map(|term| stats.doc_frequencies.get(term).copied().unwrap_or(0))
+        .min()
+        .unwrap_or(0);
+    let matching_docs = cmp::min(min_doc_frequency, stats.num_documents);
+    let scaled = u128::from(segment_size_bytes) * u128::from(matching_docs)
+        / u128::from(stats.num_documents);
+    u64::try_from(scaled).expect("scaled size is at most segment_size_bytes")
+}
 
 #[derive(Clone)]
 pub struct TantivySearchIndexSchema {
@@ -421,13 +463,14 @@ impl TantivySearchIndexSchema {
         compiled_query: CompiledQuery,
         memory_index: &MemoryTextIndex,
         search_storage: Arc<dyn Storage>,
-        segments: Vec<FragmentedTextStorageKeys>,
+        segments: Vec<FragmentedTextSegment>,
         disk_index_ts: Timestamp,
         searcher: Arc<dyn Searcher>,
         labels: SearchIndexMetricLabels<'_>,
-    ) -> anyhow::Result<RevisionWithKeys> {
+    ) -> anyhow::Result<TextSearchResults> {
         log_num_segments_searched_total(segments.len());
         let labels = labels.to_owned();
+        let total_size_bytes: u64 = segments.iter().map(|s| s.size_bytes_total).sum();
 
         // Step 1: Map the old `CompiledQuery` struct onto `TokenQuery`s.
         let mut token_queries = vec![];
@@ -440,18 +483,38 @@ impl TantivySearchIndexSchema {
             };
             token_queries.push(query);
         }
-        let mut exist_filter_conditions = false;
-        let mut num_expected_filter_conditions = 0;
+        let mut filter_terms = vec![];
         for CompiledFilterCondition::Must(term) in compiled_query.filter_conditions {
-            exist_filter_conditions = true;
-            num_expected_filter_conditions += 1;
             let query = TokenQuery {
-                term,
+                term: term.clone(),
                 max_distance: 0,
                 prefix: false,
             };
             token_queries.push(query);
+            filter_terms.push(term);
         }
+        let exist_filter_conditions = !filter_terms.is_empty();
+        let num_expected_filter_conditions = filter_terms.len();
+        // Bytes charged when the query ends before per-segment statistics are
+        // available: a query without filters reads every document's posting
+        // lists, so it searches the whole index, and a filtered query whose
+        // filter terms match nowhere touches no documents.
+        let short_circuit_bytes_searched = if exist_filter_conditions {
+            0
+        } else {
+            total_size_bytes
+        };
+        let finish = |revisions_with_keys: RevisionWithKeys, filtered_bytes_searched: u64| {
+            log_text_search_bytes(
+                total_size_bytes,
+                filtered_bytes_searched,
+                exist_filter_conditions,
+            );
+            TextSearchResults {
+                revisions_with_keys,
+                filtered_bytes_searched,
+            }
+        };
 
         // Step 2: Execute the token queries across both the memory and disk indexes,
         // and merge the results to get the top terms. Note that we spawn the calls
@@ -461,7 +524,7 @@ impl TantivySearchIndexSchema {
         for segment in &segments {
             let searcher = searcher.clone();
             let search_storage = search_storage.clone();
-            let segment = segment.clone();
+            let segment = FragmentedTextStorageKeys::from(segment.clone());
             let token_queries = token_queries.clone();
             let labels = labels.clone();
             token_query_futures.spawn("query_tokens", async move {
@@ -521,7 +584,7 @@ impl TantivySearchIndexSchema {
             < num_expected_filter_conditions;
         let no_filter_matches = exist_filter_conditions && not_enough_and_tokens_present;
         if terms.is_empty() || no_filter_matches {
-            return Ok(vec![]);
+            return Ok(finish(vec![], short_circuit_bytes_searched));
         }
 
         // Step 3: Given the terms we decided on, query BM25 statistics across all of
@@ -530,18 +593,23 @@ impl TantivySearchIndexSchema {
         for segment in &segments {
             let searcher = searcher.clone();
             let search_storage = search_storage.clone();
-            let segment = segment.clone();
+            let segment_size_bytes = segment.size_bytes_total;
+            let segment = FragmentedTextStorageKeys::from(segment.clone());
             let terms = terms.clone();
             let labels = labels.clone();
             bm25_futures.spawn("query_bm25_stats", async move {
-                searcher
+                let stats = searcher
                     .query_bm25_stats(search_storage, segment, terms, labels)
-                    .await
+                    .await?;
+                anyhow::Ok((segment_size_bytes, stats))
             });
         }
         let mut bm25_stats = Bm25Stats::empty();
+        let mut filtered_bytes_searched = 0u64;
         while let Some(result) = bm25_futures.join_next().await {
-            let segment_bm25_stats = result??;
+            let (segment_size_bytes, segment_bm25_stats) = result??;
+            filtered_bytes_searched +=
+                filtered_segment_bytes(segment_size_bytes, &segment_bm25_stats, &filter_terms);
             bm25_stats += segment_bm25_stats;
         }
         let bm25_stats =
@@ -580,7 +648,7 @@ impl TantivySearchIndexSchema {
         // filters these terms further. So if we have no or_terms, our result is
         // empty regardless of any matching and_terms.
         if or_terms.is_empty() {
-            return Ok(vec![]);
+            return Ok(finish(vec![], filtered_bytes_searched));
         }
 
         // Step 5: Execute the posting list query against the memory index's tombstones
@@ -611,7 +679,7 @@ impl TantivySearchIndexSchema {
         for segment in &segments {
             let searcher = searcher.clone();
             let search_storage = search_storage.clone();
-            let segment = segment.clone();
+            let segment = FragmentedTextStorageKeys::from(segment.clone());
             let query = query.clone();
             let labels = labels.clone();
             posting_list_futures.spawn("query_posting_lists", async move {
@@ -664,7 +732,7 @@ impl TantivySearchIndexSchema {
             }
             result
         });
-        Ok(result)
+        Ok(finish(result, filtered_bytes_searched))
     }
 
     fn compile_tokens_with_typo_tolerance(

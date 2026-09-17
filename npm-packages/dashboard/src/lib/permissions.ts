@@ -27,6 +27,7 @@ export type ResourceKind =
   | "billing"
   | "oauthApplication"
   | "sso"
+  | "directorySync"
   | "integration"
   | "defaultEnvironmentVariable";
 
@@ -63,6 +64,7 @@ export type ResourceSegment =
   | { kind: "billing" }
   | { kind: "oauthApplication" }
   | { kind: "sso" }
+  | { kind: "directorySync" }
   | { kind: "integration" }
   | { kind: "defaultEnvironmentVariable" };
 
@@ -87,6 +89,7 @@ export type ConcreteSegment =
   | { kind: "billing" }
   | { kind: "oauthApplication" }
   | { kind: "sso" }
+  | { kind: "directorySync" }
   | { kind: "integration" }
   | { kind: "defaultEnvironmentVariable" };
 
@@ -126,6 +129,7 @@ export const DEPLOYMENT_OP_TO_ACTION: Record<
   WriteUsageLimits: "deployment:usageLimits:write",
   ViewIntegrations: "deployment:integrations:view",
   WriteIntegrations: "deployment:integrations:write",
+  UseAiGateway: "deployment:aiGateway:use",
 };
 
 const READ_ONLY_ACTIONS: RoleStatementAction[] = [
@@ -159,6 +163,7 @@ const VALID_KINDS: readonly ResourceKind[] = [
   "billing",
   "oauthApplication",
   "sso",
+  "directorySync",
   "integration",
   "defaultEnvironmentVariable",
 ];
@@ -239,6 +244,7 @@ function parseSegment(
     case "billing":
     case "oauthApplication":
     case "sso":
+    case "directorySync":
     case "integration":
     case "defaultEnvironmentVariable":
       if (parts.length !== 1 || parts[0] !== "*") {
@@ -277,6 +283,9 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "team:update": "team",
   "team:delete": "team",
   "team:auditLog:view": "team",
+  "team:domain:create": "team",
+  "team:domain:delete": "team",
+  "team:domain:view": "team",
   "team:usage:view": "team",
   // Billing
   "billing:paymentMethod:update": "billing",
@@ -297,6 +306,12 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "sso:disable": "sso",
   "sso:update": "sso",
   "sso:view": "sso",
+  // Directory Sync
+  "directorySync:enable": "directorySync",
+  "directorySync:disable": "directorySync",
+  "directorySync:updateGroupMapping": "directorySync",
+  "directorySync:deleteGroupMapping": "directorySync",
+  "directorySync:view": "directorySync",
   // Team Integrations
   "integration:view": "integration",
   "integration:create": "integration",
@@ -359,6 +374,7 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "deployment:usageLimits:view": "deployment",
   "deployment:usageLimits:write": "deployment",
   "deployment:usage:view": "deployment",
+  "deployment:aiGateway:use": "deployment",
   // Member
   "member:invite": "member",
   "member:cancelInvitation": "member",

@@ -59,6 +59,7 @@ use crate::{
         },
         AsyncOpRequest,
         JsEnvironment,
+        OpProvider,
         SyscallProvider,
     },
     helpers,
@@ -80,7 +81,7 @@ pub struct SchemaEnvironment {
     unix_timestamp: UnixTimestamp,
 }
 
-impl<RT: Runtime> SyscallProvider<RT> for SchemaEnvironment {
+impl OpProvider for SchemaEnvironment {
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access at schema evaluation time: {}",
@@ -128,7 +129,9 @@ impl<RT: Runtime> SyscallProvider<RT> for SchemaEnvironment {
             "Getting the table mapping unsupported when evaluating schema"
         ))
     }
+}
 
+impl<RT: Runtime> SyscallProvider<RT> for SchemaEnvironment {
     async fn lookup_source(
         &mut self,
         path: &str,

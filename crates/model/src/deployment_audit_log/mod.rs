@@ -35,7 +35,7 @@ use value::{
     TableNamespace,
 };
 
-mod developer_index_config;
+pub mod developer_index_config;
 pub mod types;
 
 use types::{

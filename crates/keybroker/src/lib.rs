@@ -15,6 +15,7 @@ pub use self::{
         AdminIdentityPrincipal,
         CoreIdTokenWithCustomClaims,
         CustomClaims,
+        ExportDownloadActor,
         FunctionRunnerKeyBroker,
         GetFileAuthorization,
         Identity,

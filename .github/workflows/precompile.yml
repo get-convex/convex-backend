@@ -6,9 +6,32 @@ on:
       - release
   workflow_dispatch:
 
+permissions:
+  actions: read
+  contents: write
+
 jobs:
+  release_metadata:
+    name: Select release name
+    runs-on: ubuntu-latest
+    outputs:
+      release_name: ${{ steps.release_name.outputs.release_name }}
+    steps:
+      - name: Select release name
+        id: release_name
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          # Reruns retain their run ID, so this date is stable across workflow attempts.
+          release_date=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" --jq '.created_at[0:10]')
+          echo "release_name=$release_date-${COMMIT_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
   release_dashboard:
     name: Build Convex Dashboard
+    needs: release_metadata
     runs-on: [self-hosted, aws, x64, xlarge]
     steps:
       - name: Check out code
@@ -52,26 +75,24 @@ jobs:
         run: |
           cd npm-packages/dashboard-self-hosted/out && zip -r ../../../dashboard.zip .
 
-      - name: Precompute release name
-        id: release_name
-        shell: bash
-        run: |
-          echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
       - name: Create Upload Precompiled Artifacts
         id: create_release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
             dashboard.zip
-          tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
-          name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
+          tag_name:
+            precompiled-${{ needs.release_metadata.outputs.release_name }}
+          name: Precompiled ${{ needs.release_metadata.outputs.release_name }}
+          target_commitish: ${{ github.sha }}
           draft: false
           prerelease: true
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release_backend:
+    needs: release_metadata
     strategy:
       fail-fast: false
       matrix:
@@ -160,11 +181,10 @@ jobs:
         run: |
           just install-js
 
-      - name: Precompute release name
-        id: release_name
+      - name: Precompute artifact names
+        id: artifact_names
         shell: bash
         run: |
-          echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           ZIP_NAME=convex-local-backend-${{ matrix.target }}.zip
           BINARY_NAME=convex-local-backend${{ runner.os == 'Windows' && '.exe' || '' }}
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_OUTPUT
@@ -182,25 +202,69 @@ jobs:
           # building aws-lc-sys on windows-latest's VS2026 (aws/aws-lc-rs#780).
           if [ "$RUNNER_OS" = "Windows" ]; then export CMAKE_GENERATOR=Ninja; fi
           cargo build --release -p local_backend --bin convex-local-backend
-          mv target/release/${{ steps.release_name.outputs.BINARY_NAME }} .
+          mv target/release/${{ steps.artifact_names.outputs.BINARY_NAME }} .
 
       - name: Zip backend into arch
         uses: thedoctor0/zip-release@7fddfdd07cadb5b8c6c0dbcdcec17f8cd7784b80 # 0.7.5
         with:
           type: zip
-          filename: ${{ steps.release_name.outputs.ZIP_NAME }}
-          path: ${{ steps.release_name.outputs.BINARY_NAME }}
+          filename: ${{ steps.artifact_names.outputs.ZIP_NAME }}
+          path: ${{ steps.artifact_names.outputs.BINARY_NAME }}
 
       - name: Create Upload Precompiled Artifacts
         id: create_release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
-            ${{ steps.release_name.outputs.ZIP_NAME }}
+            ${{ steps.artifact_names.outputs.ZIP_NAME }}
             LICENSE.md
-          tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
-          name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
+          tag_name:
+            precompiled-${{ needs.release_metadata.outputs.release_name }}
+          name: Precompiled ${{ needs.release_metadata.outputs.release_name }}
+          target_commitish: ${{ github.sha }}
           draft: false
           prerelease: true
+          make_latest: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  validate_release:
+    name: Validate release
+    needs: [release_metadata, release_dashboard, release_backend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate release tag and assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG:
+            precompiled-${{ needs.release_metadata.outputs.release_name }}
+        run: |
+          required_assets='[
+            "convex-local-backend-aarch64-apple-darwin.zip",
+            "convex-local-backend-aarch64-unknown-linux-gnu.zip",
+            "convex-local-backend-x86_64-apple-darwin.zip",
+            "convex-local-backend-x86_64-pc-windows-msvc.zip",
+            "convex-local-backend-x86_64-unknown-linux-gnu.zip",
+            "dashboard.zip",
+            "LICENSE.md"
+          ]'
+          release=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,isPrerelease,url)
+          missing_assets=$(jq -r --argjson required "$required_assets" '
+            [.assets[] | select(.state == "uploaded" and .size > 0) | .name] as $uploaded
+            | ($required - $uploaded)[]?
+          ' <<< "$release")
+          if [[ -n "$missing_assets" ]]; then
+            echo "::error::Release $RELEASE_TAG is missing uploaded assets: $(tr '\n' ' ' <<< "$missing_assets")"
+            exit 1
+          fi
+          if [[ $(jq -r '.isDraft == false and .isPrerelease == true' <<< "$release") != true ]]; then
+            echo "::error::Release $RELEASE_TAG must be a published pre-release"
+            exit 1
+          fi
+          tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')
+          if [[ "$tag_sha" != "${GITHUB_SHA}" ]]; then
+            echo "::error::Release tag $RELEASE_TAG points to $tag_sha instead of $GITHUB_SHA"
+            exit 1
+          fi
+          echo "Validated $(jq -r .url <<< "$release")"

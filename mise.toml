@@ -6,7 +6,7 @@
 
 # mise's own version: read by the bootstrap installer + the release Dockerfiles, and
 # a floor (mise refuses to run an older binary against this config).
-min_version = "2026.6.10"
+min_version = "2026.8.9"
 
 [tools]
 uv       = "0.11.5"
@@ -17,11 +17,10 @@ protoc   = "21.12"
 
 # Dev Cargo lint tools (prebuilt via cargo-binstall, no compile). `mise install`
 # pulls them in dev + CI (cached); the release images install only specific tools.
-cargo-binstall      = "1.20.0"
-"cargo:cargo-udeps" = "0.1.55"
-"cargo:cargo-sort"  = "2.1.4"
-"aqua:planetscale/cli" = "0.291.0"
-
+cargo-binstall = "1.20.0"
+"cargo:cargo-machete" = "0.9.2"
+"cargo:cargo-sort" = "2.1.4"
+"github:WebAssembly/binaryen" = { version = "132", version_prefix = "version_" }
 [env]
 # Build hints for the native -sys crates, primarily for LOCAL dev -- CI Linux gets
 # these (plus SNAPPY_LIB_DIR) from .github/actions/setup-rust, which also covers the
@@ -44,8 +43,8 @@ idiomatic_version_file_enable_tools = ["node"]
 lockfile = true
 
 # System C libraries the Rust crates link against (outside [tools]). setup_env.py
-# installs these via experimental `mise bootstrap packages` (apt/brew); plain
-# `mise install` ignores them, so CI is unaffected. "latest" because apt/brew can't
+# installs these via `mise bootstrap packages` (apt/brew); plain `mise install`
+# ignores them, so CI is unaffected. "latest" because apt/brew can't
 # portably pin and mise.lock doesn't cover OS packages.
 [bootstrap.packages]
 "apt:build-essential" = "latest"
@@ -57,12 +56,13 @@ lockfile = true
 # ABI-incompatible, so ROCKSDB_COMPILE forces the bundled build there.
 "apt:librocksdb-dev" = "latest"
 "apt:libsnappy-dev" = "latest"
-"brew:pkgconf" = "latest"
-"brew:openssl@3" = "latest"
-"brew:libsodium" = "latest"
-"brew:snappy" = "latest"
+# os = "macos": mise pours bottles itself, so unfiltered brew entries install on Linux too.
+"brew:pkgconf" = { version = "latest", os = "macos" }
+"brew:openssl@3" = { version = "latest", os = "macos" }
+"brew:libsodium" = { version = "latest", os = "macos" }
+"brew:snappy" = { version = "latest", os = "macos" }
 # GNU diff3 for copybara pull merges (Apple's diff3 silently corrupts them)
-"brew:diffutils" = "latest"
+"brew:diffutils" = { version = "latest", os = "macos" }
 # rocksdb (+ gflags) can't live here: they need pinning to match the librocksdb-sys
 # bindings, which brew can't do for core formulae. setup_env.py installs them from
 # the get-convex/tap tap instead.

@@ -8,11 +8,11 @@ use common::{
 
 use super::{
     metrics,
-    OpProvider,
+    V8OpProvider,
 };
 
 #[convex_macro::v8_op]
-pub fn op_console_message<'b, P: OpProvider<'b>>(
+pub fn op_console_message<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     level: String,
     messages: Vec<String>,
@@ -26,7 +26,7 @@ pub fn op_console_message<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_console_trace<'b, P: OpProvider<'b>>(
+pub fn op_console_trace<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     mut messages: Vec<String>,
     frame_data: Vec<FrameData>,
@@ -43,7 +43,7 @@ pub fn op_console_trace<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_console_time_start<'b, P: OpProvider<'b>>(
+pub fn op_console_time_start<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     label: String,
 ) -> anyhow::Result<()> {
@@ -60,7 +60,7 @@ pub fn op_console_time_start<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_console_time_log<'b, P: OpProvider<'b>>(
+pub fn op_console_time_log<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     label: String,
     extra_messages: Vec<String>,
@@ -86,7 +86,7 @@ pub fn op_console_time_log<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_console_time_end<'b, P: OpProvider<'b>>(
+pub fn op_console_time_end<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     label: String,
 ) -> anyhow::Result<()> {

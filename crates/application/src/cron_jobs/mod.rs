@@ -45,6 +45,7 @@ use database::{
     BootstrapComponentsModel,
     Database,
     Transaction,
+    WriteSource,
 };
 use errors::{
     ErrorMetadata,
@@ -498,7 +499,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                         Err(e)
                     } else {
                         self.database
-                            .commit_with_write_source(tx, "cron_commit_mutation")
+                            .commit_with_write_source(tx, WriteSource::mutation(path.clone()))
                             .await
                     };
                     if let Err(err) = commit_result {

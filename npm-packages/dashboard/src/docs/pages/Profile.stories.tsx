@@ -12,6 +12,7 @@ import {
   usePaginatedPersonalAccessTokens,
 } from "api/personalAccessTokens";
 import { useDiscordAccounts, useUnlinkDiscordAccount } from "api/discord";
+import { useDirectorySyncOffers } from "api/directorySync";
 import { Profile } from "../../pages/profile";
 
 const now = Date.now();
@@ -69,6 +70,7 @@ const meta = {
     mocked(useDeletePersonalAccessToken).mockReturnValue(fn());
     mocked(useDiscordAccounts).mockReturnValue([]);
     mocked(useUnlinkDiscordAccount).mockReturnValue(fn());
+    mocked(useDirectorySyncOffers).mockReturnValue([]);
   },
 } satisfies Meta<typeof Profile>;
 

@@ -82,6 +82,7 @@ export type CodegenOptions = {
   debugNodeApis: boolean;
   systemUdfs: boolean;
   largeIndexDeletionCheck: LargeIndexDeletionCheck;
+  warnOnSlowSchemaValidation: boolean;
   codegenOnlyThisComponent?: string | undefined;
 };
 

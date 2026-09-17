@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeMap,
-    mem,
     ops::Deref,
     str::FromStr,
     sync::Arc,
@@ -17,6 +16,7 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
+use packed_value::StringBuffer;
 use serde::{
     Deserialize,
     Serialize,
@@ -283,9 +283,11 @@ pub struct AnalyzedFunction {
     // case of reading ModuleMetadata without needing to validate the function.
 
     // JSON-serialized ArgsValidator
-    pub args_str: Option<String>,
+    // Note that we use `StringBuffer` so that this can be a refcounted slice
+    // into the `PackedDocument` stored in the `ModulesTable` memory index
+    pub args_str: Option<StringBuffer>,
     // JSON-serialized ReturnsValidator
-    pub returns_str: Option<String>,
+    pub returns_str: Option<StringBuffer>,
 }
 
 impl AnalyzedFunction {
@@ -304,8 +306,8 @@ impl AnalyzedFunction {
             pos,
             udf_type,
             visibility,
-            args_str: Some(args_json),
-            returns_str: Some(returns_json),
+            args_str: Some(StringBuffer::new(args_json)),
+            returns_str: Some(StringBuffer::new(returns_json)),
         })
     }
 
@@ -326,11 +328,10 @@ impl AnalyzedFunction {
 
 impl HeapSize for AnalyzedFunction {
     fn heap_size(&self) -> usize {
-        // Undercount ArgsValidator for simplicity sake.
         self.name.heap_size()
-            + mem::size_of::<UdfType>()
-            + mem::size_of::<Visibility>()
-            + mem::size_of::<ArgsValidator>()
+            + self.pos.heap_size()
+            + self.args_str.heap_size()
+            + self.returns_str.heap_size()
     }
 }
 
@@ -341,8 +342,8 @@ pub struct SerializedAnalyzedFunction {
     pos: Option<SerializedAnalyzedSourcePosition>,
     udf_type: String,
     visibility: Option<Visibility>,
-    args: Option<String>,
-    returns: Option<String>,
+    args: Option<StringBuffer>,
+    returns: Option<StringBuffer>,
 }
 
 impl TryFrom<AnalyzedFunction> for SerializedAnalyzedFunction {

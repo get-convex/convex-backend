@@ -203,7 +203,7 @@ pub fn log_write_tx(tx: &FinalTransaction) {
     );
     log_distribution(
         &DATABASE_SYSTEM_WRITE_TX_NUM_WRITES_TOTAL,
-        user_size.num_writes as f64,
+        system_size.num_writes as f64,
     );
 }
 
@@ -456,6 +456,14 @@ pub fn commit_rows(num_rows: u64) {
     log_counter(&DATABASE_COMMIT_ROWS, num_rows);
 }
 
+register_convex_counter!(
+    DATABASE_COMMIT_INDEX_ROWS,
+    "Number of index rows written to persistence"
+);
+pub fn commit_index_rows(num_rows: u64) {
+    log_counter(&DATABASE_COMMIT_INDEX_ROWS, num_rows);
+}
+
 register_convex_histogram!(
     DATABASE_SUBSCRIPTIONS_UPDATE_SECONDS,
     "Time to advance the SubscriptionManager's log"
@@ -550,20 +558,6 @@ pub fn retention_delete_documents_timer() -> Timer<VMHistogram> {
 }
 
 register_convex_histogram!(
-    INDEX_RETENTION_DELETE_CHUNK_SECONDS,
-    "Time for index retention to delete one chunk",
-    &["source"]
-);
-pub fn index_retention_delete_chunk_timer(source: IndexRetentionSource) -> Timer<VMHistogramVec> {
-    let mut timer = Timer::new_with_labels(&INDEX_RETENTION_DELETE_CHUNK_SECONDS);
-    timer.add_label(StaticMetricLabel::new(
-        "source",
-        <&'static str>::from(source),
-    ));
-    timer
-}
-
-register_convex_histogram!(
     RETENTION_DELETE_DOCUMENT_CHUNK_SECONDS,
     "Time for document retention to delete one chunk"
 );
@@ -620,36 +614,6 @@ pub fn log_document_retention_no_cursor() {
 }
 
 register_convex_counter!(
-    INDEX_RETENTION_SCANNED_DOCUMENT_TOTAL,
-    "Count of documents scanned by index retention",
-    &["tombstone", "prev_rev"]
-);
-pub fn log_index_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
-    log_counter_with_labels(
-        &INDEX_RETENTION_SCANNED_DOCUMENT_TOTAL,
-        1,
-        vec![
-            StaticMetricLabel::new(
-                "tombstone",
-                if is_tombstone {
-                    "is_tombstone"
-                } else {
-                    "is_document"
-                },
-            ),
-            StaticMetricLabel::new(
-                "prev_rev",
-                if has_prev_rev {
-                    "has_prev_rev"
-                } else {
-                    "no_prev_rev"
-                },
-            ),
-        ],
-    )
-}
-
-register_convex_counter!(
     DOCUMENT_RETENTION_SCANNED_DOCUMENT_TOTAL,
     "Count of documents scanned by retention",
     &["tombstone", "prev_rev"]
@@ -680,28 +644,14 @@ pub fn log_document_retention_scanned_document(is_tombstone: bool, has_prev_rev:
 }
 
 register_convex_counter!(
-    RETENTION_EXPIRED_INDEX_ENTRY_TOTAL,
-    "Number of index entries expired by retention",
-    &["reason"]
+    RETENTION_DOCUMENTS_DELETED_TOTAL,
+    "The total number of documents persistence returns as having been actually deleted by \
+     retention."
 );
-pub fn log_retention_expired_index_entry(is_tombstone: bool, is_key_change_tombstone: bool) {
-    log_counter_with_labels(
-        &RETENTION_EXPIRED_INDEX_ENTRY_TOTAL,
-        1,
-        vec![StaticMetricLabel::new(
-            "reason",
-            if is_tombstone {
-                if is_key_change_tombstone {
-                    "key_change_tombstone"
-                } else {
-                    "tombstone"
-                }
-            } else {
-                "overwritten"
-            },
-        )],
-    )
+pub fn log_retention_documents_deleted(deleted_rows: usize) {
+    log_counter(&RETENTION_DOCUMENTS_DELETED_TOTAL, deleted_rows as u64)
 }
+
 register_convex_counter!(
     RETENTION_INDEX_ENTRIES_DELETED_TOTAL,
     "The total number of index entries persistence returns as having been actually deleted by \
@@ -719,13 +669,20 @@ pub fn log_retention_index_entries_deleted(deleted_rows: usize, source: IndexRet
     )
 }
 
-register_convex_counter!(
-    RETENTION_DOCUMENTS_DELETED_TOTAL,
-    "The total number of documents persistence returns as having been actually deleted by \
-     retention."
+register_convex_histogram!(
+    RETENTION_UNIQUE_INDEXES_TOTAL,
+    "Number of distinct indexes a retention pass found expired entries for",
+    &["source"]
 );
-pub fn log_retention_documents_deleted(deleted_rows: usize) {
-    log_counter(&RETENTION_DOCUMENTS_DELETED_TOTAL, deleted_rows as u64)
+pub fn log_retention_unique_indexes(unique_indexes: usize, source: IndexRetentionSource) {
+    log_distribution_with_labels(
+        &RETENTION_UNIQUE_INDEXES_TOTAL,
+        unique_indexes as f64,
+        vec![StaticMetricLabel::new(
+            "source",
+            <&'static str>::from(source),
+        )],
+    )
 }
 
 register_convex_counter!(

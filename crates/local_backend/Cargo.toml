@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
+[package.metadata.cargo-machete]
+ignored = ["tracing-subscriber", "vergen"]
+
 [[bin]]
 name = "convex-local-backend"
 path = "src/main.rs"
@@ -42,10 +45,12 @@ testing = [
 anyhow = { workspace = true }
 application = { workspace = true }
 async-broadcast = { workspace = true }
+async-trait = { workspace = true }
 authentication = { workspace = true }
 axum = { workspace = true }
 axum-extra = { workspace = true }
 base64 = { workspace = true }
+big_brain_client = { workspace = true }
 clap = { workspace = true }
 clusters = { workspace = true }
 cmd_util = { workspace = true }

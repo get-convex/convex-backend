@@ -255,6 +255,24 @@ function EntryAction({
       return <span>updated the team</span>;
     case "team:delete":
       return <span>deleted the team</span>;
+    case "team:domain:create":
+      return (
+        <span>
+          added {metadata.current?.domain ? "the" : "a"} domain{" "}
+          {metadata.current?.domain && (
+            <span className="font-semibold">{metadata.current.domain}</span>
+          )}
+        </span>
+      );
+    case "team:domain:delete":
+      return (
+        <span>
+          removed {metadata.previous?.domain ? "the" : "a"} domain{" "}
+          {metadata.previous?.domain && (
+            <span className="font-semibold">{metadata.previous.domain}</span>
+          )}
+        </span>
+      );
     case "deployment:create": {
       const deploymentType =
         metadata.current?.deploymentType ?? metadata.current?.type;
@@ -622,6 +640,41 @@ function EntryAction({
     }
     case "sso:update": {
       return <span>updated SSO settings</span>;
+    }
+    case "directorySync:enable": {
+      return <span>enabled directory sync</span>;
+    }
+    case "directorySync:disable": {
+      return <span>disabled directory sync</span>;
+    }
+    case "directorySync:updateGroupMapping": {
+      const groupId =
+        metadata.current?.workosGroupId ?? metadata.previous?.workosGroupId;
+      return (
+        <span>
+          updated directory sync group role mapping
+          {groupId && (
+            <>
+              {" for group "}
+              <span className="font-semibold">{groupId}</span>
+            </>
+          )}
+        </span>
+      );
+    }
+    case "directorySync:deleteGroupMapping": {
+      const groupId = metadata.previous?.workosGroupId;
+      return (
+        <span>
+          removed directory sync group role mapping
+          {groupId && (
+            <>
+              {" for group "}
+              <span className="font-semibold">{groupId}</span>
+            </>
+          )}
+        </span>
+      );
     }
     case "integration:workos:projectEnvironment:create": {
       return <span>created a project WorkOS environment</span>;

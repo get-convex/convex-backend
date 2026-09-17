@@ -1,13 +1,15 @@
+use async_trait::async_trait;
 use common::types::{
     AttributionClaims,
     DeploymentMetadata,
 };
 
 /// Mints short-lived JWTs accepted by the AI gateway.
+#[async_trait]
 pub trait AiGatewayJwtMinter: Send + Sync {
     /// `deployment` and `attribution` must both come from trusted backend
     /// metadata or execution state rather than function input.
-    fn mint(
+    async fn mint(
         &self,
         deployment: &DeploymentMetadata,
         attribution: AttributionClaims,

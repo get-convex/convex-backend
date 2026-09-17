@@ -566,6 +566,8 @@ pub type RevisionWithKeys = Vec<(CandidateRevision, IndexKeyBytes)>;
 pub struct QueryResults {
     pub revisions_with_keys: RevisionWithKeys,
     pub reads: QueryReads,
+    /// See `TextSearchResults::filtered_bytes_searched`.
+    pub filtered_bytes_searched: u64,
 }
 
 impl QueryResults {
@@ -573,6 +575,7 @@ impl QueryResults {
         Self {
             revisions_with_keys: vec![],
             reads: QueryReads::empty(),
+            filtered_bytes_searched: 0,
         }
     }
 }

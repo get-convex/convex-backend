@@ -125,6 +125,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -140,6 +141,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -155,6 +157,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -170,6 +173,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 5678,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -185,6 +189,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -200,6 +205,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -215,6 +221,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 98765,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -230,6 +237,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -245,6 +253,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -260,6 +269,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -275,6 +285,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -290,6 +301,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -305,6 +317,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -320,6 +333,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0.0011,
     actionComputeNodeTime: 0,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -335,6 +349,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0.02,
     actionComputeNodeTime: 0.003,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   {
@@ -350,6 +365,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 10.0,
     actionComputeNodeTime: 10.0456778,
     dataEgress: 0,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
   // The roll-up of the functions below the query's per-project cut-off. It is
@@ -368,6 +384,7 @@ const rows: AggregatedFunctionMetrics[] = [
     actionComputeConvexTime: 0.9,
     actionComputeNodeTime: 0.7,
     dataEgress: 21_000,
+    aiGatewayCost: 0,
     componentPath: rootComponentPath,
   },
 ];

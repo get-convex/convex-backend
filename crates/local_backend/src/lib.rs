@@ -83,6 +83,7 @@ use serde::Serialize;
 pub use sync::subscription_reconnect::SubscriptionReconnectRateLimiter;
 
 pub mod admin;
+mod ai_gateway;
 mod app_metrics;
 mod args_structs;
 pub mod authentication;
@@ -276,7 +277,10 @@ pub async fn make_app(
         Arc::new(InProcessExportProvider),
         deleted_tablet_receiver,
         oidc_http_client,
-        None,
+        Some(Arc::new(ai_gateway::LocalAiGatewayTokenMinter::new(
+            config.control_plane_url.clone(),
+            config.control_plane_access_token.clone(),
+        ))),
         SourceMapCache::new(runtime.clone()),
     )
     .await?;

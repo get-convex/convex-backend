@@ -32,9 +32,14 @@ import { PlainObjectEditor } from "./PlainObjectEditor";
 
 export type ObjectEditorProps = {
   defaultValue?: Value;
+  // Seeds the editor with this text instead of the stringified `defaultValue`,
+  // for text that has no value to stringify (something that doesn't parse).
+  defaultInnerText?: string;
   onChange(v?: Value): void;
   onChangeInnerText?(v: string): void;
-  onError(errors: string[]): void;
+  // `shown` is false while `deferErrorsUntilEdit` is holding these errors back:
+  // they are real (the value can't be used) but not the user's to see yet.
+  onError(errors: string[], shown: boolean): void;
   path: string;
   className?: string;
   // Classes to apply to the Monaco editor.
@@ -51,6 +56,10 @@ export type ObjectEditorProps = {
   padding?: boolean;
   showLineNumbers?: boolean;
   disableFolding?: boolean;
+  // Leaves the value the editor is seeded with unmarked until the first edit,
+  // so an editor that opens on a value that doesn't validate doesn't open on an
+  // error the user hasn't caused.
+  deferErrorsUntilEdit?: boolean;
   // If true, calls to onError will include errors produced by the validated.
   // In either case, the editor will still show the errors.
   shouldSurfaceValidatorErrors?: boolean;
@@ -83,6 +92,8 @@ export function ObjectEditor(props: ObjectEditorProps) {
         onChange={handleChange}
         onError={props.onError}
         onChangeInnerText={props.onChangeInnerText}
+        defaultInnerText={props.defaultInnerText}
+        deferErrorsUntilEdit={props.deferErrorsUntilEdit}
         mode={props.mode}
         validator={props.validator}
         allowTopLevelUndefined={
@@ -118,6 +129,7 @@ function ObjectEditorImpl(props: ObjectEditorProps) {
     editorClassname,
     multilineClasses,
     defaultValue,
+    defaultInnerText,
     onChange,
     onChangeInnerText,
     onError,
@@ -132,6 +144,7 @@ function ObjectEditorImpl(props: ObjectEditorProps) {
     disableFolding = false,
     validator,
     mode,
+    deferErrorsUntilEdit = false,
     shouldSurfaceValidatorErrors = false,
     showTableNames = false,
     size = "md",
@@ -151,6 +164,8 @@ function ObjectEditorImpl(props: ObjectEditorProps) {
     saveActionRef.current = saveAction;
   }, [saveAction]);
 
+  const edited = useRef(false);
+
   const handleError = useCallback(
     (errors: ConvexValidationError[]) => {
       const validationErrors = errors
@@ -160,12 +175,13 @@ function ObjectEditorImpl(props: ObjectEditorProps) {
             !(e instanceof ConvexSchemaValidationError),
         )
         .map((e: any) => e.message);
-      onError?.(validationErrors);
+      const shown = !deferErrorsUntilEdit || edited.current;
+      onError?.(validationErrors, shown);
 
       if (monacoRef.current) {
         setErrorMarkers(
           monacoRef.current,
-          errors,
+          shown ? errors : [],
           path,
           shouldSurfaceValidatorErrors,
         );
@@ -173,11 +189,14 @@ function ObjectEditorImpl(props: ObjectEditorProps) {
 
       return validationErrors.length > 0;
     },
-    [onError, path, shouldSurfaceValidatorErrors],
+    [deferErrorsUntilEdit, onError, path, shouldSurfaceValidatorErrors],
   );
 
   // Use state here so we don't recalculate the default value.
   const [defaultValueString] = useState(() => {
+    if (defaultInnerText !== undefined) {
+      return defaultInnerText;
+    }
     if (defaultValue === undefined) {
       return "";
     }
@@ -201,6 +220,7 @@ function ObjectEditorImpl(props: ObjectEditorProps) {
 
   const handleChange = useCallback(
     (code?: string) => {
+      edited.current = true;
       // Hook to inform the parent component of the inner text of the editor.
       onChangeInnerText?.(code ?? "");
 

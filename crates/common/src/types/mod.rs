@@ -16,6 +16,7 @@ pub use value::{
 
 mod actions;
 mod admin_key;
+mod ai_gateway;
 mod attribution;
 mod backend_info;
 mod backend_state;
@@ -49,6 +50,7 @@ pub use admin_key::{
     AdminKeyParts,
     SystemKey,
 };
+pub use ai_gateway::AI_GATEWAY_URL;
 pub use attribution::{
     AttributedCaller,
     AttributionClaims,
@@ -97,8 +99,11 @@ pub use index::{
     IndexDiff,
     IndexId,
     IndexName,
+    IndexRef,
     IndexTableIdentifier,
+    IndexWriteMode,
     PersistenceIndexId,
+    PrevIndexEntry,
     StableIndexName,
     TabletIndexName,
     INDEX_BY_CREATION_TIME_DESCRIPTOR,
@@ -154,6 +159,7 @@ pub type CursorMs = f64;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PersistenceVersion {
     V5,
+    V6,
 }
 
 impl PersistenceVersion {
@@ -163,13 +169,14 @@ impl PersistenceVersion {
     /// and return base_version here.
     pub fn index_key_version(&self, base_version: u8) -> u8 {
         match self {
-            PersistenceVersion::V5 => base_version,
+            PersistenceVersion::V5 | PersistenceVersion::V6 => base_version,
         }
     }
 
     pub fn version(&self) -> usize {
         match self {
             PersistenceVersion::V5 => 5,
+            PersistenceVersion::V6 => 6,
         }
     }
 }

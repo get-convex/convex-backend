@@ -468,6 +468,19 @@ export function formatDate(date: Date): string {
   return format(date, "MMMM dd, yyyy");
 }
 
+// Renders the calendar date an instant falls on in UTC, matching
+// `formatDate`'s shape. Use it for dates a backend pinned to UTC — billing
+// dates from Orb, say — which `formatDate` would render as the previous day
+// for anyone west of UTC.
+export function formatUtcDate(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "long",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
 export function toNumericUTC(dateString: string) {
   // Parsing manually the date to use UTC.
   const [year, month, day] = dateString.split("-");

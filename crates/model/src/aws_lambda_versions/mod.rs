@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::Context;
 use common::{
     document::ParsedDocument,
     runtime::Runtime,
@@ -16,7 +15,6 @@ use value::{
 
 use self::types::AwsLambdaVersion;
 use crate::{
-    backend_info::BackendInfoModel,
     source_packages::types::SourcePackageId,
     SystemIndex,
     SystemTable,
@@ -45,16 +43,6 @@ pub struct AwsLambdaVersionsModel<'a, RT: Runtime> {
 impl<'a, RT: Runtime> AwsLambdaVersionsModel<'a, RT> {
     pub fn new(lambda_name: String, tx: &'a mut Transaction<RT>) -> Self {
         Self { lambda_name, tx }
-    }
-
-    #[allow(unused)]
-    pub async fn requested_provision_concurrency(&mut self) -> anyhow::Result<i32> {
-        Ok(BackendInfoModel::new(self.tx)
-            .get()
-            .await
-            .context("Get Backend Info failed")?
-            .map(|bi| bi.provision_concurrency)
-            .unwrap_or(0))
     }
 
     pub async fn mark_deployed(&mut self, new_version: AwsLambdaVersion) -> anyhow::Result<()> {

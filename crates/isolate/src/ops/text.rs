@@ -25,7 +25,7 @@ use serde_json::{
 };
 use slab::Slab;
 
-use super::OpProvider;
+use super::V8OpProvider;
 use crate::{
     convert_v8::{
         FromV8,
@@ -136,7 +136,7 @@ impl ToV8 for TextDecoderResource {
 }
 
 #[convex_macro::v8_op]
-pub fn op_text_encoder_encode<'b, P: OpProvider<'b>>(
+pub fn op_text_encoder_encode<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     text: String,
 ) -> anyhow::Result<ToJsBuffer> {
@@ -144,7 +144,7 @@ pub fn op_text_encoder_encode<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_atob<'b, P: OpProvider<'b>>(
+pub fn op_atob<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     encoded: String,
 ) -> anyhow::Result<JsonValue> {
@@ -168,7 +168,10 @@ pub fn op_atob<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_btoa<'b, P: OpProvider<'b>>(provider: &mut P, text: String) -> anyhow::Result<JsonValue> {
+pub fn op_btoa<'b, P: V8OpProvider<'b>>(
+    provider: &mut P,
+    text: String,
+) -> anyhow::Result<JsonValue> {
     let mut bytes = vec![];
     for char in text.chars() {
         if char as usize > u8::MAX as usize {
@@ -183,7 +186,7 @@ pub fn op_btoa<'b, P: OpProvider<'b>>(provider: &mut P, text: String) -> anyhow:
 }
 
 #[convex_macro::v8_op]
-pub fn op_text_encoder_encode_into<'b, P: OpProvider<'b>>(
+pub fn op_text_encoder_encode_into<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     input: String,
     space: f64,
@@ -208,7 +211,7 @@ pub fn op_text_encoder_encode_into<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_text_encoder_decode_single<'b, P: OpProvider<'b>>(
+pub fn op_text_encoder_decode_single<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     args: TextDecodeArgs,
 ) -> anyhow::Result<JsonValue> {
@@ -257,7 +260,7 @@ pub fn op_text_encoder_decode_single<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_text_encoder_new_decoder<'b, P: OpProvider<'b>>(
+pub fn op_text_encoder_new_decoder<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     encoding: String,
     fatal: bool,
@@ -279,7 +282,7 @@ pub fn op_text_encoder_new_decoder<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_text_encoder_decode<'b, P: OpProvider<'b>>(
+pub fn op_text_encoder_decode<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     data: ByteBuf,
     resource: TextDecoderResource,
@@ -321,7 +324,7 @@ pub fn op_text_encoder_decode<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_text_encoder_normalize_label<'b, P: OpProvider<'b>>(
+pub fn op_text_encoder_normalize_label<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     label: String,
 ) -> anyhow::Result<JsonValue> {

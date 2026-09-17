@@ -12,11 +12,11 @@ homepage = "https://www.convex.dev/"
 
 [features]
 default = [ "native-tls-vendored" ]
+rustls-tls-native-roots = [ "tokio-tungstenite/rustls-tls-native-roots" ]
+testing = [ "convex_sync_types/testing", "proptest", "proptest-derive", "parking_lot" ]
 native-tls = [ "tokio-tungstenite/native-tls" ]
 native-tls-vendored = [ "tokio-tungstenite/native-tls-vendored" ]
-rustls-tls-native-roots = [ "tokio-tungstenite/rustls-tls-native-roots" ]
 rustls-tls-webpki-roots = [ "tokio-tungstenite/rustls-tls-webpki-roots" ]
-testing = [ "convex_sync_types/testing", "proptest", "proptest-derive", "parking_lot" ]
 
 [dependencies]
 anyhow = { version = "1" }

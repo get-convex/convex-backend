@@ -16,6 +16,10 @@
    */
   "allowedAlternativeVersions": {
     /**
+     * The convex-test docs demo needs the global isolation behavior in 0.0.58.
+     */
+    "convex-test": ["^0.0.58"],
+    /**
      * Convex minimum version of TypeScript supported is 5.0;
      * Whatever features were added after that, don't use them!
      *
@@ -51,6 +55,10 @@
      * specifically https://github.com/TanStack/router/blob/main/examples/react/start-basic-react-query/package.json
      */
     "@vitejs/plugin-react": ["^4.3.1", "^5.0.3"],
+    /**
+     * The dashboards are on Next.js 16 while the demos stay on 15.
+     */
+    "next": ["^16.3.2"],
     "react": ["^18.3.1", "^19.2.4"],
     "react-dom": ["^18.3.1", "^19.2.4"],
     //"typescript": ["^5"],

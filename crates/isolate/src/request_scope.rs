@@ -42,7 +42,7 @@ use crate::{
         ToV8 as _,
     },
     environment::{
-        SyscallProvider,
+        OpProvider,
         UncatchableDeveloperError,
         V8IsolateEnvironment,
     },
@@ -64,7 +64,7 @@ use crate::{
     },
     module_map::ModuleMap,
     ops::{
-        run_op,
+        run_v8_op,
         start_async_op,
     },
     strings,
@@ -281,6 +281,17 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
         let async_op_key = strings::asyncOp.create(scope)?;
         convex_value.set(scope, async_op_key.into(), async_op_value.into());
 
+        let setup_temporal_key = strings::setupTemporal.create(scope)?;
+        let setup_temporal: v8::Local<v8::Function> = convex_value
+            .get(scope, setup_temporal_key.into())
+            .context("Missing Temporal setup")?
+            .try_into()
+            .context("Temporal setup must be a function")?;
+        convex_value.delete(scope, setup_temporal_key.into());
+        setup_temporal
+            .call(scope, convex_value.into(), &[])
+            .context("Failed to set up Temporal")?;
+
         timer.finish();
         Ok(isolate_context)
     }
@@ -295,7 +306,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
         rv: v8::ReturnValue,
     ) {
         let mut scope = ExecutionScope::<RT, E>::new(scope);
-        if let Err(e) = run_op(&mut scope, args, rv) {
+        if let Err(e) = run_v8_op(&mut scope, args, rv) {
             Self::handle_syscall_or_op_error(&mut scope, e)
         }
     }
@@ -402,8 +413,19 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
         ExecutionScope::new(v8_scope)
     }
 
+    /// Drains the microtask queue and the message loop.
+    ///
+    /// An isolate with an isolate-level termination is discarded and must not
+    /// enter V8 again. Each drain can reach the heap limit and terminate the
+    /// isolate, so the check runs before each V8 call.
     pub fn checkpoint(&mut self) {
+        if self.handle.is_not_clean().is_some() {
+            return;
+        }
         self.scope.perform_microtask_checkpoint();
+        if self.handle.is_not_clean().is_some() {
+            return;
+        }
         pump_message_loop(self.scope);
     }
 

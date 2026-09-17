@@ -156,7 +156,7 @@ const config = [
       "npm-packages/udf-runtime/**",
       "npm-packages/tests/udf-tests/**",
       "npm-packages/version/**",
-      "npm-packages/wasm-runtime-fixtures/scripts/**",
+      "npm-packages/wasm-runtime-bundler/scripts/**",
       "npm-packages/demo_browser_tests/**",
       "npm-packages/components/ratelimiter/node10stubs.mjs",
 
@@ -545,12 +545,15 @@ const config = [
             // For some reason the ESLint plugin doesn’t recognize classes
             // defined in CSS files, so let’s ignore them manually for now.
             "animate-fadeInToVar",
+            "animate-gift.+",
             "bg-stripes",
             "bottom-four",
             "commandPaletteEditor",
             "DataRow",
             "disabled",
             "focused",
+            "gift-paper",
+            "gift-spark",
             "hover-decoration",
             "SelectorItem-active",
             "SelectorItem",

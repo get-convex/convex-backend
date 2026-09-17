@@ -53,6 +53,8 @@ deltas to prevent excessive bandwidth usage. You can pass more options to
 ```
 
 - `chunking` can be "word", "line", a regex, or a custom function.
+- `sendSources` includes source parts emitted by the model. It defaults to
+  `false`.
 - `throttleMs` is how frequently the deltas are saved. This will send multiple
   chunks per delta, writes sequentially, and will not write faster than the
   throttleMs
