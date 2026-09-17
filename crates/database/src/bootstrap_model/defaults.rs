@@ -48,11 +48,13 @@ use crate::{
     system_tables::ErasedSystemTable,
     ComponentDefinitionsTable,
     ComponentsTable,
+    SchemaValidationTable,
     INDEX_BACKFILLS_TABLE,
     INDEX_WORKER_METADATA_TABLE,
     NEXT_PERSISTENCE_INDEX_ID_TABLE,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
     SCHEMAS_TABLE,
+    SCHEMA_VALIDATIONS_TABLE,
 };
 
 pub fn bootstrap_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
@@ -66,6 +68,7 @@ pub fn bootstrap_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &ComponentDefinitionsTable,
         &ComponentsTable,
         &SchemaValidationProgressTable,
+        &SchemaValidationTable,
     ]
 }
 
@@ -81,7 +84,8 @@ pub static DEFAULT_BOOTSTRAP_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNu
             COMPONENTS_TABLE.clone() => tn(32),
             INDEX_BACKFILLS_TABLE.clone() => tn(36),
             SCHEMA_VALIDATION_PROGRESS_TABLE.clone() => tn(37),
-            NEXT_PERSISTENCE_INDEX_ID_TABLE.clone() => tn(42)
+            NEXT_PERSISTENCE_INDEX_ID_TABLE.clone() => tn(42),
+            SCHEMA_VALIDATIONS_TABLE.clone() => tn(43)
             // To add a bootstrap system table, first add to model/src/lib and then
             // replicate that table number to here.
         }

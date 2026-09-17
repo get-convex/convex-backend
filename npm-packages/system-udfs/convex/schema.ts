@@ -495,6 +495,16 @@ export default defineSchema({
   }).index("by_name_and_ts", ["name", "ts"]),
   _udf_config: defineTable({ serverVersion: v.string() }),
   _schemas: defineTable(schemaMetadata).index("by_state", ["state"]),
+  _schema_validations: defineTable({
+    schemaId: v.id("_schemas"),
+    tableName: v.string(),
+    validatorHash: v.optional(v.string()),
+    state: v.union(
+      v.object({ state: v.literal("pending") }),
+      v.object({ state: v.literal("valid") }),
+      v.object({ state: v.literal("failed"), error: v.string() }),
+    ),
+  }).index("by_schema_id_and_table_name", ["schemaId", "tableName"]),
   _schema_validation_progress: defineTable({
     schemaId: v.id("_schemas"),
     numDocsValidated: v.int64(),

@@ -32,6 +32,7 @@ use database::{
     SchemaDiff,
     SchemaModel,
     SchemaValidationProgressTable,
+    SchemaValidationTable,
     SchemasTable,
     SerializedSchemaDiff,
     SystemMetadataModel,
@@ -390,6 +391,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         initialize_application_system_table(
             self.tx,
             &SchemaValidationProgressTable,
+            component_id.into(),
+            &DEFAULT_TABLE_NUMBERS,
+        )
+        .await?;
+        initialize_application_system_table(
+            self.tx,
+            &SchemaValidationTable,
             component_id.into(),
             &DEFAULT_TABLE_NUMBERS,
         )

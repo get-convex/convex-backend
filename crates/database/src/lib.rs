@@ -174,6 +174,15 @@ pub use self::{
             SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
             SCHEMA_VALIDATION_PROGRESS_TABLE,
         },
+        schema_validations::{
+            types::{
+                SchemaValidationMetadata,
+                ValidationState,
+            },
+            SchemaValidationTable,
+            SCHEMA_VALIDATIONS_BY_SCHEMA_ID_AND_TABLE_NAME,
+            SCHEMA_VALIDATIONS_TABLE,
+        },
         system_metadata::SystemMetadataModel,
         table::{
             TableModel,
