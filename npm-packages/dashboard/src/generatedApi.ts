@@ -2178,6 +2178,8 @@ export interface components {
             name?: string | null;
             state: string;
             linked: boolean;
+            /** @description The identity provider behind the directory, e.g. "okta scim v2.0". */
+            type?: string | null;
         };
         DirectorySyncOffer: {
             teamId: components["schemas"]["TeamId"];
@@ -2748,8 +2750,12 @@ export interface components {
             state: components["schemas"]["SSODomainState"];
         };
         SSOOrganizationResponse: {
-            /** Format: int64 */
-            createTime: number;
+            /**
+             * Format: int64
+             * @description When the team's identity config was first created. Absent for a team
+             *     that has never touched SSO, domains or directory sync.
+             */
+            createTime?: number | null;
             domains: components["schemas"]["SSOOrganizationDomain"][];
             requireSsoLogin: boolean;
             /** @description SSO connections configured in WorkOS for this organization. */
@@ -5442,7 +5448,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": null | components["schemas"]["SSOOrganizationResponse"];
+                    "application/json": components["schemas"]["SSOOrganizationResponse"];
                 };
             };
         };

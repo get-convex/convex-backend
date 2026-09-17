@@ -401,6 +401,10 @@ pub struct Directory {
     pub state: String,
     #[serde(default)]
     pub name: Option<String>,
+    /// The identity provider behind the directory, e.g. "okta scim v2.0",
+    /// "azure scim v2.0", "gsuite directory", "generic scim v2.0".
+    #[serde(default)]
+    pub r#type: Option<String>,
 }
 
 impl Directory {
