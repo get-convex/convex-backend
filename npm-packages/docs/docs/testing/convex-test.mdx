@@ -382,21 +382,14 @@ To assert that a function throws, use
 
 ### Mocking `fetch` calls
 
-Assign your mock to `globalThis.fetch`, and restore the original when the test
-is done:
+You can use Vitest's
+[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) method:
 
 <Snippet
   title="convex/ai.test.ts"
   source={MockingFetchDemo}
-  highlightPatterns={["globalThis.fetch ="]}
+  highlightPatterns={["stubGlobal"]}
 />
-
-Don't use Vitest's
-[vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) for `fetch` or
-any of the other globals `convex-test` manages — it defines a new property on
-`globalThis` instead of assigning through the existing one, which opts the
-global out of the isolation described in
-[Overriding globals inside functions](#overriding-globals-inside-functions).
 
 ### Overriding globals inside functions
 
