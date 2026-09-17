@@ -267,6 +267,26 @@ export const WithCurrentUsage: Story = {
   },
 };
 
+// AI Gateway usage is reported as fractional USD while thresholds are whole
+// dollars, so this verifies the two values remain directly comparable.
+export const AiGatewayUsage: Story = {
+  args: {
+    usageLimits: [
+      {
+        id: "ai-gateway-1",
+        metric: "aiGatewayCostDollars",
+        limit: 1,
+        window: "month",
+        limitType: "warning",
+        enabled: true,
+      },
+    ],
+    currentUsage: {
+      aiGatewayCostDollars: { month: 0.25 },
+    },
+  },
+};
+
 // No limits configured: every applicable metric still shows, with empty rows.
 export const Empty: Story = {
   args: {
