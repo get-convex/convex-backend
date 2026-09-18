@@ -46,15 +46,13 @@ just convex-usher run node/aiSdkProvider:chatCompletion \
 
 ## Jev Decisions (alpha)
 
-`node/aiSdkProvider:triageTicket` uses `convexGateway.decisions(...)` with
-`typesafe/jev-1.13` to classify a support ticket as `urgent`, `normal`, or
-`low`. The request supplies the ticket as `state` and a named `choice` question
-with criteria for each priority. The action returns the selected priority from
-`answers.priority.choice`.
+Classify a support ticket as `urgent`, `normal`, or `low` with Jev. The
+`node/aiSdkProvider:triageTicket` action passes the ticket and priority criteria
+to `convexGateway.decisions()` and returns the selected priority.
 
-Use a gateway with `/alpha/decisions` deployed and the workspace provider built
-with the Decisions helper. Authentication uses `getServiceToken("ai-gateway")`
-automatically, and running the example incurs AI usage charges.
+Build the workspace provider and deploy `/alpha/decisions` to the gateway before
+running this example. The provider handles authentication with
+`getServiceToken("ai-gateway")`. Each request incurs AI usage charges.
 
 ```shell
 just convex-usher run node/aiSdkProvider:triageTicket \

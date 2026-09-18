@@ -28,11 +28,18 @@ See [Getting started](/ai-gateway/setup) for the full setup.
 | --------------------------- | ----------------------------------------------- |
 | `GET /v1/models`            | List available models                           |
 | `POST /v1/chat/completions` | Chat completions, streaming and non-streaming   |
+| `POST /alpha/decisions`     | Classify or score data with Jev                 |
 | `POST /v1/embeddings`       | Generate embeddings                             |
 | `POST /v1/messages`         | Anthropic Messages, streaming and non-streaming |
 | `POST /v1/responses`        | OpenAI Responses, streaming and non-streaming   |
 
 An unsupported path returns `400` with `unsupported_endpoint`.
+
+:::caution Decisions is in alpha
+
+The `/alpha/decisions` request and response format may change during alpha.
+
+:::
 
 See [HTTP API](/ai-gateway/api.mdx) for the request and response shapes.
 
@@ -40,13 +47,13 @@ See [HTTP API](/ai-gateway/api.mdx) for the request and response shapes.
 
 The AI Gateway is available to teams on a
 [paid plan](https://www.convex.dev/pricing). It works on Convex Cloud
-deployments, both production and development. If your team or deployment can't
-use it, getting a token fails with one of these errors:
+deployments and project-connected local deployments. If your team or deployment
+can't use it, getting a token fails with one of these errors:
 
-| Situation                                         | Error                  | What to do                                                                                          |
-| ------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
-| Free plan, or gateway disabled for the team       | `AiGatewayDisabled`    | Upgrade, or email [support@convex.dev](mailto:support@convex.dev) if this looks wrong               |
-| Local backend or [self-hosted](/self-hosting.mdx) | `AiGatewayUnavailable` | Call the provider with your own key ([environment variable](/production/environment-variables.mdx)) |
+| Situation                                   | Error                  | What to do                                                                                          |
+| ------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
+| Free plan, or gateway disabled for the team | `AiGatewayDisabled`    | Upgrade, or email [support@convex.dev](mailto:support@convex.dev) if this looks wrong               |
+| [Self-hosted](/self-hosting.mdx) deployment | `AiGatewayUnavailable` | Call the provider with your own key ([environment variable](/production/environment-variables.mdx)) |
 
 ## Without the gateway
 

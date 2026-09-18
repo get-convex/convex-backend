@@ -371,9 +371,9 @@ convexGateway.responses = function (modelId: string): GatewayLanguageModel {
 };
 
 /**
- * Evaluate structured questions through the alpha Decisions API.
- * The request and response contract may change during alpha.
- * This is a direct request helper, not an AI SDK language model for `generateText`.
+ * Answer typed questions about the supplied state through the alpha Decisions API.
+ * Returns answers directly. Call this method from an action.
+ * The request and response format may change during alpha.
  */
 convexGateway.decisions = async function <Questions extends DecisionsQuestions>(
   request: DecisionsRequest<Questions>,

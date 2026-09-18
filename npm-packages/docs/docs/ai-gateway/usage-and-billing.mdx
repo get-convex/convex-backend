@@ -37,3 +37,9 @@ dollars.
 [Spending limits](/dashboard/teams/teams.mdx#spending-limits) apply to AI
 Gateway spend like any other usage. Set a limit on the team billing page to cap
 what your team pays per month.
+
+Requests from a project-connected local deployment are attributed to that
+project's team and count toward the same team spending limit. Local deployments
+do not have a separate deployment-level live usage meter. Spending-limit state
+is checked when the gateway credential is minted, so an in-flight request or an
+already issued short-lived credential may finish after the limit is reached.

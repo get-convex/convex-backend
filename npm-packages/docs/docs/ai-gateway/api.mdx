@@ -129,6 +129,98 @@ Convex rejects the same routing controls as `/v1/chat/completions`, assigns the
 response `id`, and removes fields that identify the serving provider. The
 response otherwise uses the OpenAI embeddings shape.
 
+## POST `/alpha/decisions`
+
+:::caution Decisions is in alpha
+
+The request and response format may change during alpha.
+
+:::
+
+[Jev](https://docs.typesafe.ai/introduction) is TypeSafe's model for making
+structured decisions. It returns values your code can use to choose an option,
+rank results, or decide what to do next.
+
+Provide the context to evaluate in `state` and the questions to answer in
+`questions`. You can ask several questions about the same state in one request.
+Each question is evaluated independently and has a name that identifies its
+answer in the response.
+
+`model`, `state`, and `questions` are required. Use `typesafe/jev-1.13` as the
+model ID; Decisions models are not listed by `GET /v1/models`. Streaming is not
+supported.
+
+For example, classify a support ticket by priority:
+
+```json
+{
+  "model": "typesafe/jev-1.13",
+  "state": {
+    "ticket": "All users are unable to sign in. There is no workaround."
+  },
+  "questions": {
+    "priority": {
+      "type": "choice",
+      "instructions": "Choose the support ticket's priority.",
+      "criteria": {
+        "urgent": "An outage is blocking users.",
+        "normal": "A bug affects users but has a workaround."
+      }
+    }
+  }
+}
+```
+
+`state` and each question's `instructions` accept a string, object, or array.
+Each question must specify one of these types:
+
+| `type`   | Purpose                              | Required fields                  | Result field              |
+| -------- | ------------------------------------ | -------------------------------- | ------------------------- |
+| `choice` | Select an option                     | `instructions`, `criteria` map   | `choice`                  |
+| `score`  | Evaluate the state against a rubric  | `instructions`, `criteria` array | `score`                   |
+| `noul`   | Evaluate whether a statement is true | `instructions`                   | `noul`, a number from 0–1 |
+
+Keep each question focused on one decision. For decisions involving several
+factors, ask about each factor separately and combine the answers in your code.
+
+A `noul` question may include `criteria` with `true` and `false` guidance.
+Choice criteria values may be strings, objects, arrays, or `null`. Score
+criteria are an ordered array of strings, objects, or arrays.
+
+The body must be JSON and no larger than 16 MiB. These fields are not supported:
+`provider`, `route`, `models`, `transforms`, `plugins`, `preset`, `fallbacks`,
+`speed`, `trace`, `session_id`, `user`, and `stream`.
+
+### Response
+
+The answer keys match the request's question keys. Convex assigns `id` and
+removes fields that identify the serving provider.
+
+`choice` and `score` answers may also include `confidence` and `probabilities`.
+
+```json
+{
+  "id": "3f1c8a2e-9b14-4d6a-a7e2-0c5b8d1e4f90",
+  "model": "typesafe/jev-1.13",
+  "answers": {
+    "priority": {
+      "type": "choice",
+      "choice": "urgent",
+      "confidence": 0.9,
+      "probabilities": { "urgent": 0.9, "normal": 0.1 }
+    }
+  },
+  "usage": {
+    "input_tokens": 21,
+    "output_tokens": 3,
+    "cost": 0.0042
+  }
+}
+```
+
+`usage` contains the input and output token counts. `usage.cost`, when present,
+is the request cost in US dollars.
+
 ## POST `/v1/messages`
 
 [Anthropic Messages](https://docs.anthropic.com/en/api/messages) body. Model IDs
@@ -192,7 +284,7 @@ Caller-supplied `metadata` on a response is preserved.
 ```json
 {
   "error": {
-    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions, POST /v1/embeddings, POST /v1/messages, POST /v1/responses. See https://docs.convex.dev/ai.",
+    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions, POST /alpha/decisions, POST /v1/embeddings, POST /v1/messages, POST /v1/responses. See https://docs.convex.dev/ai.",
     "type": "invalid_request_error",
     "code": "unsupported_endpoint"
   }

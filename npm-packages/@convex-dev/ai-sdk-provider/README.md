@@ -49,8 +49,10 @@ convexGateway.responses("openai/gpt-5");
 
 ## Structured decisions
 
-Jev evaluates named `choice`, `score`, and `noul` questions over structured
-state. It is a direct request API, not a language model for `generateText`:
+[Jev](https://docs.typesafe.ai/introduction) evaluates `choice`, `score`, and
+`noul` questions about the context you provide in `state`. It returns structured
+answers your code can use directly. Call `convexGateway.decisions()` from an
+action:
 
 ```ts
 const decision = await convexGateway.decisions({
@@ -76,9 +78,10 @@ console.log(decision.answers.priority.choice);
 console.log(decision.answers.needsReview.noul);
 ```
 
-The helper obtains the same deployment token as the model interfaces and
-supports `{ signal }` as its second argument. HTTP and response-validation
-failures throw `ConvexGatewayError`.
+The method returns answers rather than a model for `generateText`.
+Authentication is handled automatically. Pass `{ signal }` as the second
+argument to cancel a request with an `AbortSignal`. HTTP errors and invalid
+responses throw `ConvexGatewayError`.
 
 `getServiceToken("ai-gateway")` mints a short-lived deployment JWT on first use
 in an action and reuses it for later calls, so `convexGateway(...)` is fine to
