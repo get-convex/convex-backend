@@ -63,26 +63,6 @@ const unsupportedClass = (name: string) => {
   return cls;
 };
 
-// QuickJS ships no `Intl`; the Temporal binding covers only `Temporal`.
-globalThis.Intl = Object.fromEntries(
-  [
-    "Collator",
-    "DateTimeFormat",
-    "DisplayNames",
-    "DurationFormat",
-    "ListFormat",
-    "Locale",
-    "NumberFormat",
-    "PluralRules",
-    "RelativeTimeFormat",
-    "Segmenter",
-  ].map((name) => [name, unsupportedClass(`Intl.${name}`)]),
-) as unknown as typeof Intl;
-Object.assign(globalThis.Intl, {
-  getCanonicalLocales: unsupportedFunction("Intl.getCanonicalLocales"),
-  supportedValuesOf: unsupportedFunction("Intl.supportedValuesOf"),
-});
-
 globalThis.setTimeout = unsupportedFunction("setTimeout") as any;
 globalThis.setInterval = unsupportedFunction("setInterval") as any;
 // Nothing can be scheduled, so there is never a timer to clear.
