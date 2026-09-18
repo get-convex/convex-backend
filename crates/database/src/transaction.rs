@@ -873,6 +873,13 @@ impl<RT: Runtime> Transaction<RT> {
             .get_component_path(component_id, &mut self.reads)
     }
 
+    /// Resolves the path without recording the lookup in this transaction's
+    /// read set, for logging and diagnostics only.
+    pub fn get_component_path_untracked(&self, component_id: ComponentId) -> Option<ComponentPath> {
+        self.component_registry
+            .get_component_path(component_id, &mut TransactionReadSet::new())
+    }
+
     pub fn must_component_path(
         &mut self,
         component_id: ComponentId,

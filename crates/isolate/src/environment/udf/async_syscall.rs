@@ -18,6 +18,7 @@ use common::{
     },
     document::DeveloperDocument,
     knobs::{
+        COMPONENT_GET_USER_IDENTITY_LOG_SAMPLE_RATIO,
         MAX_REACTOR_CALL_DEPTH,
         MAX_SYSCALL_BATCH_SIZE,
         TRANSACTION_MAX_READ_SIZE_ROWS,
@@ -85,6 +86,7 @@ use model::{
     },
     virtual_system_mapping,
 };
+use rand::Rng;
 use serde::{
     Deserialize,
     Serialize,
@@ -894,10 +896,23 @@ async fn get_user_identity<RT: Runtime>(
 ) -> anyhow::Result<Box<RawValue>> {
     provider.phase.observe_identity()?;
     // TODO: Somehow make the Transaction aware of the dependency on the user.
+    let component = provider.phase.component()?;
     let tx = provider.phase.tx()?;
     let user_identity = tx.user_identity();
-    if !provider.phase.component()?.is_root() {
+    if !component.is_root() {
         log_component_get_user_identity(user_identity.is_some());
+        if provider
+            .rt
+            .rng()
+            .random_bool(*COMPONENT_GET_USER_IDENTITY_LOG_SAMPLE_RATIO)
+        {
+            let component_path = tx.get_component_path_untracked(component);
+            tracing::info!(
+                component_path = ?component_path,
+                has_user_identity = user_identity.is_some(),
+                "component called getUserIdentity()"
+            );
+        }
     }
     if let Some(user_identity) = user_identity {
         return Ok(serde_json::value::to_raw_value(&JsonValue::try_from(

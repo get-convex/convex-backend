@@ -72,6 +72,11 @@ pub static UDF_CACHE_MAX_SIZE: LazyLock<usize> =
 pub static SHARED_UDF_CACHE_MAX_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("SHARED_UDF_CACHE_MAX_SIZE", 1024 * 1048576));
 
+/// Fraction of `getUserIdentity()` calls from non-root components that log
+/// the component path.
+pub static COMPONENT_GET_USER_IDENTITY_LOG_SAMPLE_RATIO: LazyLock<f64> =
+    LazyLock::new(|| env_config("COMPONENT_GET_USER_IDENTITY_LOG_SAMPLE_RATIO", 0.01));
+
 /// How many UDF execution logs to keep in memory.
 pub static MAX_UDF_EXECUTION: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_UDF_EXECUTION", 1000));
