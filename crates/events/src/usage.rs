@@ -171,11 +171,10 @@ pub enum UsageEvent {
         table_name: String,
         index_name: String,
         num_searches: u64,
-        /// Total index size per search; the billed quantity.
+        /// Total index size per search
         bytes_searched: u64,
         /// Index size scaled by the share of documents matching each search's
         /// filter conditions.
-        #[serde(default)]
         filtered_bytes_searched: u64,
     },
     VectorQuery {
