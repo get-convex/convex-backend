@@ -175,8 +175,8 @@ export function DomainsSheet({ team }: { team: TeamResponse }) {
             side="right"
             aria-label="No verified email on these domains"
           >
-            <span className="flex items-center rounded-md border bg-background-warning p-1 text-content-warning">
-              <ExclamationTriangleIcon className="text-content-warning" />
+            <span className="flex w-fit items-center rounded-full bg-background-warning p-1 text-content-warning">
+              <ExclamationTriangleIcon className="size-3" />
             </span>
           </Tooltip>
         )

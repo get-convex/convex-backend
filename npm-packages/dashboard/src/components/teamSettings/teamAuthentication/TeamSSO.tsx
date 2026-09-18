@@ -8,7 +8,7 @@ export function TeamSSO({ team }: { team: TeamResponse }) {
   const { directorySync } = useLaunchDarkly();
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-8">
       <h2>Team Authentication</h2>
 
       <DomainsSheet team={team} />
