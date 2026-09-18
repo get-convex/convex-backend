@@ -130,18 +130,30 @@ export type RequestMetadata = {
  * @public
  */
 export interface QueryMeta {
+  /**
+   * Metadata about the currently executing Convex function.
+   */
   getFunctionMetadata(): Promise<FunctionMetadata>;
+  /**
+   * The remaining headroom for a transaction before hitting limits.
+   *
+   * See https://docs.convex.dev/production/state/limits
+   */
   getTransactionMetrics(): Promise<TransactionMetrics>;
+  /**
+   * Metadata about the deployment this function is running on.
+   */
   getDeploymentMetadata(): Promise<DeploymentMetadata>;
   /**
-   * @internal
    * Returns the timestamp of the database snapshot this transaction reads
    * from, in nanoseconds.
    *
    * All commits at or before this timestamp are observable within the
    * transaction, and no later commits are. The value is fixed for the
    * lifetime of the transaction and shared with all nested `runMutation` and
-   * `runQuery` calls.
+   * non-stale `runQuery` calls. If a nested query is called with
+   * `useStaleSnapshot: true`, then the nested query may in a future backend
+   * version choose an older snapshotTs.
    *
    * It is on the same clock as `db.vars.commitTs`: documents observable in
    * this transaction have `commitTs` values at or before this timestamp, and
@@ -166,6 +178,15 @@ export interface QueryMeta {
  * @public
  */
 export interface MutationMeta extends QueryMeta {
+  /**
+   * Metadata about the HTTP request that triggered the current function execution.
+   *
+   * `ip` and `userAgent` are `null` when the function was not triggered by an
+   * HTTP request (e.g. scheduled jobs or cron jobs).
+   *
+   * Functions called from within a function (i.e. using `runMutation`) will have
+   * the same request metadata as the parent function.
+   */
   getRequestMetadata(): Promise<RequestMetadata>;
 }
 
@@ -175,7 +196,22 @@ export interface MutationMeta extends QueryMeta {
  * @public
  */
 export interface ActionMeta {
+  /**
+   * Metadata about the currently executing Convex function.
+   */
   getFunctionMetadata(): Promise<FunctionMetadata>;
+  /**
+   * Metadata about the deployment this function is running on.
+   */
   getDeploymentMetadata(): Promise<DeploymentMetadata>;
+  /**
+   * Metadata about the HTTP request that triggered the current function execution.
+   *
+   * `ip` and `userAgent` are `null` when the function was not triggered by an
+   * HTTP request (e.g. scheduled jobs or cron jobs).
+   *
+   * Functions called from within a function (i.e. using `runMutation` or
+   * `runAction`) will have the same request metadata as the parent function.
+   */
   getRequestMetadata(): Promise<RequestMetadata>;
 }

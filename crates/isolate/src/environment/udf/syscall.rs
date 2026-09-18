@@ -289,6 +289,8 @@ fn syscall_require_operation<RT: Runtime, P: SyscallProviderInternal<RT>>(
 /// from: all commits at or before it are observable within the transaction,
 /// and no later ones are. Encoded as an Int64 of nanoseconds since the Unix
 /// epoch, on the same clock as commit timestamps.
+/// In the future, we are allowed to pick an older snapshotTs for nested
+/// queries called with `useStaleSnapshot: true`.
 fn syscall_snapshot_ts<RT: Runtime, P: SyscallProviderInternal<RT>>(
     provider: &mut P,
     _args: JsonValue,
