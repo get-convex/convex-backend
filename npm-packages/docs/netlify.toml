@@ -11,7 +11,7 @@
     && npm ci \
     && cd ../npm-packages/docs \
     && export PATH="$PWD/../../scripts/node_modules/.bin:$PATH" \
-    && pnpm install --frozen-lockfile \
+    && pnpm --filter 'docs...' install --frozen-lockfile \
     && turbo run build --filter=docs^... \
     && npm run build
   """
