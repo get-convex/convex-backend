@@ -47,6 +47,39 @@ convexGateway.messages("anthropic/claude-sonnet-4.5");
 convexGateway.responses("openai/gpt-5");
 ```
 
+## Structured decisions
+
+Jev evaluates named `choice`, `score`, and `noul` questions over structured
+state. It is a direct request API, not a language model for `generateText`:
+
+```ts
+const decision = await convexGateway.decisions({
+  model: "typesafe/jev-1.13",
+  state: { ticket: "Customer cannot sign in" },
+  questions: {
+    priority: {
+      type: "choice",
+      instructions: "Choose the response priority",
+      criteria: {
+        urgent: "Respond now",
+        normal: "Respond today",
+      },
+    },
+    needsReview: {
+      type: "noul",
+      instructions: "Does a human need to review this?",
+    },
+  },
+});
+
+console.log(decision.answers.priority.choice);
+console.log(decision.answers.needsReview.noul);
+```
+
+The helper obtains the same deployment token as the model interfaces and
+supports `{ signal }` as its second argument. HTTP and response-validation
+failures throw `ConvexGatewayError`.
+
 `getServiceToken("ai-gateway")` mints a short-lived deployment JWT on first use
 in an action and reuses it for later calls, so `convexGateway(...)` is fine to
 call more than once. The provider takes no API key.
