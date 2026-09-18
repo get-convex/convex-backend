@@ -4,7 +4,9 @@
 //
 // These come from `udf-runtime`, the same sources the V8 runtime installs.
 import { setupDate } from "udf-runtime/src/00_date.js";
+import { setupMisc } from "udf-runtime/src/00_misc";
 import { setupWeakRefs } from "udf-runtime/src/00_weakref";
+import { setupConsole } from "udf-runtime/src/02_console";
 import { setupEvent } from "udf-runtime/src/02_event";
 import { setupStreams } from "udf-runtime/src/06_streams";
 import { setupBlob } from "udf-runtime/src/09_file";
@@ -15,7 +17,9 @@ import { setupRequest } from "udf-runtime/src/23_request";
 import { setupResponse } from "udf-runtime/src/23_response";
 
 setupDate(globalThis);
+setupMisc(globalThis);
 setupWeakRefs(globalThis);
+setupConsole(globalThis);
 setupEvent(globalThis);
 setupStreams(globalThis);
 setupAbortSignal(globalThis);

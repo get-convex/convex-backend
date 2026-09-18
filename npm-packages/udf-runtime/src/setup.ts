@@ -1,6 +1,7 @@
 import { setupURL } from "./00_url.js";
 import { setupCrypto } from "./00_crypto.js";
 import { setupDate } from "./00_date.js";
+import { setupMisc } from "./00_misc.js";
 import { setupTemporal } from "./00_temporal.js";
 import { setupWeakRefs } from "./00_weakref.js";
 import { setupDOMException } from "./01_dom_exception.js";
@@ -21,7 +22,6 @@ import { setupPerformance } from "./27_performance.js";
 import { setupSourceMapping } from "./errors.js";
 import { throwUncatchableDeveloperError } from "./helpers.js";
 import { getBlob, storeBlob } from "./storage.js";
-import { performOp } from "udf-syscall-ffi";
 import { setupStructuredClone } from "./02_structured_clone.js";
 
 /**
@@ -76,38 +76,4 @@ export function setup(global: any) {
         return throwUncatchableDeveloperError(`Unknown JS syscall: ${op}`);
     }
   };
-}
-
-function setupMisc(global) {
-  // Patch `Math.random` with our own deterministic RNG.
-  delete global.Math.random;
-  global.Math.random = function () {
-    return performOp("random");
-  };
-
-  // Proxy process.env. with a syscall that gets the environment variable's value.
-  const handler = {
-    get(_target: any, prop: any, receiver: any) {
-      if (typeof prop === "string") {
-        const value = performOp("environmentVariables/get", prop);
-        // Map null to undefined in case other libraries check explicitly for undefined
-        // Note serde Value enum in rust does not have an undefined variant, only null.
-        if (value === null) {
-          if (prop === "inspect") {
-            return () => "[process.env]";
-          }
-          return undefined;
-        }
-        return value;
-      } else {
-        return Reflect.get(_target, prop, receiver);
-      }
-    },
-  };
-  const env = new Proxy({}, handler);
-  global.process = { env };
-
-  // defined in browsers and required by the WinterCG Minimum Common Web Platform API draft
-  // https://common-min-api.proposal.wintercg.org/
-  global.self = global;
 }

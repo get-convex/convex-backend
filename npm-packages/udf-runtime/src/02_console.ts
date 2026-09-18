@@ -52,7 +52,10 @@ const consoleImpl = Object.assign(Object.create({}), {
     // This calls `prepareStackTrace` that populates `__frameData`
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     error.stack;
-    const frameData = JSON.parse((error as any).__frameData ?? []);
+    // A runtime without `prepareStackTrace` (see `errors.ts`) sends no frames,
+    // and its `console/trace` op supplies the stack itself.
+    const frameJson = (error as any).__frameData;
+    const frameData = frameJson === undefined ? [] : JSON.parse(frameJson);
     performOp("console/trace", message, frameData);
   },
   time: function (label: unknown) {
