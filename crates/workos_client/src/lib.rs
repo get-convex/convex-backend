@@ -3175,7 +3175,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/directory_sync/directories",
+        "https://api.workos.com/directories",
         &[("organization_id", organization_id)],
         "list directories",
         http_client,
@@ -3195,7 +3195,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/directory_sync/groups",
+        "https://api.workos.com/directory_groups",
         &[("directory", directory_id)],
         "list directory groups",
         http_client,
@@ -3216,7 +3216,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/directory_sync/groups",
+        "https://api.workos.com/directory_groups",
         &[("user", directory_user_id)],
         "list directory groups for user",
         http_client,
@@ -3255,7 +3255,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/directory_sync/users",
+        "https://api.workos.com/directory_users",
         &[("directory", directory_id)],
         "list directory users",
         http_client,
@@ -3274,7 +3274,7 @@ where
     F: Future<Output = Result<HttpResponse, E>>,
     E: std::error::Error + 'static + Send + Sync,
 {
-    let url = format!("https://api.workos.com/directory_sync/users/{directory_user_id}");
+    let url = format!("https://api.workos.com/directory_users/{directory_user_id}");
 
     let request = http::Request::builder()
         .uri(&url)
@@ -3331,7 +3331,7 @@ where
     F: Future<Output = Result<HttpResponse, E>>,
     E: std::error::Error + 'static + Send + Sync,
 {
-    let url = format!("https://api.workos.com/directory_sync/groups/{directory_group_id}");
+    let url = format!("https://api.workos.com/directory_groups/{directory_group_id}");
 
     let request = http::Request::builder()
         .uri(&url)
