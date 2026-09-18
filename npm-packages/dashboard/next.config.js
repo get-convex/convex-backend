@@ -107,6 +107,11 @@ const nextConfig = {
         permanent: false,
       },
       {
+        source: "/t/:team/settings/sso",
+        destination: "/t/:team/settings/team-authentication",
+        permanent: false,
+      },
+      {
         source: "/t/:team/:project/:deploymentName/cron-jobs",
         destination: "/t/:team/:project/:deploymentName/schedules/functions",
         permanent: false,

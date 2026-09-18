@@ -14,6 +14,7 @@ sb.mock(import("dashboard/src/api/profile.ts"), { spy: true });
 sb.mock(import("dashboard/src/api/deployments.ts"), { spy: true });
 sb.mock(import("dashboard/src/api/roles.ts"), { spy: true });
 sb.mock(import("dashboard/src/api/directorySync.ts"), { spy: true });
+sb.mock(import("dashboard/src/api/domains.ts"), { spy: true });
 sb.mock(import("dashboard/src/hooks/useDeploymentPermissions.ts"), {
   spy: true,
 });

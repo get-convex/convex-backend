@@ -150,11 +150,17 @@ export function useUnpauseTeam(teamId: number) {
   });
 }
 
-export function useGetSSO(teamId: number | undefined) {
+export function useGetSSO(
+  teamId: number | undefined,
+  { isPaused = false }: { isPaused?: boolean } = {},
+) {
   const { data: ssoOrganization, isLoading } = useBBQuery({
     path: "/teams/{team_id}/get_sso",
     pathParams: {
-      team_id: teamId?.toString() || "",
+      team_id: isPaused ? "" : (teamId?.toString() ?? ""),
+    },
+    swrOptions: {
+      revalidateOnFocus: true,
     },
   });
   return { data: ssoOrganization, isLoading };

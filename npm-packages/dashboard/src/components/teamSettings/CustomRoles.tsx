@@ -149,6 +149,7 @@ const RESOURCE_PATTERN =
   `|billing:\\*` +
   `|oauthApplication:\\*` +
   `|sso:\\*` +
+  `|directorySync:\\*` +
   `|integration:\\*)$`;
 
 // ⚠️ If updating this, please remember to also update the
@@ -261,6 +262,15 @@ const statementsSchema = {
             properties: { resource: { pattern: "^sso:[^:]+$" } },
           },
           then: { properties: { actions: actionsForCategory("sso") } },
+        },
+        {
+          if: {
+            required: ["resource"],
+            properties: { resource: { pattern: "^directorySync:[^:]+$" } },
+          },
+          then: {
+            properties: { actions: actionsForCategory("directorySync") },
+          },
         },
         {
           if: {

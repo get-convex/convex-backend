@@ -619,6 +619,10 @@ export const SSO_RESOURCE: ConcreteResource = {
   segments: [{ kind: "sso" }],
 };
 
+export const DIRECTORY_SYNC_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "directorySync" }],
+};
+
 export const OAUTH_APPLICATION_RESOURCE: ConcreteResource = {
   segments: [{ kind: "oauthApplication" }],
 };

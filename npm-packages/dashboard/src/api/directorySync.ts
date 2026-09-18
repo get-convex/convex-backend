@@ -3,6 +3,43 @@ import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useBBMutation, useBBQuery, useMutate } from "./api";
 
 const OFFERS_PATH = "/member/directory_sync_offers";
+const DIRECTORY_SYNC_PATH = "/teams/{team_id}/directory_sync";
+
+export function useGetDirectorySync(
+  teamId: number | undefined,
+  { isPaused = false }: { isPaused?: boolean } = {},
+) {
+  const { data, isLoading } = useBBQuery({
+    path: DIRECTORY_SYNC_PATH,
+    pathParams: {
+      team_id: isPaused ? "" : (teamId?.toString() ?? ""),
+    },
+  });
+  return { data, isLoading };
+}
+
+export function useGenerateDirectorySyncConfigurationLink(teamId: number) {
+  return useBBMutation({
+    path: "/teams/{team_id}/directory_sync/portal_link",
+    pathParams: {
+      team_id: teamId.toString(),
+    },
+  });
+}
+
+export function useDisableDirectorySync(teamId: number) {
+  return useBBMutation({
+    path: "/teams/{team_id}/directory_sync/disable",
+    pathParams: {
+      team_id: teamId.toString(),
+    },
+    mutateKey: DIRECTORY_SYNC_PATH,
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
+    successToast: "Directory Sync has been disabled for your team.",
+  });
+}
 
 // Teams whose directory roster lists one of the caller's verified emails and
 // that they aren't a member of yet, so they can join without an invitation.

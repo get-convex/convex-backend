@@ -15,6 +15,7 @@ export type ActionCategory =
   | "billing"
   | "oauthApplication"
   | "sso"
+  | "directorySync"
   | "integration"
   | "defaultEnvironmentVariable";
 
@@ -51,6 +52,13 @@ export const ACTIONS_BY_CATEGORY: Record<
     "oauthApplication:generateClientSecret",
   ],
   sso: ["sso:enable", "sso:disable", "sso:update", "sso:view"],
+  directorySync: [
+    "directorySync:enable",
+    "directorySync:disable",
+    "directorySync:updateGroupMapping",
+    "directorySync:deleteGroupMapping",
+    "directorySync:view",
+  ],
   integration: [
     "integration:view",
     "integration:create",

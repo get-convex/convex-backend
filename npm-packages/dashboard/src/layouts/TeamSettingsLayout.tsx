@@ -93,11 +93,11 @@ export function TeamSettingsLayout({
               Custom Roles
             </SidebarLink>
             <SidebarLink
-              isActive={selectedPage === "sso"}
-              href={`/t/${selectedTeam?.slug}/settings/sso`}
-              Icon={TEAM_SETTINGS_PAGE_ICONS.sso}
+              isActive={selectedPage === "team-authentication"}
+              href={`/t/${selectedTeam?.slug}/settings/team-authentication`}
+              Icon={TEAM_SETTINGS_PAGE_ICONS["team-authentication"]}
             >
-              Single Sign-On
+              Team Authentication
             </SidebarLink>
           </aside>
           <div className="scrollbar w-full overflow-y-auto">

@@ -164,6 +164,13 @@ const RESOURCE_TEMPLATES: ResourceTemplate[] = [
     category: "sso",
   },
   {
+    label: "directorySync:*",
+    insertText: "directorySync:*",
+    detail: "Directory Sync",
+    documentation: "Team Directory Sync (SCIM) configuration.",
+    category: "directorySync",
+  },
+  {
     label: "integration:*",
     insertText: "integration:*",
     detail: "Team integrations",
@@ -191,6 +198,7 @@ const RESOURCE_PATTERNS: Array<{ regex: RegExp; category: ActionCategory }> = [
   { regex: /^billing:[^:]+$/, category: "billing" },
   { regex: /^oauthApplication:[^:]+$/, category: "oauthApplication" },
   { regex: /^sso:[^:]+$/, category: "sso" },
+  { regex: /^directorySync:[^:]+$/, category: "directorySync" },
   { regex: /^integration:[^:]+$/, category: "integration" },
 ];
 
