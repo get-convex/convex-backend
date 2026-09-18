@@ -22,6 +22,7 @@ import {
   SchemaIndex,
 } from "@common/features/schema/lib/buildSchemaGraph";
 import { Cluster } from "@common/features/schema/lib/clustering";
+import { isTextEditingTarget } from "@common/lib/isTextEditingTarget";
 import { IndexIcon, FieldIcon, INDEX_KIND_LABEL } from "@common/elements/icons";
 
 const SEARCH_HOTKEY = "?";
@@ -280,14 +281,8 @@ export function SchemaSearch({
       ) {
         return;
       }
-      const el = document.activeElement;
-      // Don't steal "/" while the user is typing in a field.
-      if (
-        el instanceof HTMLElement &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.isContentEditable)
-      ) {
+      // Don't steal the hotkey while the user is typing in a field.
+      if (isTextEditingTarget(document.activeElement)) {
         return;
       }
       event.preventDefault();
