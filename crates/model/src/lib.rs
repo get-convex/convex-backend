@@ -454,8 +454,9 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
             continue;
         }
         for table in component_system_tables().into_iter().chain([
-            &SchemaValidationTable as &dyn ErasedSystemTable,
+            &SchemasTable as &dyn ErasedSystemTable,
             &SchemaValidationProgressTable,
+            &SchemaValidationTable,
         ]) {
             initialize_application_system_table(
                 &mut tx,
@@ -466,6 +467,8 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
             .await?;
         }
     }
+
+    database::SchemaValidationModel::reset_for_compatibility(&mut tx).await?;
 
     database
         .commit_with_write_source(tx, "init_app_system_tables")

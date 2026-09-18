@@ -8,12 +8,12 @@ use value::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-/// Schema validation progress is written by the SchemaWorker for `Pending` and
-/// `Validated` schemas. `Active`, `Overwritten`, and `Failed` schemas should
-/// not have `SchemaValidationProgressMetadata` documents.
+/// Aggregate progress format keyed by schema that predates validation
+/// attempts. Retained so the verifier can parse documents in historical
+/// snapshots, which may only exist for `Pending` and `Validated` schemas.
 pub struct SchemaValidationProgressMetadata {
     /// The ID of the schema being validated. Should correspond to a document in
-    /// the _schemas table in `Pending` state.
+    /// the _schemas table.
     pub schema_id: DeveloperDocumentId,
     /// The number of documents that have been validated so far.
     pub num_docs_validated: u64,

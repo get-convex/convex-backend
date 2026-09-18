@@ -39,7 +39,7 @@ use crate::{
         SystemIndex,
         SystemTable,
     },
-    SchemaValidationProgressModel,
+    SchemaValidationModel,
     SystemMetadataModel,
     TableModel,
     Transaction,
@@ -324,8 +324,8 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     pub async fn mark_active(&mut self, document_id: ResolvedDocumentId) -> anyhow::Result<()> {
         // Make sure it's already Validated or Active.
         let schema = self.get_validated_or_active(document_id).await?;
-        let mut model = SchemaValidationProgressModel::new(self.tx, self.namespace);
-        model.delete_schema_validation_progress(document_id).await?;
+        let mut model = SchemaValidationModel::new(self.tx, self.namespace);
+        model.delete_validations_for_schema(document_id).await?;
         match schema.state {
             // Already active: no-op
             SchemaState::Active => Ok(()),
@@ -391,8 +391,8 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             SchemaState::Failed { .. } | SchemaState::Overwritten => {},
         }
         self.delete_old_failed_and_overwritten_schemas().await?;
-        let mut model = SchemaValidationProgressModel::new(self.tx, self.namespace);
-        model.delete_schema_validation_progress(document_id).await?;
+        let mut model = SchemaValidationModel::new(self.tx, self.namespace);
+        model.delete_validations_for_schema(document_id).await?;
         Ok(())
     }
 
@@ -469,8 +469,8 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             )
             .await?;
         self.delete_old_failed_and_overwritten_schemas().await?;
-        let mut model = SchemaValidationProgressModel::new(self.tx, self.namespace);
-        model.delete_schema_validation_progress(id).await?;
+        let mut model = SchemaValidationModel::new(self.tx, self.namespace);
+        model.delete_validations_for_schema(id).await?;
         Ok(())
     }
 }
