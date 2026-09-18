@@ -141,6 +141,23 @@ export const Never: Story = {
   },
 };
 
+export const EnablingAutomaticBackups: Story = {
+  decorators: [
+    (storyFn) => {
+      mocked(useGetPeriodicBackupConfig).mockReturnValue(null);
+      return storyFn();
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Never" }));
+    await userEvent.click(await canvas.findByLabelText("Daily"));
+    await expect(
+      canvas.getByRole("link", { name: "storage and bandwidth usage" }),
+    ).toBeVisible();
+  },
+};
+
 export const FileStorageTooLarge: Story = {
   parameters: {
     screenshotSelector: '#storybook-root, [role="tooltip"]',

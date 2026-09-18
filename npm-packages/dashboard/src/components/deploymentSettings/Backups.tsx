@@ -568,6 +568,11 @@ export function BackupScheduleSelectorInner({
             disabled={!canConfigurePeriodic}
           />
         )}
+        {defaultPeriodicity === "never" && periodicity !== "never" && (
+          <p className="max-w-72 text-xs text-content-secondary">
+            {backupPricingTip}
+          </p>
+        )}
         <div className="flex w-full justify-end">
           <Button
             type="submit"
