@@ -453,12 +453,55 @@ fn is_immutable(search_file_type: SearchFileType) -> bool {
     }
 }
 
-async fn set_readonly(path: &PathBuf, readonly: bool) -> io::Result<()> {
+async fn set_readonly(path: &Path, readonly: bool) -> io::Result<()> {
     let metadata = fs::metadata(path).await?;
     let mut permissions = metadata.permissions();
     permissions.set_readonly(readonly);
     fs::set_permissions(path, permissions).await?;
     Ok(())
+}
+
+/// Clears the readonly bit on `path` and everything beneath it.
+///
+/// `fetch` marks the directory an immutable archive was extracted into as
+/// readonly, and for a `FragmentedVectorSegment` that directory is the nested
+/// `<entry>/segment`, not the entry itself. A non-root process cannot unlink
+/// files inside a directory without the write bit, so `remove_dir_all` on the
+/// entry needs the bit cleared throughout the tree. Symlinks are skipped so the
+/// walk never leaves the cache directory; paths that disappear mid-walk are
+/// tolerated.
+async fn clear_readonly_recursive(path: &Path) -> io::Result<()> {
+    let mut stack = vec![path.to_owned()];
+    while let Some(current) = stack.pop() {
+        let Some(metadata) = ignore_not_found(fs::symlink_metadata(&current).await)? else {
+            continue;
+        };
+        if metadata.is_symlink() {
+            continue;
+        }
+        if metadata.permissions().readonly() {
+            ignore_not_found(set_readonly(&current, false).await)?;
+        }
+        if metadata.is_dir() {
+            let Some(mut entries) = ignore_not_found(fs::read_dir(&current).await)? else {
+                continue;
+            };
+            while let Some(entry) = ignore_not_found(entries.next_entry().await)?.flatten() {
+                stack.push(entry.path());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Maps a `NotFound` error to `Ok(None)`, for filesystem steps that are moot
+/// once the path they target has disappeared.
+fn ignore_not_found<T>(result: io::Result<T>) -> io::Result<Option<T>> {
+    match result {
+        Ok(value) => Ok(Some(value)),
+        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e),
+    }
 }
 
 #[derive(Clone)]
@@ -501,8 +544,8 @@ async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<(PathBuf, SearchFileType
         // to disallow inconsistent filesystem state.
         tracing::debug!("Removing path {} from disk", path.display());
         let result: io::Result<()> = try {
-            set_readonly(&path, false).await?;
-            fs::remove_dir_all(path).await?;
+            clear_readonly_recursive(&path).await?;
+            fs::remove_dir_all(&path).await?;
         };
         match result {
             Ok(()) => {
