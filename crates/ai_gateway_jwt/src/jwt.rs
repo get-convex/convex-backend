@@ -3,6 +3,7 @@
 use std::{
     collections::HashSet,
     sync::Arc,
+    time::SystemTime,
 };
 
 use anyhow::{
@@ -30,6 +31,10 @@ use biscuit::{
     Empty,
     ValidationOptions,
     JWT,
+};
+use chrono::{
+    DateTime,
+    Utc,
 };
 use rsa::{
     pkcs1v15::SigningKey,
@@ -76,6 +81,29 @@ pub enum JwtError {
     TokenTooLarge,
     #[error("invalid JWT")]
     InvalidToken,
+}
+
+/// Reads a JWT's registered expiration without verifying its signature.
+/// This is suitable for cache freshness only; authentication must use a
+/// [`JwtVerifier`].
+pub fn unverified_expiration(token: &str) -> Result<SystemTime, JwtError> {
+    if token.len() > MAX_JWT_SIZE {
+        return Err(JwtError::TokenTooLarge);
+    }
+    let token = JWT::<Empty, Empty>::new_encoded(token);
+    token
+        .unverified_header()
+        .map_err(|_| JwtError::InvalidToken)?;
+    token.signature().map_err(|_| JwtError::InvalidToken)?;
+    let payload = token
+        .unverified_payload()
+        .map_err(|_| JwtError::InvalidToken)?;
+    let expiration: DateTime<Utc> = payload
+        .registered
+        .expiry
+        .ok_or(JwtError::InvalidToken)?
+        .into();
+    Ok(expiration.into())
 }
 
 /// Owns private key material, which must be kept out of logs.

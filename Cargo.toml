@@ -6,6 +6,7 @@ exclude = [ "crates/py_client", "crates/python_client_tests" ]
 [workspace.dependencies]
 aes = "0.8.4"
 ahash = "0.8"
+ai_gateway_jwt = { path = "crates/ai_gateway_jwt" }
 anyhow = "1"
 application = { path = "crates/application" }
 arc-swap = "1.7.1"

@@ -43,6 +43,7 @@ use serde::{
 mod jwt;
 
 pub use crate::jwt::{
+    unverified_expiration,
     Jwt,
     JwtError,
     JwtSigner,

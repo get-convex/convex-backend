@@ -5974,6 +5974,7 @@ checksum = "4d873d7c67ce09b42110d801813efbc9364414e356be9935700d368351657487"
 name = "local_backend"
 version = "0.1.0"
 dependencies = [
+ "ai_gateway_jwt",
  "anyhow",
  "application",
  "async-broadcast",
@@ -6012,6 +6013,7 @@ dependencies = [
  "maplit",
  "metrics",
  "model",
+ "moka",
  "node_executor",
  "parking_lot",
  "proptest",

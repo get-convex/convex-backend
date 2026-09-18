@@ -42,6 +42,7 @@ testing = [
 ]
 
 [dependencies]
+ai_gateway_jwt = { workspace = true }
 anyhow = { workspace = true }
 application = { workspace = true }
 async-broadcast = { workspace = true }
@@ -77,6 +78,7 @@ keybroker = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 model = { workspace = true }
+moka = { workspace = true }
 node_executor = { workspace = true }
 parking_lot = { workspace = true }
 reqwest = { workspace = true }

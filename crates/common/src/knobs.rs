@@ -221,6 +221,21 @@ pub static NODE_ACTION_USER_TIMEOUT: LazyLock<Duration> =
 pub static MAX_ACTION_USER_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| max(*V8_ACTION_USER_TIMEOUT, *NODE_ACTION_USER_TIMEOUT));
 
+/// Minimum remaining lifetime required when a cached service token is
+/// returned. This must remain below the shortest JWT lifetime issued by a
+/// supported control plane.
+pub static GET_SERVICE_TOKEN_GUARANTEED_LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config(
+        "GET_SERVICE_TOKEN_GUARANTEED_LIFETIME_SECONDS",
+        10 * 60,
+    ))
+});
+
+/// Maximum number of deployment-and-attribution-specific service tokens held
+/// by one local backend.
+pub static SERVICE_TOKEN_CACHE_CAPACITY: LazyLock<u64> =
+    LazyLock::new(|| env_config("SERVICE_TOKEN_CACHE_CAPACITY", 1024));
+
 /// Ideally, we should have no timeout here but we are relying on defense in
 /// depth in case somehow the upstream get stuck. Use very high timeout here.
 ///
