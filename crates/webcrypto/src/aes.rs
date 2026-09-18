@@ -1,29 +1,24 @@
-use anyhow::Context as _;
-use aws_lc_rs::{
-    aead::{
-        self,
-        Aad,
-        LessSafeKey,
-        Nonce,
-        UnboundKey,
-    },
-    cipher::{
-        self,
-        DecryptionContext,
-        EncryptingKey,
-        EncryptionContext,
-        PaddedBlockDecryptingKey,
-        PaddedBlockEncryptingKey,
-        UnboundCipherKey,
-    },
-    error::Unspecified,
+use aws_lc_rs::cipher::{
+    self,
+    DecryptionContext,
+    EncryptingKey,
+    EncryptionContext,
+    PaddedBlockDecryptingKey,
+    PaddedBlockEncryptingKey,
+    UnboundCipherKey,
 };
 use indexmap::IndexSet;
+use openssl_aws_lc::symm::{
+    Cipher,
+    Crypter,
+    Mode,
+};
 use serde::{
     Deserialize,
     Serialize,
 };
 use serde_bytes::ByteBuf;
+use strum::EnumString;
 
 use super::{
     check_usages_subset,
@@ -44,23 +39,31 @@ use super::{
 };
 
 const AES_BLOCK_SIZE: usize = 16;
+/// The authentication tag lengths, in bits, that AES-GCM defines.
+const GCM_TAG_LENGTHS: [u8; 7] = [32, 64, 96, 104, 112, 120, 128];
+/// GCM computes a 128-bit tag; a shorter `tagLength` takes its leading bits.
+const GCM_FULL_TAG_LEN: usize = 16;
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, EnumString)]
 #[allow(clippy::enum_variant_names)]
+#[strum(ascii_case_insensitive)]
 pub enum AesAlgorithm {
     /// The "AES-CTR" algorithm identifier is used to perform encryption and
     /// decryption using AES in Counter mode, as described in NIST-SP800-38A.
     #[serde(rename = "AES-CTR")]
+    #[strum(serialize = "AES-CTR")]
     AesCtr,
     /// The "AES-CBC" algorithm identifier is used to perform encryption and
     /// decryption using AES in Cipher Block Chaining mode, as described in
     /// NIST-SP800-38A.
     #[serde(rename = "AES-CBC")]
+    #[strum(serialize = "AES-CBC")]
     AesCbc,
     /// The "AES-GCM" algorithm identifier is used to perform authenticated
     /// encryption and decryption using AES in Galois/Counter Mode mode, as
     /// described in NIST-SP800-38D.
     #[serde(rename = "AES-GCM")]
+    #[strum(serialize = "AES-GCM")]
     AesGcm,
 }
 
@@ -101,6 +104,7 @@ pub struct AesGcmParams {
 
 #[derive(Deserialize, Serialize)]
 pub struct AesKeyAlgorithm {
+    #[serde(deserialize_with = "super::algorithm_name::deserialize")]
     pub name: AesAlgorithm,
     /// The length member represents the length, in bits, of the key.
     pub length: u16,
@@ -142,6 +146,15 @@ pub fn import_key(
     extractable: bool,
     usages: IndexSet<KeyUsage>,
 ) -> Result<CryptoKey> {
+    check_usages_subset(
+        &usages,
+        &[
+            KeyUsage::Encrypt,
+            KeyUsage::Decrypt,
+            KeyUsage::WrapKey,
+            KeyUsage::UnwrapKey,
+        ],
+    )?;
     let (data, algorithm) = match format {
         ImportKeyInput::Raw(data) => {
             let length = data.len() * 8;
@@ -196,6 +209,21 @@ pub fn import_key(
     })
 }
 
+/// The tag length in bytes that `tag_length` (in bits) asks for.
+fn gcm_tag_len(tag_length: Option<u8>) -> Result<usize> {
+    let Some(tag_length) = tag_length else {
+        return Ok(GCM_FULL_TAG_LEN);
+    };
+    ensure!(
+        GCM_TAG_LENGTHS.contains(&tag_length),
+        Error::dom(
+            format!("tagLength must be one of {GCM_TAG_LENGTHS:?} bits"),
+            DOMExceptionName::OperationError
+        )
+    );
+    Ok(usize::from(tag_length) / 8)
+}
+
 impl AesKey {
     fn aes_key(&self) -> Result<UnboundCipherKey> {
         let alg = match self.key.len() {
@@ -212,20 +240,42 @@ impl AesKey {
         Ok(UnboundCipherKey::new(alg, &self.key)?)
     }
 
-    fn aes_gcm_key(&self) -> Result<LessSafeKey> {
-        let alg = match self.key.len() {
-            16 => &aead::AES_128_GCM,
-            24 => &aead::AES_192_GCM,
-            32 => &aead::AES_256_GCM,
+    fn aes_gcm_cipher(&self) -> Result<Cipher> {
+        Ok(match self.key.len() {
+            16 => Cipher::aes_128_gcm(),
+            24 => Cipher::aes_192_gcm(),
+            32 => Cipher::aes_256_gcm(),
             l => {
                 return Err(Error::dom(
                     format!("unexpected key length {l}"),
                     DOMExceptionName::OperationError,
                 ))
             },
-        };
-        let key = LessSafeKey::new(UnboundKey::new(alg, &self.key).context("invalid AES-GCM key")?);
-        Ok(key)
+        })
+    }
+
+    /// A [`Crypter`] over this key with `iv` as the GCM nonce and
+    /// `additional_data` already absorbed.
+    fn aes_gcm_crypter(
+        &self,
+        mode: Mode,
+        iv: &[u8],
+        additional_data: Option<&ByteBuf>,
+    ) -> Result<Crypter> {
+        // A GCM nonce may be any length; `Crypter` passes it to the cipher as a
+        // C `int`.
+        ensure!(
+            (1..=i32::MAX as usize).contains(&iv.len()),
+            Error::dom(
+                "invalid AES-GCM IV length",
+                DOMExceptionName::OperationError
+            )
+        );
+        let mut crypter = Crypter::new(self.aes_gcm_cipher()?, mode, &self.key, Some(iv))?;
+        if let Some(additional_data) = additional_data {
+            crypter.aad_update(additional_data)?;
+        }
+        Ok(crypter)
     }
 
     pub fn export_key(&self, algorithm: &AesKeyAlgorithm, format: KeyFormat) -> Result<KeyData> {
@@ -271,8 +321,8 @@ impl AesKey {
             length > 0 && length <= 128,
             Error::dom("invalid counter length", DOMExceptionName::OperationError)
         );
-        if let Some(limit) = AES_BLOCK_SIZE.checked_shl(length as u32)
-            && data.len() > limit
+        if let Some(block_limit) = 1usize.checked_shl(length.into())
+            && data.len().div_ceil(AES_BLOCK_SIZE) > block_limit
         {
             return Err(Error::dom(
                 "too much data for counter length",
@@ -376,7 +426,7 @@ impl AesKey {
         &self,
         algorithm: AesGcmParams,
         key_algorithm: &AesKeyAlgorithm,
-        mut data: Vec<u8>,
+        data: &[u8],
     ) -> Result<Vec<u8>> {
         ensure!(
             key_algorithm.name == AesAlgorithm::AesGcm,
@@ -390,37 +440,23 @@ impl AesKey {
             additional_data,
             tag_length,
         } = algorithm;
-        let key = self.aes_gcm_key()?;
-        let alg = key.algorithm();
-        // TODO: consider supporting shorter tag lengths (`ring` does not allow this)
-        ensure!(
-            tag_length.is_none_or(|l| usize::from(l) == 8 * alg.tag_len()),
-            Error::dom(
-                format!("tag length must be {} bits", 8 * alg.tag_len()),
-                DOMExceptionName::NotSupportedError
-            )
-        );
-        key.seal_in_place_append_tag(
-            // TODO: consider supporting GHASH construction for nonces (`ring` does not
-            // support this)
-            Nonce::try_assume_unique_for_key(&iv).map_err(|_| {
-                Error::dom(
-                    format!("AES-GCM IV must be {} bits", 8 * alg.nonce_len()),
-                    DOMExceptionName::NotSupportedError,
-                )
-            })?,
-            Aad::from(additional_data.as_ref().map_or(&[][..], |b| b.as_ref())),
-            &mut data,
-        )
-        .context("AES-GCM encryption failed")?;
-        Ok(data)
+        let tag_len = gcm_tag_len(tag_length)?;
+        let mut crypter = self.aes_gcm_crypter(Mode::Encrypt, &iv, additional_data.as_ref())?;
+        let mut out = vec![0u8; data.len() + tag_len];
+        let count = crypter.update(data, &mut out[..data.len()])?;
+        let count = count + crypter.finalize(&mut out[count..data.len()])?;
+        let mut tag = [0u8; GCM_FULL_TAG_LEN];
+        crypter.get_tag(&mut tag)?;
+        out[count..count + tag_len].copy_from_slice(&tag[..tag_len]);
+        out.truncate(count + tag_len);
+        Ok(out)
     }
 
     pub fn decrypt_gcm(
         &self,
         algorithm: AesGcmParams,
         key_algorithm: &AesKeyAlgorithm,
-        mut data: Vec<u8>,
+        data: &[u8],
     ) -> Result<Vec<u8>> {
         ensure!(
             key_algorithm.name == AesAlgorithm::AesGcm,
@@ -434,40 +470,25 @@ impl AesKey {
             additional_data,
             tag_length,
         } = algorithm;
-        let key = self.aes_gcm_key()?;
-        let alg = key.algorithm();
-        // TODO: consider supporting shorter tag lengths (`ring` does not allow this)
+        let tag_len = gcm_tag_len(tag_length)?;
         ensure!(
-            tag_length.is_none_or(|l| usize::from(l) == 8 * alg.tag_len()),
-            Error::dom(
-                format!("tag length must be {} bits", 8 * alg.tag_len()),
-                DOMExceptionName::NotSupportedError
-            )
-        );
-        ensure!(
-            data.len() >= alg.tag_len(),
+            data.len() >= tag_len,
             Error::dom(
                 "The provided data is too small.",
                 DOMExceptionName::OperationError
             )
         );
-        let plaintext_len = key
-            .open_in_place(
-                Nonce::try_assume_unique_for_key(&iv).map_err(|_| {
-                    Error::dom(
-                        format!("AES-GCM IV must be {} bits", 8 * alg.nonce_len()),
-                        DOMExceptionName::NotSupportedError,
-                    )
-                })?,
-                Aad::from(additional_data.as_ref().map_or(&[][..], |b| b.as_ref())),
-                &mut data,
-            )
-            .map_err(|Unspecified| {
-                Error::dom("Decryption failed", DOMExceptionName::OperationError)
-            })?
-            .len();
-        data.truncate(plaintext_len);
-        Ok(data)
+        let (ciphertext, tag) = data.split_at(data.len() - tag_len);
+        let mut crypter = self.aes_gcm_crypter(Mode::Decrypt, &iv, additional_data.as_ref())?;
+        let mut out = vec![0u8; ciphertext.len()];
+        let count = crypter.update(ciphertext, &mut out)?;
+        crypter.set_tag(tag)?;
+        let count = count
+            + crypter
+                .finalize(&mut out[count..])
+                .map_err(|_| Error::dom("Decryption failed", DOMExceptionName::OperationError))?;
+        out.truncate(count);
+        Ok(out)
     }
 }
 

@@ -98,6 +98,12 @@ impl CryptoKey {
     }
 }
 
+impl AsRef<CryptoKey> for CryptoKey {
+    fn as_ref(&self) -> &CryptoKey {
+        self
+    }
+}
+
 pub struct CryptoKeyPair {
     pub private_key: CryptoKey,
     pub public_key: CryptoKey,

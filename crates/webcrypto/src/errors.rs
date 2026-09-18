@@ -1,8 +1,12 @@
 use std::borrow::Cow;
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use strum::IntoStaticStr;
 
-#[derive(Copy, Clone, Debug, IntoStaticStr)]
+#[derive(Copy, Clone, Debug, IntoStaticStr, Serialize, Deserialize)]
 pub enum DOMExceptionName {
     NotSupportedError,
     SyntaxError,

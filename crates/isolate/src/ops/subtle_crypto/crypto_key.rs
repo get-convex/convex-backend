@@ -57,11 +57,13 @@ impl FromV8 for JsCryptoKey {
         let crypto_key_constructor = crypto_key
             .get_function(scope)
             .context("get CryptoKey constructor")?;
-        let input = input.try_cast::<v8::Object>()?;
-        anyhow::ensure!(
-            input.instance_of(scope, crypto_key_constructor.into()) == Some(true),
-            TypeError::new("not of type CryptoKey")
-        );
+        let input = if let Ok(input) = input.try_cast::<v8::Object>()
+            && input.instance_of(scope, crypto_key_constructor.into()) == Some(true)
+        {
+            input
+        } else {
+            anyhow::bail!(TypeError::new("not of type CryptoKey"));
+        };
         let (id, ok) = input
             .get_internal_field(scope, 0)
             .context("missing internal field")?

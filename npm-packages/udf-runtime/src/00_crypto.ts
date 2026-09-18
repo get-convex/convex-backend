@@ -146,7 +146,8 @@ class SubtleCrypto {
       format,
       keyData,
       algorithm,
-      extractable,
+      // coerce to boolean per Web IDL
+      !!extractable,
       keyUsages,
     );
   }
@@ -188,7 +189,7 @@ class SubtleCrypto {
       algorithm,
       baseKey,
       derivedKeyType,
-      extractable,
+      !!extractable,
       keyUsages,
     );
   }
@@ -233,7 +234,7 @@ class SubtleCrypto {
     return performOp(
       "crypto/subtle/generateKey",
       algorithm,
-      extractable,
+      !!extractable,
       keyUsages,
     ) as CryptoKey | CryptoKeyPair;
   }

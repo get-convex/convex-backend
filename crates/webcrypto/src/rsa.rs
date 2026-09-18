@@ -40,6 +40,7 @@ use spki::der::{
     AnyRef,
     Decode,
 };
+use strum::EnumString;
 
 use super::{
     check_usages_subset,
@@ -66,19 +67,24 @@ use super::{
 const RSA_OID: const_oid::ObjectIdentifier =
     const_oid::ObjectIdentifier::new_unwrap("1.2.840.113549.1.1.1");
 
-#[derive(Deserialize, Serialize, Copy, Clone, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, Copy, Clone, PartialEq, Debug, EnumString)]
+#[strum(ascii_case_insensitive)]
 pub enum RsaAlgorithm {
     #[serde(rename = "RSASSA-PKCS1-v1_5")]
+    #[strum(serialize = "RSASSA-PKCS1-v1_5")]
     RsaSsaPkcs1v15,
     #[serde(rename = "RSA-PSS")]
+    #[strum(serialize = "RSA-PSS")]
     RsaPss,
     #[serde(rename = "RSA-OAEP")]
+    #[strum(serialize = "RSA-OAEP")]
     RsaOaep,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RsaHashedKeyGenParams {
+    #[serde(deserialize_with = "super::algorithm_name::deserialize")]
     pub name: RsaAlgorithm,
     pub modulus_length: u32,
     pub public_exponent: ByteBuf,
@@ -90,6 +96,7 @@ pub type RsaHashedKeyAlgorithm = RsaHashedKeyGenParams;
 
 #[derive(Deserialize, Debug)]
 pub struct RsaHashedImportParams {
+    #[serde(deserialize_with = "super::algorithm_name::deserialize")]
     pub name: RsaAlgorithm,
     #[serde(with = "super::nullary_algorithm")]
     pub hash: CryptoHash,
@@ -335,26 +342,46 @@ pub fn import_key(
             let n = decode_number(&jwk.n).ok_or_else(data_error)?;
             let e = decode_number(&jwk.e).ok_or_else(data_error)?;
             if let Some(d) = jwk.d {
+                // RFC 7518 6.3.2.7 admits "oth" only for a key with more than
+                // two prime factors, which this implementation cannot
+                // represent.
+                ensure!(
+                    jwk.oth.is_none(),
+                    Error::dom(
+                        "multi-prime RSA keys are not supported",
+                        DOMExceptionName::DataError
+                    )
+                );
                 let d = decode_number(&Some(d)).ok_or_else(data_error)?;
                 let mut builder = RsaPrivateKeyBuilder::new(n, e, d).map_err(|_| data_error())?;
-                if let (Some(p), Some(q)) = (jwk.p, jwk.q)
-                    && jwk.oth.is_none()
-                {
-                    let p = decode_number(&Some(p)).ok_or_else(data_error)?;
-                    let q = decode_number(&Some(q)).ok_or_else(data_error)?;
-                    builder = builder.set_factors(p, q).map_err(|_| data_error())?;
-                }
-                if let (Some(dmp1), Some(dmq1), Some(iqmp)) = (jwk.dp, jwk.dq, jwk.qi)
-                    && jwk.oth.is_none()
-                {
-                    let dmp1 = decode_number(&Some(dmp1)).ok_or_else(data_error)?;
-                    let dmq1 = decode_number(&Some(dmq1)).ok_or_else(data_error)?;
-                    let iqmp = decode_number(&Some(iqmp)).ok_or_else(data_error)?;
-                    builder = builder
-                        .set_crt_params(dmp1, dmq1, iqmp)
-                        .map_err(|_| data_error())?;
+                match (jwk.p, jwk.q, jwk.dp, jwk.dq, jwk.qi) {
+                    (None, None, None, None, None) => {},
+                    (Some(p), Some(q), Some(dmp1), Some(dmq1), Some(iqmp)) => {
+                        let p = decode_number(&Some(p)).ok_or_else(data_error)?;
+                        let q = decode_number(&Some(q)).ok_or_else(data_error)?;
+                        let dmp1 = decode_number(&Some(dmp1)).ok_or_else(data_error)?;
+                        let dmq1 = decode_number(&Some(dmq1)).ok_or_else(data_error)?;
+                        let iqmp = decode_number(&Some(iqmp)).ok_or_else(data_error)?;
+                        builder = builder.set_factors(p, q).map_err(|_| data_error())?;
+                        builder = builder
+                            .set_crt_params(dmp1, dmq1, iqmp)
+                            .map_err(|_| data_error())?;
+                    },
+                    // RFC 7518 6.3.2 requires the second prime factor and the
+                    // CRT parameters to accompany the first, or be absent
+                    // together.
+                    _ => {
+                        return Err(Error::dom(
+                            "incomplete RSA private key parameters",
+                            DOMExceptionName::DataError,
+                        ))
+                    },
                 }
                 let private_key = builder.build();
+                ensure!(
+                    private_key.check_key().unwrap_or(false),
+                    Error::dom("inconsistent RSA private key", DOMExceptionName::DataError)
+                );
                 Ok(CryptoKey {
                     kind: CryptoKeyKind::RsaPrivate {
                         algorithm: key_info(algorithm, &private_key)?,

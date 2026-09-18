@@ -4,6 +4,11 @@
 
 mod crypto_key;
 
+use std::{
+    rc::Rc,
+    str::FromStr,
+};
+
 use deno_core::v8;
 use indexmap::IndexSet;
 use serde_bytes::ByteBuf;
@@ -14,8 +19,9 @@ use webcrypto::{
     hmac,
     pbkdf2,
     rsa,
+    CryptoHash,
+    CryptoKey,
     DerivedKeyAlgorithm,
-    DigestAlgorithm,
     EncryptDecryptAlgorithm,
     ImportKeyAlgorithm,
     JsonWebKey,
@@ -59,10 +65,14 @@ fn get_name<'s>(
         s
     } else if let Ok(object) = input.try_cast::<v8::Object>() {
         let name_str = strings::name.create(scope)?;
-        object
+        let name = object
             .get(scope, name_str.into())
-            .ok_or_else(|| anyhow::anyhow!(TypeError::new("'name' missing in algorithm",)))?
-            .to_string(scope)
+            .filter(|name| {
+                // WebIDL reads an `undefined` dictionary member as absent
+                !name.is_undefined()
+            })
+            .ok_or_else(|| TypeError::new("'name' missing in algorithm"))?;
+        name.to_string(scope)
             .ok_or_else(|| anyhow::anyhow!("[TODO: propagate exception]"))?
     } else {
         anyhow::bail!(DOMException::new(
@@ -141,15 +151,18 @@ impl ToV8 for JsKeyData {
     }
 }
 
-fn ecdh_key_derive_params_from_v8<'s>(
+/// Used by both ECDH and X25519
+fn key_agreement_params_from_v8<'s>(
     scope: &mut v8::PinScope<'s, '_>,
     input: v8::Local<'s, v8::Value>,
-) -> anyhow::Result<ec::EcdhKeyDeriveParams> {
-    let object: v8::Local<v8::Object> = input.try_cast()?;
+) -> anyhow::Result<ec::EcdhKeyDeriveParams<Rc<CryptoKey>>> {
+    let Ok(object) = input.try_cast::<v8::Object>() else {
+        anyhow::bail!(TypeError::new("algorithm requires 'public' parameter"));
+    };
     let public_str = strings::public.create(scope)?;
-    let public_key_value = object.get(scope, public_str.into()).ok_or_else(|| {
-        anyhow::anyhow!(TypeError::new("ECDH algorithm requires 'public' parameter"))
-    })?;
+    let public_key_value = object
+        .get(scope, public_str.into())
+        .ok_or_else(|| anyhow::anyhow!(TypeError::new("algorithm requires 'public' parameter")))?;
     let public_key = JsCryptoKey::from_v8(scope, public_key_value)?;
     Ok(ec::EcdhKeyDeriveParams { public_key })
 }
@@ -157,7 +170,7 @@ fn ecdh_key_derive_params_from_v8<'s>(
 pub(super) struct JsKeyDeriveParams;
 
 impl FromV8 for JsKeyDeriveParams {
-    type Output = KeyDeriveParams;
+    type Output = KeyDeriveParams<Rc<CryptoKey>>;
 
     fn from_v8<'s>(
         scope: &mut v8::PinScope<'s, '_>,
@@ -167,13 +180,15 @@ impl FromV8 for JsKeyDeriveParams {
             "pbkdf2" => Ok(KeyDeriveParams::Pbkdf2(pbkdf2::Pbkdf2Params::from_v8(
                 scope, input,
             )?)),
-            "ecdh" => Ok(KeyDeriveParams::Ecdh(ecdh_key_derive_params_from_v8(
+            "ecdh" => Ok(KeyDeriveParams::Ecdh(key_agreement_params_from_v8(
                 scope, input,
             )?)),
             "hkdf" => Ok(KeyDeriveParams::Hkdf(hkdf::HkdfParams::from_v8(
                 scope, input,
             )?)),
-            "x25519" => Ok(KeyDeriveParams::X25519),
+            "x25519" => Ok(KeyDeriveParams::X25519(key_agreement_params_from_v8(
+                scope, input,
+            )?)),
             _ => anyhow::bail!(DOMException::new(
                 "invalid algorithm for key".to_string(),
                 DOMExceptionName::InvalidAccessError
@@ -400,17 +415,42 @@ pub(crate) fn op_crypto_subtle_encrypt<'b, P: V8OpProvider<'b>>(
     key: JsCryptoKey,
     data: ByteBuf,
 ) -> anyhow::Result<ArrayBuffer> {
-    let result = webcrypto::encrypt(algorithm, &key, || Ok(provider.crypto_rng()?), &data);
+    let result = webcrypto::encrypt(
+        algorithm,
+        &key,
+        || Ok(provider.crypto_rng()?),
+        data.into_vec(),
+    );
     flatten_result(provider, result).map(ArrayBuffer)
+}
+
+pub(super) struct JsDigestAlgorithm;
+
+impl FromV8 for JsDigestAlgorithm {
+    type Output = CryptoHash;
+
+    fn from_v8<'s>(
+        scope: &mut v8::PinScope<'s, '_>,
+        input: v8::Local<'s, v8::Value>,
+    ) -> anyhow::Result<Self::Output> {
+        let name = get_name(scope, input)?;
+        let Ok(hash) = CryptoHash::from_str(&name) else {
+            anyhow::bail!(DOMException::new(
+                format!("Unrecognized or invalid algorithm {name}"),
+                DOMExceptionName::NotSupportedError
+            ));
+        };
+        Ok(hash)
+    }
 }
 
 #[convex_macro::v8_op]
 pub(crate) fn op_crypto_subtle_digest<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
-    algorithm: DigestAlgorithm,
+    algorithm: JsDigestAlgorithm,
     data: ByteBuf,
 ) -> anyhow::Result<ArrayBuffer> {
-    flatten_result(provider, webcrypto::digest(algorithm.0, &data)).map(ArrayBuffer)
+    flatten_result(provider, webcrypto::digest(algorithm, &data)).map(ArrayBuffer)
 }
 
 pub(super) struct JsSignVerifyAlgorithm;

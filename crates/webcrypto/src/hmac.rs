@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use aws_lc_rs::hmac;
 use indexmap::IndexSet;
 use serde::{
@@ -66,7 +68,10 @@ pub fn generate_key(
     usages: IndexSet<KeyUsage>,
 ) -> Result<CryptoKey> {
     check_usages_subset(&usages, &[KeyUsage::Sign, KeyUsage::Verify])?;
-    let length = algorithm.get_key_length()?;
+    let length = algorithm
+        .key_length()?
+        .ok_or_else(|| Error::dom("length must not be zero", DOMExceptionName::OperationError))?
+        .get();
     let mut key_bytes = vec![0u8; length.div_ceil(8)];
     aws_lc_rs::rand::fill(&mut key_bytes)?;
     Ok(CryptoKey {
@@ -92,6 +97,7 @@ pub fn import_key(
     extractable: bool,
     usages: IndexSet<KeyUsage>,
 ) -> Result<CryptoKey> {
+    check_usages_subset(&usages, &[KeyUsage::Sign, KeyUsage::Verify])?;
     let data = match input {
         ImportKeyInput::Raw(data) => data,
         ImportKeyInput::Jwk(jwk) => {
@@ -119,7 +125,10 @@ pub fn import_key(
         Error::dom("provided HMAC key is empty", DOMExceptionName::DataError)
     );
     if algorithm.length.is_some() {
-        let requested_len = algorithm.get_key_length()?;
+        let requested_len = algorithm
+            .key_length()?
+            .ok_or_else(|| Error::dom("length must not be zero", DOMExceptionName::DataError))?
+            .get();
         ensure!(
             requested_len <= length,
             Error::dom(
@@ -175,20 +184,28 @@ impl HmacKey {
 }
 
 impl HmacImportParams {
-    pub fn get_key_length(&self) -> Result<usize> {
-        if let Some(length) = self.length {
-            ensure!(length > 0, Error::type_error("length must not be zero"));
-            // The spec allows any bit length, but node.js, Deno, Bun, Firefox, and Safari
-            // don't implement fractional byte lengths; only Chrome does.
-            // Node raises a TypeError.
-            ensure!(
-                length % 8 == 0,
-                Error::type_error("length must be a multiple of 8")
-            );
-            Ok(length as usize)
-        } else {
-            Ok(self.hash.block_size_bits())
-        }
+    /// The spec's "get key length" operation, which reports a zero `length` as
+    /// a `TypeError`.
+    pub fn get_key_length(&self) -> Result<NonZeroUsize> {
+        self.key_length()?
+            .ok_or_else(|| Error::type_error("length must not be zero"))
+    }
+
+    fn key_length(&self) -> Result<Option<NonZeroUsize>> {
+        let Some(length) = self.length else {
+            return Ok(Some(self.hash.block_size_bits()));
+        };
+        let Some(length) = NonZeroUsize::new(length as usize) else {
+            return Ok(None);
+        };
+        // The spec allows any bit length, but node.js, Deno, Bun, Firefox, and Safari
+        // don't implement fractional byte lengths; only Chrome does.
+        // Node raises a TypeError.
+        ensure!(
+            length.get() % 8 == 0,
+            Error::type_error("length must be a multiple of 8")
+        );
+        Ok(Some(length))
     }
 }
 

@@ -3,7 +3,10 @@
 //! Algorithm parameters are plain serde-deserializable types, so embedders can
 //! construct them from whatever JS engine (or other source) they like.
 
-use std::str::FromStr;
+use std::{
+    num::NonZeroUsize,
+    str::FromStr,
+};
 
 use aws_lc_rs::digest;
 use indexmap::IndexSet;
@@ -11,6 +14,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use strum::EnumString;
 
 mod crypto_key;
 mod crypto_rng;
@@ -27,7 +31,6 @@ pub mod pbkdf2;
 pub mod rsa;
 pub mod x25519;
 
-pub(crate) use crate::errors::ensure;
 pub use crate::{
     crypto_key::{
         CryptoKey,
@@ -44,28 +47,37 @@ pub use crate::{
     jwk::JsonWebKey,
     serde_helpers::nullary_algorithm,
 };
+pub(crate) use crate::{
+    errors::ensure,
+    serde_helpers::algorithm_name,
+};
 
 const DERIVE_BITS_MAX: usize = 8 * (1 << 16); // 64KiB in bits
 const URL_SAFE_FORGIVING: base64::Config = base64::URL_SAFE_NO_PAD.decode_allow_trailing_bits(true);
 
-#[derive(Deserialize, Serialize, Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Deserialize, Serialize, Copy, Clone, Eq, PartialEq, Debug, EnumString)]
+#[strum(ascii_case_insensitive)]
 pub enum CryptoHash {
     #[serde(rename = "SHA-1")]
+    #[strum(serialize = "SHA-1")]
     Sha1,
     #[serde(rename = "SHA-256")]
+    #[strum(serialize = "SHA-256")]
     Sha256,
     #[serde(rename = "SHA-384")]
+    #[strum(serialize = "SHA-384")]
     Sha384,
     #[serde(rename = "SHA-512")]
+    #[strum(serialize = "SHA-512")]
     Sha512,
 }
 impl CryptoHash {
-    fn block_size_bits(&self) -> usize {
+    fn block_size_bits(&self) -> NonZeroUsize {
         match self {
-            CryptoHash::Sha1 => 512,
-            CryptoHash::Sha256 => 512,
-            CryptoHash::Sha384 => 1024,
-            CryptoHash::Sha512 => 1024,
+            CryptoHash::Sha1 => const { NonZeroUsize::new(512).unwrap() },
+            CryptoHash::Sha256 => const { NonZeroUsize::new(512).unwrap() },
+            CryptoHash::Sha384 => const { NonZeroUsize::new(1024).unwrap() },
+            CryptoHash::Sha512 => const { NonZeroUsize::new(1024).unwrap() },
         }
     }
 
@@ -201,16 +213,38 @@ pub fn import_key(
     Ok(key)
 }
 
-pub enum KeyDeriveParams {
+pub enum KeyDeriveParams<K> {
     Pbkdf2(pbkdf2::Pbkdf2Params),
-    Ecdh(ec::EcdhKeyDeriveParams),
+    Ecdh(ec::EcdhKeyDeriveParams<K>),
     Hkdf(hkdf::HkdfParams),
-    X25519, // TODO
+    /// X25519 key agreement takes the same dictionary as ECDH.
+    X25519(ec::EcdhKeyDeriveParams<K>),
+}
+
+/// deriveBits step 6 and deriveKey step 10: an algorithm that is not the one
+/// the base key was made for is reported before the key's usages are checked.
+fn check_derive_algorithm_matches_key(
+    algorithm: &KeyDeriveParams<impl AsRef<CryptoKey>>,
+    key: &CryptoKey,
+) -> Result<()> {
+    let matches = match algorithm {
+        KeyDeriveParams::Pbkdf2(_) => matches!(key.kind, CryptoKeyKind::Pbkdf2 { .. }),
+        KeyDeriveParams::Hkdf(_) => matches!(key.kind, CryptoKeyKind::Hkdf { .. }),
+        KeyDeriveParams::Ecdh(_) => matches!(key.kind, CryptoKeyKind::EcPrivate { .. }),
+        KeyDeriveParams::X25519(_) => matches!(key.kind, CryptoKeyKind::X25519Private { .. }),
+    };
+    ensure!(
+        matches,
+        Error::dom(
+            "invalid algorithm for key",
+            DOMExceptionName::InvalidAccessError
+        )
+    );
+    Ok(())
 }
 
 fn derive_bits_inner(
-    operation: &'static str,
-    algorithm: KeyDeriveParams,
+    algorithm: KeyDeriveParams<impl AsRef<CryptoKey>>,
     key: &CryptoKey,
     length: Option<usize>,
 ) -> Result<Vec<u8>> {
@@ -218,20 +252,46 @@ fn derive_bits_inner(
         KeyDeriveParams::Pbkdf2(algorithm) => pbkdf2::derive_bits(algorithm, key, length),
         KeyDeriveParams::Ecdh(params) => ec::derive_bits(params, key, length),
         KeyDeriveParams::Hkdf(params) => hkdf::derive_bits(params, key, length),
-        KeyDeriveParams::X25519 => Err(Error::NotImplemented {
-            operation,
-            algorithm: "X25519",
-        }),
+        KeyDeriveParams::X25519(params) => x25519::derive_bits(params, key, length),
     }
 }
 
+/// The first `length` bits of a key agreement's shared secret, which is what
+/// the ECDH and X25519 derive bits operations return.
+pub(crate) fn truncate_shared_secret(
+    mut secret: Vec<u8>,
+    length: Option<usize>,
+) -> Result<Vec<u8>> {
+    let Some(length) = length else {
+        return Ok(secret);
+    };
+    let secret_bits = secret.len() * 8;
+    ensure!(
+        length % 8 == 0,
+        Error::dom(
+            "length must be a multiple of 8",
+            DOMExceptionName::OperationError
+        )
+    );
+    ensure!(
+        length <= secret_bits,
+        Error::dom(
+            format!("requested length {length} exceeds shared secret length {secret_bits}"),
+            DOMExceptionName::OperationError
+        )
+    );
+    secret.truncate(length / 8);
+    Ok(secret)
+}
+
 pub fn derive_bits(
-    algorithm: KeyDeriveParams,
+    algorithm: KeyDeriveParams<impl AsRef<CryptoKey>>,
     key: &CryptoKey,
     length: Option<usize>,
 ) -> Result<Vec<u8>> {
+    check_derive_algorithm_matches_key(&algorithm, key)?;
     key.check_usage(KeyUsage::DeriveBits)?;
-    derive_bits_inner("deriveBits", algorithm, key, length)
+    derive_bits_inner(algorithm, key, length)
 }
 
 pub enum DerivedKeyAlgorithm {
@@ -241,15 +301,16 @@ pub enum DerivedKeyAlgorithm {
 }
 
 pub fn derive_key(
-    algorithm: KeyDeriveParams,
+    algorithm: KeyDeriveParams<impl AsRef<CryptoKey>>,
     base_key: &CryptoKey,
     derived_key_type: DerivedKeyAlgorithm,
     extractable: bool,
     key_usages: IndexSet<KeyUsage>,
 ) -> Result<CryptoKey> {
+    check_derive_algorithm_matches_key(&algorithm, base_key)?;
     base_key.check_usage(KeyUsage::DeriveKey)?;
     let length = match &derived_key_type {
-        DerivedKeyAlgorithm::Hmac(alg) => alg.get_key_length()?,
+        DerivedKeyAlgorithm::Hmac(alg) => alg.get_key_length()?.get(),
         DerivedKeyAlgorithm::Aes(alg) => alg.get_key_length()?,
         DerivedKeyAlgorithm::AesKw => {
             return Err(Error::NotImplemented {
@@ -258,7 +319,7 @@ pub fn derive_key(
             })
         },
     };
-    let key_bits = derive_bits_inner("deriveKey", algorithm, base_key, Some(length))?;
+    let key_bits = derive_bits_inner(algorithm, base_key, Some(length))?;
     let key_input = ImportKeyInput::Raw(key_bits);
     let key = match derived_key_type {
         DerivedKeyAlgorithm::Hmac(alg) => {
@@ -319,6 +380,28 @@ pub fn generate_key(
 }
 
 pub fn export_key(format: KeyFormat, key: &CryptoKey) -> Result<KeyData> {
+    // An algorithm that registers no export key operation is reported before
+    // the key's extractability is looked at.
+    let unexportable = match &key.kind {
+        CryptoKeyKind::Pbkdf2 { .. } => Some("PBKDF2"),
+        CryptoKeyKind::Hkdf { .. } => Some("HKDF"),
+        CryptoKeyKind::Hmac { .. }
+        | CryptoKeyKind::Aes { .. }
+        | CryptoKeyKind::RsaPrivate { .. }
+        | CryptoKeyKind::RsaPublic { .. }
+        | CryptoKeyKind::EcPrivate { .. }
+        | CryptoKeyKind::EcPublic { .. }
+        | CryptoKeyKind::Ed25519Private { .. }
+        | CryptoKeyKind::Ed25519Public { .. }
+        | CryptoKeyKind::X25519Private { .. }
+        | CryptoKeyKind::X25519Public { .. } => None,
+    };
+    if let Some(algorithm) = unexportable {
+        return Err(Error::dom(
+            format!("{algorithm} keys are not exportable"),
+            DOMExceptionName::NotSupportedError,
+        ));
+    }
     ensure!(
         key.extractable,
         Error::dom(
@@ -327,17 +410,8 @@ pub fn export_key(format: KeyFormat, key: &CryptoKey) -> Result<KeyData> {
         )
     );
     let mut exported = match &key.kind {
-        CryptoKeyKind::Pbkdf2 { .. } => {
-            return Err(Error::dom(
-                "PBKDF2 keys are not exportable",
-                DOMExceptionName::NotSupportedError,
-            ))
-        },
-        CryptoKeyKind::Hkdf { .. } => {
-            return Err(Error::dom(
-                "HKDF keys are not exportable",
-                DOMExceptionName::NotSupportedError,
-            ))
+        CryptoKeyKind::Pbkdf2 { .. } | CryptoKeyKind::Hkdf { .. } => {
+            unreachable!("rejected above as unexportable")
         },
         CryptoKeyKind::Hmac { algorithm, key } => key.export_key(algorithm, format)?,
         CryptoKeyKind::Aes { algorithm, key } => key.export_key(algorithm, format)?,
@@ -382,7 +456,7 @@ pub fn decrypt(
             key.decrypt_cbc(params, algorithm, data)?
         },
         (EncryptDecryptAlgorithm::AesGcm(params), CryptoKeyKind::Aes { algorithm, key }) => {
-            key.decrypt_gcm(params, algorithm, data)?
+            key.decrypt_gcm(params, algorithm, &data)?
         },
         _ => {
             return Err(Error::dom(
@@ -398,21 +472,21 @@ pub fn encrypt(
     algorithm: EncryptDecryptAlgorithm,
     key: &CryptoKey,
     rng: impl FnOnce() -> Result<CryptoRng>,
-    data: &[u8],
+    data: Vec<u8>,
 ) -> Result<Vec<u8>> {
     key.check_usage(KeyUsage::Encrypt)?;
     let ciphertext = match (algorithm, &key.kind) {
         (EncryptDecryptAlgorithm::RsaOaep(params), CryptoKeyKind::RsaPublic { algorithm, key }) => {
-            key.encrypt_oaep(params, algorithm, &rng()?, data)?
+            key.encrypt_oaep(params, algorithm, &rng()?, &data)?
         },
         (EncryptDecryptAlgorithm::AesCtr(params), CryptoKeyKind::Aes { algorithm, key }) => {
-            key.crypt_ctr(params, algorithm, data.to_vec())?
+            key.crypt_ctr(params, algorithm, data)?
         },
         (EncryptDecryptAlgorithm::AesCbc(params), CryptoKeyKind::Aes { algorithm, key }) => {
-            key.encrypt_cbc(params, algorithm, data.to_vec())?
+            key.encrypt_cbc(params, algorithm, data)?
         },
         (EncryptDecryptAlgorithm::AesGcm(params), CryptoKeyKind::Aes { algorithm, key }) => {
-            key.encrypt_gcm(params, algorithm, data.to_vec())?
+            key.encrypt_gcm(params, algorithm, &data)?
         },
         _ => {
             return Err(Error::dom(
@@ -423,9 +497,6 @@ pub fn encrypt(
     };
     Ok(ciphertext)
 }
-
-#[derive(Deserialize)]
-pub struct DigestAlgorithm(#[serde(with = "nullary_algorithm")] pub CryptoHash);
 
 pub fn digest(algorithm: CryptoHash, data: &[u8]) -> Result<Vec<u8>> {
     let algo = match algorithm {

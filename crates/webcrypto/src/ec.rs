@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use indexmap::{
     indexset,
     IndexSet,
@@ -40,10 +38,12 @@ use spki::{
     },
     ObjectIdentifier,
 };
+use strum::EnumString;
 
 use super::{
     check_usages_subset,
     ensure,
+    truncate_shared_secret,
     CryptoHash,
     CryptoKey,
     CryptoKeyKind,
@@ -72,17 +72,20 @@ const ID_SECP384R1_OID: const_oid::ObjectIdentifier =
 const ID_SECP521R1_OID: const_oid::ObjectIdentifier =
     const_oid::ObjectIdentifier::new_unwrap("1.3.132.0.35");
 
-#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Debug, EnumString)]
+#[strum(ascii_case_insensitive)]
 pub enum EcAlgorithm {
     /// The "ECDSA" algorithm identifier is used to perform signing and
     /// verification using the ECDSA algorithm specified in [RFC6090] and using
     /// the SHA hash functions and elliptic curves defined in this
     /// specification.
     #[serde(rename = "ECDSA")]
+    #[strum(serialize = "ECDSA")]
     Ecdsa,
     /// This describes using Elliptic Curve Diffie-Hellman (ECDH) for key
     /// generation and key agreement, as specified by [RFC6090].
     #[serde(rename = "ECDH")]
+    #[strum(serialize = "ECDH")]
     Ecdh,
 }
 
@@ -104,6 +107,7 @@ pub enum NamedCurve {
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct EcKeyAlgorithm {
+    #[serde(deserialize_with = "super::algorithm_name::deserialize")]
     pub name: EcAlgorithm,
     /// The namedCurve member represents the named curve that the key uses.
     pub named_curve: NamedCurve,
@@ -294,7 +298,11 @@ pub fn import_key(
                 check_usages_subset(&usages, public_usages)?;
             }
             jwk.check_kty("EC")?;
-            jwk.check_key_ops_and_use(&usages, "sig")?;
+            let jwk_use = match algorithm.name {
+                EcAlgorithm::Ecdsa => "sig",
+                EcAlgorithm::Ecdh => "enc",
+            };
+            jwk.check_key_ops_and_use(&usages, jwk_use)?;
             jwk.check_ext(extractable)?;
             let curve = match jwk.crv.as_deref() {
                 Some("P-256") => Some(NamedCurve::P256),
@@ -306,16 +314,20 @@ pub fn import_key(
                 curve == Some(algorithm.named_curve),
                 Error::dom("EC curve mismatch", DOMExceptionName::DataError)
             );
-            jwk.check_alg(match algorithm.named_curve {
-                NamedCurve::P256 => "ES256",
-                NamedCurve::P384 => "ES384",
-                NamedCurve::P521 => "ES512",
-            })?;
+            // Only ECDSA requires "alg"; an ECDH JWK may legitimately carry a
+            // JOSE key agreement algorithm such as "ECDH-ES".
+            if algorithm.name == EcAlgorithm::Ecdsa {
+                jwk.check_alg(match algorithm.named_curve {
+                    NamedCurve::P256 => "ES256",
+                    NamedCurve::P384 => "ES384",
+                    NamedCurve::P521 => "ES512",
+                })?;
+            }
             let group = EcGroup::from_curve_name(algorithm.named_curve.nid())?;
             let mut ctx = BigNumContext::new()?;
             let (mut p, mut _a, mut _b) = (BigNum::new()?, BigNum::new()?, BigNum::new()?);
             group.components_gfp(&mut p, &mut _a, &mut _b, &mut ctx)?;
-            let expected_len = ((p.num_bits() + 7) / 8) as usize;
+            let expected_len = p.num_bytes() as usize;
             let decode_coordinate = |coord: &Option<String>| {
                 coord
                     .as_ref()
@@ -361,6 +373,9 @@ pub fn import_key(
                     .ok_or_else(|| {
                         Error::dom("invalid EC private key", DOMExceptionName::DataError)
                     })?;
+                private_key.check_key().map_err(|_| {
+                    Error::dom("invalid EC private key", DOMExceptionName::DataError)
+                })?;
                 Ok(CryptoKey {
                     kind: CryptoKeyKind::EcPrivate {
                         algorithm,
@@ -413,7 +428,7 @@ fn public_jwt<T: HasPublic>(algorithm: &EcKeyAlgorithm, ec_key: &EcKey<T>) -> Re
     let mut ctx = BigNumContext::new()?;
     let (mut p, mut _a, mut _b) = (BigNum::new()?, BigNum::new()?, BigNum::new()?);
     group.components_gfp(&mut p, &mut _a, &mut _b, &mut ctx)?;
-    let coord_len = (p.num_bits() + 7) / 8;
+    let coord_len = p.num_bytes();
     let (mut x, mut y) = (BigNum::new()?, BigNum::new()?);
     ec_key
         .public_key()
@@ -557,13 +572,13 @@ impl EcPublicKey {
 
 /// Parameters for ECDH deriveBits/deriveKey operations.
 /// Contains the public key of the other party for the key agreement.
-pub struct EcdhKeyDeriveParams {
-    pub public_key: Rc<CryptoKey>,
+pub struct EcdhKeyDeriveParams<K> {
+    pub public_key: K,
 }
 
 /// Perform ECDH key derivation to compute shared bits.
 pub fn derive_bits(
-    params: EcdhKeyDeriveParams,
+    params: EcdhKeyDeriveParams<impl AsRef<CryptoKey>>,
     base_key: &CryptoKey,
     length: Option<usize>,
 ) -> Result<Vec<u8>> {
@@ -588,7 +603,7 @@ pub fn derive_bits(
     let CryptoKeyKind::EcPublic {
         algorithm: public_algorithm,
         key: public_key,
-    } = &params.public_key.kind
+    } = &params.public_key.as_ref().kind
     else {
         return Err(Error::dom(
             "Public key must be an EC public key",
@@ -624,37 +639,5 @@ pub fn derive_bits(
         )
     })?;
 
-    // The full shared secret length in bits
-    let shared_secret_bits = shared_secret.len() * 8;
-
-    // Handle the length parameter according to Web Crypto spec
-    let output = match length {
-        None => {
-            // If length is null, return the entire shared secret
-            shared_secret
-        },
-        Some(length) => {
-            ensure!(
-                length % 8 == 0,
-                Error::dom(
-                    "length must be a multiple of 8",
-                    DOMExceptionName::OperationError
-                )
-            );
-            ensure!(
-                length <= shared_secret_bits,
-                Error::dom(
-                    format!(
-                        "requested length {} exceeds shared secret length {}",
-                        length, shared_secret_bits
-                    ),
-                    DOMExceptionName::OperationError
-                )
-            );
-            // Return the first `length` bits (length/8 bytes)
-            shared_secret[..(length / 8)].to_vec()
-        },
-    };
-
-    Ok(output)
+    truncate_shared_secret(shared_secret, length)
 }

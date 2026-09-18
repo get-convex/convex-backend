@@ -22,7 +22,9 @@ use spki::der::{
 
 use super::{
     check_usages_subset,
+    ec,
     ensure,
+    truncate_shared_secret,
     CryptoKey,
     CryptoKeyKind,
     CryptoKeyPair,
@@ -287,6 +289,43 @@ impl X25519PrivateKey {
             )),
         }
     }
+}
+
+/// Perform X25519 key agreement to compute shared bits. Takes the same
+/// parameters as ECDH.
+pub fn derive_bits(
+    params: ec::EcdhKeyDeriveParams<impl AsRef<CryptoKey>>,
+    base_key: &CryptoKey,
+    length: Option<usize>,
+) -> Result<Vec<u8>> {
+    let CryptoKeyKind::X25519Private { key, .. } = &base_key.kind else {
+        return Err(Error::dom(
+            "Base key must be an X25519 private key",
+            DOMExceptionName::InvalidAccessError,
+        ));
+    };
+    let CryptoKeyKind::X25519Public {
+        key: public_key, ..
+    } = &params.public_key.as_ref().kind
+    else {
+        return Err(Error::dom(
+            "Public key must be an X25519 public key",
+            DOMExceptionName::InvalidAccessError,
+        ));
+    };
+    let peer_public_key = &public_key.public_key;
+    let shared_secret = agreement::agree(
+        &key.private_key,
+        peer_public_key,
+        // N.B.: this error is returned if the shared secret is all zero, as
+        // required by the WebCrypto spec.
+        Error::dom(
+            "X25519 key derivation failed",
+            DOMExceptionName::OperationError,
+        ),
+        |secret| Ok(secret.to_vec()),
+    )?;
+    truncate_shared_secret(shared_secret, length)
 }
 
 impl X25519PublicKey {

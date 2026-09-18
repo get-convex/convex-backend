@@ -48,6 +48,12 @@ pub fn derive_bits(
     key: &CryptoKey,
     length: Option<usize>,
 ) -> Result<Vec<u8>> {
+    let CryptoKeyKind::Pbkdf2 { key, .. } = &key.kind else {
+        return Err(Error::dom(
+            "Key algorithm mismatch",
+            DOMExceptionName::InvalidAccessError,
+        ));
+    };
     let Pbkdf2Params {
         hash,
         iterations,
@@ -79,12 +85,6 @@ pub fn derive_bits(
             DOMExceptionName::OperationError
         )
     );
-    let CryptoKeyKind::Pbkdf2 { key, .. } = &key.kind else {
-        return Err(Error::dom(
-            "Key algorithm mismatch",
-            DOMExceptionName::InvalidAccessError,
-        ));
-    };
     let algorithm = match hash {
         CryptoHash::Sha1 => pbkdf2::PBKDF2_HMAC_SHA1,
         CryptoHash::Sha256 => pbkdf2::PBKDF2_HMAC_SHA256,

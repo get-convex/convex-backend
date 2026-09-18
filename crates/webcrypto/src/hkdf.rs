@@ -48,6 +48,12 @@ pub fn derive_bits(
     key: &CryptoKey,
     length: Option<usize>,
 ) -> Result<Vec<u8>> {
+    let CryptoKeyKind::Hkdf { key, .. } = &key.kind else {
+        return Err(Error::dom(
+            "Key algorithm mismatch",
+            DOMExceptionName::InvalidAccessError,
+        ));
+    };
     let Some(length) = length else {
         return Err(Error::dom(
             "length cannot be null",
@@ -61,12 +67,6 @@ pub fn derive_bits(
             DOMExceptionName::OperationError
         )
     );
-    let CryptoKeyKind::Hkdf { key, .. } = &key.kind else {
-        return Err(Error::dom(
-            "Key algorithm mismatch",
-            DOMExceptionName::InvalidAccessError,
-        ));
-    };
     let HkdfParams { hash, salt, info } = algorithm;
     let algorithm = match hash {
         CryptoHash::Sha1 => hkdf::HKDF_SHA1_FOR_LEGACY_USE_ONLY,

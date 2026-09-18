@@ -74,3 +74,28 @@ pub mod nullary_algorithm {
         map.end()
     }
 }
+
+/// Deserializes an algorithm's `name`, which [algorithm normalization][norm]
+/// matches case-insensitively, through the type's [`FromStr`].
+///
+/// [norm]: https://w3c.github.io/webcrypto/#algorithm-normalization-normalize-an-algorithm
+pub mod algorithm_name {
+    use std::{
+        fmt::Display,
+        str::FromStr,
+    };
+
+    use serde::{
+        de::Error as _,
+        Deserialize,
+        Deserializer,
+    };
+
+    pub fn deserialize<'de, D: Deserializer<'de>, T: FromStr>(d: D) -> Result<T, D::Error>
+    where
+        T::Err: Display,
+    {
+        let name = String::deserialize(d)?;
+        T::from_str(&name).map_err(D::Error::custom)
+    }
+}

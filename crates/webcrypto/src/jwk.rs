@@ -118,6 +118,13 @@ impl JsonWebKey {
             );
         }
         if let Some(key_ops) = &self.key_ops {
+            ensure!(
+                key_ops.iter().all_unique(),
+                Error::dom(
+                    "JWK \"key_ops\" must not contain duplicates",
+                    DOMExceptionName::DataError
+                ),
+            );
             let allowed_usages: HashSet<_> = key_ops
                 .iter()
                 .filter_map(|s| s.parse::<KeyUsage>().ok())
