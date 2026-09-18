@@ -3088,6 +3088,31 @@
         }
       }
     },
+    "/teams/{team_id}/directory_sync/enable": {
+      "post": {
+        "operationId": "enable_directory_sync",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectorySyncResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/directory_sync/disable": {
       "post": {
         "operationId": "disable_directory_sync",
@@ -4525,6 +4550,9 @@
       },
       "DirectorySyncResponse": {
         "type": "object",
+        "required": [
+          "enabled"
+        ],
         "properties": {
           "directory": {
             "oneOf": [
@@ -4535,6 +4563,10 @@
                 "$ref": "#/components/schemas/DirectoryResponse"
               }
             ]
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether the team has turned directory management on. A directory can\nbe connected and mirrored without it; until this is set nothing from\nthe directory reaches team members."
           }
         }
       },

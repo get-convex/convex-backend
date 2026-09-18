@@ -53,7 +53,7 @@ const meta = {
     );
     mocked(useDisableDirectorySync).mockReturnValue(fn() as any);
     mocked(useGetDirectorySync).mockReturnValue({
-      data: { directory: null },
+      data: { directory: null, enabled: false },
       isLoading: false,
     });
   },
@@ -75,6 +75,7 @@ export const Configured: Story = {
           state: "linked",
           linked: true,
         },
+        enabled: false,
       },
       isLoading: false,
     });

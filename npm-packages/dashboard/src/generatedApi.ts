@@ -1755,6 +1755,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/directory_sync/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enable_directory_sync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/directory_sync/disable": {
         parameters: {
             query?: never;
@@ -2192,6 +2208,10 @@ export interface components {
         };
         DirectorySyncResponse: {
             directory?: null | components["schemas"]["DirectoryResponse"];
+            /** @description Whether the team has turned directory management on. A directory can
+             *     be connected and mirrored without it; until this is set nothing from
+             *     the directory reaches team members. */
+            enabled: boolean;
         };
         /** @enum {string} */
         DirectoryUserState: "active" | "inactive" | "suspended";
@@ -5629,6 +5649,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerateDirectorySyncConfigurationLinkResponse"];
+                };
+            };
+        };
+    };
+    enable_directory_sync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectorySyncResponse"];
                 };
             };
         };
