@@ -30,6 +30,7 @@ use common::{
     types::{
         AttributionClaims,
         DeploymentMetadata,
+        MemberId,
         ProjectId,
         TeamId,
     },
@@ -81,7 +82,8 @@ pub struct AiGatewayJwtClaims {
     pub deployment_class: Option<String>,
     /// Local JWTs carry project and team as signed billing identity because
     /// `AttributionClaims` only describes the calling function or component.
-    /// The local verifier requires both fields.
+    /// The local verifier requires both fields. memberId points to the local
+    /// user that is calling the AI gateway.
     #[serde(
         rename = "convex.projectId",
         default,
@@ -94,6 +96,12 @@ pub struct AiGatewayJwtClaims {
         skip_serializing_if = "Option::is_none"
     )]
     pub team_id: Option<TeamId>,
+    #[serde(
+        rename = "convex.memberId",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub member_id: Option<MemberId>,
     #[serde(
         rename = "convex.componentPath",
         default,
@@ -124,6 +132,7 @@ pub struct AuthenticatedDeployment {
     region: Option<String>,
     deployment_class: Option<String>,
     attribution: AttributionClaims,
+    member_id: Option<MemberId>,
     /// The verifier converts the issuer-specific wire claims above into this
     /// validated billing identity, eliminating partial project/team states.
     usage_owner: UsageOwner,
@@ -154,6 +163,10 @@ impl AuthenticatedDeployment {
 
     pub fn attribution(&self) -> &AttributionClaims {
         &self.attribution
+    }
+
+    pub fn member_id(&self) -> Option<MemberId> {
+        self.member_id
     }
 
     pub fn usage_owner(&self) -> UsageOwner {
@@ -294,6 +307,7 @@ impl LocalAiGatewayJwtSigner {
         instance_name: &str,
         project_id: ProjectId,
         team_id: TeamId,
+        member_id: MemberId,
         attribution: AttributionClaims,
         now: DateTime<Utc>,
     ) -> Result<Jwt, JwtError> {
@@ -309,6 +323,7 @@ impl LocalAiGatewayJwtSigner {
                 version: AI_GATEWAY_JWT_VERSION,
                 project_id: Some(project_id),
                 team_id: Some(team_id),
+                member_id: Some(member_id),
                 component_path,
                 function_name,
                 function_type,
@@ -334,7 +349,10 @@ impl AiGatewayJwtVerifier {
         now: DateTime<Utc>,
     ) -> Result<AuthenticatedDeployment, JwtError> {
         let claims = verify_claims(&self.0, token, now, AI_GATEWAY_JWT_ISSUER)?;
-        if claims.private.project_id.is_some() || claims.private.team_id.is_some() {
+        if claims.private.project_id.is_some()
+            || claims.private.team_id.is_some()
+            || claims.private.member_id.is_some()
+        {
             return Err(JwtError::InvalidToken);
         }
         let instance_name = claims.registered.subject.ok_or(JwtError::InvalidToken)?;
@@ -348,6 +366,7 @@ impl AiGatewayJwtVerifier {
             region: claims.private.region,
             deployment_class: claims.private.deployment_class,
             attribution,
+            member_id: None,
             usage_owner: UsageOwner::Deployment,
         })
     }
@@ -373,6 +392,7 @@ impl LocalAiGatewayJwtVerifier {
         let instance_name = claims.registered.subject.ok_or(JwtError::InvalidToken)?;
         let project_id = claims.private.project_id.ok_or(JwtError::InvalidToken)?;
         let team_id = claims.private.team_id.ok_or(JwtError::InvalidToken)?;
+        let member_id = claims.private.member_id;
         let attribution = AttributionClaims {
             component_path: claims.private.component_path,
             function_name: claims.private.function_name,
@@ -383,6 +403,7 @@ impl LocalAiGatewayJwtVerifier {
             region: None,
             deployment_class: None,
             attribution,
+            member_id,
             usage_owner: UsageOwner::Project {
                 project_id,
                 team_id,
