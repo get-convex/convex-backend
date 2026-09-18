@@ -39,6 +39,7 @@ use tantivy::{
     Index,
     IndexReader,
     IndexWriter,
+    ReloadPolicy,
 };
 use tokio::{
     fs,
@@ -84,7 +85,17 @@ pub async fn index_reader_for_directory<P: AsRef<Path>>(
     index
         .tokenizers()
         .register(CONVEX_EN_TOKENIZER, convex_en());
-    let reader = index.reader()?;
+    // These directories hold an immutable snapshot of one committed segment
+    // that this process never writes to, and every caller takes
+    // `reader.searcher()` immediately and never reloads. The default
+    // `ReloadPolicy::OnCommit` spawns a thread per reader that polls
+    // `meta.json` every 500ms for the reader's whole lifetime, and once the
+    // archive cache deletes the directory that thread warns about the missing
+    // file twice a second forever.
+    let reader = index
+        .reader_builder()
+        .reload_policy(ReloadPolicy::Manual)
+        .try_into()?;
     timer.finish();
     Ok(reader)
 }
