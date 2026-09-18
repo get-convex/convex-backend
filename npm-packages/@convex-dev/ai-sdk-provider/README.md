@@ -88,3 +88,47 @@ in an action and reuses it for later calls, so `convexGateway(...)` is fine to
 call more than once. The provider takes no API key.
 
 Requires Convex 1.45 or later, AI SDK 7, and Node.js 22 or later.
+
+## Generate images
+
+```ts
+import { generateImage } from "ai";
+import { convexGateway } from "@convex-dev/ai-sdk-provider";
+
+const { images } = await generateImage({
+  model: convexGateway.imageModel("openai/gpt-image-1"),
+  prompt: "A mountain lake at sunrise",
+});
+```
+
+## Generate videos
+
+```ts
+import { experimental_generateVideo as generateVideo } from "ai";
+import { convexGateway } from "@convex-dev/ai-sdk-provider";
+
+const { video, providerMetadata } = await generateVideo({
+  model: convexGateway.videoModel("google/veo-3.1"),
+  prompt: "A camera pan across a mountain lake",
+  duration: 8,
+  aspectRatio: "16:9",
+  resolution: "1280x720",
+});
+
+const bytes = video.uint8Array;
+const cost = providerMetadata?.convexGateway?.cost;
+```
+
+The call waits for generation and download, with a ten-minute default timeout
+and a 64 MiB limit per video. Store the returned bytes in Convex file storage.
+The AI SDK splits `n > 1` into separate requests. Cancelling a request does not
+cancel the upstream job and can still incur a charge.
+
+An image in the prompt becomes the first frame. Use `frameImages` for explicit
+frames, `inputReferences` for image/audio/video references, and `generateAudio`
+for audio. `fps` returns an unsupported-option warning.
+
+`providerOptions.convexGateway` accepts `resolution` (such as `720p`),
+`generate_audio`, `frame_images`, and `input_references`. Standard SDK options
+take precedence. Supported values depend on the
+[OpenRouter model](https://openrouter.ai/docs/guides/overview/multimodal/video-generation).

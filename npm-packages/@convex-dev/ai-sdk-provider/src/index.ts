@@ -12,10 +12,12 @@ import {
   wrapLanguageModel,
 } from "ai";
 import { getServiceToken } from "convex/server";
+import { createVideoModel } from "./video-model.js";
 
 type Provider = ReturnType<typeof createOpenAICompatible>;
 type ChatModel = ReturnType<Provider>;
 type EmbeddingModel = ReturnType<Provider["embeddingModel"]>;
+type ImageModel = ReturnType<Provider["imageModel"]>;
 type LanguageModel = Parameters<typeof wrapLanguageModel>[0]["model"];
 type GatewayLanguageModel = ReturnType<typeof wrapLanguageModel>;
 
@@ -416,4 +418,19 @@ convexGateway.embeddingModel = function (modelId: string): EmbeddingModel {
       overrideMaxEmbeddingsPerCall: () => maxEmbeddingsPerCall,
     },
   });
+};
+
+/** Image model for the AI SDK's `generateImage`. */
+convexGateway.imageModel = function (modelId: string): ImageModel {
+  return createGatewayProvider().imageModel(modelId);
+};
+
+/** Video generation for the AI SDK's `experimental_generateVideo`. */
+convexGateway.videoModel = function (modelId: string) {
+  return createVideoModel(
+    modelId,
+    gatewayBaseURL(),
+    gatewayFetch,
+    convexGatewayUsageMetadata,
+  );
 };

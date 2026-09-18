@@ -20,6 +20,7 @@
   "files": [
     "dist",
     "src/index.ts",
+    "src/video-model.ts",
     "LICENSE"
   ],
   "tshy": {
