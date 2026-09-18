@@ -33,7 +33,8 @@ use common::{
     },
 };
 use futures::{
-    try_join,
+    stream,
+    StreamExt,
     TryStreamExt,
 };
 use itertools::Itertools;
@@ -67,7 +68,6 @@ use tantivy::{
 use text_search::tracker::StaticDeletionTracker;
 use value::InternalId;
 use vector::{
-    qdrant_segments::UntarredVectorDiskSegmentPaths,
     result_merger::merge_vector_results_stream,
     CompiledVectorSearch,
     QdrantSchema,
@@ -83,7 +83,6 @@ use super::{
     },
     segment_cache::{
         SizedVectorSegment,
-        TextDiskSegmentPaths,
         TextSegment,
         TextSegmentCache,
         VectorSegmentCache,
@@ -293,16 +292,18 @@ impl<RT: Runtime> SearcherImpl<RT> {
         );
         Ok(Self {
             rt: runtime.clone(),
-            archive_cache,
+            archive_cache: archive_cache.clone(),
             vector_segment_cache: VectorSegmentCache::new(
                 runtime.clone(),
                 *MAX_VECTOR_LRU_SIZE,
+                fragmented_segment_fetcher.clone(),
                 vector_search_pool.clone(),
                 *MAX_CONCURRENT_VECTOR_SEARCHES,
             ),
             text_segment_cache: TextSegmentCache::new(
                 runtime,
                 *MAX_TEXT_LRU_ENTRIES,
+                archive_cache.clone(),
                 text_search_pool,
                 *MAX_CONCURRENT_TEXT_SEARCHES,
             ),
@@ -358,9 +359,14 @@ impl<RT: Runtime> SearcherImpl<RT> {
 
     async fn load_fragmented_segment(
         &self,
-        paths: UntarredVectorDiskSegmentPaths,
+        search_storage: Arc<dyn Storage>,
+        fragment: FragmentedVectorSegmentPaths,
+        labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Arc<SizedVectorSegment>> {
-        self.vector_segment_cache.get(paths).await
+        let keys: FragmentedSegmentStorageKeys = fragment.try_into()?;
+        self.vector_segment_cache
+            .get(search_storage, keys, labels)
+            .await
     }
 
     async fn vector_query_segment(
@@ -398,61 +404,15 @@ impl<RT: Runtime> SearcherImpl<RT> {
         self.vector_search_pool.execute(search).await?
     }
 
-    async fn load_text_segment_paths(
-        &self,
-        storage: Arc<dyn Storage>,
-        FragmentedTextStorageKeys {
-            segment,
-            id_tracker,
-            deleted_terms_table,
-            alive_bitset,
-        }: FragmentedTextStorageKeys,
-        labels: SearchIndexMetricLabels<'_>,
-    ) -> anyhow::Result<TextDiskSegmentPaths> {
-        let (index_path, alive_bitset_path, deleted_term_path, id_tracker_path) = try_join!(
-            self.archive_cache.get(
-                storage.clone(),
-                &segment,
-                SearchFileType::Text,
-                labels.clone(),
-            ),
-            self.archive_cache.get_single_file(
-                storage.clone(),
-                &alive_bitset,
-                SearchFileType::TextAliveBitset,
-                labels.clone(),
-            ),
-            self.archive_cache.get_single_file(
-                storage.clone(),
-                &deleted_terms_table,
-                SearchFileType::TextDeletedTerms,
-                labels.clone(),
-            ),
-            self.archive_cache.get_single_file(
-                storage.clone(),
-                &id_tracker,
-                SearchFileType::TextIdTracker,
-                labels,
-            )
-        )?;
-        Ok(TextDiskSegmentPaths {
-            index_path,
-            alive_bitset_path,
-            deleted_terms_table_path: deleted_term_path,
-            id_tracker_path,
-        })
-    }
-
     async fn load_text_segment(
         &self,
         storage: Arc<dyn Storage>,
         text_storage_keys: FragmentedTextStorageKeys,
         labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<Arc<TextSegment>> {
-        let paths = self
-            .load_text_segment_paths(storage, text_storage_keys, labels)
-            .await?;
-        self.text_segment_cache.get(paths).await
+        self.text_segment_cache
+            .get(storage, text_storage_keys, labels)
+            .await
     }
 }
 
@@ -546,11 +506,11 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
         labels: SearchIndexMetricLabels<'_>,
     ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>> {
         let timer = text_query_term_ordinals_searcher_timer();
-        let segment_path = self
+        let segment_archive = self
             .archive_cache
             .get(search_storage, &segment, SearchFileType::Text, labels)
             .await?;
-        let reader = index_reader_for_directory(segment_path).await?;
+        let reader = index_reader_for_directory(&segment_archive).await?;
         let searcher = reader.searcher();
 
         // Multisegment indexes only write to one segment.
@@ -595,10 +555,14 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
             // Use shared result merger to merge results from all segments using
             // a min-heap approach. This avoids storing all intermediate results
             // from parallel segment fetches in-memory.
-            let results_stream = self
-                .fragmented_segment_fetcher
-                .stream_fetch_fragmented_segments(search_storage, fragments, labels)
-                .and_then(|paths| self.load_fragmented_segment(paths))
+            let results_stream = stream::iter(fragments)
+                .map(|fragment| {
+                    self.load_fragmented_segment(search_storage.clone(), fragment, labels.clone())
+                })
+                // Limit the parallel downloads a bit, we don't want to start and finish all
+                // downloads at the same time. We want to be downloading and working with
+                // segments concurrently.
+                .buffer_unordered(4)
                 .and_then(|segment| {
                     self.vector_query_segment(
                         schema.clone(),
@@ -655,6 +619,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 deletion_tracker,
                 id_tracker: _,
                 segment_ord,
+                ..
             } => {
                 let segment = searcher.segment_reader(*segment_ord);
                 anyhow::ensure!(max_results <= MAX_UNIQUE_QUERY_TERMS);
@@ -820,6 +785,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 deletion_tracker,
                 id_tracker: _,
                 segment_ord,
+                ..
             } => {
                 let segment = searcher.segment_reader(*segment_ord);
                 let fields: BTreeSet<Field> = terms.iter().map(|t| t.field()).collect();
@@ -899,6 +865,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 deletion_tracker,
                 id_tracker,
                 segment_ord,
+                ..
             } => {
                 let stats_provider = StatsProvider {
                     num_terms_by_field: query.num_terms_by_field,
@@ -1055,7 +1022,7 @@ impl TryFrom<TokenMatch> for pb::searchlight::TokenMatch {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct FragmentedTextStorageKeys {
     pub segment: ObjectKey,
     pub id_tracker: ObjectKey,

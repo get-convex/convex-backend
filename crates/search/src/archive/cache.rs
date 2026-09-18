@@ -1,5 +1,7 @@
 use std::{
+    fmt,
     io,
+    ops::Deref,
     path::{
         Path,
         PathBuf,
@@ -111,6 +113,44 @@ impl SizedValue for IndexMeta {
     }
 }
 
+/// A handle to an archive extracted by an [`ArchiveCacheManager`].
+///
+/// The extracted files stay on disk for as long as any handle to them exists:
+/// evicting the entry from the manager only drops the manager's own reference.
+/// Anything that opens files under `path` (a tantivy reader, a qdrant segment,
+/// an mmap) must therefore keep the handle alive for as long as it uses them.
+#[derive(Clone)]
+pub struct CachedArchive {
+    path: PathBuf,
+    _meta: Arc<IndexMeta>,
+}
+
+impl CachedArchive {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Deref for CachedArchive {
+    type Target = Path;
+
+    fn deref(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl AsRef<Path> for CachedArchive {
+    fn as_ref(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl fmt::Debug for CachedArchive {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.path.fmt(f)
+    }
+}
+
 /// A specialized LRU cache for storing archives of Tantivy and Qdrant indexes.
 /// The manager is constructed with a storage directory and a max size.
 ///
@@ -124,6 +164,12 @@ impl SizedValue for IndexMeta {
 /// The manager asynchronously prunes old entries when the cache is "over
 /// quota". As this pruning is performed after archives are added to the cache,
 /// the manager will transiently exceed the configured `max_size`.
+///
+/// `get()` returns a [`CachedArchive`] handle, and an extracted directory is
+/// only deleted once the manager has evicted it *and* every handle to it has
+/// been dropped. `max_size` therefore bounds the bytes the manager itself
+/// retains; directories pinned by outstanding handles (in practice, the entries
+/// of the in-memory segment caches) can add to that.
 ///
 /// In the interest of hot-path performance, any deletion or pruning operations
 /// are best-effort and are spawned to the thread pool rather than occurring in
@@ -347,8 +393,8 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         self.max_size
     }
 
-    /// Get the absolute path for the directory referenced by a given key.
-    /// Fetches the archive from storage if it doesn't already exist on disk.
+    /// Get a handle to the extracted directory for a given key. Fetches the
+    /// archive from storage if it doesn't already exist on disk.
     #[fastrace::trace]
     pub async fn get(
         &self,
@@ -356,7 +402,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         key: &ObjectKey,
         search_file_type: SearchFileType,
         metric_labels: SearchIndexMetricLabels<'_>,
-    ) -> anyhow::Result<PathBuf> {
+    ) -> anyhow::Result<CachedArchive> {
         let timer = metrics::archive_get_timer(search_file_type);
         let result = self
             .get_logged(search_storage, key, search_file_type, metric_labels)
@@ -372,13 +418,13 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         storage_path: &ObjectKey,
         file_type: SearchFileType,
         metric_labels: SearchIndexMetricLabels<'_>,
-    ) -> anyhow::Result<PathBuf> {
+    ) -> anyhow::Result<CachedArchive> {
         // The archive cache always dumps things into directories, but we want a
         // specific file path.
-        let parent_dir: PathBuf = self
+        let parent_dir = self
             .get(search_storage, storage_path, file_type, metric_labels)
             .await?;
-        let mut read_dir = fs::read_dir(parent_dir).await?;
+        let mut read_dir = fs::read_dir(parent_dir.path()).await?;
         let mut paths = Vec::with_capacity(1);
         while let Some(entry) = read_dir.next_entry().await? {
             paths.push(entry.path());
@@ -388,7 +434,10 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
             "Expected one file but found multiple paths: {:?}",
             paths,
         );
-        Ok(paths[0].to_owned())
+        Ok(CachedArchive {
+            path: paths.pop().expect("checked above"),
+            _meta: parent_dir._meta,
+        })
     }
 
     async fn get_logged(
@@ -397,7 +446,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         key: &ObjectKey,
         search_file_type: SearchFileType,
         metric_labels: SearchIndexMetricLabels<'_>,
-    ) -> anyhow::Result<PathBuf> {
+    ) -> anyhow::Result<CachedArchive> {
         let archive_fetcher = ArchiveFetcher {
             cache_path: self.path.clone(),
             rt: self.rt.clone(),
@@ -433,7 +482,10 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         );
         metrics::log_bytes_used(current_size, self.max_size);
 
-        Ok(result.path.clone())
+        Ok(CachedArchive {
+            path,
+            _meta: result,
+        })
     }
 }
 
