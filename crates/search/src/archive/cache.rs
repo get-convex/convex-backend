@@ -1,6 +1,7 @@
 use std::{
     fmt,
     io,
+    mem,
     ops::Deref,
     path::{
         Path,
@@ -57,13 +58,11 @@ use super::{
 };
 use crate::SearchFileType;
 
+/// Owns the directory a fetch extracts into, from the moment the fetch starts
+/// until the cache entry built from it is dropped. Dropping it deletes the
+/// directory. `size` is 0 until extraction finishes, so a fetch that fails or
+/// times out has no bytes to subtract from the accounting.
 struct IndexTempDir {
-    dir: PathBuf,
-    cleaner: CacheCleaner,
-    search_file_type: SearchFileType,
-}
-
-struct IndexTempDirWithSize {
     dir: PathBuf,
     cleaner: CacheCleaner,
     search_file_type: SearchFileType,
@@ -71,11 +70,13 @@ struct IndexTempDirWithSize {
     size: u64,
 }
 
-impl Drop for IndexTempDirWithSize {
+impl Drop for IndexTempDir {
     fn drop(&mut self) {
-        let _ = self
-            .cleaner
-            .attempt_cleanup(self.dir.clone(), self.search_file_type, self.size);
+        let _ = self.cleaner.attempt_cleanup(
+            mem::take(&mut self.dir),
+            self.search_file_type,
+            self.size,
+        );
         metrics::adjust_archive_bytes_for_index(
             -(self.size as i64),
             self.search_file_type,
@@ -84,32 +85,15 @@ impl Drop for IndexTempDirWithSize {
     }
 }
 
-impl IndexTempDirWithSize {
-    pub fn new(
-        index_temp_dir: IndexTempDir,
-        metric_labels: SearchIndexMetricLabels<'static>,
-        size: u64,
-    ) -> Self {
-        Self {
-            dir: index_temp_dir.dir,
-            cleaner: index_temp_dir.cleaner,
-            search_file_type: index_temp_dir.search_file_type,
-            metric_labels,
-            size,
-        }
-    }
-}
-
 struct IndexMeta {
-    size: u64,
     /// A path under `tempdir.dir`; may not be the directory itself
     path: PathBuf,
-    _tempdir: IndexTempDirWithSize,
+    tempdir: IndexTempDir,
 }
 
 impl SizedValue for IndexMeta {
     fn size(&self) -> u64 {
-        self.size
+        self.tempdir.size
     }
 }
 
@@ -223,8 +207,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         search_storage: Arc<dyn Storage>,
         key: ObjectKey,
         search_file_type: SearchFileType,
-        destination: IndexTempDir,
-        metric_labels: SearchIndexMetricLabels<'static>,
+        mut destination: IndexTempDir,
     ) -> anyhow::Result<IndexMeta> {
         let timer = metrics::archive_fetch_timer();
         let archive = search_storage
@@ -247,11 +230,11 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         metrics::adjust_archive_bytes_for_index(
             bytes_used as i64,
             search_file_type,
-            metric_labels.clone(),
+            destination.metric_labels.clone(),
         );
+        destination.size = bytes_used;
         Ok(IndexMeta {
-            _tempdir: IndexTempDirWithSize::new(destination, metric_labels, bytes_used),
-            size: bytes_used,
+            tempdir: destination,
             path,
         })
     }
@@ -321,6 +304,8 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
             cleaner: self.cleaner.clone(),
             dir: destination.clone(),
             search_file_type,
+            metric_labels,
+            size: 0,
         };
         let new_self = self.clone();
         let new_key = key.clone();
@@ -329,13 +314,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         let fetch_fut = self
             .blocking_thread_pool
             .execute_async(move || {
-                new_self.fetch(
-                    search_storage,
-                    new_key,
-                    search_file_type,
-                    tempdir,
-                    metric_labels,
-                )
+                new_self.fetch(search_storage, new_key, search_file_type, tempdir)
             })
             .fuse();
         pin_mut!(fetch_fut);
