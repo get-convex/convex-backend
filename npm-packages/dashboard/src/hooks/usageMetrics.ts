@@ -87,6 +87,8 @@ export type BackupStorageSummary = {
 // functions that fall outside the top-N it returns, so project totals stay exact.
 export const REST_OF_FUNCTIONS = "_rest";
 
+export type UsageDeploymentType = DeploymentType | "local";
+
 export interface AggregatedFunctionMetrics {
   function: string;
   projectId: number;
@@ -101,7 +103,7 @@ export interface AggregatedFunctionMetrics {
   dataEgress: number; // bytes
   aiGatewayCost: number; // dollars
   // Null on the `_rest` row, which spans every deployment type.
-  deploymentType: DeploymentType | null;
+  deploymentType: UsageDeploymentType | null;
   componentPath: string;
 }
 
@@ -311,7 +313,7 @@ export function useUsageTeamMetricsByFunction(
         actionComputeNodeTime: Number(actionComputeNodeTime) / 60 / 60,
         dataEgress: Number(dataEgress),
         // SQL NULL arrives as "" (see useUsageQuery).
-        deploymentType: (deploymentType || null) as DeploymentType | null,
+        deploymentType: (deploymentType || null) as UsageDeploymentType | null,
         componentPath,
         aiGatewayCost: Number(aiGatewayCost),
       }),
