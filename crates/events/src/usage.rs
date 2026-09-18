@@ -114,6 +114,7 @@ pub enum UsageEvent {
         ingress: u64,
         egress: u64,
     },
+    /// All database bandwidth a single function execution used on one table.
     DatabaseBandwidth {
         id: String,
         request_id: String,

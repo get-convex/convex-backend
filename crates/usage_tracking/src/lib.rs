@@ -348,115 +348,70 @@ impl UsageCounter {
                 egress,
             });
         }
-        // Merge "by table" bandwidth stats.
-        for ((component_path, table_name), ingress) in stats.database_ingress {
-            usage_metrics.push(UsageEvent::DatabaseBandwidth {
-                id: execution_id.to_string(),
-                request_id: request_id.to_string(),
-                component_path: component_path.serialize(),
-                udf_id: udf_id.clone(),
-                table_name,
-                ingress,
-                ingress_v2: 0,
-                egress: 0,
-                egress_rows: 0,
-                egress_v2: 0,
-                virtual_table_ingress: 0,
-                virtual_table_egress: 0,
-            });
+        // Merge the "by table" bandwidth stats. They're tracked in separate
+        // maps but describe the same access, so they're reported as one event
+        // per (component, table).
+        #[derive(Default)]
+        struct DatabaseBandwidthCounters {
+            ingress: u64,
+            ingress_v2: u64,
+            egress: u64,
+            egress_rows: u64,
+            egress_v2: u64,
+            virtual_table_ingress: u64,
+            virtual_table_egress: u64,
         }
-        for ((component_path, table_name), ingress) in stats.database_ingress_v2 {
-            usage_metrics.push(UsageEvent::DatabaseBandwidth {
-                id: execution_id.to_string(),
-                request_id: request_id.to_string(),
-                component_path: component_path.serialize(),
-                udf_id: udf_id.clone(),
-                table_name,
-                ingress: 0,
-                ingress_v2: ingress,
-                egress: 0,
-                egress_rows: 0,
-                egress_v2: 0,
-                virtual_table_ingress: 0,
-                virtual_table_egress: 0,
-            });
+        let mut database_bandwidth: BTreeMap<
+            (ComponentPath, TableNameString),
+            DatabaseBandwidthCounters,
+        > = BTreeMap::new();
+        for (key, ingress) in stats.database_ingress {
+            database_bandwidth.entry(key).or_default().ingress += ingress;
         }
-        for ((component_path, table_name), egress) in stats.database_egress.clone() {
-            let rows = stats
-                .database_egress_rows
-                .get(&(component_path.clone(), table_name.clone()))
-                .unwrap_or(&0);
-            usage_metrics.push(UsageEvent::DatabaseBandwidth {
-                id: execution_id.to_string(),
-                request_id: request_id.to_string(),
-                component_path: component_path.serialize(),
-                udf_id: udf_id.clone(),
-                table_name,
-                ingress: 0,
-                ingress_v2: 0,
-                egress,
-                egress_rows: *rows,
-                egress_v2: 0,
-                virtual_table_ingress: 0,
-                virtual_table_egress: 0,
-            });
+        for (key, ingress) in stats.database_ingress_v2 {
+            database_bandwidth.entry(key).or_default().ingress_v2 += ingress;
         }
-        for ((component_path, table_name), egress) in stats.database_egress_v2.clone() {
-            let rows = stats
-                .database_egress_rows
-                .get(&(component_path.clone(), table_name.clone()))
-                .unwrap_or(&0);
-            usage_metrics.push(UsageEvent::DatabaseBandwidth {
-                id: execution_id.to_string(),
-                request_id: request_id.to_string(),
-                component_path: component_path.serialize(),
-                udf_id: udf_id.clone(),
-                table_name,
-                ingress: 0,
-                ingress_v2: 0,
-                egress: 0,
-                egress_rows: *rows,
-                egress_v2: egress,
-                virtual_table_ingress: 0,
-                virtual_table_egress: 0,
-            });
+        for (key, egress) in stats.database_egress {
+            database_bandwidth.entry(key).or_default().egress += egress;
         }
-        for ((component_path, table_name), ingress) in stats.virtual_table_ingress {
-            usage_metrics.push(UsageEvent::DatabaseBandwidth {
-                id: execution_id.to_string(),
-                request_id: request_id.to_string(),
-                component_path: component_path.serialize(),
-                udf_id: udf_id.clone(),
-                table_name,
-                ingress: 0,
-                ingress_v2: 0,
-                egress: 0,
-                egress_rows: 0,
-                egress_v2: 0,
-                virtual_table_ingress: ingress,
-                virtual_table_egress: 0,
-            });
+        for (key, egress) in stats.database_egress_v2 {
+            database_bandwidth.entry(key).or_default().egress_v2 += egress;
         }
-        for ((component_path, table_name), egress) in stats.virtual_table_egress {
+        for (key, egress_rows) in stats.database_egress_rows {
+            database_bandwidth.entry(key).or_default().egress_rows += egress_rows;
+        }
+        for (key, ingress) in stats.virtual_table_ingress {
+            database_bandwidth
+                .entry(key)
+                .or_default()
+                .virtual_table_ingress += ingress;
+        }
+        for (key, egress) in stats.virtual_table_egress {
+            database_bandwidth
+                .entry(key)
+                .or_default()
+                .virtual_table_egress += egress;
+        }
+        for ((component_path, table_name), bandwidth) in &database_bandwidth {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
                 request_id: request_id.to_string(),
-                component_path: component_path.serialize(),
+                component_path: component_path.clone().serialize(),
                 udf_id: udf_id.clone(),
-                table_name,
-                ingress: 0,
-                ingress_v2: 0,
-                egress: 0,
-                egress_rows: 0,
-                egress_v2: 0,
-                virtual_table_ingress: 0,
-                virtual_table_egress: egress,
+                table_name: table_name.clone(),
+                ingress: bandwidth.ingress,
+                ingress_v2: bandwidth.ingress_v2,
+                egress: bandwidth.egress,
+                egress_rows: bandwidth.egress_rows,
+                egress_v2: bandwidth.egress_v2,
+                virtual_table_ingress: bandwidth.virtual_table_ingress,
+                virtual_table_egress: bandwidth.virtual_table_egress,
             });
         }
 
         // Check read limits and add InsightReadLimit event if thresholds are exceeded
-        let total_rows: u64 = stats.database_egress_rows.values().sum();
-        let total_bytes: u64 = stats.database_egress.values().sum();
+        let total_rows: u64 = database_bandwidth.values().map(|b| b.egress_rows).sum();
+        let total_bytes: u64 = database_bandwidth.values().map(|b| b.egress).sum();
 
         let row_threshold =
             (*TRANSACTION_MAX_READ_SIZE_ROWS as f64 * *FUNCTION_LIMIT_WARNING_RATIO) as u64;
@@ -468,29 +423,23 @@ impl UsageCounter {
 
         if did_exceed_document_threshold || did_exceed_byte_threshold {
             let mut calls = Vec::new();
-            let component_path: Option<ComponentPath> =
-                match stats.database_egress_rows.first_key_value() {
-                    Some(((component_path, _), _)) => Some(component_path.clone()),
-                    None => {
-                        tracing::error!(
-                            "Failed to find component path despite thresholds being exceeded"
-                        );
-                        None
-                    },
-                };
+            let component_path = database_bandwidth
+                .iter()
+                .find(|(_, bandwidth)| bandwidth.egress_rows > 0)
+                .map(|((component_path, _), _)| component_path.clone());
+            if component_path.is_none() {
+                tracing::error!("Failed to find component path despite thresholds being exceeded");
+            }
 
             if let Some(component_path) = component_path {
-                for ((cp, table_name), egress_rows) in stats.database_egress_rows.into_iter() {
-                    let egress = stats
-                        .database_egress
-                        .get(&(cp, table_name.clone()))
-                        .copied()
-                        .unwrap_or(0);
-
+                for ((_, table_name), bandwidth) in &database_bandwidth {
+                    if bandwidth.egress_rows == 0 {
+                        continue;
+                    }
                     calls.push(InsightReadLimitCall {
-                        table_name,
-                        bytes_read: egress,
-                        documents_read: egress_rows,
+                        table_name: table_name.clone(),
+                        bytes_read: bandwidth.egress,
+                        documents_read: bandwidth.egress_rows,
                     });
                 }
 
