@@ -913,6 +913,18 @@ impl TryFrom<ClientDrivenUploadToken> for ClientDrivenUpload {
     }
 }
 
+/// Removes the file backing a `LocalDirStorage` object. An already-absent file
+/// is a success, matching S3 DeleteObject semantics. A missing storage root is
+/// an error: treating it as success would let the caller record a deletion
+/// that never durably happened.
+fn remove_local_object(storage_root: &Path, path: &Path) -> anyhow::Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::NotFound && storage_root.exists() => Ok(()),
+        Err(e) => Err(e).with_context(|| format!("Failed to delete {}", path.display())),
+    }
+}
+
 #[async_trait]
 impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     async fn start_upload(&self) -> anyhow::Result<Box<BufferedUpload>> {
@@ -1097,8 +1109,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()> {
         let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
-        fs::remove_file(path)?;
-        Ok(())
+        remove_local_object(&self.dir, &path)
     }
 
     async fn put_object(&self, key: ObjectKey, bytes: Bytes) -> anyhow::Result<()> {
