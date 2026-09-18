@@ -138,6 +138,20 @@ impl TryFrom<ErrorMetadataProto> for ErrorMetadata {
     }
 }
 
+fn has_connection_reset_source(status: &tonic::Status) -> bool {
+    let mut source = status.source();
+    while let Some(error) = source {
+        if error
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|error| error.kind() == std::io::ErrorKind::ConnectionReset)
+        {
+            return true;
+        }
+        source = error.source();
+    }
+    false
+}
+
 pub trait ErrorMetadataStatusExt {
     fn from_anyhow(error: anyhow::Error) -> Self;
     fn into_anyhow(self) -> anyhow::Error;
@@ -162,6 +176,7 @@ impl ErrorMetadataStatusExt for tonic::Status {
 
     fn into_anyhow(self) -> anyhow::Error {
         let code = self.code();
+        let is_connection_reset = has_connection_reset_source(&self);
         let details = match StatusDetailsProto::decode(self.details()) {
             Ok(details) => details,
             Err(err) => {
@@ -183,7 +198,11 @@ impl ErrorMetadataStatusExt for tonic::Status {
                 Err(err) => return err.context("Failed to parse ErrorMetadata proto"),
             };
             error = error.context(error_metadata)
-        } else if code == tonic::Code::ResourceExhausted {
+        } else if code == tonic::Code::ResourceExhausted
+            || (code == tonic::Code::Unknown && is_connection_reset)
+        {
+            // A push can cut off an active connection, which Tonic reports as a
+            // source-backed `Unknown` rather than `Unavailable`.
             error = error.context(ErrorMetadata::overloaded(
                 INTERNAL_SERVER_ERROR,
                 INTERNAL_SERVER_ERROR_MSG,
