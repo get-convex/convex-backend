@@ -292,8 +292,8 @@ const PROGRESS_LOG_INTERVAL: Duration = Duration::from_secs(15);
 /// Progress is informational, so a failure to read it is logged and the sync
 /// carries on.
 async fn log_progress(source: &impl Source, sync_id: &SyncId) {
-    let listing = match source.list_active_syncs().await {
-        Ok(listing) => listing,
+    let sync = match source.get_active_sync(sync_id).await {
+        Ok(sync) => sync,
         Err(e) => {
             log(&format!(
                 "Could not read the progress of data sync {sync_id} from {source}: {e}"
@@ -301,10 +301,7 @@ async fn log_progress(source: &impl Source, sync_id: &SyncId) {
             return;
         },
     };
-    let Some(sync) = listing.syncs.iter().find(|sync| &sync.sync_id == sync_id) else {
-        return;
-    };
-    let progress = match &sync.status {
+    let progress = match sync.status {
         ActiveDataSyncStatus::Snapshotting(snapshotting) => format!(
             "taking an initial snapshot: {} of {} documents ({}), on table {} ({} of {} tables)",
             snapshotting.num_documents_synced,

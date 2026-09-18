@@ -8,11 +8,12 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::types::streaming_export::{
     selection::Selection,
+    ActiveDataSync,
     DataSyncArgs,
     DataSyncCursorFromDeltasArgs,
     DataSyncCursorFromDeltasResponse,
     DataSyncResponse,
-    ListActiveSyncsResponse,
+    SyncId,
 };
 use derive_more::Display;
 use fivetran_common::config::Config;
@@ -60,8 +61,8 @@ pub trait Source: Display + Send + Sync {
         selection: Selection,
     ) -> anyhow::Result<String>;
 
-    /// The deployment's view of the progress of each recently active data sync.
-    async fn list_active_syncs(&self) -> anyhow::Result<ListActiveSyncsResponse>;
+    /// The deployment's view of this data sync's progress.
+    async fn get_active_sync(&self, sync_id: &SyncId) -> anyhow::Result<ActiveDataSync>;
 
     /// Get a list of columns for each table and component on the Convex
     /// backend.
@@ -184,8 +185,8 @@ impl Source for ConvexApi {
         Ok(response.cursor)
     }
 
-    async fn list_active_syncs(&self) -> anyhow::Result<ListActiveSyncsResponse> {
-        self.get("v1/data/list_active_syncs").await
+    async fn get_active_sync(&self, sync_id: &SyncId) -> anyhow::Result<ActiveDataSync> {
+        self.get(&format!("v1/data/sync/{sync_id}")).await
     }
 
     async fn get_table_column_names(
