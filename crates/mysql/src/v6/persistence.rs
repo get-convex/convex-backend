@@ -36,6 +36,7 @@ use common::{
         DocumentPrevTsQuery,
         DocumentRevisionStream,
         DocumentStream,
+        IndexBackfillEntry,
         IndexRetentionProgress,
         IndexRetentionRequest,
         IndexStream,
@@ -736,7 +737,7 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
             anyhow::ensure!(
                 revisions.contains(&(ts, document_id)),
                 "MySQL V6 index write replaces an entry of document {document_id} at {ts} without \
-                 that document revision (index backfill is unimplemented)"
+                 that document revision"
             );
         }
         let cluster_name = self.inner.pool.cluster_name();
@@ -783,6 +784,70 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
             .await?;
         if !document_updates.is_empty() || !index_updates.is_empty() {
             self.inner.fresh.store(false, Ordering::SeqCst);
+        }
+        Ok(())
+    }
+
+    #[fastrace::trace]
+    async fn write_index_backfill(&self, entries: &[IndexBackfillEntry]) -> anyhow::Result<()> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+        metrics::log_index_write_bytes(entries.iter().map(ApproxSize::approx_size).sum());
+        let rows = self.inner.engine.plan_backfill_rows(entries)?;
+        let cluster_name = self.inner.pool.cluster_name();
+        for chunk in smart_chunks(&rows) {
+            self.lease
+                .transact(async |tx| {
+                    self.inner
+                        .engine
+                        .write_backfill_chunk(tx, chunk, cluster_name)
+                        .await
+                })
+                .await?;
+        }
+        LocalSpan::add_properties(|| [("num_entries", entries.len().to_string())]);
+        self.inner.fresh.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+
+    /// READ COMMITTED keeps conditional deletes from gap-locking concurrent
+    /// index inserts.
+    #[fastrace::trace]
+    async fn reconcile_index_backfill(&self, index: PersistenceIndexId) -> anyhow::Result<()> {
+        let cluster_name = self.inner.pool.cluster_name();
+        let mut after: Bound<sql::SqlKey> = Bound::Unbounded;
+        loop {
+            // Backfill insertion has finished and markers only advance.
+            // The cutoff remains valid after this read; the conditional
+            // delete rechecks the current row while holding its record
+            // lock, so a concurrent recreation remains visible.
+            let page = {
+                let mut connection = self
+                    .inner
+                    .pool
+                    .acquire("v6_reconcile_backfill_page", &self.inner.db_name)
+                    .await?;
+                self.inner
+                    .engine
+                    .read_backfill_markers_page(&mut connection, index, after.clone())
+                    .await?
+            };
+            self.lease
+                .transact_read_committed(async |tx| {
+                    self.inner
+                        .engine
+                        .delete_stale(tx, &page, cluster_name)
+                        .await
+                })
+                .await?;
+            let Some(last) = page
+                .last()
+                .filter(|_| page.len() >= *INDEX_RETENTION_DELETE_CHUNK)
+            else {
+                break;
+            };
+            after = Bound::Excluded(last.key.clone());
         }
         Ok(())
     }

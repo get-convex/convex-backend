@@ -27,12 +27,19 @@ use common::{
     value::InternalDocumentId,
 };
 use itertools::Itertools;
-use mysql_async::Value;
+use mysql_async::{
+    Row,
+    Value,
+};
 
-use super::DeploymentId;
+use super::{
+    column,
+    DeploymentId,
+};
 use crate::chunks::ApproxSize;
 
 pub(crate) const LATEST_TABLE: &str = "indexes_latest";
+pub(crate) const BACKFILL_DELETES_TABLE: &str = "indexes_backfill_deletes";
 pub(crate) const LOG_BUCKET_SIZE_NANOS: i64 = 10 * 60 * 1_000_000_000;
 pub(crate) const LIST_LOG_TABLES: &str = r#"
 SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
@@ -40,7 +47,7 @@ WHERE TABLE_SCHEMA = ? AND TABLE_NAME LIKE 'indexes\_log\_%'
 "#;
 
 /// The hash component used to disambiguate V6 key prefixes.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct KeySuffixHash(Vec<u8>);
 
 impl KeySuffixHash {
@@ -186,6 +193,14 @@ pub(crate) struct IndexRow {
 }
 
 impl IndexRow {
+    pub(crate) fn latest_primary_key(&self) -> (PersistenceIndexId, &[u8], &[u8]) {
+        (
+            self.index_id,
+            &self.key.key_prefix,
+            self.key.key_suffix_hash.as_bytes(),
+        )
+    }
+
     /// Parameters for one row of either index table, in column order.
     /// `successor_ts` is present exactly for log rows, where the column sits
     /// between `ts` and `table_id`.
@@ -208,6 +223,17 @@ impl IndexRow {
 
     pub(crate) fn params(&self) -> Vec<Value> {
         self.params_with_successor(None)
+    }
+
+    pub(crate) fn backfill_marker_params(&self) -> Vec<Value> {
+        vec![
+            self.deployment_id.into(),
+            self.index_id.value().into(),
+            Value::Bytes(self.key.key_prefix.clone()),
+            self.key.key_suffix.clone().into(),
+            self.key.key_suffix_hash.as_bytes().into(),
+            Value::Int(i64::from(self.ts)),
+        ]
     }
 
     /// Parameters naming exactly this row for `delete_latest_chunk`.
@@ -249,8 +275,62 @@ impl ApproxSize for LogRow {
     }
 }
 
+/// The shared key order for `indexes_latest` and `indexes_backfill_deletes`.
+pub(crate) fn sort_by_latest_primary_key<T>(rows: &mut [T], row: impl Fn(&T) -> &IndexRow) {
+    rows.sort_by(|a, b| {
+        row(a)
+            .latest_primary_key()
+            .cmp(&row(b).latest_primary_key())
+    });
+}
+
+/// A deletion returned while reconciling an index backfill. Rows with lower
+/// timestamps are stale.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct BackfillDelete {
+    pub(crate) deployment_id: DeploymentId,
+    pub(crate) index_id: PersistenceIndexId,
+    pub(crate) key: SqlKey,
+    pub(crate) deleted_at: Timestamp,
+}
+
+impl BackfillDelete {
+    pub(crate) fn from_row(
+        deployment_id: DeploymentId,
+        index_id: PersistenceIndexId,
+        row: &Row,
+    ) -> anyhow::Result<Self> {
+        let deleted_at: i64 = row.get_opt(2).context("row[2]")??;
+        Ok(Self {
+            deployment_id,
+            index_id,
+            key: SqlKey {
+                prefix: column::bytes(row, 0)?.to_vec(),
+                suffix_hash: column::bytes(row, 1)?.to_vec(),
+            },
+            deleted_at: Timestamp::try_from(deleted_at)?,
+        })
+    }
+
+    pub(crate) fn params(&self) -> Vec<Value> {
+        vec![
+            self.deployment_id.into(),
+            self.index_id.value().into(),
+            Value::Bytes(self.key.prefix.clone()),
+            Value::Bytes(self.key.suffix_hash.clone()),
+            Value::Int(i64::from(self.deleted_at)),
+        ]
+    }
+}
+
+impl ApproxSize for BackfillDelete {
+    fn approx_size(&self) -> usize {
+        self.key.prefix.len() + self.key.suffix_hash.len() + 12
+    }
+}
+
 /// The key fields used to seek the V6 index primary keys.
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct SqlKey {
     pub(crate) prefix: Vec<u8>,
     pub(crate) suffix_hash: Vec<u8>,
@@ -465,11 +545,79 @@ pub(crate) fn has_log_row(bucket: LogBucket) -> String {
 const LATEST_COLUMNS: &str =
     "(deployment_id, index_id, key_prefix, key_suffix, key_suffix_hash, ts, table_id, document_id)";
 
+fn latest_values(chunk_size: usize) -> String {
+    iter::repeat_n("(?, ?, ?, ?, ?, ?, ?, ?)", chunk_size).join(", ")
+}
+
 /// Inserts live entries for keys that had none; a key with a row fails the
 /// statement.
 pub(crate) fn insert_latest_chunk(chunk_size: usize) -> String {
-    let values = iter::repeat_n("(?, ?, ?, ?, ?, ?, ?, ?)", chunk_size).join(", ");
-    format!("INSERT INTO @db_name.indexes_latest {LATEST_COLUMNS} VALUES {values}")
+    format!(
+        "INSERT INTO @db_name.indexes_latest {LATEST_COLUMNS} VALUES {}",
+        latest_values(chunk_size)
+    )
+}
+
+/// Upserts `Scanning` entries before tombstone rows are removed. MySQL
+/// processes `VALUES` in order, preserving the caller's record-lock order.
+pub(crate) fn upsert_latest_chunk(chunk_size: usize) -> String {
+    format!(
+        "INSERT INTO @db_name.indexes_latest {LATEST_COLUMNS} VALUES {} ON DUPLICATE KEY UPDATE \
+         ts = VALUES(ts), table_id = VALUES(table_id), document_id = VALUES(document_id)",
+        latest_values(chunk_size)
+    )
+}
+
+/// Leaves existing rows unchanged, making backfill chunks idempotent and
+/// preserving newer live writes.
+pub(crate) fn insert_backfill_latest_chunk(chunk_size: usize) -> String {
+    format!(
+        "INSERT INTO @db_name.indexes_latest {LATEST_COLUMNS} VALUES {} ON DUPLICATE KEY UPDATE \
+         deployment_id = deployment_id",
+        latest_values(chunk_size)
+    )
+}
+
+/// Deletion timestamps must advance monotonically so a previously read marker
+/// remains a valid cutoff for reconciliation.
+pub(crate) fn insert_backfill_marker_chunk(chunk_size: usize) -> String {
+    let values = iter::repeat_n("(?, ?, ?, ?, ?, ?)", chunk_size).join(", ");
+    format!(
+        "INSERT INTO @db_name.{BACKFILL_DELETES_TABLE} (deployment_id, index_id, key_prefix, \
+         key_suffix, key_suffix_hash, ts) VALUES {values} ON DUPLICATE KEY UPDATE ts = \
+         GREATEST(ts, VALUES(ts))"
+    )
+}
+
+/// Evaluates the timestamp predicate while holding each key's record lock, so
+/// a newer live write survives either transaction order.
+pub(crate) fn delete_stale_chunk(chunk_size: usize) -> String {
+    let predicates = iter::repeat_n(
+        "(deployment_id = ? AND index_id = ? AND key_prefix = ? AND key_suffix_hash = ? AND ts < \
+         ?)",
+        chunk_size,
+    )
+    .join(" OR ");
+    format!("DELETE FROM @db_name.indexes_latest WHERE {predicates}")
+}
+
+pub(crate) fn backfill_markers_page(
+    deployment_id: DeploymentId,
+    index_id: PersistenceIndexId,
+    after: Bound<SqlKey>,
+    limit: usize,
+) -> (String, Vec<Value>) {
+    let mut where_clause = "deployment_id = ? AND index_id = ?".to_owned();
+    let mut params = vec![deployment_id.into(), index_id.value().into()];
+    append_bound_clause(&mut where_clause, &mut params, &after, BoundSide::Lower);
+    params.push(Value::UInt(limit as u64));
+    (
+        format!(
+            "SELECT key_prefix, key_suffix_hash, ts FROM @db_name.{BACKFILL_DELETES_TABLE} WHERE \
+             {where_clause} ORDER BY key_prefix, key_suffix_hash LIMIT ?"
+        ),
+        params,
+    )
 }
 
 pub(crate) const LIST_BACKFILL_MARKER_INDEXES: &str =

@@ -330,13 +330,18 @@ pub trait Persistence: Sync + Send + 'static {
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
 
-    /// Inserts the live entries an online index backfill read at its snapshot,
-    /// each at its document's own timestamp. A layout that keeps one live row
-    /// per key fills only the holes live writes have left; one that stores
-    /// every revision overwrites, so replaying a chunk is harmless either way.
+    /// Persists entries read by an online index backfill at their document
+    /// timestamps. Replaying a chunk must be idempotent.
     async fn write_index_backfill(&self, entries: &[IndexBackfillEntry]) -> anyhow::Result<()> {
         let entries: Vec<_> = entries.iter().map(PersistenceIndexEntry::from).collect();
         self.write(&[], &entries, ConflictStrategy::Overwrite).await
+    }
+
+    /// Reconciles backfill entries with live writes. The caller runs this
+    /// after the last backfill chunk is durable and before writes switch to
+    /// [`IndexWriteMode::ScanComplete`]. Implementations must be idempotent.
+    async fn reconcile_index_backfill(&self, _index: PersistenceIndexId) -> anyhow::Result<()> {
+        Ok(())
     }
 
     /// The indexes for which this persistence records keys that live writes

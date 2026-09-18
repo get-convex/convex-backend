@@ -451,12 +451,9 @@ pub enum IndexWriteMode {
     /// current index and store in history, using its `ts` and `document_id`
     /// for the update's `index` and `key`.
     ScanComplete,
-    /// Index backfill is still inserting index entries, so the entry identified
-    /// by `DatabaseIndexUpdate::prev` / `PersistenceIndexEntry::prev` may not
-    /// exist in persistence yet. Persistence v6 must record the `index` and
-    /// `key` of updates whose `value` is `DatabaseIndexValue::Deleted`
-    /// (`None` in `PersistenceIndexEntry`) so backfill cannot reinsert a
-    /// deleted entry.
+    /// Index backfill is still inserting entries, so `prev` may not exist in
+    /// persistence yet. Persistence v6 records deletions for post-scan
+    /// reconciliation instead of verifying `prev`.
     Scanning,
 }
 

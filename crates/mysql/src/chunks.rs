@@ -11,6 +11,7 @@ use common::{
     persistence::{
         DocumentLogEntry,
         DocumentPrevTsQuery,
+        IndexBackfillEntry,
         PersistenceIndexEntry,
     },
     types::Timestamp,
@@ -19,6 +20,12 @@ use common::{
 
 pub trait ApproxSize {
     fn approx_size(&self) -> usize;
+}
+
+impl<T: ApproxSize> ApproxSize for &T {
+    fn approx_size(&self) -> usize {
+        (*self).approx_size()
+    }
 }
 
 impl<T: ApproxSize> ApproxSize for Option<T> {
@@ -75,6 +82,12 @@ impl ApproxSize for DocumentLogEntry {
 impl ApproxSize for PersistenceIndexEntry {
     fn approx_size(&self) -> usize {
         self.index.id().size() + self.key.len() + InternalDocumentId::MIN.size()
+    }
+}
+
+impl ApproxSize for IndexBackfillEntry {
+    fn approx_size(&self) -> usize {
+        self.index.id().size() + self.key.len() + self.document_id.size()
     }
 }
 
