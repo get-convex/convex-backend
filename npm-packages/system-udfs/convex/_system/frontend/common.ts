@@ -2,8 +2,10 @@ import { Infer } from "convex/values";
 import {
   axiomConfig,
   datadogConfig,
+  managedAnalyticsConfig,
   postHogErrorTrackingConfig,
   postHogLogsConfig,
+  s3ExportConfig,
   udfType,
   udfVisibility,
   webhookConfig,
@@ -139,10 +141,24 @@ export type ScheduledJob = Doc<"_scheduled_jobs">;
 
 export type UdfConfig = Doc<"_udf_config">;
 
-export type Integration = Doc<"_log_sinks">;
+// The `_log_sinks` document as it is stored on the deployment, credentials
+// included.
+type StoredIntegration = Doc<"_log_sinks">;
+
+// A configured integration as a client sees it: `listConfiguredSinks` strips
+// the fields below, which are accepted on create/update but never returned.
+export type Integration = Omit<StoredIntegration, "config"> & {
+  config: IntegrationConfig;
+};
+
+// The AWS secret access key stays on the deployment. Callers omit it on update
+// to keep the stored value.
+export type RedactedS3ExportConfig = Omit<S3ExportConfig, "secretAccessKey">;
 
 // Note: doesn't include exports or auth
-export type IntegrationConfig = Integration["config"];
+export type IntegrationConfig =
+  | Exclude<StoredIntegration["config"], { type: "s3Export" }>
+  | RedactedS3ExportConfig;
 
 // Streaming export/import integrations aren't configured on convex's side, so
 // they don't use the _log_sinks table.
@@ -169,3 +185,11 @@ export type PostHogLogsConfig = Infer<typeof postHogLogsConfig>;
 export type PostHogErrorTrackingConfig = Infer<
   typeof postHogErrorTrackingConfig
 >;
+
+export type ManagedAnalyticsConfig = Infer<typeof managedAnalyticsConfig>;
+
+export type S3ExportConfig = Infer<typeof s3ExportConfig>;
+
+export type SyncPeriod = ManagedAnalyticsConfig["period"];
+
+export type SyncSelection = ManagedAnalyticsConfig["selection"];

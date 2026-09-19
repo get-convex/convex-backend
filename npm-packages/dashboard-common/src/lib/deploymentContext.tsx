@@ -338,6 +338,8 @@ export type DeploymentInfo = (
   deploymentsURI: string;
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
+  managedAnalyticsIntegrationEnabled: boolean;
+  s3ExportIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
   /** Opens the feedback sheet. Absent where there is nowhere to send it,
    *  such as the self-hosted dashboard. */

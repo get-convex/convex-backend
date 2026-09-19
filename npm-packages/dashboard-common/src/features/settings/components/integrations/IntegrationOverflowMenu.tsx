@@ -11,6 +11,7 @@ import { ReactNode, useState } from "react";
 import {
   LogIntegration,
   ExceptionReportingIntegration,
+  AnalyticsIntegration,
   integrationName,
   configToUrl,
 } from "@common/lib/integrationHelpers";
@@ -21,7 +22,10 @@ export function IntegrationOverflowMenu({
   disabled = false,
   disabledTip,
 }: {
-  integration: LogIntegration | ExceptionReportingIntegration;
+  integration:
+    | LogIntegration
+    | ExceptionReportingIntegration
+    | AnalyticsIntegration;
   onConfigure: () => void;
   disabled?: boolean;
   disabledTip?: ReactNode;
@@ -35,6 +39,9 @@ export function IntegrationOverflowMenu({
     integration.kind === "webhook"
       ? (integration.existing?.config ?? null)
       : null;
+  const externalUrl = existingIntegration
+    ? configToUrl(existingIntegration.config)
+    : null;
 
   return existingIntegration && logStreamId ? (
     <>
@@ -73,9 +80,11 @@ export function IntegrationOverflowMenu({
         >
           Configure
         </MenuItem>
-        <MenuItem href={configToUrl(existingIntegration.config)}>
-          Go to {integrationName(existingIntegration.config.type)}
-        </MenuItem>
+        {externalUrl ? (
+          <MenuItem href={externalUrl}>
+            Go to {integrationName(existingIntegration.config.type)}
+          </MenuItem>
+        ) : null}
         {webhookConfig && (
           <MenuItem
             action={async () => {

@@ -1595,6 +1595,50 @@
               }
             ],
             "title": "PostHogErrorTracking"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateManagedAnalyticsLogStreamArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "managedAnalytics"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "ManagedAnalytics"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CreateS3ExportLogStreamArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "s3Export"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "S3Export"
           }
         ]
       },
@@ -1716,8 +1760,69 @@
                 ]
               }
             }
+          },
+          {
+            "type": "object",
+            "title": "ManagedAnalytics",
+            "required": [
+              "id",
+              "logStreamType"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "logStreamType": {
+                "type": "string",
+                "enum": [
+                  "managedAnalytics"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "S3Export",
+            "required": [
+              "id",
+              "logStreamType"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "logStreamType": {
+                "type": "string",
+                "enum": [
+                  "s3Export"
+                ]
+              }
+            }
           }
         ]
+      },
+      "CreateManagedAnalyticsLogStreamArgs": {
+        "type": "object",
+        "required": [
+          "period"
+        ],
+        "properties": {
+          "selection": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Selection",
+                "description": "The components, tables, and columns to mirror. Defaults to everything."
+              }
+            ]
+          },
+          "period": {
+            "$ref": "#/components/schemas/SyncPeriod",
+            "description": "How often the mirror is refreshed."
+          }
+        }
       },
       "CreatePostHogErrorTrackingLogStreamArgs": {
         "type": "object",
@@ -1771,6 +1876,54 @@
               "$ref": "#/components/schemas/LogTopic"
             },
             "description": "The topics this log stream is subscribed to. Omit to\nsubscribe to all topics, including ones added in the future."
+          }
+        }
+      },
+      "CreateS3ExportLogStreamArgs": {
+        "type": "object",
+        "required": [
+          "bucket",
+          "region",
+          "accessKeyId",
+          "secretAccessKey",
+          "period"
+        ],
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "description": "Name of the S3 bucket to mirror into."
+          },
+          "region": {
+            "type": "string",
+            "description": "AWS region the bucket lives in, e.g. `us-east-1`."
+          },
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Key prefix within the bucket. Omit to write at the bucket root."
+          },
+          "accessKeyId": {
+            "type": "string"
+          },
+          "secretAccessKey": {
+            "type": "string"
+          },
+          "selection": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Selection",
+                "description": "The components, tables, and columns to mirror. Defaults to everything."
+              }
+            ]
+          },
+          "period": {
+            "$ref": "#/components/schemas/SyncPeriod",
+            "description": "How often the mirror is refreshed."
           }
         }
       },
@@ -2522,6 +2675,50 @@
               }
             ],
             "title": "PostHogErrorTracking"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ManagedAnalyticsLogStreamConfig"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "managedAnalytics"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "ManagedAnalytics"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/S3ExportLogStreamConfig"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "s3Export"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "S3Export"
           }
         ]
       },
@@ -2620,6 +2817,33 @@
           "log_stream_egress",
           "custom_audit"
         ]
+      },
+      "ManagedAnalyticsLogStreamConfig": {
+        "type": "object",
+        "title": "ManagedAnalyticsConfig",
+        "required": [
+          "id",
+          "status",
+          "selection",
+          "period"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the integration"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/Selection",
+            "description": "The components, tables, and columns being mirrored."
+          },
+          "period": {
+            "$ref": "#/components/schemas/SyncPeriod",
+            "description": "How often the mirror is refreshed."
+          }
+        }
       },
       "MemberId": {
         "type": "integer",
@@ -2771,6 +2995,55 @@
           }
         ]
       },
+      "S3ExportLogStreamConfig": {
+        "type": "object",
+        "title": "S3ExportConfig",
+        "required": [
+          "id",
+          "status",
+          "bucket",
+          "region",
+          "accessKeyId",
+          "selection",
+          "period"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LogStreamStatus",
+            "description": "Status of the integration"
+          },
+          "bucket": {
+            "type": "string",
+            "description": "Name of the S3 bucket being mirrored into."
+          },
+          "region": {
+            "type": "string",
+            "description": "AWS region the bucket lives in."
+          },
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Key prefix within the bucket."
+          },
+          "accessKeyId": {
+            "type": "string",
+            "description": "AWS access key ID used to write to the bucket. The matching secret\naccess key is write-only and is never returned."
+          },
+          "selection": {
+            "$ref": "#/components/schemas/Selection",
+            "description": "The components, tables, and columns being mirrored."
+          },
+          "period": {
+            "$ref": "#/components/schemas/SyncPeriod",
+            "description": "How often the mirror is refreshed."
+          }
+        }
+      },
       "SeedStatusResponse": {
         "type": "string",
         "description": "Progress of the historical-usage backfill. Only `complete` guarantees the\nreported usage reflects the full window. While the status is `pending` or\n`partial`, history from before this deployment was loaded may not be\nhydrated yet and the numbers can understate actual usage, so retry later for\nan accurate total. `failed` means the backfill couldn't hydrate any history.",
@@ -2843,6 +3116,15 @@
       "SyncId": {
         "type": "string",
         "description": "Unique id of a data sync, assigned by `/api/v1/data/sync` on the sync's\nfirst page and stable across its lifetime."
+      },
+      "SyncPeriod": {
+        "type": "string",
+        "description": "How often the mirror is refreshed from the deployment.",
+        "enum": [
+          "continuous",
+          "hourly",
+          "daily"
+        ]
       },
       "TableSelection": {
         "oneOf": [
@@ -3158,8 +3440,79 @@
               }
             ],
             "title": "PostHogErrorTracking"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdateManagedAnalyticsSinkArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "managedAnalytics"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "ManagedAnalytics"
+          },
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UpdateS3ExportSinkArgs"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "logStreamType"
+                ],
+                "properties": {
+                  "logStreamType": {
+                    "type": "string",
+                    "enum": [
+                      "s3Export"
+                    ]
+                  }
+                }
+              }
+            ],
+            "title": "S3Export"
           }
         ]
+      },
+      "UpdateManagedAnalyticsSinkArgs": {
+        "type": "object",
+        "properties": {
+          "selection": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Selection",
+                "description": "The components, tables, and columns to mirror."
+              }
+            ]
+          },
+          "period": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SyncPeriod",
+                "description": "How often the mirror is refreshed."
+              }
+            ]
+          }
+        }
       },
       "UpdatePostHogErrorTrackingSinkArgs": {
         "type": "object",
@@ -3213,6 +3566,66 @@
               "$ref": "#/components/schemas/LogTopic"
             },
             "description": "The topics this log stream is subscribed to. Omit to keep the current\nsubscription, or pass `null` to subscribe to all topics (including ones\nadded in the future)."
+          }
+        }
+      },
+      "UpdateS3ExportSinkArgs": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Name of the S3 bucket to mirror into."
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "AWS region the bucket lives in, e.g. `us-east-1`."
+          },
+          "prefix": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Key prefix within the bucket."
+          },
+          "accessKeyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secretAccessKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "selection": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Selection",
+                "description": "The components, tables, and columns to mirror."
+              }
+            ]
+          },
+          "period": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SyncPeriod",
+                "description": "How often the mirror is refreshed."
+              }
+            ]
           }
         }
       },

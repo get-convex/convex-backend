@@ -153,7 +153,11 @@ export function DeploymentInfoProvider({
   useEffect(() => {
     accessTokenRef.current = accessToken;
   }, [accessToken]);
-  const { connectionStateCheckIntervalMs } = useLaunchDarkly();
+  const {
+    connectionStateCheckIntervalMs,
+    managedAnalyticsIntegration,
+    s3ExportIntegration,
+  } = useLaunchDarkly();
   const [, openFeedbackForm] = useFeedbackFormOpen();
   const posthog = usePostHogLib();
   const posthogRef = useRef(posthog);
@@ -333,6 +337,8 @@ export function DeploymentInfoProvider({
         deploymentsURI,
         isSelfHosted: false,
         workosIntegrationEnabled: true,
+        managedAnalyticsIntegrationEnabled: managedAnalyticsIntegration,
+        s3ExportIntegrationEnabled: s3ExportIntegration,
         connectionStateCheckIntervalMs,
       });
     };
@@ -352,6 +358,8 @@ export function DeploymentInfoProvider({
     canProveDeploymentMissing,
     cloudDeploymentUrl,
     authRefreshKey,
+    managedAnalyticsIntegration,
+    s3ExportIntegration,
   ]);
 
   return deploymentInfo ? (

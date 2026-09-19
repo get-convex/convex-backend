@@ -11,6 +11,7 @@ use serde::{
 };
 use value::codegen_convex_serialization;
 
+pub mod analytics_export;
 pub mod axiom;
 pub mod datadog;
 pub mod mock_sink;
@@ -20,7 +21,9 @@ pub mod sentry;
 pub mod webhook;
 
 /// Constants/Limits
-pub const LOG_SINKS_LIMIT: usize = 5;
+/// At most one sink per `SinkType`, so this bounds the number of distinct
+/// integrations a deployment can configure at once.
+pub const LOG_SINKS_LIMIT: usize = 8;
 
 /// Data model for an entry in the LOG_SINKS_TABLE
 #[derive(Debug, Clone, PartialEq)]
@@ -172,6 +175,8 @@ pub enum SinkType {
     Sentry,
     PostHogLogs,
     PostHogErrorTracking,
+    ManagedAnalytics,
+    S3Export,
 }
 
 impl SinkType {
@@ -186,6 +191,8 @@ impl SinkType {
             SinkType::Sentry => "sentry",
             SinkType::PostHogLogs => "postHogLogs",
             SinkType::PostHogErrorTracking => "postHogErrorTracking",
+            SinkType::ManagedAnalytics => "managedAnalytics",
+            SinkType::S3Export => "s3Export",
         }
     }
 }
@@ -201,6 +208,8 @@ pub enum SinkConfig {
     Sentry(sentry::SentryConfig),
     PostHogLogs(posthog_logs::PostHogLogsConfig),
     PostHogErrorTracking(posthog_error_tracking::PostHogErrorTrackingConfig),
+    ManagedAnalytics(analytics_export::ManagedAnalyticsConfig),
+    S3Export(analytics_export::S3ExportConfig),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -216,6 +225,8 @@ pub enum SerializedSinkConfig {
     Sentry(sentry::SerializedSentryConfig),
     PostHogLogs(posthog_logs::SerializedPostHogLogsConfig),
     PostHogErrorTracking(posthog_error_tracking::SerializedPostHogErrorTrackingConfig),
+    ManagedAnalytics(analytics_export::SerializedManagedAnalyticsConfig),
+    S3Export(analytics_export::SerializedS3ExportConfig),
 }
 
 impl TryFrom<SerializedSinkConfig> for SinkConfig {
@@ -242,6 +253,10 @@ impl TryFrom<SerializedSinkConfig> for SinkConfig {
             SerializedSinkConfig::PostHogErrorTracking(config) => {
                 Ok(SinkConfig::PostHogErrorTracking(config.into()))
             },
+            SerializedSinkConfig::ManagedAnalytics(config) => {
+                Ok(SinkConfig::ManagedAnalytics(config.into()))
+            },
+            SerializedSinkConfig::S3Export(config) => Ok(SinkConfig::S3Export(config.into())),
         }
     }
 }
@@ -268,6 +283,10 @@ impl TryFrom<SinkConfig> for SerializedSinkConfig {
             SinkConfig::PostHogErrorTracking(config) => {
                 Ok(SerializedSinkConfig::PostHogErrorTracking(config.into()))
             },
+            SinkConfig::ManagedAnalytics(config) => {
+                Ok(SerializedSinkConfig::ManagedAnalytics(config.into()))
+            },
+            SinkConfig::S3Export(config) => Ok(SerializedSinkConfig::S3Export(config.into())),
         }
     }
 }
@@ -284,6 +303,8 @@ impl fmt::Display for SinkConfig {
             Self::Sentry(config) => write!(f, "Sentry({config})"),
             Self::PostHogLogs(config) => write!(f, "PostHogLogs({config})"),
             Self::PostHogErrorTracking(config) => write!(f, "PostHogErrorTracking({config})"),
+            Self::ManagedAnalytics(config) => write!(f, "ManagedAnalytics({config})"),
+            Self::S3Export(config) => write!(f, "S3Export({config})"),
         }
     }
 }
@@ -298,6 +319,8 @@ impl SinkConfig {
             Self::Sentry(_) => SinkType::Sentry,
             Self::PostHogLogs(_) => SinkType::PostHogLogs,
             Self::PostHogErrorTracking(_) => SinkType::PostHogErrorTracking,
+            Self::ManagedAnalytics(_) => SinkType::ManagedAnalytics,
+            Self::S3Export(_) => SinkType::S3Export,
         }
     }
 
@@ -310,7 +333,11 @@ impl SinkConfig {
             Self::Webhook(config) => Some(&mut config.topics),
             Self::Axiom(config) => Some(&mut config.topics),
             Self::PostHogLogs(config) => Some(&mut config.topics),
-            Self::Local(_) | Self::Sentry(_) | Self::PostHogErrorTracking(_) => None,
+            Self::Local(_)
+            | Self::Sentry(_)
+            | Self::PostHogErrorTracking(_)
+            | Self::ManagedAnalytics(_)
+            | Self::S3Export(_) => None,
         }
     }
 }

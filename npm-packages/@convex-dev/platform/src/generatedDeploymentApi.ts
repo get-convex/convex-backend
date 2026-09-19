@@ -706,6 +706,12 @@ export interface components {
         }) | (components["schemas"]["CreatePostHogErrorTrackingLogStreamArgs"] & {
             /** @enum {string} */
             logStreamType: "postHogErrorTracking";
+        }) | (components["schemas"]["CreateManagedAnalyticsLogStreamArgs"] & {
+            /** @enum {string} */
+            logStreamType: "managedAnalytics";
+        }) | (components["schemas"]["CreateS3ExportLogStreamArgs"] & {
+            /** @enum {string} */
+            logStreamType: "s3Export";
         });
         CreateLogStreamResponse: (components["schemas"]["CreateWebhookLogStreamResponse"] & {
             /** @enum {string} */
@@ -730,6 +736,19 @@ export interface components {
             id: string;
             /** @enum {string} */
             logStreamType: "postHogErrorTracking";
+        } | {
+            id: string;
+            /** @enum {string} */
+            logStreamType: "managedAnalytics";
+        } | {
+            id: string;
+            /** @enum {string} */
+            logStreamType: "s3Export";
+        };
+        CreateManagedAnalyticsLogStreamArgs: {
+            selection?: null | components["schemas"]["Selection"];
+            /** @description How often the mirror is refreshed. */
+            period: components["schemas"]["SyncPeriod"];
         };
         CreatePostHogErrorTrackingLogStreamArgs: {
             /** @description PostHog project token. */
@@ -747,6 +766,19 @@ export interface components {
             /** @description The topics this log stream is subscribed to. Omit to
              *     subscribe to all topics, including ones added in the future. */
             topics?: components["schemas"]["LogTopic"][] | null;
+        };
+        CreateS3ExportLogStreamArgs: {
+            /** @description Name of the S3 bucket to mirror into. */
+            bucket: string;
+            /** @description AWS region the bucket lives in, e.g. `us-east-1`. */
+            region: string;
+            /** @description Key prefix within the bucket. Omit to write at the bucket root. */
+            prefix?: string | null;
+            accessKeyId: string;
+            secretAccessKey: string;
+            selection?: null | components["schemas"]["Selection"];
+            /** @description How often the mirror is refreshed. */
+            period: components["schemas"]["SyncPeriod"];
         };
         CreateSentryLogStreamArgs: {
             /** @description Sentry Data Source Name (DSN) to route exceptions to. */
@@ -1005,6 +1037,12 @@ export interface components {
         }) | (components["schemas"]["PostHogErrorTrackingLogStreamConfig"] & {
             /** @enum {string} */
             logStreamType: "postHogErrorTracking";
+        }) | (components["schemas"]["ManagedAnalyticsLogStreamConfig"] & {
+            /** @enum {string} */
+            logStreamType: "managedAnalytics";
+        }) | (components["schemas"]["S3ExportLogStreamConfig"] & {
+            /** @enum {string} */
+            logStreamType: "s3Export";
         });
         /** @description Status of a log stream */
         LogStreamStatus: {
@@ -1026,6 +1064,16 @@ export interface components {
         };
         /** @enum {string} */
         LogTopic: "verification" | "console" | "function_execution" | "exception" | "audit_log" | "scheduler_stats" | "scheduled_job_lag" | "current_storage_usage" | "concurrency_stats" | "storage_api_bandwidth" | "log_stream_egress" | "custom_audit";
+        /** ManagedAnalyticsConfig */
+        ManagedAnalyticsLogStreamConfig: {
+            id: string;
+            /** @description Status of the integration */
+            status: components["schemas"]["LogStreamStatus"];
+            /** @description The components, tables, and columns being mirrored. */
+            selection: components["schemas"]["Selection"];
+            /** @description How often the mirror is refreshed. */
+            period: components["schemas"]["SyncPeriod"];
+        };
         /** Format: int64 */
         MemberId: number;
         /**
@@ -1074,6 +1122,25 @@ export interface components {
             /** @enum {string} */
             logStreamType: "webhook";
         };
+        /** S3ExportConfig */
+        S3ExportLogStreamConfig: {
+            id: string;
+            /** @description Status of the integration */
+            status: components["schemas"]["LogStreamStatus"];
+            /** @description Name of the S3 bucket being mirrored into. */
+            bucket: string;
+            /** @description AWS region the bucket lives in. */
+            region: string;
+            /** @description Key prefix within the bucket. */
+            prefix?: string | null;
+            /** @description AWS access key ID used to write to the bucket. The matching secret
+             *     access key is write-only and is never returned. */
+            accessKeyId: string;
+            /** @description The components, tables, and columns being mirrored. */
+            selection: components["schemas"]["Selection"];
+            /** @description How often the mirror is refreshed. */
+            period: components["schemas"]["SyncPeriod"];
+        };
         /**
          * @description Progress of the historical-usage backfill. Only `complete` guarantees the
          *     reported usage reflects the full window. While the status is `pending` or
@@ -1115,6 +1182,11 @@ export interface components {
         /** @description Unique id of a data sync, assigned by `/api/v1/data/sync` on the sync's
          *     first page and stable across its lifetime. */
         SyncId: string;
+        /**
+         * @description How often the mirror is refreshed from the deployment.
+         * @enum {string}
+         */
+        SyncPeriod: "continuous" | "hourly" | "daily";
         TableSelection: ({
             /** @description Whether columns not explicitly listed are exported */
             _other: components["schemas"]["InclusionDefault"];
@@ -1184,7 +1256,17 @@ export interface components {
         }) | (components["schemas"]["UpdatePostHogErrorTrackingSinkArgs"] & {
             /** @enum {string} */
             logStreamType: "postHogErrorTracking";
+        }) | (components["schemas"]["UpdateManagedAnalyticsSinkArgs"] & {
+            /** @enum {string} */
+            logStreamType: "managedAnalytics";
+        }) | (components["schemas"]["UpdateS3ExportSinkArgs"] & {
+            /** @enum {string} */
+            logStreamType: "s3Export";
         });
+        UpdateManagedAnalyticsSinkArgs: {
+            selection?: null | components["schemas"]["Selection"];
+            period?: null | components["schemas"]["SyncPeriod"];
+        };
         UpdatePostHogErrorTrackingSinkArgs: {
             /** @description PostHog project token. */
             apiKey?: string | null;
@@ -1202,6 +1284,18 @@ export interface components {
              *     subscription, or pass `null` to subscribe to all topics (including ones
              *     added in the future). */
             topics?: components["schemas"]["LogTopic"][] | null;
+        };
+        UpdateS3ExportSinkArgs: {
+            /** @description Name of the S3 bucket to mirror into. */
+            bucket?: string | null;
+            /** @description AWS region the bucket lives in, e.g. `us-east-1`. */
+            region?: string | null;
+            /** @description Key prefix within the bucket. */
+            prefix?: string | null;
+            accessKeyId?: string | null;
+            secretAccessKey?: string | null;
+            selection?: null | components["schemas"]["Selection"];
+            period?: null | components["schemas"]["SyncPeriod"];
         };
         UpdateSentrySinkArgs: {
             /** @description Sentry Data Source Name (DSN) to route exceptions to. */
@@ -1297,8 +1391,10 @@ export type CreateAxiomLogStreamArgs = components['schemas']['CreateAxiomLogStre
 export type CreateDatadogLogStreamArgs = components['schemas']['CreateDatadogLogStreamArgs'];
 export type CreateLogStreamArgs = components['schemas']['CreateLogStreamArgs'];
 export type CreateLogStreamResponse = components['schemas']['CreateLogStreamResponse'];
+export type CreateManagedAnalyticsLogStreamArgs = components['schemas']['CreateManagedAnalyticsLogStreamArgs'];
 export type CreatePostHogErrorTrackingLogStreamArgs = components['schemas']['CreatePostHogErrorTrackingLogStreamArgs'];
 export type CreatePostHogLogsLogStreamArgs = components['schemas']['CreatePostHogLogsLogStreamArgs'];
+export type CreateS3ExportLogStreamArgs = components['schemas']['CreateS3ExportLogStreamArgs'];
 export type CreateSentryLogStreamArgs = components['schemas']['CreateSentryLogStreamArgs'];
 export type CreateWebhookLogStreamArgs = components['schemas']['CreateWebhookLogStreamArgs'];
 export type CreateWebhookLogStreamResponse = components['schemas']['CreateWebhookLogStreamResponse'];
@@ -1327,6 +1423,7 @@ export type ListUsageLimitsResponse = components['schemas']['ListUsageLimitsResp
 export type LogStreamConfig = components['schemas']['LogStreamConfig'];
 export type LogStreamStatus = components['schemas']['LogStreamStatus'];
 export type LogTopic = components['schemas']['LogTopic'];
+export type ManagedAnalyticsLogStreamConfig = components['schemas']['ManagedAnalyticsLogStreamConfig'];
 export type MemberId = components['schemas']['MemberId'];
 export type MetricUnit = components['schemas']['MetricUnit'];
 export type MetricUsageResponse = components['schemas']['MetricUsageResponse'];
@@ -1336,10 +1433,12 @@ export type PostHogLogsLogStreamConfig = components['schemas']['PostHogLogsLogSt
 export type ProjectId = components['schemas']['ProjectId'];
 export type RequestDestination = components['schemas']['RequestDestination'];
 export type RotateLogStreamSecretResponse = components['schemas']['RotateLogStreamSecretResponse'];
+export type S3ExportLogStreamConfig = components['schemas']['S3ExportLogStreamConfig'];
 export type SeedStatusResponse = components['schemas']['SeedStatusResponse'];
 export type Selection = components['schemas']['Selection'];
 export type SentryLogStreamConfig = components['schemas']['SentryLogStreamConfig'];
 export type SyncId = components['schemas']['SyncId'];
+export type SyncPeriod = components['schemas']['SyncPeriod'];
 export type TableSelection = components['schemas']['TableSelection'];
 export type TeamId = components['schemas']['TeamId'];
 export type UpdateAxiomSinkArgs = components['schemas']['UpdateAxiomSinkArgs'];
@@ -1348,8 +1447,10 @@ export type UpdateDatadogSinkArgs = components['schemas']['UpdateDatadogSinkArgs
 export type UpdateEnvVarRequest = components['schemas']['UpdateEnvVarRequest'];
 export type UpdateEnvVarsRequest = components['schemas']['UpdateEnvVarsRequest'];
 export type UpdateLogStreamArgs = components['schemas']['UpdateLogStreamArgs'];
+export type UpdateManagedAnalyticsSinkArgs = components['schemas']['UpdateManagedAnalyticsSinkArgs'];
 export type UpdatePostHogErrorTrackingSinkArgs = components['schemas']['UpdatePostHogErrorTrackingSinkArgs'];
 export type UpdatePostHogLogsSinkArgs = components['schemas']['UpdatePostHogLogsSinkArgs'];
+export type UpdateS3ExportSinkArgs = components['schemas']['UpdateS3ExportSinkArgs'];
 export type UpdateSentrySinkArgs = components['schemas']['UpdateSentrySinkArgs'];
 export type UpdateWebhookSinkArgs = components['schemas']['UpdateWebhookSinkArgs'];
 export type UsageLimitConfigRequest = components['schemas']['UsageLimitConfigRequest'];

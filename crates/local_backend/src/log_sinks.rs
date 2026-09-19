@@ -1,6 +1,9 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
+use std::{
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
+    net::Ipv4Addr,
 };
 
 use anyhow::Context;
@@ -27,10 +30,17 @@ use common::{
         LogEventFormatVersion,
         LogTopic,
     },
+    types::streaming_export::selection::Selection,
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
+use keybroker::Identity;
 use model::log_sinks::types::{
+    analytics_export::{
+        ManagedAnalyticsConfig,
+        S3ExportConfig,
+        SyncPeriod,
+    },
     axiom::{
         AxiomAttribute,
         AxiomConfig,
@@ -193,6 +203,35 @@ impl From<LogStreamType> for SinkType {
     }
 }
 
+/// Analytics export destinations are gated on the streaming export entitlement;
+/// every other sink type streams logs and is gated on log streaming.
+async fn ensure_integration_allowed(
+    application: &Application<ProdRuntime>,
+    identity: &Identity,
+    sink_type: &SinkType,
+) -> anyhow::Result<()> {
+    match sink_type {
+        SinkType::ManagedAnalytics | SinkType::S3Export => {
+            application
+                .ensure_streaming_export_enabled(identity.clone())
+                .await
+        },
+        SinkType::Local
+        | SinkType::Datadog
+        | SinkType::DatadogV2
+        | SinkType::Webhook
+        | SinkType::Axiom
+        | SinkType::AxiomV2
+        | SinkType::Sentry
+        | SinkType::PostHogLogs
+        | SinkType::PostHogErrorTracking => {
+            application
+                .ensure_log_streaming_allowed(identity.clone())
+                .await
+        },
+    }
+}
+
 /// Delete log stream
 ///
 /// Delete the deployment's log stream with the given id.
@@ -218,9 +257,8 @@ pub async fn delete_log_stream(
     Path(id): Path<String>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity.clone())
-        .await?;
+    let sink = st.application.must_get_log_sink_by_id(&id).await?;
+    ensure_integration_allowed(&st.application, &identity, &sink.config.sink_type()).await?;
 
     st.application
         .remove_log_sink_by_id(identity, request_metadata, id)
@@ -401,6 +439,91 @@ impl TryFrom<CreatePostHogErrorTrackingLogStreamArgs> for PostHogErrorTrackingCo
     }
 }
 
+/// Reserved by AWS for bucket names.
+const S3_RESERVED_BUCKET_PREFIXES: [&str; 2] = ["xn--", "sthree-"];
+const S3_RESERVED_BUCKET_SUFFIXES: [&str; 2] = ["-s3alias", "--ol-s3"];
+
+fn validate_s3_bucket(bucket: &str) -> anyhow::Result<()> {
+    // https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
+    let is_lower_alnum = |c: char| c.is_ascii_lowercase() || c.is_ascii_digit();
+    let valid = (3..=63).contains(&bucket.len())
+        && bucket
+            .chars()
+            .all(|c| is_lower_alnum(c) || c == '-' || c == '.')
+        && bucket.starts_with(is_lower_alnum)
+        && bucket.ends_with(is_lower_alnum)
+        && !bucket.contains("..")
+        && bucket.parse::<Ipv4Addr>().is_err()
+        && !S3_RESERVED_BUCKET_PREFIXES
+            .iter()
+            .any(|prefix| bucket.starts_with(prefix))
+        && !S3_RESERVED_BUCKET_SUFFIXES
+            .iter()
+            .any(|suffix| bucket.ends_with(suffix));
+    if !valid {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "InvalidS3Bucket",
+            format!("`{bucket}` is not a valid S3 bucket name"),
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateManagedAnalyticsLogStreamArgs {
+    /// The components, tables, and columns to mirror. Defaults to everything.
+    #[serde(default)]
+    selection: Option<Selection>,
+    /// How often the mirror is refreshed.
+    period: SyncPeriod,
+}
+
+impl From<CreateManagedAnalyticsLogStreamArgs> for ManagedAnalyticsConfig {
+    fn from(value: CreateManagedAnalyticsLogStreamArgs) -> Self {
+        Self {
+            selection: value.selection.unwrap_or_default(),
+            period: value.period,
+        }
+    }
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateS3ExportLogStreamArgs {
+    /// Name of the S3 bucket to mirror into.
+    bucket: String,
+    /// AWS region the bucket lives in, e.g. `us-east-1`.
+    region: String,
+    /// Key prefix within the bucket. Omit to write at the bucket root.
+    #[serde(default)]
+    prefix: Option<String>,
+    access_key_id: String,
+    secret_access_key: String,
+    /// The components, tables, and columns to mirror. Defaults to everything.
+    #[serde(default)]
+    selection: Option<Selection>,
+    /// How often the mirror is refreshed.
+    period: SyncPeriod,
+}
+
+impl TryFrom<CreateS3ExportLogStreamArgs> for S3ExportConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(value: CreateS3ExportLogStreamArgs) -> Result<Self, Self::Error> {
+        validate_s3_bucket(&value.bucket)?;
+        Ok(Self {
+            bucket: value.bucket,
+            region: value.region,
+            prefix: value.prefix,
+            access_key_id: value.access_key_id.into(),
+            secret_access_key: value.secret_access_key.into(),
+            selection: value.selection.unwrap_or_default(),
+            period: value.period,
+        })
+    }
+}
+
 #[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", tag = "logStreamType")]
 pub enum CreateLogStreamArgs {
@@ -416,6 +539,25 @@ pub enum CreateLogStreamArgs {
     PostHogLogs(CreatePostHogLogsLogStreamArgs),
     #[schema(title = "PostHogErrorTracking")]
     PostHogErrorTracking(CreatePostHogErrorTrackingLogStreamArgs),
+    #[schema(title = "ManagedAnalytics")]
+    ManagedAnalytics(CreateManagedAnalyticsLogStreamArgs),
+    #[schema(title = "S3Export")]
+    S3Export(CreateS3ExportLogStreamArgs),
+}
+
+impl CreateLogStreamArgs {
+    fn sink_type(&self) -> SinkType {
+        match self {
+            Self::Datadog(_) => SinkType::Datadog,
+            Self::Webhook(_) => SinkType::Webhook,
+            Self::Axiom(_) => SinkType::Axiom,
+            Self::Sentry(_) => SinkType::Sentry,
+            Self::PostHogLogs(_) => SinkType::PostHogLogs,
+            Self::PostHogErrorTracking(_) => SinkType::PostHogErrorTracking,
+            Self::ManagedAnalytics(_) => SinkType::ManagedAnalytics,
+            Self::S3Export(_) => SinkType::S3Export,
+        }
+    }
 }
 
 #[derive(Serialize, ToSchema)]
@@ -441,6 +583,10 @@ pub enum CreateLogStreamResponse {
     PostHogLogs { id: String },
     #[schema(title = "PostHogErrorTracking")]
     PostHogErrorTracking { id: String },
+    #[schema(title = "ManagedAnalytics")]
+    ManagedAnalytics { id: String },
+    #[schema(title = "S3Export")]
+    S3Export { id: String },
 }
 
 async fn ensure_log_sink_does_not_exist(
@@ -480,9 +626,7 @@ pub async fn create_log_stream(
     Json(args): Json<CreateLogStreamArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity.clone())
-        .await?;
+    ensure_integration_allowed(&st.application, &identity, &args.sink_type()).await?;
 
     match args {
         CreateLogStreamArgs::Datadog(datadog_sink_post_args) => {
@@ -610,6 +754,37 @@ pub async fn create_log_stream(
                 id: id.to_string(),
             }))
         },
+        CreateLogStreamArgs::ManagedAnalytics(args) => {
+            ensure_log_sink_does_not_exist(&st.application, &SinkType::ManagedAnalytics).await?;
+
+            let id = st
+                .application
+                .add_log_sink(
+                    identity.clone(),
+                    request_metadata.clone(),
+                    SinkConfig::ManagedAnalytics(args.into()),
+                )
+                .await?;
+            Ok(Json(CreateLogStreamResponse::ManagedAnalytics {
+                id: id.to_string(),
+            }))
+        },
+        CreateLogStreamArgs::S3Export(args) => {
+            ensure_log_sink_does_not_exist(&st.application, &SinkType::S3Export).await?;
+
+            let config: S3ExportConfig = args.try_into()?;
+            let id = st
+                .application
+                .add_log_sink(
+                    identity.clone(),
+                    request_metadata.clone(),
+                    SinkConfig::S3Export(config),
+                )
+                .await?;
+            Ok(Json(CreateLogStreamResponse::S3Export {
+                id: id.to_string(),
+            }))
+        },
     }
 }
 
@@ -700,6 +875,10 @@ enum LogStreamConfig {
     PostHogLogs(PostHogLogsLogStreamConfig),
     #[schema(title = "PostHogErrorTracking")]
     PostHogErrorTracking(PostHogErrorTrackingLogStreamConfig),
+    #[schema(title = "ManagedAnalytics")]
+    ManagedAnalytics(ManagedAnalyticsLogStreamConfig),
+    #[schema(title = "S3Export")]
+    S3Export(S3ExportLogStreamConfig),
 }
 
 #[derive(Serialize, Deserialize, ToSchema)]
@@ -803,6 +982,42 @@ pub struct PostHogErrorTrackingLogStreamConfig {
     pub host: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[schema(title = "ManagedAnalyticsConfig")]
+pub struct ManagedAnalyticsLogStreamConfig {
+    pub id: String,
+    /// Status of the integration
+    pub status: LogStreamStatus,
+    /// The components, tables, and columns being mirrored.
+    pub selection: Selection,
+    /// How often the mirror is refreshed.
+    pub period: SyncPeriod,
+}
+
+#[derive(Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+#[schema(title = "S3ExportConfig")]
+pub struct S3ExportLogStreamConfig {
+    pub id: String,
+    /// Status of the integration
+    pub status: LogStreamStatus,
+    /// Name of the S3 bucket being mirrored into.
+    pub bucket: String,
+    /// AWS region the bucket lives in.
+    pub region: String,
+    /// Key prefix within the bucket.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prefix: Option<String>,
+    /// AWS access key ID used to write to the bucket. The matching secret
+    /// access key is write-only and is never returned.
+    pub access_key_id: String,
+    /// The components, tables, and columns being mirrored.
+    pub selection: Selection,
+    /// How often the mirror is refreshed.
+    pub period: SyncPeriod,
+}
+
 fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig> {
     let status: LogStreamStatus =
         Into::<model::log_sinks::types::SerializedSinkState>::into(sink.status).into();
@@ -854,6 +1069,24 @@ fn log_sink_to_log_stream_config(sink: LogSinkWithId) -> Option<LogStreamConfig>
                 host: config.host,
             },
         )),
+        SinkConfig::ManagedAnalytics(config) => Some(LogStreamConfig::ManagedAnalytics(
+            ManagedAnalyticsLogStreamConfig {
+                id: sink.id.to_string(),
+                status,
+                selection: config.selection,
+                period: config.period,
+            },
+        )),
+        SinkConfig::S3Export(config) => Some(LogStreamConfig::S3Export(S3ExportLogStreamConfig {
+            id: sink.id.to_string(),
+            status,
+            bucket: config.bucket,
+            region: config.region,
+            prefix: config.prefix,
+            access_key_id: config.access_key_id.into_value(),
+            selection: config.selection,
+            period: config.period,
+        })),
         _ => None,
     }
 }
@@ -1032,6 +1265,41 @@ pub struct UpdatePostHogErrorTrackingSinkArgs {
 }
 
 #[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateManagedAnalyticsSinkArgs {
+    /// The components, tables, and columns to mirror.
+    #[serde(default)]
+    selection: Option<Selection>,
+    /// How often the mirror is refreshed.
+    #[serde(default)]
+    period: Option<SyncPeriod>,
+}
+
+#[derive(Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateS3ExportSinkArgs {
+    /// Name of the S3 bucket to mirror into.
+    #[serde(default)]
+    bucket: Option<String>,
+    /// AWS region the bucket lives in, e.g. `us-east-1`.
+    #[serde(default)]
+    region: Option<String>,
+    /// Key prefix within the bucket.
+    #[serde(default, with = "::serde_with::rust::double_option")]
+    prefix: Option<Option<String>>,
+    #[serde(default)]
+    access_key_id: Option<String>,
+    #[serde(default)]
+    secret_access_key: Option<String>,
+    /// The components, tables, and columns to mirror.
+    #[serde(default)]
+    selection: Option<Selection>,
+    /// How often the mirror is refreshed.
+    #[serde(default)]
+    period: Option<SyncPeriod>,
+}
+
+#[derive(Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase", tag = "logStreamType")]
 pub enum UpdateLogStreamArgs {
     #[schema(title = "Datadog")]
@@ -1046,6 +1314,10 @@ pub enum UpdateLogStreamArgs {
     PostHogLogs(UpdatePostHogLogsSinkArgs),
     #[schema(title = "PostHogErrorTracking")]
     PostHogErrorTracking(UpdatePostHogErrorTrackingSinkArgs),
+    #[schema(title = "ManagedAnalytics")]
+    ManagedAnalytics(UpdateManagedAnalyticsSinkArgs),
+    #[schema(title = "S3Export")]
+    S3Export(UpdateS3ExportSinkArgs),
 }
 
 /// Update log stream
@@ -1075,14 +1347,12 @@ pub async fn update_log_stream(
     Json(args): Json<UpdateLogStreamArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
-    st.application
-        .ensure_log_streaming_allowed(identity.clone())
-        .await?;
 
     let LogSinkWithId {
         config: sink_config,
         ..
     } = st.application.must_get_log_sink_by_id(&id).await?;
+    ensure_integration_allowed(&st.application, &identity, &sink_config.sink_type()).await?;
 
     match sink_config {
         SinkConfig::Datadog(existing_config) => {
@@ -1312,6 +1582,68 @@ pub async fn update_log_stream(
                     request_metadata.clone(),
                     &id,
                     SinkConfig::PostHogErrorTracking(config),
+                )
+                .await?;
+        },
+        SinkConfig::ManagedAnalytics(existing_config) => {
+            let UpdateLogStreamArgs::ManagedAnalytics(update_args) = args else {
+                return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                    "LogStreamTypeMismatch",
+                    "Cannot update a Managed Analytics integration with arguments for a different \
+                     integration type",
+                ))
+                .into());
+            };
+
+            let config = ManagedAnalyticsConfig {
+                selection: update_args.selection.unwrap_or(existing_config.selection),
+                period: update_args.period.unwrap_or(existing_config.period),
+            };
+
+            st.application
+                .patch_log_sink_config(
+                    identity.clone(),
+                    request_metadata.clone(),
+                    &id,
+                    SinkConfig::ManagedAnalytics(config),
+                )
+                .await?;
+        },
+        SinkConfig::S3Export(existing_config) => {
+            let UpdateLogStreamArgs::S3Export(update_args) = args else {
+                return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                    "LogStreamTypeMismatch",
+                    "Cannot update an S3 export integration with arguments for a different \
+                     integration type",
+                ))
+                .into());
+            };
+
+            let bucket = update_args.bucket.unwrap_or(existing_config.bucket);
+            validate_s3_bucket(&bucket)?;
+
+            let config = S3ExportConfig {
+                bucket,
+                region: update_args.region.unwrap_or(existing_config.region),
+                prefix: update_args.prefix.unwrap_or(existing_config.prefix),
+                access_key_id: update_args
+                    .access_key_id
+                    .map(|k| k.into())
+                    .unwrap_or(existing_config.access_key_id),
+                secret_access_key: update_args
+                    .secret_access_key
+                    .map(|k| k.into())
+                    .unwrap_or(existing_config.secret_access_key),
+                selection: update_args.selection.unwrap_or(existing_config.selection),
+                period: update_args.period.unwrap_or(existing_config.period),
+            };
+
+            st.application
+                .patch_log_sink_config(
+                    identity.clone(),
+                    request_metadata.clone(),
+                    &id,
+                    SinkConfig::S3Export(config),
                 )
                 .await?;
         },
