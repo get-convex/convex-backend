@@ -125,6 +125,7 @@ impl PersistenceIndexEntry {
 /// An index entry for an existing document read during index backfill.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexBackfillEntry {
+    pub mode: IndexWriteMode,
     pub ts: Timestamp,
     pub index: IndexRef,
     pub key: IndexKeyBytes,
@@ -140,11 +141,8 @@ impl TryFrom<PersistenceIndexEntry> for IndexBackfillEntry {
             entry.prev.is_none(),
             "index backfill wrote an entry superseding another"
         );
-        anyhow::ensure!(
-            entry.mode == IndexWriteMode::Scanning,
-            "index backfill wrote an entry whose scan is already complete"
-        );
         Ok(Self {
+            mode: entry.mode,
             ts: entry.ts,
             index: entry.index,
             key: entry.key,
@@ -156,7 +154,7 @@ impl TryFrom<PersistenceIndexEntry> for IndexBackfillEntry {
 impl From<&IndexBackfillEntry> for PersistenceIndexEntry {
     fn from(entry: &IndexBackfillEntry) -> Self {
         Self {
-            mode: IndexWriteMode::Scanning,
+            mode: entry.mode,
             ts: entry.ts,
             index: entry.index,
             key: entry.key.clone(),
@@ -330,7 +328,7 @@ pub trait Persistence: Sync + Send + 'static {
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
 
-    /// Persists entries read by an online index backfill at their document
+    /// Persists entries read from an index backfill snapshot at their document
     /// timestamps. Replaying a chunk must be idempotent.
     async fn write_index_backfill(&self, entries: &[IndexBackfillEntry]) -> anyhow::Result<()> {
         let entries: Vec<_> = entries.iter().map(PersistenceIndexEntry::from).collect();

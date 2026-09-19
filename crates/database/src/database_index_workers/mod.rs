@@ -40,6 +40,7 @@ use common::{
     },
     types::{
         IndexId,
+        PersistenceIndexId,
         RepeatableTimestamp,
         TabletIndexName,
         UdfIdentifier,
@@ -105,10 +106,24 @@ pub struct IndexWorker<RT: Runtime> {
     max_concurrency: usize,
     metadata_mutex: Arc<tokio::sync::Mutex<()>>,
     database: Database<RT>,
+    persistence: Arc<dyn Persistence>,
     index_writer: IndexWriter<RT>,
     usage_tracking: UsageCounter,
     backoff: Backoff,
     runtime: RT,
+}
+
+struct BackfillTarget {
+    name: TabletIndexName,
+    retention_started: bool,
+    /// Captured before the index can be dropped so its snapshot can be
+    /// reconciled.
+    persistence_index_id: Option<PersistenceIndexId>,
+}
+
+struct BackfillRetention {
+    begin_ts: RepeatableTimestamp,
+    indexes: BTreeMap<IndexId, (TabletIndexName, IndexedFields)>,
 }
 
 impl<RT: Runtime> IndexWorker<RT> {
@@ -139,6 +154,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             max_concurrency: *INDEX_BACKFILL_CONCURRENCY,
             metadata_mutex: Default::default(),
             database,
+            persistence,
             index_writer,
             usage_tracking,
             backoff: Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, *INDEX_WORKERS_MAX_BACKOFF),
@@ -353,6 +369,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                 tablet_id,
                 index_ids,
                 self.database.clone(),
+                self.persistence.clone(),
                 self.index_writer.clone(),
                 self.metadata_mutex.clone(),
                 backfill_cursor,
@@ -360,10 +377,15 @@ impl<RT: Runtime> IndexWorker<RT> {
         );
     }
 
+    /// Completes snapshot writes and reconciliation before setting
+    /// `retention_started`. The metadata commit orders all `Scanning` writes
+    /// before subsequent `ScanComplete` writes. Retention completes before the
+    /// indexes are published. Each phase is idempotent.
     async fn backfill_tablet(
         tablet_id: TabletId,
         index_ids: Vec<IndexId>,
         database: Database<RT>,
+        persistence: Arc<dyn Persistence>,
         index_writer: IndexWriter<RT>,
         metadata_mutex: Arc<tokio::sync::Mutex<()>>,
         backfill_cursor: Option<BackfillCursor>,
@@ -372,22 +394,18 @@ impl<RT: Runtime> IndexWorker<RT> {
         let _timer = tablet_index_backfill_timer();
         let mut backfills = BTreeMap::new();
         for index_id in &index_ids {
-            let Some((index_name, retention_started)) =
-                Self::begin_backfill(*index_id, &database).await?
-            else {
+            let Some(target) = Self::begin_backfill(*index_id, &database).await? else {
                 tracing::info!("Skipping backfill of index {index_id:?} that no longer exists");
                 continue;
             };
-            backfills.insert(*index_id, (index_name, retention_started));
+            backfills.insert(*index_id, target);
         }
-        let live_index_ids: Vec<IndexId> = backfills.keys().copied().collect();
+        let existing_index_ids: Vec<IndexId> = backfills.keys().copied().collect();
 
         let needs_backfill = backfills
             .iter()
-            // If retention is already started, we're already done with the
-            // initial step of the backfill.
-            .filter(|(_, (_, retention_started))| !*retention_started)
-            .map(|(index_id, (index_name, _))| (*index_id, index_name.clone()))
+            .filter(|(_, target)| !target.retention_started)
+            .map(|(index_id, target)| (*index_id, target.name.clone()))
             .collect::<BTreeMap<_, _>>();
 
         if !needs_backfill.is_empty() {
@@ -438,8 +456,46 @@ impl<RT: Runtime> IndexWorker<RT> {
             docs_indexed = index_writer
                 .backfill_from_ts(ts, &index_registry, index_selector, 1, cursor, None)
                 .await?;
+            for index in backfills
+                .values()
+                .filter(|target| !target.retention_started)
+                .filter_map(|target| target.persistence_index_id)
+            {
+                persistence.reconcile_index_backfill(index).await?;
+            }
         }
 
+        if let Some(retention) =
+            Self::mark_retention_started(&database, &metadata_mutex, &existing_index_ids).await?
+        {
+            tracing::info!(
+                "Started running retention for {} indexes",
+                retention.indexes.len()
+            );
+            index_writer
+                .run_retention(retention.begin_ts, retention.indexes)
+                .await?;
+        }
+
+        let indexes_lock = metadata_mutex.lock().await;
+        let mut tx = database.begin(Identity::system()).await?;
+        for index_id in existing_index_ids {
+            Self::finish_backfill(&mut tx, index_id).await?;
+        }
+        database
+            .commit_with_write_source(tx, "index_worker_finish_backfill")
+            .await?;
+        drop(indexes_lock);
+
+        Ok(docs_indexed)
+    }
+
+    /// Commits the boundary between `Scanning` and `ScanComplete` writes.
+    async fn mark_retention_started(
+        database: &Database<RT>,
+        metadata_mutex: &tokio::sync::Mutex<()>,
+        existing_index_ids: &[IndexId],
+    ) -> anyhow::Result<Option<BackfillRetention>> {
         let mut min_begin_ts = None;
         let mut retention = BTreeMap::new();
         // The database currently does not allow concurrent writers to the
@@ -449,9 +505,9 @@ impl<RT: Runtime> IndexWorker<RT> {
         // here to avoid creating OCC conflicts with ourselves.
         let indexes_lock = metadata_mutex.lock().await;
         let mut tx = database.begin(Identity::system()).await?;
-        for index_id in &live_index_ids {
+        for index_id in existing_index_ids {
             let Some((backfill_begin_ts, index_name, indexed_fields)) =
-                Self::begin_retention(&mut tx, *index_id).await?
+                Self::set_retention_started(&mut tx, *index_id).await?
             else {
                 tracing::info!("Skipping retention for index {index_id:?} that no longer exists");
                 continue;
@@ -467,40 +523,21 @@ impl<RT: Runtime> IndexWorker<RT> {
             .commit_with_write_source(tx, "index_worker_start_retention")
             .await?;
         drop(indexes_lock);
-        if let Some(min_begin_ts) = min_begin_ts {
-            tracing::info!(
-                "Started running retention for {} indexes: {retention:?}",
-                retention.len()
-            );
-            index_writer.run_retention(min_begin_ts, retention).await?;
-        }
-
-        let indexes_lock = metadata_mutex.lock().await;
-        let mut tx = database.begin(Identity::system()).await?;
-        for index_id in live_index_ids {
-            Self::finish_backfill(&mut tx, index_id).await?;
-        }
-        database
-            .commit_with_write_source(tx, "index_worker_finish_backfill")
-            .await?;
-        drop(indexes_lock);
-
-        Ok(docs_indexed)
+        Ok(min_begin_ts.map(|begin_ts| BackfillRetention {
+            begin_ts,
+            indexes: retention,
+        }))
     }
 
-    /// Returns `None` if the index was dropped (e.g. by a schema push) while
-    /// its backfill was in flight.
     async fn begin_backfill(
         index_id: IndexId,
         database: &Database<RT>,
-    ) -> anyhow::Result<Option<(TabletIndexName, bool)>> {
+    ) -> anyhow::Result<Option<BackfillTarget>> {
         let mut tx = database.begin(Identity::system()).await?;
         let index_table_id = tx.bootstrap_tables().index_id;
 
-        // If we observe an index to be in `Backfilling` state at some `ts`, we
-        // know that all documents written after `ts` will already be in the index.
-        // The index may contain writes from before `ts` too, but that's okay. We'll
-        // just overwrite them.
+        // Observing `Backfilling` at this transaction's timestamp ensures that
+        // later document commits write the index with `IndexWriteMode::Scanning`.
         let Some(index_doc) = tx
             .get(ResolvedDocumentId::new(
                 index_table_id.tablet_id,
@@ -516,15 +553,19 @@ impl<RT: Runtime> IndexWorker<RT> {
         // the state to still be `Backfilling` here. If this assertion fails, we
         // somehow raced with another `IndexWorker`(!) or don't actually have the
         // database lease (!).
-        let retention_started = match &index_metadata.config {
-            IndexConfig::Database { on_disk_state, .. } => {
+        let (retention_started, persistence_id) = match &index_metadata.config {
+            IndexConfig::Database {
+                on_disk_state,
+                persistence_index_id,
+                ..
+            } => {
                 let DatabaseIndexState::Backfilling(state) = on_disk_state else {
                     anyhow::bail!(
                         "IndexWorker started backfilling index {index_metadata:?} not in \
                          Backfilling state"
                     );
                 };
-                state.retention_started
+                (state.retention_started, *persistence_index_id)
             },
             _ => anyhow::bail!(
                 "IndexWorker attempted to backfill an index {index_metadata:?} which wasn't a \
@@ -532,12 +573,14 @@ impl<RT: Runtime> IndexWorker<RT> {
             ),
         };
 
-        Ok(Some((index_metadata.name.clone(), retention_started)))
+        Ok(Some(BackfillTarget {
+            name: index_metadata.name.clone(),
+            retention_started,
+            persistence_index_id: persistence_id,
+        }))
     }
 
-    /// Returns `None` if the index was dropped (e.g. by a schema push) while
-    /// its backfill was in flight.
-    async fn begin_retention(
+    async fn set_retention_started(
         tx: &mut Transaction<RT>,
         index_id: IndexId,
     ) -> anyhow::Result<Option<(RepeatableTimestamp, TabletIndexName, IndexedFields)>> {
@@ -592,9 +635,6 @@ impl<RT: Runtime> IndexWorker<RT> {
         Ok(Some((index_ts, name, indexed_fields)))
     }
 
-    /// Returns `false` if the index was dropped (e.g. by a schema push) while
-    /// its backfill was in flight, so callers can skip it rather than
-    /// failing.
     async fn finish_backfill(tx: &mut Transaction<RT>, index_id: IndexId) -> anyhow::Result<()> {
         // Now that we're done, write that we've finished backfilling the index, sanity
         // checking that it wasn't written concurrently with our backfill.

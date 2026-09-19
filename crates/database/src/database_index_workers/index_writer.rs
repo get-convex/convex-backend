@@ -23,6 +23,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
+        IndexBackfillEntry,
         LatestDocument,
         Persistence,
         PersistenceIndexEntry,
@@ -170,6 +171,16 @@ impl IndexSelector {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum IndexWriteKind {
+    /// Entries come from a point-in-time table scan and use the persistence
+    /// layer's snapshot backfill path.
+    Snapshot,
+    /// Entries come from an ordered document-log range and apply revisions to
+    /// an existing snapshot.
+    Replay,
+}
+
 #[derive(Clone)]
 pub struct IndexWriter<RT: Runtime> {
     // Persistence target for writing indexes.
@@ -261,6 +272,28 @@ impl<RT: Runtime> IndexWriter<RT> {
         cursor: Option<ResolvedDocumentId>,
         retry_config: Option<RetryConfig>,
     ) -> anyhow::Result<u64> {
+        self.backfill_snapshot(
+            snapshot_ts,
+            index_metadata,
+            index_selector,
+            concurrency,
+            cursor,
+            retry_config,
+            IndexWriteKind::Snapshot,
+        )
+        .await
+    }
+
+    async fn backfill_snapshot(
+        &self,
+        snapshot_ts: RepeatableTimestamp,
+        index_metadata: &IndexRegistry,
+        index_selector: IndexSelector,
+        concurrency: usize,
+        cursor: Option<ResolvedDocumentId>,
+        retry_config: Option<RetryConfig>,
+        write_kind: IndexWriteKind,
+    ) -> anyhow::Result<u64> {
         let pause_client = self.runtime.pause_client();
         pause_client.wait(PERFORM_BACKFILL_LABEL).await;
         let results: Vec<u64> = stream::iter(index_selector.iterate_tables())
@@ -278,6 +311,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                                 tablet_id,
                                 cursor,
                                 retry_config,
+                                write_kind,
                             )
                             .await
                     })
@@ -308,6 +342,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         tablet_id: TabletId,
         cursor: Option<ResolvedDocumentId>,
         retry_config: Option<RetryConfig>,
+        write_kind: IndexWriteKind,
     ) -> anyhow::Result<u64> {
         let table_iterator = TableIterator::new(
             self.runtime.clone(),
@@ -361,8 +396,11 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_selector,
             retry_config,
             &balance,
+            write_kind,
         );
-        let (docs_indexed, _) = future::try_join(producer, consumer).await?;
+        // A dropped chunk write either rolls back or commits an idempotent
+        // update. Lease serialization orders later persistence writes after it.
+        let (docs_indexed, ()) = future::try_join(producer, consumer).await?;
         Ok(docs_indexed)
     }
 
@@ -427,6 +465,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_selector,
             retry_config,
             &balance,
+            IndexWriteKind::Replay,
         );
 
         // Consider ourselves successful if both the producer and consumer exit
@@ -435,15 +474,33 @@ impl<RT: Runtime> IndexWriter<RT> {
         Ok(())
     }
 
-    /// Chunk writes use `ConflictStrategy::Overwrite`, so re-applying a chunk
-    /// after a transient db error is safe.
     async fn write_chunk_with_optional_retry(
         &self,
         persistence: &Arc<dyn Persistence>,
         index_updates: &[PersistenceIndexEntry],
         retry_config: Option<RetryConfig>,
+        write_kind: IndexWriteKind,
     ) -> anyhow::Result<()> {
-        let write = || persistence.write(&[], index_updates, ConflictStrategy::Overwrite);
+        let backfill_entries = match write_kind {
+            IndexWriteKind::Snapshot => index_updates
+                .iter()
+                .cloned()
+                .map(IndexBackfillEntry::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?,
+            IndexWriteKind::Replay => Vec::new(),
+        };
+        let write = || async {
+            match write_kind {
+                IndexWriteKind::Snapshot => {
+                    persistence.write_index_backfill(&backfill_entries).await
+                },
+                IndexWriteKind::Replay => {
+                    persistence
+                        .write(&[], index_updates, ConflictStrategy::Overwrite)
+                        .await
+                },
+            }
+        };
         match retry_config {
             None => write().await,
             Some(retry) => {
@@ -460,6 +517,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_selector: &IndexSelector,
         retry_config: Option<RetryConfig>,
         read_write_balance: &ReadWriteBalance,
+        write_kind: IndexWriteKind,
     ) -> anyhow::Result<()> {
         let should_send_progress = self.progress_tx.is_some();
         let approx_num_indexes = match index_selector {
@@ -528,6 +586,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                         &persistence,
                         &index_updates,
                         retry_config,
+                        write_kind,
                     )
                     .await?;
                 }
