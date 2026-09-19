@@ -71,12 +71,18 @@ model. For the [RAG component](/agents/rag.mdx), use
 ## Vercel AI SDK
 
 `convexGateway` works with `generateText`, `streamText`, `embed`, and
-`embedMany` from the [Vercel AI SDK](https://ai-sdk.dev/). It needs `convex`
-1.45+ and AI SDK 7, and runs in the default runtime and
-[Node.js actions](/functions/runtimes.mdx):
+`embedMany` from the [Vercel AI SDK](https://ai-sdk.dev/). Use
+`@convex-dev/ai-sdk-provider` 0.2.0 or later with `convex` 1.45 or later and AI
+SDK 7. The provider works in the default runtime and
+[Node.js actions](/functions/runtimes.mdx).
+
+For a Node.js action, set
+[`node.nodeVersion`](/production/project-configuration.mdx#configuring-the-nodejs-version)
+to `"22"` or `"24"` in `convex.json`. The default Convex runtime doesn't need
+this setting.
 
 ```sh
-npm install @convex-dev/ai-sdk-provider ai
+npm install @convex-dev/ai-sdk-provider@^0.2.0 ai
 ```
 
 ```ts
@@ -114,14 +120,17 @@ for await (const chunk of result.textStream) {
 
 ### Choose a model interface
 
-For text generation, start with `convexGateway(model)`. It works across model
-providers and is the recommended default. Use the native Messages or Responses
-interface only when you need endpoint-specific provider features:
+For text generation, start with `convexGateway(model)`, which uses Chat
+Completions across model providers. Use the native Messages or Responses
+interface when you need endpoint-specific provider features:
 
 ```ts
 const messagesModel = convexGateway.messages("anthropic/claude-sonnet-4.5");
 const responsesModel = convexGateway.responses("openai/gpt-5");
 ```
+
+The Responses endpoint is stateless. The provider sets `store: false`; it does
+not support `store: true` or `previous_response_id`.
 
 :::caution Decisions is in alpha
 
@@ -226,6 +235,26 @@ const decision = await response.json();
 ```
 
 See [HTTP API](/ai-gateway/api.mdx) for request and response shapes.
+
+## Local development
+
+Local development requires `convex` 1.46 or later, an up-to-date local backend,
+and a deployment linked to a project whose team has AI Gateway access. From your
+project directory, run:
+
+```sh
+npx convex login
+npx convex deployment select local
+npx convex dev
+```
+
+Restart `npx convex dev` after signing in if it was already running, and accept
+the backend upgrade if prompted. The examples above, including
+`getServiceToken("ai-gateway")`, work unchanged. See
+[Local deployments](/cli/local-deployments-for-dev.mdx) for more setup options.
+
+Inference runs in the cloud and is charged to the linked project's team.
+Anonymous local deployments cannot use the gateway.
 
 ## Token and timeouts
 
