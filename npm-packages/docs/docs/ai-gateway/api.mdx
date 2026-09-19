@@ -14,8 +14,9 @@ Base URL: `https://ai-gateway.convex.dev`. To send a request from an action, see
 Authorization: Bearer <token>
 ```
 
-Mint the token in an action with `getServiceToken("ai-gateway")`. Token rules
-and errors: [Getting started](/ai-gateway/setup#token-and-timeouts).
+Get the token in an action with `getServiceToken("ai-gateway")`. The action
+runtime caches and refreshes it as needed. Token rules and errors:
+[Getting started](/ai-gateway/setup#token-and-timeouts).
 
 Missing or invalid token:
 

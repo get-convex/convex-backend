@@ -69,8 +69,8 @@ export function setupActionCalls(requestId: string) {
  *
  * This function can only be called while an action is running. The credential
  * is scoped to the current deployment and should be sent as a bearer token.
- * Repeated calls in the same action reuse one token; a failed mint is not
- * cached, so a later call retries.
+ * The action runtime caches and refreshes credentials as needed, so call
+ * this function whenever making a service request.
  *
  * @param service - The service the credential may access.
  * @returns A JWT to send as `Authorization: Bearer <token>`. Keep it inside

@@ -83,9 +83,9 @@ Authentication is handled automatically. Pass `{ signal }` as the second
 argument to cancel a request with an `AbortSignal`. HTTP errors and invalid
 responses throw `ConvexGatewayError`.
 
-`getServiceToken("ai-gateway")` mints a short-lived deployment JWT on first use
-in an action and reuses it for later calls, so `convexGateway(...)` is fine to
-call more than once. The provider takes no API key.
+`getServiceToken("ai-gateway")` supplies a short-lived deployment JWT. The
+action runtime caches and refreshes the credential as needed, so
+`convexGateway(...)` is recommended to call it repeatedly.
 
 Requires Convex 1.45 or later, AI SDK 7, and Node.js 22 or later.
 

@@ -336,8 +336,8 @@ function gatewayErrorMessage(status: number, body: unknown): string {
  * The recommended model interface for text generation through the Convex AI gateway.
  * Use `messages` or `responses` only for endpoint-specific features.
  *
- * `getServiceToken` reuses one token for the current action, so calling this
- * more than once in the same action is fine.
+ * `getServiceToken` caches and refreshes credentials within the current action,
+ * so calling this more than once in the same action is fine.
  */
 export function convexGateway(modelId: string): ChatModel {
   return createGatewayProvider()(modelId);
