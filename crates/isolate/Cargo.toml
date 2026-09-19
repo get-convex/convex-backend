@@ -54,6 +54,7 @@ testing = [
 tracy-tracing = ["common/tracy-tracing"]
 
 [dependencies]
+ai_gateway_jwt = { workspace = true }
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
 async-recursion = { workspace = true }

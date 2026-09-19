@@ -3,8 +3,6 @@
 //! attribution come from trusted state, and the gateway receives public keys.
 //! The underlying RS256 implementation lives in [`jwt`].
 
-use std::sync::LazyLock;
-
 use biscuit::{
     jwk::{
         JWKSet,
@@ -25,15 +23,12 @@ use chrono::{
     Duration,
     Utc,
 };
-use common::{
-    knobs::MAX_ACTION_USER_TIMEOUT,
-    types::{
-        AttributionClaims,
-        DeploymentMetadata,
-        MemberId,
-        ProjectId,
-        TeamId,
-    },
+use common::types::{
+    AttributionClaims,
+    DeploymentMetadata,
+    MemberId,
+    ProjectId,
+    TeamId,
 };
 use serde::{
     Deserialize,
@@ -57,10 +52,7 @@ pub const LOCAL_AI_GATEWAY_JWT_ISSUER: &str = "convex-local";
 /// A service audience keeps tokens valid across gateway hostname changes.
 pub const AI_GATEWAY_JWT_AUDIENCE: &str = "ai";
 pub const AI_GATEWAY_JWT_VERSION: u16 = 1;
-pub static AI_GATEWAY_JWT_LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_std(*MAX_ACTION_USER_TIMEOUT)
-        .expect("maximum action user timeout must fit in chrono::Duration")
-});
+pub const AI_GATEWAY_JWT_LIFETIME: Duration = Duration::minutes(30);
 pub const AI_GATEWAY_JWT_CLOCK_SKEW: Duration = Duration::seconds(5);
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -186,7 +178,7 @@ fn gateway_claims(
             issuer: Some(issuer.to_owned()),
             subject: Some(subject.to_owned()),
             audience: Some(SingleOrMultiple::Single(AI_GATEWAY_JWT_AUDIENCE.to_owned())),
-            expiry: Some((now + *AI_GATEWAY_JWT_LIFETIME).into()),
+            expiry: Some((now + AI_GATEWAY_JWT_LIFETIME).into()),
             issued_at: Some(now.into()),
             ..Default::default()
         },
@@ -246,7 +238,7 @@ fn verify_claims(
         .ok_or(JwtError::InvalidToken)?
         .into();
     let token_lifetime = expires_at.signed_duration_since(issued_at);
-    if token_lifetime <= Duration::zero() || token_lifetime > *AI_GATEWAY_JWT_LIFETIME {
+    if token_lifetime <= Duration::zero() || token_lifetime > AI_GATEWAY_JWT_LIFETIME {
         return Err(JwtError::InvalidToken);
     }
     Ok(claims)

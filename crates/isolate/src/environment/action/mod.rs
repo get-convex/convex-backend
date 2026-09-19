@@ -1,6 +1,7 @@
 mod async_syscall;
 mod fetch;
 mod phase;
+mod service_token;
 mod storage;
 mod stream;
 mod syscall;
@@ -131,6 +132,7 @@ pub use self::{
 };
 use self::{
     phase::ActionPhase,
+    service_token::ServiceTokenCache,
     task::{
         TaskId,
         TaskRequest,
@@ -296,7 +298,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             convex_origin_override: convex_origin_override.clone(),
             http_action_route: http_action_route.clone(),
             deployment,
-            ai_gateway_token: Arc::new(tokio::sync::OnceCell::new()),
+            service_token: Arc::new(ServiceTokenCache::default()),
         };
         let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();
         let running_tasks = rt.spawn("task_executor", task_executor.go(pending_task_receiver));

@@ -248,6 +248,7 @@ export type ExecuteRequest = {
   userIdentity: UserIdentity | null;
   environmentVariables: EnvironmentVariable[];
   timeoutSecs: number;
+  serviceTokenGuaranteedLifetimeSecs: number;
   npmVersion: string | null;
   executionContext: ExecutionContext;
   encodedParentTrace: string | null;
@@ -330,6 +331,7 @@ export async function execute(
       request.executionContext,
       request.encodedParentTrace,
       request.deployment,
+      request.serviceTokenGuaranteedLifetimeSecs * 1000,
     );
 
     countEgressBytes(); // reset egressBytes counter

@@ -201,14 +201,17 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let action_callbacks = self.action_callbacks.clone();
         let identity = self.identity.clone();
         let token = self
-            .ai_gateway_token
-            .get_or_try_init(|| async move {
-                action_callbacks
-                    .create_ai_gateway_token(identity, caller)
-                    .await
-            })
+            .service_token
+            .get_or_mint(
+                || self.rt.system_time(),
+                || async move {
+                    action_callbacks
+                        .create_ai_gateway_token(identity, caller)
+                        .await
+                },
+            )
             .await?;
-        Ok(JsonValue::String(token.clone()))
+        Ok(JsonValue::String(token))
     }
 
     fn async_syscall_getServiceUrl(&self, args: JsonValue) -> anyhow::Result<JsonValue> {

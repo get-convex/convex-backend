@@ -16,6 +16,7 @@
     "concat-stream": "^2.0.0",
     "convex": "workspace:*",
     "express": "^5.0.0",
+    "jose": "^5.10.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
