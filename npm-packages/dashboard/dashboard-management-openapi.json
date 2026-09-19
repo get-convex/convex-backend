@@ -3140,6 +3140,25 @@
             "in": "path",
             "description": "Team ID",
             "required": true
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "Cursor for pagination",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Max results per page (default: 100, max: 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -5185,7 +5204,8 @@
       "ListDirectorySyncGroupsResponse": {
         "type": "object",
         "required": [
-          "groups"
+          "groups",
+          "pagination"
         ],
         "properties": {
           "groups": {
@@ -5193,6 +5213,9 @@
             "items": {
               "$ref": "#/components/schemas/DirectoryGroupResponse"
             }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationMetadata"
           }
         }
       },

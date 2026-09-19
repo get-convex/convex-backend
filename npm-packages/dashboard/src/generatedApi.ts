@@ -2383,6 +2383,7 @@ export interface components {
         };
         ListDirectorySyncGroupsResponse: {
             groups: components["schemas"]["DirectoryGroupResponse"][];
+            pagination: components["schemas"]["PaginationMetadata"];
         };
         ListMyCustomRolesResponse: {
             /** @description The team member's built-in role. When `custom`, `customRoles` lists
@@ -5697,7 +5698,12 @@ export interface operations {
     };
     list_directory_sync_groups: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Cursor for pagination */
+                cursor?: string;
+                /** @description Max results per page (default: 100, max: 100) */
+                limit?: number;
+            };
             header?: never;
             path: {
                 /** @description Team ID */
