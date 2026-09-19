@@ -648,29 +648,28 @@ function EntryAction({
       return <span>disabled directory sync</span>;
     }
     case "directorySync:updateGroupMapping": {
-      const groupId =
-        metadata.current?.workosGroupId ?? metadata.previous?.workosGroupId;
+      const group = metadata.current?.group;
       return (
         <span>
-          updated directory sync group role mapping
-          {groupId && (
+          updated the role for directory group
+          {group && (
             <>
-              {" for group "}
-              <span className="font-semibold">{groupId}</span>
+              {" "}
+              <span className="font-semibold">{group}</span>
             </>
           )}
         </span>
       );
     }
     case "directorySync:deleteGroupMapping": {
-      const groupId = metadata.previous?.workosGroupId;
+      const group = metadata.previous?.group;
       return (
         <span>
-          removed directory sync group role mapping
-          {groupId && (
+          removed the role mapping for directory group
+          {group && (
             <>
-              {" for group "}
-              <span className="font-semibold">{groupId}</span>
+              {" "}
+              <span className="font-semibold">{group}</span>
             </>
           )}
         </span>
