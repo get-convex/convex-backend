@@ -40,7 +40,6 @@ WORKDIR /app/npm-packages
 RUN pnpm install --frozen-lockfile
 ENV NODE_ENV=production
 RUN turbo run build --filter=dashboard-self-hosted...
-RUN pnpm --filter=dashboard-self-hosted deploy --legacy --prod /tmp/deploy
 
 FROM ubuntu:noble
 
@@ -60,12 +59,15 @@ EOF
 
 RUN groupadd --system --gid 1001 nodejs
 RUN useradd --system --uid 1001 --gid nodejs nextjs
-COPY --from=build --chown=nextjs:nodejs /tmp/deploy/ /app/
-WORKDIR /app
-# Since the pnpm workspace root (npm-packages/, where pnpm-lock.yaml lives) is
-# an ancestor of the package, Next infers it as outputFileTracingRoot and nests
-# the standalone output under the package's workspace-relative path.
-RUN cp /app/.next/standalone/dashboard-self-hosted/server.js .
+COPY --from=build --chown=nextjs:nodejs \
+    /app/npm-packages/dashboard-self-hosted/.next/standalone/ /app/
+COPY --from=build --chown=nextjs:nodejs \
+    /app/npm-packages/dashboard-self-hosted/.next/static/ \
+    /app/dashboard-self-hosted/.next/static/
+COPY --from=build --chown=nextjs:nodejs \
+    /app/npm-packages/dashboard-self-hosted/public/ \
+    /app/dashboard-self-hosted/public/
+WORKDIR /app/dashboard-self-hosted
 USER nextjs
 EXPOSE 6791
 ENV PORT=6791
