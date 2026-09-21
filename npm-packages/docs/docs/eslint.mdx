@@ -4,18 +4,21 @@ sidebar_position: 30
 description: ESLint rules for Convex
 ---
 
+import oxlintConfig from "!!raw-loader!@site/../@convex-dev/eslint-plugin/oxlint-demo/oxlint.config.ts";
+
 The Convex ESLint plugin provides linter rules that enforce best practices for
 Convex functions. Let us know if there's a rule you would find helpful!
 
 ## Setup
 
-For ESLint 9 (flat config, using `eslint.config.js`), install the rules with:
+Install the plugin with:
 
 ```sh
 npm i @convex-dev/eslint-plugin --save-dev
 ```
 
-and add this to your `eslint.config.js` file:
+For **ESLint 9+** (flat config, using `eslint.config.js`), add this to your
+`eslint.config.js` file:
 
 ```ts
 import { defineConfig } from "eslint/config";
@@ -103,6 +106,19 @@ const nextConfig: NextConfig = {
 ```
 
 </Details>
+
+You can also use the plugin **with Oxlint**. Add this to your `oxlint.config.ts`
+file:
+
+<Snippet source={oxlintConfig} title="oxlint.config.ts" />
+
+<Admonition type="warning" title="Oxlint limitations">
+
+Oxlint does not expose TypeScript type information to JS plugins, so type-aware
+rules and their autofixes (`explicit-table-ids`, `no-collect-in-query`) are
+unavailable when running the plugin through Oxlint.
+
+</Admonition>
 
 ## Rules
 

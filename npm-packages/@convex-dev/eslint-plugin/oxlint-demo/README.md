@@ -4,7 +4,7 @@ A backend-only Convex project linted with
 [Oxlint](https://oxc.rs/docs/guide/usage/linter) instead of ESLint, using
 `@convex-dev/eslint-plugin` through Oxlint's ESLint-compatible JS plugin
 support. `oxlint.config.ts` shows the setup that
-[docs.convex.dev/eslint](https://docs.convex.dev/eslint#oxlint) documents.
+[docs.convex.dev/eslint](https://docs.convex.dev/eslint) documents.
 
 `schema.ts`, `messages.ts`, and `crons.ts` each contain a pattern that a
 recommended rule reports, suppressed with an `oxlint-disable-next-line` comment.
