@@ -457,6 +457,7 @@ export async function deployToDeployment(
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
     skipWorkosCheck?: boolean | undefined;
+    skipLargeIndexesCheck: boolean;
     allowDeletingLargeIndexes: boolean;
     message: string | null;
   },
@@ -504,7 +505,11 @@ export async function deployToDeployment(
     writePushRequest: options.writePushRequest,
     liveComponentSources: !!options.liveComponentSources,
     pushAllModules: !!options.pushAllModules,
-    largeIndexDeletionCheck: options.allowDeletingLargeIndexes
+    largeIndexDeletionCheck:
+      options.skipLargeIndexesCheck || options.allowDeletingLargeIndexes
+        ? "has confirmation"
+        : "ask for confirmation",
+    largeIndexBackfillCheck: options.skipLargeIndexesCheck
       ? "has confirmation"
       : "ask for confirmation",
     warnOnSlowSchemaValidation: true,

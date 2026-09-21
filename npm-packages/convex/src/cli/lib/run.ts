@@ -535,6 +535,7 @@ export async function pushToDeployment(
       liveComponentSources: args.liveComponentSources,
       pushAllModules: false,
       largeIndexDeletionCheck: "no verification", // `convex run` can’t push to prod
+      largeIndexBackfillCheck: "no verification", // ditto
       warnOnSlowSchemaValidation: true,
       message: null,
     },

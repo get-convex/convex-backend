@@ -109,4 +109,10 @@ Path to a custom file of environment variables, for choosing the deployment, e.g
 Optional message to attach to this deployment in the audit log.
 
 </dd>
+<dt>`--skip-large-indexes-check`</dt>
+<dd>
+
+Skip the confirmation prompt when this push creates, changes, or deletes an index on a large table. Creating or changing an index blocks the deploy until it is backfilled; consider staging it instead so it backfills in the background.
+
+</dd>
 </dl>

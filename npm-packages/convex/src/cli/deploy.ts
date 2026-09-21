@@ -111,10 +111,17 @@ Same format as .env.local or .env files, and overrides them.`,
     ).hideHelp(),
   )
   .addOption(
-    new Option("--allow-deleting-large-indexes")
-      .hideHelp()
-      .conflicts("preview-create")
-      .conflicts("preview-name"),
+    new Option(
+      "--skip-large-indexes-check",
+      "Skip the confirmation prompt when this push creates, changes, or deletes an index on a large table. Creating or changing an index blocks the deploy until it is backfilled; consider staging it instead so it backfills in the background.",
+    ),
+  )
+  .addOption(
+    // Predecessor of --skip-large-indexes-check, kept hidden so existing
+    // deploy scripts keep working. It still skips only the deletion
+    // confirmation: scripts that opted into that never agreed to let a
+    // blocking backfill through.
+    new Option("--allow-deleting-large-indexes").hideHelp(),
   )
   .showHelpAfterError()
   .action(async (cmdOptions) => {
@@ -181,6 +188,7 @@ Same format as .env.local or .env files, and overrides them.`,
           ...cmdOptions,
           previewName: previewName ?? undefined,
           reuse,
+          skipLargeIndexesCheck: cmdOptions.skipLargeIndexesCheck ?? false,
           message: cmdOptions.message ?? getDefaultDeployMessage(),
         },
       );
@@ -204,6 +212,7 @@ Same format as .env.local or .env files, and overrides them.`,
       await deployToExistingDeployment(ctx, deploymentSelection, {
         ...cmdOptions,
         skipWorkosCheck: cmdOptions.skipWorkosCheck ?? false,
+        skipLargeIndexesCheck: cmdOptions.skipLargeIndexesCheck ?? false,
         allowDeletingLargeIndexes:
           cmdOptions.allowDeletingLargeIndexes ?? false,
         message: cmdOptions.message ?? getDefaultDeployMessage(),
@@ -237,6 +246,7 @@ async function deployToNewPreviewDeployment(
     debug?: boolean | undefined;
     debugBundlePath?: string | undefined;
     skipWorkosCheck?: boolean | undefined;
+    skipLargeIndexesCheck: boolean;
     message: string | null;
   },
 ) {
@@ -333,6 +343,14 @@ async function deployToNewPreviewDeployment(
     liveComponentSources: false,
     pushAllModules: !!options.pushAllModules,
     largeIndexDeletionCheck: "no verification", // fine for preview deployments
+    // A freshly claimed preview has no data to backfill. A reused one keeps
+    // the data earlier pushes wrote, so an unstaged index there can block
+    // the deploy like on any other deployment.
+    largeIndexBackfillCheck: data.isNewDeployment
+      ? "no verification"
+      : options.skipLargeIndexesCheck
+        ? "has confirmation"
+        : "ask for confirmation",
     warnOnSlowSchemaValidation: true,
     message: options.message,
   };
@@ -378,6 +396,7 @@ async function deployToExistingDeployment(
     liveComponentSources?: boolean | undefined;
     envFile?: string | undefined;
     skipWorkosCheck?: boolean | undefined;
+    skipLargeIndexesCheck: boolean;
     allowDeletingLargeIndexes: boolean;
     message: string | null;
   },

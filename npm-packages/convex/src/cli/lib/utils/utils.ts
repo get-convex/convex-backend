@@ -996,6 +996,27 @@ export function formatSize(n: number): string {
   return `${formatted} ${BYTE_UNITS[unitIndex]}`;
 }
 
+/**
+ * Read an integer override from the environment, falling back to
+ * `defaultValue` when the variable is unset. The whole value must be a
+ * base-10 integer: `parseInt` would read a typo like `100_000` or `100k` as
+ * 100 and silently move the threshold, so anything else is rejected with a
+ * warning instead.
+ */
+export function integerFromEnv(envVar: string, defaultValue: number): number {
+  const envValue = process.env[envVar];
+  if (envValue === undefined) {
+    return defaultValue;
+  }
+  if (!/^[+-]?\d+$/.test(envValue.trim())) {
+    logWarning(
+      `Ignoring ${envVar}=${JSON.stringify(envValue)}: expected an integer, using ${defaultValue}`,
+    );
+    return defaultValue;
+  }
+  return Number(envValue);
+}
+
 export function formatDuration(ms: number): string {
   const twoDigits = (n: number, unit: string) =>
     `${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}${unit}`;

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.47.0
+
+- `npx convex deploy` now asks for confirmation before creating or changing an
+  index on a large table, since the deploy blocks until the index is backfilled.
+  Stage the index (`staged: true`) to backfill it in the background instead, or
+  pass the new `--skip-large-indexes-check` flag to proceed without
+  confirmation. That flag also covers deleting large indexes, replacing the
+  hidden `--allow-deleting-large-indexes` flag, which keeps working.
+
 ## 1.46.0
 
 - Added `.optional()` to all validators. For example, `v.string().optional()` is

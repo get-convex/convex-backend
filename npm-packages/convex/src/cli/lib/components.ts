@@ -53,6 +53,11 @@ import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { formatIndex, LargeIndexDeletionCheck } from "./indexes.js";
 import { checkForLargeIndexDeletion } from "./checkForLargeIndexDeletion.js";
 import { checkForSlowSchemaValidation } from "./checkForSlowSchemaValidation.js";
+import {
+  checkForLargeIndexBackfill,
+  LargeIndexBackfillCheck,
+} from "./checkForLargeIndexBackfill.js";
+import { sharedSchemaEvaluation } from "./schemaEvaluation.js";
 import { LogManager } from "./logs.js";
 import { createHash } from "crypto";
 import { Bundle, BundleHash } from "../../bundler/index.js";
@@ -76,6 +81,7 @@ export type PushOptions = {
   pushAllModules: boolean;
   logManager?: LogManager | undefined;
   largeIndexDeletionCheck: LargeIndexDeletionCheck;
+  largeIndexBackfillCheck: LargeIndexBackfillCheck;
   // Whether a dry run should warn when the schema change would block the
   // deploy on a slow table walk. On for deploys; off for commands whose dry
   // runs never deploy (e.g. codegen).
@@ -234,6 +240,7 @@ async function startComponentsPushAndCodegen(
     pushAllModules?: boolean;
     debugNodeApis: boolean;
     largeIndexDeletionCheck: LargeIndexDeletionCheck;
+    largeIndexBackfillCheck: LargeIndexBackfillCheck;
     warnOnSlowSchemaValidation: boolean;
     codegenOnlyThisComponent?: string | undefined;
   },
@@ -451,6 +458,11 @@ async function startComponentsPushAndCodegen(
   }
   logStartPushSizes(parentSpan, startPushRequest);
 
+  const schemaEvaluation = sharedSchemaEvaluation(
+    ctx,
+    startPushRequest,
+    options,
+  );
   if (options.largeIndexDeletionCheck !== "no verification") {
     await parentSpan.enterAsync("checkForLargeIndexDeletion", (span) =>
       checkForLargeIndexDeletion({
@@ -458,20 +470,30 @@ async function startComponentsPushAndCodegen(
         span,
         request: startPushRequest,
         options,
+        schemaEvaluation,
         askForConfirmation:
           options.largeIndexDeletionCheck === "ask for confirmation",
       }),
     );
   }
 
-  if (options.dryRun && options.warnOnSlowSchemaValidation) {
-    await parentSpan.enterAsync("checkForSlowSchemaValidation", (span) =>
-      checkForSlowSchemaValidation({
+  const largeIndexBackfillCheck = options.largeIndexBackfillCheck;
+  if (largeIndexBackfillCheck !== "no verification") {
+    await parentSpan.enterAsync("checkForLargeIndexBackfill", (span) =>
+      checkForLargeIndexBackfill({
         ctx,
         span,
-        request: startPushRequest,
+        schemaEvaluation,
         options,
+        // A dry run never blocks on a backfill, so it only reports.
+        mode: options.dryRun ? "warn" : largeIndexBackfillCheck,
       }),
+    );
+  }
+
+  if (options.dryRun && options.warnOnSlowSchemaValidation) {
+    await parentSpan.enterAsync("checkForSlowSchemaValidation", (span) =>
+      checkForSlowSchemaValidation({ span, schemaEvaluation }),
     );
   }
 

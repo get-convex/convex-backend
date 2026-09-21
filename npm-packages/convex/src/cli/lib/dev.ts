@@ -148,6 +148,13 @@ export async function devAgainstDeployment(
         pushAllModules: devOptions.pushAllModules,
         logManager, // Pass logManager to control logs during deploy
         largeIndexDeletionCheck: "no verification", // `convex dev` can’t push to prod
+        // `convex dev --prod` pushes straight to production, where an
+        // unstaged index on a large table blocks the push for the whole
+        // backfill; dev deployments are small enough to let it through.
+        largeIndexBackfillCheck:
+          credentials.deploymentType === "prod"
+            ? "ask for confirmation"
+            : "no verification",
         warnOnSlowSchemaValidation: true,
         message: null,
       },

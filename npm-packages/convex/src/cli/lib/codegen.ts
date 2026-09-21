@@ -47,6 +47,7 @@ import {
 } from "../codegen_templates/component_api.js";
 import { functionsDir } from "./utils/utils.js";
 import { LargeIndexDeletionCheck } from "./indexes.js";
+import { LargeIndexBackfillCheck } from "./checkForLargeIndexBackfill.js";
 
 const PRESERVED_GENERATED_ENTRIES = new Set(["ai"]);
 
@@ -82,6 +83,7 @@ export type CodegenOptions = {
   debugNodeApis: boolean;
   systemUdfs: boolean;
   largeIndexDeletionCheck: LargeIndexDeletionCheck;
+  largeIndexBackfillCheck: LargeIndexBackfillCheck;
   warnOnSlowSchemaValidation: boolean;
   codegenOnlyThisComponent?: string | undefined;
 };
