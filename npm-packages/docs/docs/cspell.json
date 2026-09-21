@@ -161,5 +161,6 @@
     "zoneinfo"
   ],
   "ignoreRegExpList": ["/#[\\w-]+/", "/\\w+.png/"],
+  "ignorePaths": ["ai-gateway/_models-list.mdx"],
   "enableFiletypes": ["mdx", "md"]
 }
