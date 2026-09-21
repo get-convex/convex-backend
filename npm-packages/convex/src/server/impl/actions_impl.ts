@@ -65,6 +65,12 @@ export function setupActionCalls(requestId: string) {
 }
 
 /**
+ * A Convex-managed service. The backend decides which names it accepts; this
+ * type lists the ones the current release knows about.
+ */
+export type ServiceName = "ai-gateway";
+
+/**
  * Get a short-lived credential for calling a Convex-managed service.
  *
  * This function can only be called while an action is running. The credential
@@ -77,11 +83,8 @@ export function setupActionCalls(requestId: string) {
  * the action: don't return it to clients or store it in environment
  * variables.
  */
-export async function getServiceToken(service: "ai-gateway"): Promise<string> {
+export async function getServiceToken(service: ServiceName): Promise<string> {
   validateArg(service, 1, "getServiceToken", "service");
-  if (service !== "ai-gateway") {
-    throw new Error(`Unsupported service "${String(service)}"`);
-  }
   return await performAsyncSyscall("1.0/createServiceToken", {
     service,
     version,
@@ -99,11 +102,8 @@ export async function getServiceToken(service: "ai-gateway"): Promise<string> {
  *
  * @internal
  */
-export async function getServiceUrl(service: "ai-gateway"): Promise<string> {
+export async function getServiceUrl(service: ServiceName): Promise<string> {
   validateArg(service, 1, "getServiceUrl", "service");
-  if (service !== "ai-gateway") {
-    throw new Error(`Unsupported service "${String(service)}"`);
-  }
   return await performAsyncSyscall("1.0/getServiceUrl", {
     service,
     version,
