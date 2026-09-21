@@ -9,6 +9,8 @@ const MAPPING_PATH =
   "/teams/{team_id}/directory_sync/mappings/{workos_group_id}";
 
 export const DIRECTORY_GROUPS_PAGE_SIZE = 25;
+const STAGED_MEMBERS_PATH = "/teams/{team_id}/directory_sync/staged_members";
+export const STAGED_MEMBERS_PAGE_SIZE = 50;
 
 export function useGetDirectorySync(
   teamId: number | undefined,
@@ -44,6 +46,54 @@ export function useDisableDirectorySync(teamId: number) {
     },
     successToast: "Directory Sync has been disabled for your team.",
   });
+}
+
+export function useEnableDirectorySync(teamId: number) {
+  const enable = useBBMutation({
+    path: "/teams/{team_id}/directory_sync/enable",
+    pathParams: {
+      team_id: teamId.toString(),
+    },
+    mutateKey: DIRECTORY_SYNC_PATH,
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
+    successToast: "Directory Sync has been enabled for your team.",
+  });
+  const mutate = useMutate();
+  return useCallback(async () => {
+    const result = await enable();
+    // Once management is on the roster only lists who can still join, so
+    // the staged list has to be refetched too.
+    await mutate([STAGED_MEMBERS_PATH]);
+    return result;
+  }, [enable, mutate]);
+}
+
+export function useStagedDirectoryMembers(
+  teamId: number | undefined,
+  cursor: string | undefined,
+  { isPaused = false }: { isPaused?: boolean } = {},
+) {
+  const queryParams = useMemo(
+    () => ({ cursor, limit: STAGED_MEMBERS_PAGE_SIZE }),
+    [cursor],
+  );
+  const { data, isLoading, error } = useBBQuery({
+    path: STAGED_MEMBERS_PATH,
+    pathParams: {
+      team_id: isPaused ? "" : (teamId?.toString() ?? ""),
+    },
+    queryParams,
+  });
+  // The spec declares no error body for this route, so SWR types the error
+  // as `never`; the roster still 404s while the directory is unconfigured.
+  // Network failures arrive as an `Error`, which carries no `code`.
+  return {
+    data,
+    isLoading,
+    error: error as { code?: string; message?: string } | undefined,
+  };
 }
 
 export function useDirectorySyncGroups(

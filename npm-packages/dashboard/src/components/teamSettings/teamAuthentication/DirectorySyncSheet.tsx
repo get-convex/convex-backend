@@ -4,6 +4,7 @@ import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Loading } from "@ui/Loading";
 import { Menu, MenuItem } from "@ui/Menu";
+import { cn } from "@ui/cn";
 import type { TeamResponse } from "generatedApi";
 import {
   useDisableDirectorySync,
@@ -17,12 +18,18 @@ import {
 import { useGetSSO, useTeamEntitlements } from "api/teams";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
-import { DIRECTORY_SYNC_RESOURCE, SSO_RESOURCE } from "lib/permissions";
+import {
+  DIRECTORY_SYNC_RESOURCE,
+  MEMBER_RESOURCE,
+  SSO_RESOURCE,
+} from "lib/permissions";
 import { DirectoryGroupsSheet } from "./DirectoryGroupsSheet";
+import { ReviewDirectoryChangesModal } from "./ReviewDirectoryChangesModal";
 import {
   ConfigurationRow,
   EmptyStateRow,
   SettingsSheet,
+  SHEET_ROW,
 } from "./SettingsSheet";
 import { DirectoryStatusBadge } from "./StatusBadge";
 
@@ -55,6 +62,14 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     DIRECTORY_SYNC_RESOURCE,
     false,
   );
+  // The staged roster names each member and the role they hold, so the
+  // endpoint behind the review modal asks for `member:view` as well.
+  const canViewMembers = useHasCustomRolePermission(
+    team.id,
+    "member:view",
+    MEMBER_RESOURCE,
+    true,
+  );
   const canEnable = isTeamAdmin || canEnableCustom === true;
   const canDisable = isTeamAdmin || canDisableCustom === true;
   const canUpdateMapping = isTeamAdmin || canUpdateMappingCustom === true;
@@ -81,6 +96,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
   const [showDisableConfirmation, setShowDisableConfirmation] = useState(false);
   const [isDisabling, setIsDisabling] = useState(false);
   const [disableError, setDisableError] = useState<string>();
+  const [showReview, setShowReview] = useState(false);
 
   if (canView === false) {
     return (
@@ -144,6 +160,27 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     hasVerifiedDomain &&
     !isGeneratingLink;
 
+  const managementEnabled = directorySync?.enabled ?? false;
+  const rosterTip =
+    canViewMembers === false
+      ? permissionDeniedTip(
+          "You do not have permission to view team members.",
+          "member:view",
+        )
+      : undefined;
+  const reviewTip =
+    rosterTip ??
+    (!canEnable
+      ? permissionDeniedTip(
+          "You do not have permission to enable directory sync.",
+          "directorySync:enable",
+        )
+      : !directorySyncEntitled
+        ? "Directory Sync is not available on your plan."
+        : !directory?.linked
+          ? "Link your directory before enabling directory sync."
+          : undefined);
+
   return (
     // The groups sheet reads as part of the directory's configuration, so the
     // two sit closer together than the page's sections do.
@@ -159,46 +196,87 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
         {isLoadingDirectory ? (
           <Loading fullHeight={false} className="m-3 h-10" />
         ) : directory ? (
-          <ConfigurationRow
-            title={directoryTitle}
-            badge={<DirectoryStatusBadge state={directory.state} />}
-            menu={
-              <Menu
-                placement="bottom-end"
-                buttonProps={{
-                  variant: "neutral",
-                  size: "xs",
-                  icon: <DotsVerticalIcon />,
-                  "aria-label": `${directoryTitle} options`,
-                }}
-              >
-                <MenuItem
-                  disabled={!canOpenPortal}
-                  tip={configureTip}
-                  action={() => {
-                    void openPortal();
+          <>
+            <ConfigurationRow
+              title={directoryTitle}
+              badge={<DirectoryStatusBadge state={directory.state} />}
+              menu={
+                <Menu
+                  placement="bottom-end"
+                  buttonProps={{
+                    variant: "neutral",
+                    size: "xs",
+                    icon: <DotsVerticalIcon />,
+                    "aria-label": `${directoryTitle} options`,
                   }}
                 >
-                  Manage
-                </MenuItem>
-                <MenuItem
-                  variant="danger"
-                  disabled={!canDisable}
-                  tip={
-                    canDisable
-                      ? undefined
-                      : permissionDeniedTip(
-                          "You do not have permission to disable Directory Sync.",
-                          "directorySync:disable",
-                        )
-                  }
-                  action={() => setShowDisableConfirmation(true)}
-                >
-                  Disable Directory Sync
-                </MenuItem>
-              </Menu>
-            }
-          />
+                  {managementEnabled ? (
+                    <MenuItem
+                      disabled={rosterTip !== undefined}
+                      tip={rosterTip}
+                      action={() => setShowReview(true)}
+                    >
+                      View pending members
+                    </MenuItem>
+                  ) : null}
+                  <MenuItem
+                    disabled={!canOpenPortal}
+                    tip={configureTip}
+                    action={() => {
+                      void openPortal();
+                    }}
+                  >
+                    Manage
+                  </MenuItem>
+                  <MenuItem
+                    variant="danger"
+                    disabled={!canDisable}
+                    tip={
+                      canDisable
+                        ? undefined
+                        : permissionDeniedTip(
+                            "You do not have permission to disable Directory Sync.",
+                            "directorySync:disable",
+                          )
+                    }
+                    action={() => setShowDisableConfirmation(true)}
+                  >
+                    Disable Directory Sync
+                  </MenuItem>
+                </Menu>
+              }
+            />
+            {!managementEnabled && (
+              <div
+                className={cn(
+                  SHEET_ROW,
+                  "flex items-center gap-4 border-t text-sm",
+                )}
+              >
+                <span className="text-content-secondary">
+                  Directory sync is not yet enabled. Please review directory
+                  role mappings to enable automatic provisioning.
+                </span>
+                <div className="ml-auto">
+                  <Button
+                    size="xs"
+                    disabled={reviewTip !== undefined}
+                    tip={reviewTip}
+                    onClick={() => setShowReview(true)}
+                  >
+                    Review
+                  </Button>
+                </div>
+              </div>
+            )}
+            {showReview && (
+              <ReviewDirectoryChangesModal
+                team={team}
+                enabled={managementEnabled}
+                onClose={() => setShowReview(false)}
+              />
+            )}
+          </>
         ) : (
           <EmptyStateRow
             message="Directory Sync has not been configured."

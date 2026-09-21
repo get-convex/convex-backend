@@ -3,9 +3,11 @@ import { fn, mocked, screen, userEvent } from "storybook/test";
 import {
   useDirectorySyncGroups,
   useDisableDirectorySync,
+  useEnableDirectorySync,
   useGenerateDirectorySyncConfigurationLink,
   useGetDirectorySync,
   useSetGroupRoleMapping,
+  useStagedDirectoryMembers,
 } from "api/directorySync";
 import {
   useHasCustomRolePermission,
@@ -99,6 +101,12 @@ const meta = {
       },
     } as unknown as ReturnType<typeof useListCustomRoles>);
     mocked(useSetGroupRoleMapping).mockReturnValue(fn() as any);
+    mocked(useEnableDirectorySync).mockReturnValue(fn() as any);
+    mocked(useStagedDirectoryMembers).mockReturnValue({
+      data: { items: [], pagination: { hasMore: false, nextCursor: null } },
+      isLoading: false,
+      error: undefined,
+    });
     mockGroups(groups);
     mocked(useGetSSO).mockReturnValue({
       data: {
@@ -142,6 +150,26 @@ function mockConfigured() {
 
 export const Configured: Story = {
   beforeEach: mockConfigured,
+};
+
+export const ManagementEnabled: Story = {
+  beforeEach: () => {
+    mocked(useGetDirectorySync).mockReturnValue({
+      data: { directory: linkedDirectory, enabled: true },
+      isLoading: false,
+    });
+  },
+};
+
+// The roster only reaches the menu once the directory provisions, so the
+// story opens the menu to show it there.
+export const ManagementEnabledMenu: Story = {
+  ...ManagementEnabled,
+  play: async () => {
+    await userEvent.click(
+      await screen.findByRole("button", { name: "okta scim v2.0 options" }),
+    );
+  },
 };
 
 export const ConfiguredMenu: Story = {
