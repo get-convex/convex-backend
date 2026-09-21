@@ -41,11 +41,6 @@ async function gatewayFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
-  if (typeof getServiceToken !== "function") {
-    throw new Error(
-      "@convex-dev/ai-sdk-provider requires convex >= 1.45 with getServiceToken support",
-    );
-  }
   const token = await getServiceToken("ai-gateway");
   const headers = new Headers(init?.headers);
   // Deployment JWT is the only accepted credential for the hosted gateway.
