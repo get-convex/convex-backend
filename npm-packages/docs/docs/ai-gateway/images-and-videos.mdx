@@ -7,18 +7,17 @@ description:
 
 Generate images and videos from an [action](/functions/actions.mdx) with
 `convexGateway`. For installation and authentication, see
-[Getting started](/ai-gateway/setup.mdx#vercel-ai-sdk). Use AI SDK 7.0.83 or
-later.
+[Getting started](/ai-gateway/setup.mdx#vercel-ai-sdk).
 
 The examples below run inside an action handler.
 
 ## Generate images
 
-:::caution Image generation is in alpha
+<Admonition type="caution" title="Image generation is in alpha">
 
 The request and response format may change during alpha.
 
-:::
+</Admonition>
 
 ```ts
 import { generateImage } from "ai";
@@ -32,13 +31,11 @@ const { images } = await generateImage({
 
 ## Generate videos
 
-:::caution Video generation is in alpha
+<Admonition type="caution" title="Video generation is in alpha">
 
-The request and response format may change during alpha. Completion callbacks
-are best effort. Save the operation handle to check status if a callback is
-missed.
+The request and response format may change during alpha.
 
-:::
+</Admonition>
 
 ```ts
 import { experimental_generateVideo as generateVideo } from "ai";
@@ -75,8 +72,15 @@ take precedence. Supported values depend on the
 ## Async videos
 
 Use `experimental_startVideo` when the action should return before the video is
-ready. Async video requires gateway configuration; contact Convex if these
-routes return 503.
+ready. If the gateway returns "Asynchronous video generation is not configured",
+contact Convex support.
+
+Completion callbacks are best effort. Save the operation handle so you can check
+status if a callback is missed.
+
+For local development, omit `webhookUrl` and use the
+[status and download methods](#retrieve-the-video). Callbacks require a cloud
+deployment's HTTPS `convex.site` URL; localhost URLs are not accepted.
 
 Create a job in your database before submitting the request. Pass its ID as
 `requestId` so the callback handler can look up the job.

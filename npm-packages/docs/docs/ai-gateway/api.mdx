@@ -132,11 +132,11 @@ response otherwise uses the OpenAI embeddings shape.
 
 ## POST `/v1/images/generations`
 
-:::caution Image generation is in alpha
+<Admonition type="caution" title="Image generation is in alpha">
 
 The request and response format may change during alpha.
 
-:::
+</Admonition>
 
 Send a JSON body with `model` and `prompt`, plus model-supported image options
 such as `size` and `n`. The response contains `data` entries with image URLs or
@@ -146,13 +146,11 @@ is 16 MiB.
 
 ## POST `/v1/videos/generations`
 
-:::caution Video generation is in alpha
+<Admonition type="caution" title="Video generation is in alpha">
 
-The request and response format may change during alpha. Completion callbacks
-are best effort. Save the operation handle to check status if a callback is
-missed.
+The request and response format may change during alpha.
 
-:::
+</Admonition>
 
 Send `model` and `prompt`, with optional `duration`, `aspect_ratio`, `size`,
 `resolution`, `seed`, `generate_audio`, `frame_images`, or `input_references`.
@@ -167,11 +165,11 @@ available. Cancelling the HTTP request does not cancel generation or its cost.
 
 ## Async video routes
 
-These routes are in alpha and require gateway configuration. See
-[async video availability](/ai-gateway/images-and-videos#async-videos). All
-three routes require a deployment token. Save the opaque `operation` value
-returned at submission and use a fresh token from the same deployment for later
-requests. Operations expire after seven days; video retention may be shorter.
+These routes are in alpha. For availability and local development, see
+[Async videos](/ai-gateway/images-and-videos#async-videos). All three routes
+require a deployment token. Save the opaque `operation` value returned at
+submission and use a fresh token from the same deployment for later requests.
+Operations expire after seven days; video retention may be shorter.
 
 ### POST `/v1/videos`
 
@@ -217,11 +215,11 @@ Callbacks can repeat; check unfinished jobs periodically as a fallback.
 
 ## POST `/alpha/decisions`
 
-:::caution Decisions is in alpha
+<Admonition type="caution" title="Decisions is in alpha">
 
 The request and response format may change during alpha.
 
-:::
+</Admonition>
 
 [Jev](https://docs.typesafe.ai/introduction) is TypeSafe's model for making
 structured decisions. It returns values your code can use to choose an option,
@@ -371,16 +369,6 @@ Convex-generated IDs and removes fields that identify the serving provider.
 Caller-supplied `metadata` on a response is preserved.
 
 ## Errors
-
-```json
-{
-  "error": {
-    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions, POST /alpha/decisions, POST /v1/embeddings, POST /v1/messages, POST /v1/responses, POST /v1/images/generations, POST /v1/videos/generations, POST /v1/videos, POST /v1/videos/status, POST /v1/videos/download. See https://docs.convex.dev/ai.",
-    "type": "invalid_request_error",
-    "code": "unsupported_endpoint"
-  }
-}
-```
 
 | Status    | code                    | When                               |
 | --------- | ----------------------- | ---------------------------------- |

@@ -1,15 +1,15 @@
 ---
 title: "AI Gateway"
-description: "Managed LLM access from Convex actions"
+description: "Managed AI model access from Convex actions"
 sidebar_position: 0
 sidebar_label: Overview
 pagination_next: ai-gateway/setup
 ---
 
-The Convex AI Gateway is a managed service that lets your app talk to LLMs from
-[actions](/functions/actions.mdx). Convex holds the provider credentials, so you
-don't need to obtain, store, or rotate a key. Your action authenticates with a
-short-lived token scoped to your deployment.
+The Convex AI Gateway is a managed service that lets your app call AI models
+from [actions](/functions/actions.mdx). Convex holds the provider credentials,
+so you don't need to obtain, store, or rotate a key. Your action authenticates
+with a short-lived token scoped to your deployment.
 
 ```ts
 const { text } = await generateText({
@@ -40,11 +40,11 @@ examples.
 Call `/alpha/decisions` to classify or score data with Jev. See
 [Decisions](/ai-gateway/api.mdx#post-alphadecisions) for the request format.
 
-:::caution Decisions is in alpha
+<Admonition type="caution" title="Decisions is in alpha">
 
 The `/alpha/decisions` request and response format may change during alpha.
 
-:::
+</Admonition>
 
 ### Images and videos
 
@@ -59,15 +59,11 @@ The `/alpha/decisions` request and response format may change during alpha.
 See [Images and videos](/ai-gateway/images-and-videos) for SDK examples and
 async availability requirements.
 
-An unsupported path returns `400` with `unsupported_endpoint`.
+<Admonition type="caution" title="Image and video generation are in alpha">
 
-:::caution Image and video generation are in alpha
+The request and response format may change during alpha.
 
-The request and response format may change during alpha. Video completion
-callbacks are best effort. Save the operation handle to check status if a
-callback is missed.
-
-:::
+</Admonition>
 
 See [HTTP API](/ai-gateway/api.mdx) for the request and response shapes.
 

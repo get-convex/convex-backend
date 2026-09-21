@@ -134,16 +134,14 @@ not support `store: true` or `previous_response_id`.
 
 ### Decisions with Jev
 
-:::caution Decisions is in alpha
+<Admonition type="caution" title="Decisions is in alpha">
 
 `convexGateway.evaluationModel()` uses `/alpha/decisions`. The endpoint and AI
 SDK's experimental evaluation interface may change during alpha.
 
-:::
+</Admonition>
 
-Use AI SDK's `evaluate` to classify or score data with Jev from an action. This
-requires `@convex-dev/ai-sdk-provider` 0.2.0 or later and AI SDK 7.0.105 or
-later:
+Use AI SDK's `evaluate` to classify or score data with Jev from an action:
 
 ```ts
 import { experimental_evaluate as evaluate } from "ai";
@@ -228,31 +226,8 @@ export const chat = action({
 });
 ```
 
-To call Decisions with `fetch`, use the following code inside your action
-handler, with the `getServiceToken` import shown above:
-
-```ts
-const token = await getServiceToken("ai-gateway");
-const response = await fetch("https://ai-gateway.convex.dev/alpha/decisions", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    model: "typesafe/jev-1.13",
-    state: { ticket: "Customer cannot sign in" },
-    questions: {
-      needsReview: {
-        type: "noul",
-        instructions: "Does a human need to review this?",
-      },
-    },
-  }),
-});
-if (!response.ok) throw new Error(`Gateway error: ${response.status}`);
-const decision = await response.json();
-```
+For Decisions requests with `fetch`, see the
+[HTTP API example](/ai-gateway/api.mdx#post-alphadecisions).
 
 See [HTTP API](/ai-gateway/api.mdx) for request and response shapes.
 
@@ -278,11 +253,11 @@ Anonymous local deployments cannot use the gateway.
 
 ## Token and timeouts
 
-`getServiceToken("ai-gateway")` returns a short-lived token scoped to your
-deployment and only works inside a running action. Call `getServiceToken`
-whenever a gateway request needs a credential. The action runtime caches and
-refreshes tokens as needed. Keep the token inside your action. Don't return it
-to clients, store it in environment variables, or cache it yourself.
+Call `getServiceToken("ai-gateway")` inside an action whenever a gateway request
+needs a credential. It returns a short-lived token scoped to your deployment;
+the action runtime caches and refreshes it as needed. Keep the token private.
+Don't return it to clients, store it in environment variables, or cache it
+yourself.
 
 The request runs inside your action, so a long completion can hit the
 [action timeout](/production/state/limits.mdx#execution-time-and-scheduling) (30
