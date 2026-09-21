@@ -28,6 +28,7 @@ import {
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { SSO_RESOURCE } from "lib/permissions";
+import { ProviderIcon } from "./ProviderIcon";
 import {
   ConfigurationRow,
   EmptyStateRow,
@@ -35,6 +36,7 @@ import {
   SettingsSheet,
 } from "./SettingsSheet";
 import { ConnectionStatusBadge } from "./StatusBadge";
+import { connectionProvider, useReportUnmappedProviders } from "./providers";
 
 export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
   const isTeamAdmin = useIsCurrentMemberTeamAdmin();
@@ -90,7 +92,11 @@ export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
   const [isSavingRequireSsoLogin, setIsSavingRequireSsoLogin] = useState(false);
   const [requireSsoLoginError, setRequireSsoLoginError] = useState<string>();
 
-  const connections = sso?.connections ?? [];
+  const connections = (sso?.connections ?? []).map((connection) => ({
+    ...connection,
+    provider: connectionProvider(connection.connectionType),
+  }));
+  useReportUnmappedProviders(connections.map((c) => c.provider));
   const configured = connections.length > 0;
   const isLoadingSso = sso === undefined;
   const hasVerifiedDomain = (sso?.domains ?? []).some(
@@ -189,7 +195,8 @@ export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
             {connections.map((connection) => (
               <ConfigurationRow
                 key={connection.id}
-                title={connection.connectionType}
+                title={connection.provider.label}
+                icon={<ProviderIcon provider={connection.provider} />}
                 badge={<ConnectionStatusBadge connection={connection} />}
                 menu={
                   <Menu
@@ -198,7 +205,7 @@ export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
                       variant: "neutral",
                       size: "xs",
                       icon: <DotsVerticalIcon />,
-                      "aria-label": `${connection.connectionType} options`,
+                      "aria-label": `${connection.provider.label} options`,
                     }}
                   >
                     <MenuItem

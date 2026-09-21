@@ -167,7 +167,7 @@ export const ManagementEnabledMenu: Story = {
   ...ManagementEnabled,
   play: async () => {
     await userEvent.click(
-      await screen.findByRole("button", { name: "okta scim v2.0 options" }),
+      await screen.findByRole("button", { name: "Okta options" }),
     );
   },
 };
@@ -176,7 +176,7 @@ export const ConfiguredMenu: Story = {
   ...Configured,
   play: async () => {
     await userEvent.click(
-      await screen.findByRole("button", { name: "okta scim v2.0 options" }),
+      await screen.findByRole("button", { name: "Okta options" }),
     );
   },
 };

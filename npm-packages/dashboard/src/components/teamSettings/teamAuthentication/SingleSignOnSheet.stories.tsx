@@ -41,7 +41,7 @@ const configured: SsoOrganizationResponse = {
   connections: [
     {
       id: "conn_1",
-      name: "Okta SAML",
+      name: "Acme Okta Connection",
       connectionType: "OktaSAML",
       state: "active",
       active: true,
@@ -107,7 +107,7 @@ export const ConfiguredMenu: Story = {
   ...Configured,
   play: async () => {
     await userEvent.click(
-      await screen.findByRole("button", { name: "OktaSAML options" }),
+      await screen.findByRole("button", { name: "Okta SAML options" }),
     );
   },
 };

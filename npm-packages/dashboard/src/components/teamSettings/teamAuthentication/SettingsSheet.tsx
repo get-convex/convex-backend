@@ -52,10 +52,12 @@ export function SettingsSheet({
 
 export function ConfigurationRow({
   title,
+  icon,
   badge,
   menu,
 }: {
   title: string;
+  icon?: React.ReactNode;
   /** Reads as part of the title, so it sits with it rather than at the far
       edge of the row. */
   badge?: React.ReactNode;
@@ -63,6 +65,7 @@ export function ConfigurationRow({
 }) {
   return (
     <div className={cn(SHEET_ROW, "flex min-h-12 items-center gap-2.5")}>
+      {icon}
       <h4 className="truncate">{title}</h4>
       {badge}
       <div className="ml-auto flex items-center gap-2">{menu}</div>

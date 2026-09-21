@@ -24,6 +24,7 @@ import {
   SSO_RESOURCE,
 } from "lib/permissions";
 import { DirectoryGroupsSheet } from "./DirectoryGroupsSheet";
+import { ProviderIcon } from "./ProviderIcon";
 import { ReviewDirectoryChangesModal } from "./ReviewDirectoryChangesModal";
 import {
   ConfigurationRow,
@@ -32,6 +33,7 @@ import {
   SHEET_ROW,
 } from "./SettingsSheet";
 import { DirectoryStatusBadge } from "./StatusBadge";
+import { directoryProvider, useReportUnmappedProviders } from "./providers";
 
 const NOT_CONFIGURED_DESCRIPTION =
   "Configure Directory Sync to automatically provision and deprovision team members.";
@@ -92,6 +94,9 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
   const generateLink = useGenerateDirectorySyncConfigurationLink(team.id);
   const disableDirectorySync = useDisableDirectorySync(team.id);
 
+  const provider = directoryProvider(directorySync?.directory?.type);
+  useReportUnmappedProviders([provider]);
+
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [showDisableConfirmation, setShowDisableConfirmation] = useState(false);
   const [isDisabling, setIsDisabling] = useState(false);
@@ -125,10 +130,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     (d) => d.state === "verified" || d.state === "legacyVerified",
   );
 
-  // WorkOS's own directory name is whatever the admin typed on the IdP side,
-  // so the type it reports ("okta scim v2.0") identifies the directory more
-  // reliably, and matches the connection type on the SSO row above.
-  const directoryTitle = directory?.type ?? directory?.name ?? "Directory";
+  const directoryTitle = provider?.label ?? directory?.name ?? "Directory";
 
   const openPortal = async () => {
     setIsGeneratingLink(true);
@@ -199,6 +201,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
           <>
             <ConfigurationRow
               title={directoryTitle}
+              icon={provider && <ProviderIcon provider={provider} />}
               badge={<DirectoryStatusBadge state={directory.state} />}
               menu={
                 <Menu
