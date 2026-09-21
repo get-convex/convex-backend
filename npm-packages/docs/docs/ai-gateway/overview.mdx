@@ -22,20 +22,50 @@ See [Getting started](/ai-gateway/setup) for the full setup.
 
 ## Supported endpoints
 
+### Text generation
+
+See [Getting started](/ai-gateway/setup.mdx) for text generation and embedding
+examples.
+
 | Endpoint                    | What it does                                    |
 | --------------------------- | ----------------------------------------------- |
 | `GET /v1/models`            | List available models                           |
 | `POST /v1/chat/completions` | Chat completions, streaming and non-streaming   |
-| `POST /alpha/decisions`     | Classify or score data with Jev                 |
 | `POST /v1/embeddings`       | Generate embeddings                             |
 | `POST /v1/messages`         | Anthropic Messages, streaming and non-streaming |
 | `POST /v1/responses`        | OpenAI Responses, streaming and non-streaming   |
 
-An unsupported path returns `400` with `unsupported_endpoint`.
+### Decisions with Jev
+
+Call `/alpha/decisions` to classify or score data with Jev. See
+[Decisions](/ai-gateway/api.mdx#post-alphadecisions) for the request format.
 
 :::caution Decisions is in alpha
 
 The `/alpha/decisions` request and response format may change during alpha.
+
+:::
+
+### Images and videos
+
+| Endpoint                      | What it does                     |
+| ----------------------------- | -------------------------------- |
+| `POST /v1/images/generations` | Generate images                  |
+| `POST /v1/videos/generations` | Wait for a video and download it |
+| `POST /v1/videos`             | Start an async video job         |
+| `POST /v1/videos/status`      | Check an async job               |
+| `POST /v1/videos/download`    | Download a completed async video |
+
+See [Images and videos](/ai-gateway/images-and-videos) for SDK examples and
+async availability requirements.
+
+An unsupported path returns `400` with `unsupported_endpoint`.
+
+:::caution Image and video generation are in alpha
+
+The request and response format may change during alpha. Video completion
+callbacks are best effort. Save the operation handle to check status if a
+callback is missed.
 
 :::
 

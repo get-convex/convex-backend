@@ -354,6 +354,7 @@ impl AiGatewayJwtVerifier {
             function_name: claims.private.function_name,
             function_type: claims.private.function_type,
         };
+        attribution.validate().map_err(|_| JwtError::InvalidToken)?;
         Ok(AuthenticatedDeployment {
             instance_name,
             region: claims.private.region,
@@ -391,6 +392,7 @@ impl LocalAiGatewayJwtVerifier {
             function_name: claims.private.function_name,
             function_type: claims.private.function_type,
         };
+        attribution.validate().map_err(|_| JwtError::InvalidToken)?;
         Ok(AuthenticatedDeployment {
             instance_name,
             region: None,

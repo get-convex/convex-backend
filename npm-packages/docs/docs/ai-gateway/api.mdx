@@ -130,6 +130,91 @@ Convex rejects the same routing controls as `/v1/chat/completions`, assigns the
 response `id`, and removes fields that identify the serving provider. The
 response otherwise uses the OpenAI embeddings shape.
 
+## POST `/v1/images/generations`
+
+:::caution Image generation is in alpha
+
+The request and response format may change during alpha.
+
+:::
+
+Send a JSON body with `model` and `prompt`, plus model-supported image options
+such as `size` and `n`. The response contains `data` entries with image URLs or
+`b64_json`, depending on the model and requested format. Streaming is rejected.
+The same routing controls as `/v1/chat/completions` are rejected. The body limit
+is 16 MiB.
+
+## POST `/v1/videos/generations`
+
+:::caution Video generation is in alpha
+
+The request and response format may change during alpha. Completion callbacks
+are best effort. Save the operation handle to check status if a callback is
+missed.
+
+:::
+
+Send `model` and `prompt`, with optional `duration`, `aspect_ratio`, `size`,
+`resolution`, `seed`, `generate_audio`, `frame_images`, or `input_references`.
+Supported values depend on the model. Each request generates one video; `n`,
+`stream`, and `callback_url` are rejected, along with gateway routing controls.
+The body limit is 16 MiB.
+
+This request waits for completion and downloads the video, with a default
+ten-minute timeout and a 64 MiB video limit. The JSON response contains a
+Convex-assigned `id`, `data: [{ b64_json, media_type }]`, and `usage` when
+available. Cancelling the HTTP request does not cancel generation or its cost.
+
+## Async video routes
+
+These routes are in alpha and require gateway configuration. See
+[async video availability](/ai-gateway/images-and-videos#async-videos). All
+three routes require a deployment token. Save the opaque `operation` value
+returned at submission and use a fresh token from the same deployment for later
+requests. Operations expire after seven days; video retention may be shorter.
+
+### POST `/v1/videos`
+
+Accepts the same generation options as `/v1/videos/generations`, plus an
+optional `webhook_url` on the deployment's HTTPS `<deployment>.convex.site`
+origin. Returns HTTP 202:
+
+```json
+{
+  "id": "convex-inference-id",
+  "operation": "opaque-operation-handle",
+  "webhook_secret": "per-job-signing-secret"
+}
+```
+
+`webhook_secret` is null when `webhook_url` is omitted. Store it privately. A
+lost response can still mean the job was accepted and charged; automatically
+retrying submission can create another paid job.
+
+### POST `/v1/videos/status`
+
+Send `{ "operation": "opaque-operation-handle" }`. Returns `status` as
+`pending`, `completed`, or `error`, with an error message for failed jobs and
+usage when available.
+
+### POST `/v1/videos/download`
+
+Send the same operation body. Returns the video in the same `data` shape as
+`/v1/videos/generations`. Returns 409 if the video is not ready. Each call
+fetches the video again; save it in application storage.
+
+### Application callbacks
+
+The gateway posts a signed JSON event to `webhook_url` with `id`, `operation`,
+`status`, and `type` (`video.generation.<status>`). Terminal statuses are
+`completed`, `failed`, `cancelled`, and `expired`.
+
+Verify the raw body and `x-convex-video-signature` header with
+`verifyVideoWebhook` before changing application state. Match the event's `id`
+to the saved inference ID, and deduplicate by `(id, status)` when saving it. See
+[receiving a callback](/ai-gateway/images-and-videos#receive-a-callback).
+Callbacks can repeat; check unfinished jobs periodically as a fallback.
+
 ## POST `/alpha/decisions`
 
 :::caution Decisions is in alpha
@@ -290,7 +375,7 @@ Caller-supplied `metadata` on a response is preserved.
 ```json
 {
   "error": {
-    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions, POST /alpha/decisions, POST /v1/embeddings, POST /v1/messages, POST /v1/responses. See https://docs.convex.dev/ai.",
+    "message": "This endpoint is not supported by the Convex AI gateway. Supported endpoints: GET /v1/models, POST /v1/chat/completions, POST /alpha/decisions, POST /v1/embeddings, POST /v1/messages, POST /v1/responses, POST /v1/images/generations, POST /v1/videos/generations, POST /v1/videos, POST /v1/videos/status, POST /v1/videos/download. See https://docs.convex.dev/ai.",
     "type": "invalid_request_error",
     "code": "unsupported_endpoint"
   }

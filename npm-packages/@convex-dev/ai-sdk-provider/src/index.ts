@@ -207,3 +207,5 @@ convexGateway.videoModel = function (modelId: string) {
     convexGatewayUsageMetadata,
   );
 };
+
+export { verifyVideoWebhook, type VideoWebhookEvent } from "./video-webhook.js";

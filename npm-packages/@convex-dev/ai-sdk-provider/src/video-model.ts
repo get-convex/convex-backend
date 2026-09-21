@@ -1,4 +1,8 @@
-import type { experimental_generateVideo, ProviderMetadata } from "ai";
+import type {
+  experimental_generateVideo,
+  JSONValue,
+  ProviderMetadata,
+} from "ai";
 
 type VideoModel = Extract<
   Parameters<typeof experimental_generateVideo>[0]["model"],
@@ -7,6 +11,47 @@ type VideoModel = Extract<
 type VideoOptions = Parameters<NonNullable<VideoModel["doGenerate"]>>[0];
 type VideoResult = Awaited<ReturnType<NonNullable<VideoModel["doGenerate"]>>>;
 type VideoFile = NonNullable<VideoOptions["image"]>;
+type StatusOptions = {
+  operation: JSONValue;
+  headers?: Record<string, string | undefined>;
+  abortSignal?: AbortSignal;
+};
+type StartResult = Omit<VideoResult, "videos"> & { operation: JSONValue };
+type StatusResult = {
+  providerMetadata?: ProviderMetadata;
+  response: VideoResult["response"];
+} & ({ status: "pending" | "completed" } | { status: "error"; error: string });
+type GatewayVideoModel = Omit<
+  VideoModel,
+  "doStatus" | "handleWebhookOption"
+> & {
+  doStart(
+    options: VideoOptions & { webhookUrl?: string },
+  ): Promise<StartResult>;
+  getStatus(options: StatusOptions): Promise<StatusResult>;
+  download(options: StatusOptions): Promise<VideoResult>;
+};
+
+function statusResult(
+  body: Record<string, unknown>,
+  response: VideoResult["response"],
+  providerMetadata?: ProviderMetadata,
+): StatusResult {
+  if (body.status === "pending" || body.status === "completed") {
+    return { status: body.status, providerMetadata, response };
+  }
+  if (body.status === "error") {
+    return {
+      status: "error",
+      error:
+        typeof body.error === "string" ? body.error : "Video generation failed",
+      providerMetadata,
+      response,
+    };
+  }
+  throw new Error("Invalid video status from the Convex AI gateway");
+}
+
 function fileUrl(file: VideoFile): string {
   if (file.type === "url") return file.url;
   const base64 =
@@ -106,7 +151,7 @@ export function createVideoModel(
   baseURL: string,
   fetch: typeof globalThis.fetch,
   usageMetadata: (usage: unknown) => ProviderMetadata | undefined,
-): Omit<VideoModel, "doStart" | "doStatus" | "handleWebhookOption"> {
+): GatewayVideoModel {
   async function request(
     path: string,
     body: unknown,
@@ -131,7 +176,8 @@ export function createVideoModel(
     if (!result || typeof result !== "object" || Array.isArray(result))
       throw new Error("Invalid video response from the Convex AI gateway");
     const parsed = result as Record<string, unknown>;
-    if (!response.ok || parsed.error) {
+    // Async job failures are returned as status results for the caller to handle.
+    if (!response.ok || (parsed.error && parsed.status !== "error")) {
       const error = parsed.error as { message?: string } | undefined;
       throw new Error(
         error?.message ?? `Video generation failed (${response.status})`,
@@ -145,6 +191,12 @@ export function createVideoModel(
         headers: Object.fromEntries(response.headers),
       },
     };
+  }
+  function operationRequest(path: string, options: StatusOptions) {
+    if (typeof options.operation !== "string" || !options.operation) {
+      throw new Error("Invalid Convex video operation");
+    }
+    return request(`videos/${path}`, { operation: options.operation }, options);
   }
   return {
     specificationVersion: "v4",
@@ -161,6 +213,47 @@ export function createVideoModel(
       return {
         videos: videos(body),
         warnings: prepared.warnings,
+        providerMetadata: usageMetadata(body.usage),
+        response,
+      };
+    },
+    async doStart(options) {
+      const prepared = prepare(options, modelId);
+      const { body, response } = await request(
+        "videos",
+        { ...prepared.body, webhook_url: options.webhookUrl },
+        options,
+      );
+      if (
+        typeof body.operation !== "string" ||
+        !body.operation ||
+        typeof body.id !== "string" ||
+        (options.webhookUrl && typeof body.webhook_secret !== "string")
+      )
+        throw new Error("Invalid video operation from the Convex AI gateway");
+      return {
+        operation: body.operation,
+        warnings: prepared.warnings,
+        providerMetadata: {
+          convexGateway: {
+            inferenceId: body.id,
+            ...(typeof body.webhook_secret === "string" && {
+              webhookSecret: body.webhook_secret,
+            }),
+          },
+        },
+        response,
+      };
+    },
+    async getStatus(options) {
+      const { body, response } = await operationRequest("status", options);
+      return statusResult(body, response, usageMetadata(body.usage));
+    },
+    async download(options) {
+      const { body, response } = await operationRequest("download", options);
+      return {
+        videos: videos(body),
+        warnings: [],
         providerMetadata: usageMetadata(body.usage),
         response,
       };

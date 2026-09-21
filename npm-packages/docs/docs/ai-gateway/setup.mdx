@@ -73,7 +73,7 @@ model. For the [RAG component](/agents/rag.mdx), use
 `convexGateway` works with `generateText`, `streamText`, `embed`, and
 `embedMany` from the [Vercel AI SDK](https://ai-sdk.dev/). Use
 `@convex-dev/ai-sdk-provider` 0.2.0 or later with `convex` 1.45 or later and AI
-SDK 7. The provider works in the default runtime and
+SDK 7.0.105 or later. The provider works in the default runtime and
 [Node.js actions](/functions/runtimes.mdx).
 
 For a Node.js action, set
@@ -132,6 +132,8 @@ const responsesModel = convexGateway.responses("openai/gpt-5");
 The Responses endpoint is stateless. The provider sets `store: false`; it does
 not support `store: true` or `previous_response_id`.
 
+### Decisions with Jev
+
 :::caution Decisions is in alpha
 
 `convexGateway.evaluationModel()` uses `/alpha/decisions`. The endpoint and AI
@@ -170,6 +172,8 @@ Questions can use `choice`, `score`, or `boolean`. Boolean answers contain a
 `noul` question type and authenticates with `getServiceToken("ai-gateway")`.
 Pass `abortSignal` to `evaluate` to cancel a request.
 
+### Embeddings
+
 Create embeddings with `embedMany`. The AI SDK automatically splits batches
 larger than the gateway's 512-input limit:
 
@@ -182,6 +186,14 @@ const { embeddings } = await embedMany({
   values: ["hello", "world"],
 });
 ```
+
+### Images and videos
+
+Use `convexGateway.imageModel()` with `generateImage`, or
+`convexGateway.videoModel()` with `experimental_generateVideo` and
+`experimental_startVideo`. Image and video generation are in alpha. See
+[Images and videos](/ai-gateway/images-and-videos) for examples and callback
+handling.
 
 ## Manual fetch
 
