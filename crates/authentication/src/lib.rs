@@ -416,8 +416,17 @@ where
         return Ok(data);
     }
 
+    let uri = jwks_uri.parse::<http::Uri>().with_context(|| {
+        ErrorMetadata::bad_request(
+            "InvalidAuthConfig",
+            format!(
+                "Invalid JWKS URL '{jwks_uri}'. Check that the URL in your auth config is \
+                 properly formatted."
+            ),
+        )
+    })?;
     let request = http::Request::builder()
-        .uri(jwks_uri)
+        .uri(uri)
         .method(http::Method::GET)
         .header(http::header::ACCEPT, APPLICATION_JSON)
         .body(vec![])?;
