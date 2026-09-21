@@ -232,7 +232,6 @@ export function BusinessPlanSummary({
   error,
   aiGatewayCost,
   aiGatewayCostError,
-  showAiGatewayUsage,
   isBusinessPlan = true,
   entitlements,
   hasSubscription = false,
@@ -242,7 +241,6 @@ export function BusinessPlanSummary({
   error?: any;
   aiGatewayCost?: number;
   aiGatewayCostError?: any;
-  showAiGatewayUsage?: boolean;
   isBusinessPlan?: boolean;
   entitlements?: TeamEntitlementsResponse;
   hasSubscription?: boolean;
@@ -431,9 +429,6 @@ export function BusinessPlanSummary({
                 section.metric === "aiGatewayCost" &&
                 aiGatewayCost === undefined &&
                 !aiCostFailed;
-              if (section.metric === "aiGatewayCost" && !showAiGatewayUsage) {
-                return null;
-              }
               const entitlement =
                 section.entitlement && entitlements
                   ? ((entitlements as Record<string, unknown>)[
