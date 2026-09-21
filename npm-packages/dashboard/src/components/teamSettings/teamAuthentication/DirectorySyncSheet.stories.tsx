@@ -1,16 +1,19 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { fn, mocked, screen, userEvent } from "storybook/test";
 import {
+  useDirectorySyncGroups,
   useDisableDirectorySync,
   useGenerateDirectorySyncConfigurationLink,
   useGetDirectorySync,
+  useSetGroupRoleMapping,
 } from "api/directorySync";
 import {
   useHasCustomRolePermission,
   useIsCurrentMemberTeamAdmin,
+  useListCustomRoles,
 } from "api/roles";
 import { useGetSSO, useTeamEntitlements } from "api/teams";
-import type { TeamResponse } from "generatedApi";
+import type { DirectoryGroupResponse, TeamResponse } from "generatedApi";
 import { DirectorySyncSheet } from "./DirectorySyncSheet";
 
 const team: TeamResponse = {
@@ -21,6 +24,47 @@ const team: TeamResponse = {
   suspended: false,
   referralCode: "ACME01",
 };
+
+const groups: DirectoryGroupResponse[] = [
+  {
+    workosGroupId: "group_admins",
+    name: "convex-team-admins",
+    idpId: "idp_admins",
+    mapping: { role: "admin" },
+  },
+  {
+    workosGroupId: "group_eng",
+    name: "Engineering",
+    idpId: "idp_eng",
+    mapping: null,
+  },
+  {
+    workosGroupId: "group_leads",
+    name: "Engineering Leads",
+    idpId: "idp_leads",
+    mapping: { role: "admin" },
+  },
+  {
+    workosGroupId: "group_support",
+    name: "Support",
+    idpId: "idp_support",
+    mapping: {
+      role: "custom",
+      customRoles: [{ id: 7, name: "Support Engineer" }],
+    },
+  },
+];
+
+function mockGroups(data: DirectoryGroupResponse[], hasMore = false) {
+  mocked(useDirectorySyncGroups).mockReturnValue({
+    data: {
+      groups: data,
+      pagination: { hasMore, nextCursor: hasMore ? "next" : null },
+    },
+    isLoading: false,
+    error: undefined,
+  });
+}
 
 const meta = {
   component: DirectorySyncSheet,
@@ -38,7 +82,24 @@ const meta = {
     mocked(useTeamEntitlements).mockReturnValue({
       ssoEnabled: true,
       directorySyncEnabled: true,
+      customRolesEnabled: true,
     } as ReturnType<typeof useTeamEntitlements>);
+    mocked(useListCustomRoles).mockReturnValue({
+      data: {
+        items: [
+          {
+            id: 7,
+            teamId: 1,
+            name: "Support Engineer",
+            statements: [],
+            createTime: 0,
+          },
+        ],
+        pagination: { hasMore: false, nextCursor: null },
+      },
+    } as unknown as ReturnType<typeof useListCustomRoles>);
+    mocked(useSetGroupRoleMapping).mockReturnValue(fn() as any);
+    mockGroups(groups);
     mocked(useGetSSO).mockReturnValue({
       data: {
         createTime: Date.now(),
@@ -64,22 +125,23 @@ type Story = StoryObj<typeof meta>;
 
 export const NotConfigured: Story = {};
 
+const linkedDirectory = {
+  id: "directory_1",
+  name: "Acme Okta Directory",
+  type: "okta scim v2.0",
+  state: "linked",
+  linked: true,
+};
+
+function mockConfigured() {
+  mocked(useGetDirectorySync).mockReturnValue({
+    data: { directory: linkedDirectory, enabled: false },
+    isLoading: false,
+  });
+}
+
 export const Configured: Story = {
-  beforeEach: () => {
-    mocked(useGetDirectorySync).mockReturnValue({
-      data: {
-        directory: {
-          id: "directory_1",
-          name: "Acme Okta Directory",
-          type: "okta scim v2.0",
-          state: "linked",
-          linked: true,
-        },
-        enabled: false,
-      },
-      isLoading: false,
-    });
-  },
+  beforeEach: mockConfigured,
 };
 
 export const ConfiguredMenu: Story = {
@@ -87,6 +149,46 @@ export const ConfiguredMenu: Story = {
   play: async () => {
     await userEvent.click(
       await screen.findByRole("button", { name: "okta scim v2.0 options" }),
+    );
+  },
+};
+
+export const ConfiguredWithManyGroups: Story = {
+  beforeEach: () => {
+    mockConfigured();
+    mockGroups(groups, true);
+  },
+};
+
+export const ConfiguredAwaitingSync: Story = {
+  beforeEach: () => {
+    mockConfigured();
+    mockGroups([]);
+  },
+};
+
+export const EditGroupRole: Story = {
+  ...Configured,
+  play: async () => {
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Edit Engineering role" }),
+    );
+  },
+};
+
+// A member who may manage the directory but not read the team's custom
+// roles: the dialog says so where the selector would be.
+export const EditGroupRoleWithoutCustomRolePermission: Story = {
+  beforeEach: () => {
+    mockConfigured();
+    mocked(useIsCurrentMemberTeamAdmin).mockReturnValue(false);
+    mocked(useHasCustomRolePermission).mockImplementation(
+      (_teamId, action) => action !== "customRole:view",
+    );
+  },
+  play: async () => {
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Edit Support role" }),
     );
   },
 };

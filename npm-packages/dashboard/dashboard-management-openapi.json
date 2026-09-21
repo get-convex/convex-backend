@@ -4955,10 +4955,10 @@
           "role": {
             "$ref": "#/components/schemas/Role"
           },
-          "customRoleIds": {
+          "customRoles": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CustomRoleId"
+              "$ref": "#/components/schemas/TeamMemberCustomRole"
             }
           }
         }

@@ -2309,7 +2309,7 @@ export interface components {
         };
         GroupRoleMappingResponse: {
             role: components["schemas"]["Role"];
-            customRoleIds?: components["schemas"]["CustomRoleId"][];
+            customRoles?: components["schemas"]["TeamMemberCustomRole"][];
         };
         HasAssociatedWorkOSTeamResponse: {
             hasAssociatedWorkosTeam: boolean;

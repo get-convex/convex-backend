@@ -27,7 +27,12 @@ import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { TEAM_RESOURCE } from "lib/permissions";
-import { EmptyStateRow, SettingsSheet } from "./SettingsSheet";
+import {
+  EmptyStateRow,
+  SettingsSheet,
+  TABLE_CELL as CELL,
+  TABLE_HEADER_CELL as HEADER_CELL,
+} from "./SettingsSheet";
 import { DomainStatusBadge } from "./StatusBadge";
 
 // A domain serves both products, but directory sync is still behind a flag, so
@@ -225,11 +230,6 @@ export function DomainsSheet({ team }: { team: TeamResponse }) {
     </SettingsSheet>
   );
 }
-
-// The cells reach the sheet's edges, so they carry its inset themselves.
-const CELL = "px-4 py-3 align-middle";
-const HEADER_CELL =
-  "px-4 py-2 text-left text-sm font-normal text-content-secondary";
 
 function DomainRow({
   teamId,

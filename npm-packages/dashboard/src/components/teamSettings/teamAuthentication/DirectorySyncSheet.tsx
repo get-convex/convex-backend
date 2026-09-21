@@ -18,6 +18,7 @@ import { useGetSSO, useTeamEntitlements } from "api/teams";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { DIRECTORY_SYNC_RESOURCE, SSO_RESOURCE } from "lib/permissions";
+import { DirectoryGroupsSheet } from "./DirectoryGroupsSheet";
 import {
   ConfigurationRow,
   EmptyStateRow,
@@ -48,11 +49,19 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     DIRECTORY_SYNC_RESOURCE,
     false,
   );
+  const canUpdateMappingCustom = useHasCustomRolePermission(
+    team.id,
+    "directorySync:updateGroupMapping",
+    DIRECTORY_SYNC_RESOURCE,
+    false,
+  );
   const canEnable = isTeamAdmin || canEnableCustom === true;
   const canDisable = isTeamAdmin || canDisableCustom === true;
+  const canUpdateMapping = isTeamAdmin || canUpdateMappingCustom === true;
 
   const entitlements = useTeamEntitlements(team.id);
   const directorySyncEntitled = entitlements?.directorySyncEnabled ?? false;
+  const customRolesEnabled = entitlements?.customRolesEnabled ?? false;
   const { data: directorySync } = useGetDirectorySync(team.id, {
     isPaused: canView !== true,
   });
@@ -136,105 +145,116 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     !isGeneratingLink;
 
   return (
-    <SettingsSheet
-      title="Directory sync"
-      description={
-        directory
-          ? "Manage your Directory Sync configuration."
-          : NOT_CONFIGURED_DESCRIPTION
-      }
-    >
-      {isLoadingDirectory ? (
-        <Loading fullHeight={false} className="m-3 h-10" />
-      ) : directory ? (
-        <ConfigurationRow
-          title={directoryTitle}
-          badge={<DirectoryStatusBadge state={directory.state} />}
-          menu={
-            <Menu
-              placement="bottom-end"
-              buttonProps={{
-                variant: "neutral",
-                size: "xs",
-                icon: <DotsVerticalIcon />,
-                "aria-label": `${directoryTitle} options`,
-              }}
-            >
-              <MenuItem
-                disabled={!canOpenPortal}
-                tip={configureTip}
-                action={() => {
-                  void openPortal();
+    // The groups sheet reads as part of the directory's configuration, so the
+    // two sit closer together than the page's sections do.
+    <div className="flex flex-col gap-6">
+      <SettingsSheet
+        title="Directory sync"
+        description={
+          directory
+            ? "Manage your Directory Sync configuration."
+            : NOT_CONFIGURED_DESCRIPTION
+        }
+      >
+        {isLoadingDirectory ? (
+          <Loading fullHeight={false} className="m-3 h-10" />
+        ) : directory ? (
+          <ConfigurationRow
+            title={directoryTitle}
+            badge={<DirectoryStatusBadge state={directory.state} />}
+            menu={
+              <Menu
+                placement="bottom-end"
+                buttonProps={{
+                  variant: "neutral",
+                  size: "xs",
+                  icon: <DotsVerticalIcon />,
+                  "aria-label": `${directoryTitle} options`,
                 }}
               >
-                Manage
-              </MenuItem>
-              <MenuItem
-                variant="danger"
-                disabled={!canDisable}
-                tip={
-                  canDisable
-                    ? undefined
-                    : permissionDeniedTip(
-                        "You do not have permission to disable Directory Sync.",
-                        "directorySync:disable",
-                      )
-                }
-                action={() => setShowDisableConfirmation(true)}
+                <MenuItem
+                  disabled={!canOpenPortal}
+                  tip={configureTip}
+                  action={() => {
+                    void openPortal();
+                  }}
+                >
+                  Manage
+                </MenuItem>
+                <MenuItem
+                  variant="danger"
+                  disabled={!canDisable}
+                  tip={
+                    canDisable
+                      ? undefined
+                      : permissionDeniedTip(
+                          "You do not have permission to disable Directory Sync.",
+                          "directorySync:disable",
+                        )
+                  }
+                  action={() => setShowDisableConfirmation(true)}
+                >
+                  Disable Directory Sync
+                </MenuItem>
+              </Menu>
+            }
+          />
+        ) : (
+          <EmptyStateRow
+            message="Directory Sync has not been configured."
+            action={
+              <Button
+                size="sm"
+                className="w-fit shrink-0"
+                icon={<ExternalLinkIcon />}
+                loading={isGeneratingLink}
+                disabled={!canOpenPortal}
+                tip={configureTip}
+                onClick={openPortal}
               >
-                Disable Directory Sync
-              </MenuItem>
-            </Menu>
-          }
-        />
-      ) : (
-        <EmptyStateRow
-          message="Directory Sync has not been configured."
-          action={
-            <Button
-              size="sm"
-              className="w-fit shrink-0"
-              icon={<ExternalLinkIcon />}
-              loading={isGeneratingLink}
-              disabled={!canOpenPortal}
-              tip={configureTip}
-              onClick={openPortal}
-            >
-              Configure
-            </Button>
-          }
-        />
-      )}
+                Configure
+              </Button>
+            }
+          />
+        )}
 
-      {showDisableConfirmation && (
-        <ConfirmationDialog
-          onClose={() => {
-            if (isDisabling) {
-              return;
-            }
-            setShowDisableConfirmation(false);
-            setDisableError(undefined);
-          }}
-          onConfirm={async () => {
-            setIsDisabling(true);
-            try {
-              await disableDirectorySync();
+        {showDisableConfirmation && (
+          <ConfirmationDialog
+            onClose={() => {
+              if (isDisabling) {
+                return;
+              }
               setShowDisableConfirmation(false);
-            } catch (e: any) {
-              setDisableError(e.message);
-              throw e;
-            } finally {
-              setIsDisabling(false);
-            }
-          }}
-          confirmText="Disable"
-          variant="danger"
-          dialogTitle="Disable Directory Sync"
-          dialogBody="This disconnects your directory, and team members will no longer be provisioned or deprovisioned by your identity provider. Members already on the team keep their access."
-          error={disableError}
-          validationText="DISABLE DIRECTORY SYNC"
+              setDisableError(undefined);
+            }}
+            onConfirm={async () => {
+              setIsDisabling(true);
+              try {
+                await disableDirectorySync();
+                setShowDisableConfirmation(false);
+              } catch (e: any) {
+                setDisableError(e.message);
+                throw e;
+              } finally {
+                setIsDisabling(false);
+              }
+            }}
+            confirmText="Disable"
+            variant="danger"
+            dialogTitle="Disable Directory Sync"
+            dialogBody="This disconnects your directory, and team members will no longer be provisioned or deprovisioned by your identity provider. Members already on the team keep their access."
+            error={disableError}
+            validationText="DISABLE DIRECTORY SYNC"
+          />
+        )}
+      </SettingsSheet>
+      {directory && (
+        <DirectoryGroupsSheet
+          team={team}
+          canEdit={canUpdateMapping}
+          customRolesEnabled={customRolesEnabled}
         />
       )}
-    </SettingsSheet>
+    </div>
   );
 }

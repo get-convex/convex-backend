@@ -4,6 +4,11 @@ import { cn } from "@ui/cn";
 
 export const SHEET_ROW = "px-4 py-3";
 
+// Table cells reach the sheet's edges, so they carry its inset themselves.
+export const TABLE_CELL = "px-4 py-3 align-middle";
+export const TABLE_HEADER_CELL =
+  "px-4 py-2 text-left text-sm font-normal text-content-secondary";
+
 export function SettingsSheet({
   title,
   description,

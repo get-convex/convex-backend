@@ -1,9 +1,14 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useBBMutation, useBBQuery, useMutate } from "./api";
 
 const OFFERS_PATH = "/member/directory_sync_offers";
 const DIRECTORY_SYNC_PATH = "/teams/{team_id}/directory_sync";
+const GROUPS_PATH = "/teams/{team_id}/directory_sync/groups";
+const MAPPING_PATH =
+  "/teams/{team_id}/directory_sync/mappings/{workos_group_id}";
+
+export const DIRECTORY_GROUPS_PAGE_SIZE = 25;
 
 export function useGetDirectorySync(
   teamId: number | undefined,
@@ -38,6 +43,41 @@ export function useDisableDirectorySync(teamId: number) {
       team_id: teamId.toString(),
     },
     successToast: "Directory Sync has been disabled for your team.",
+  });
+}
+
+export function useDirectorySyncGroups(
+  teamId: number | undefined,
+  cursor: string | undefined,
+  { isPaused = false }: { isPaused?: boolean } = {},
+) {
+  const queryParams = useMemo(
+    () => ({ cursor, limit: DIRECTORY_GROUPS_PAGE_SIZE }),
+    [cursor],
+  );
+  const { data, isLoading, error } = useBBQuery({
+    path: GROUPS_PATH,
+    pathParams: {
+      team_id: isPaused ? "" : (teamId?.toString() ?? ""),
+    },
+    queryParams,
+  });
+  return { data, isLoading, error };
+}
+
+export function useSetGroupRoleMapping(teamId: number, workosGroupId: string) {
+  return useBBMutation({
+    method: "put",
+    path: MAPPING_PATH,
+    pathParams: {
+      team_id: teamId,
+      workos_group_id: workosGroupId,
+    },
+    mutateKey: GROUPS_PATH,
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
+    successToast: "Group role updated.",
   });
 }
 
