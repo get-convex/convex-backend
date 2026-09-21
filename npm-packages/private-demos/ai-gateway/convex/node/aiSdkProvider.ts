@@ -1,7 +1,7 @@
 "use node";
 
 import { convexGateway } from "@convex-dev/ai-sdk-provider";
-import { generateText } from "ai";
+import { experimental_evaluate as evaluate, generateText } from "ai";
 import { actionGeneric } from "convex/server";
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
@@ -27,8 +27,8 @@ export const triageTicket = internalAction({
   args: { ticket: v.string() },
   returns: v.object({ priority: v.string() }),
   handler: async (_ctx, { ticket }) => {
-    const { answers } = await convexGateway.decisions({
-      model: "typesafe/jev-1.13",
+    const { answers } = await evaluate({
+      model: convexGateway.evaluationModel("typesafe/jev-1.13"),
       state: { ticket },
       questions: {
         priority: {

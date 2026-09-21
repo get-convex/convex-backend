@@ -50,13 +50,15 @@ convexGateway.responses("openai/gpt-5");
 ## Structured decisions
 
 [Jev](https://docs.typesafe.ai/introduction) evaluates `choice`, `score`, and
-`noul` questions about the context you provide in `state`. It returns structured
-answers your code can use directly. Call `convexGateway.decisions()` from an
-action:
+`boolean` questions about the context you provide in `state`. Call AI SDK's
+experimental `evaluate` from an action:
 
 ```ts
-const decision = await convexGateway.decisions({
-  model: "typesafe/jev-1.13",
+import { experimental_evaluate as evaluate } from "ai";
+import { convexGateway } from "@convex-dev/ai-sdk-provider";
+
+const decision = await evaluate({
+  model: convexGateway.evaluationModel("typesafe/jev-1.13"),
   state: { ticket: "Customer cannot sign in" },
   questions: {
     priority: {
@@ -68,26 +70,28 @@ const decision = await convexGateway.decisions({
       },
     },
     needsReview: {
-      type: "noul",
+      type: "boolean",
       instructions: "Does a human need to review this?",
     },
   },
 });
 
 console.log(decision.answers.priority.choice);
-console.log(decision.answers.needsReview.noul);
+console.log(decision.answers.needsReview.probability);
 ```
 
-The method returns answers rather than a model for `generateText`.
-Authentication is handled automatically. Pass `{ signal }` as the second
-argument to cancel a request with an `AbortSignal`. HTTP errors and invalid
-responses throw `ConvexGatewayError`.
+This requires AI SDK 7.0.105 or later. The evaluation interface and
+`/alpha/decisions` endpoint are experimental. Authentication is handled
+automatically. Pass `abortSignal` to `evaluate` to cancel a request. Dollar cost
+is available in `decision.providerMetadata?.convexGateway?.cost`. The original
+gateway response, including provider-specific fields such as `confidence`, is
+available in `decision.response.body`.
 
 `getServiceToken("ai-gateway")` supplies a short-lived deployment JWT. The
 action runtime caches and refreshes the credential as needed, so
 `convexGateway(...)` is recommended to call it repeatedly.
 
-Requires Convex 1.45 or later, AI SDK 7, and Node.js 22 or later.
+Requires Convex 1.45 or later, AI SDK 7.0.105 or later, and Node.js 22 or later.
 
 ## Generate images
 

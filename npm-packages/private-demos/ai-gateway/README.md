@@ -48,7 +48,8 @@ just convex-usher run node/aiSdkProvider:chatCompletion \
 
 Classify a support ticket as `urgent`, `normal`, or `low` with Jev. The
 `node/aiSdkProvider:triageTicket` action passes the ticket and priority criteria
-to `convexGateway.decisions()` and returns the selected priority.
+to AI SDK's `evaluate()` with `convexGateway.evaluationModel()` and returns the
+selected priority.
 
 Build the workspace provider and deploy `/alpha/decisions` to the gateway before
 running this example. The provider handles authentication with
