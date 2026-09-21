@@ -151,6 +151,11 @@ answer in the response.
 model ID; Decisions models are not listed by `GET /v1/models`. Streaming is not
 supported.
 
+With the [AI SDK provider](/ai-gateway/setup.mdx), use
+`evaluate({ model: convexGateway.evaluationModel("typesafe/jev-1.13"), ... })`.
+The SDK calls the yes-or-no question type `boolean` and returns `probability`;
+the HTTP API uses `noul` for both.
+
 For example, classify a support ticket by priority:
 
 ```json

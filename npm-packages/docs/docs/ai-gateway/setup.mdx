@@ -134,18 +134,21 @@ not support `store: true` or `previous_response_id`.
 
 :::caution Decisions is in alpha
 
-`convexGateway.decisions()` uses `/alpha/decisions`. Its request and response
-format may change during alpha.
+`convexGateway.evaluationModel()` uses `/alpha/decisions`. The endpoint and AI
+SDK's experimental evaluation interface may change during alpha.
 
 :::
 
-Use `convexGateway.decisions()` to classify or score data with Jev. Call it
-directly from an action; it returns answers rather than a model for
-`generateText`:
+Use AI SDK's `evaluate` to classify or score data with Jev from an action. This
+requires `@convex-dev/ai-sdk-provider` 0.2.0 or later and AI SDK 7.0.105 or
+later:
 
 ```ts
-const decision = await convexGateway.decisions({
-  model: "typesafe/jev-1.13",
+import { experimental_evaluate as evaluate } from "ai";
+import { convexGateway } from "@convex-dev/ai-sdk-provider";
+
+const decision = await evaluate({
+  model: convexGateway.evaluationModel("typesafe/jev-1.13"),
   state: { ticket: "Customer cannot sign in" },
   questions: {
     priority: {
@@ -161,6 +164,11 @@ const decision = await convexGateway.decisions({
 
 console.log(decision.answers.priority.choice);
 ```
+
+Questions can use `choice`, `score`, or `boolean`. Boolean answers contain a
+`probability` between 0 and 1. The provider translates this to the HTTP API's
+`noul` question type and authenticates with `getServiceToken("ai-gateway")`.
+Pass `abortSignal` to `evaluate` to cancel a request.
 
 Create embeddings with `embedMany`. The AI SDK automatically splits batches
 larger than the gateway's 512-input limit:
