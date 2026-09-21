@@ -5,6 +5,7 @@ packages:
   - "@convex-dev/codemod/test/explicit-ids/sample-convex-project"
   - "@convex-dev/design-system"
   - "@convex-dev/eslint-plugin"
+  - "@convex-dev/eslint-plugin/oxlint-demo"
   - "@convex-dev/platform"
   - "@convex-dev/react-query"
   - "@convex-dev/workos"
