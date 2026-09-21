@@ -49,6 +49,9 @@ convexGateway.responses("openai/gpt-5");
 
 ## Structured decisions
 
+Use provider version 0.2.1 or later for correct validation of Jev's rounded
+scores and probabilities.
+
 [Jev](https://docs.typesafe.ai/introduction) evaluates `choice`, `score`, and
 `boolean` questions about the context you provide in `state`. Call AI SDK's
 experimental `evaluate` from an action:

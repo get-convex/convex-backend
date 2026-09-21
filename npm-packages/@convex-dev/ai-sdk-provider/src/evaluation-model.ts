@@ -101,6 +101,8 @@ export function createEvaluationModel(
           inputTokens: result.usage.input_tokens,
           outputTokens: result.usage.output_tokens,
         },
+        // Jev rounds scores and probabilities independently to two decimal places.
+        rounding: { probabilityDecimals: 2, scoreDecimals: 2 },
         providerMetadata: usageMetadata(result.usage),
         warnings: Object.keys(providerOptions ?? {}).map((provider) => ({
           type: "unsupported" as const,
