@@ -28,7 +28,7 @@ import { convexGateway } from "@convex-dev/ai-sdk-provider";
 
 const agent = new Agent(components.agent, {
   name: "Basic Agent",
-  languageModel: convexGateway("openai/gpt-4o-mini"),
+  languageModel: convexGateway("openai/gpt-5-mini"),
 });
 ```
 
@@ -216,7 +216,7 @@ import { components } from "./_generated/api";
 
 const sharedDefaults = {
   // The language model to use for the agent.
-  languageModel: convexGateway("openai/gpt-4o-mini"),
+  languageModel: convexGateway("openai/gpt-5-mini"),
   // Embedding model to power vector search of message history (RAG).
   embeddingModel: convexGateway.embeddingModel("openai/text-embedding-3-small"),
   // Used for fetching context messages. See https://docs.convex.dev/agents/context

@@ -229,7 +229,7 @@ async function stream(ctx: ActionCtx, threadId: string, order: number) {
   );
   // Do the normal streaming with the AI SDK
   const response = streamText({
-    model: convexGateway("openai/gpt-4o-mini"),
+    model: convexGateway("openai/gpt-5-mini"),
     prompt: "Tell me a joke",
     abortSignal: streamer.abortController.signal,
     onError: (error) => {
