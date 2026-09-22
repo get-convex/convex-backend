@@ -30,6 +30,7 @@ import {
   AUTHENTICATION_DESCRIPTION,
 } from "@common/lib/integrationHelpers";
 import { useState, useCallback } from "react";
+import { FivetranSyncStatus } from "./FivetranSyncProgress";
 import { IntegrationTitle } from "./IntegrationTitle";
 import { IntegrationOverflowMenu } from "./IntegrationOverflowMenu";
 import { IntegrationStatus } from "./IntegrationStatus";
@@ -134,19 +135,14 @@ export function PanelCard({
             description={STREAMING_EXPORT_DESCRIPTION}
           />
           <div className="ml-auto">
+            {/* The listing endpoint 403s without the entitlement, so a team
+                that can't have a sync never asks for one. */}
             {unavailableReason === "MissingEntitlement" ? (
               <ProBadge teamSlug={teamSlug} />
             ) : (
-              <Button
-                href={exportSetupLink(integration.kind)}
-                target="_blank"
-                className="flex items-center gap-2"
-                inline
-                variant="neutral"
-              >
-                <div>Get Started</div>
-                <ExternalLinkIcon />
-              </Button>
+              <FivetranSyncStatus
+                setupHref={exportSetupLink(integration.kind)}
+              />
             )}
           </div>
         </div>

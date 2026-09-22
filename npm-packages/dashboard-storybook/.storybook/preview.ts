@@ -62,6 +62,9 @@ sb.mock(import("dashboard-common/src/lib/deploymentApi.ts"), {
 sb.mock(import("dashboard-common/src/lib/appMetrics.ts"), {
   spy: true,
 });
+sb.mock(import("dashboard-common/src/features/settings/lib/api.ts"), {
+  spy: true,
+});
 sb.mock(import("dashboard/src/hooks/useStripe.ts"));
 // Do not mock dashboard-common/src/lib/deploymentContext.tsx: the mocked
 // namespace hands out copies of the React context objects it defines, so a

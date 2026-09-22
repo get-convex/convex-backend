@@ -157,6 +157,7 @@ export function DeploymentInfoProvider({
     connectionStateCheckIntervalMs,
     managedAnalyticsIntegration,
     s3ExportIntegration,
+    showFivetranSyncProgress,
   } = useLaunchDarkly();
   const [, openFeedbackForm] = useFeedbackFormOpen();
   const posthog = usePostHogLib();
@@ -340,6 +341,7 @@ export function DeploymentInfoProvider({
         managedAnalyticsIntegrationEnabled: managedAnalyticsIntegration,
         s3ExportIntegrationEnabled: s3ExportIntegration,
         connectionStateCheckIntervalMs,
+        showFivetranSyncProgress,
       });
     };
     if (accessTokenRef.current && (deploymentOverride || deploymentName)) {
@@ -352,6 +354,7 @@ export function DeploymentInfoProvider({
     projectsURI,
     teamsURI,
     connectionStateCheckIntervalMs,
+    showFivetranSyncProgress,
     openFeedbackForm,
     isDeploymentLookupSettled,
     isLocalTarget,

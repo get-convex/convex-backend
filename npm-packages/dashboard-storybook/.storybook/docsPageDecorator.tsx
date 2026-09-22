@@ -15,6 +15,7 @@ import {
 import {
   useProjectBySlug,
   useCurrentProject,
+  useCurrentProjectWithStatus,
   usePaginatedProjects,
   useProjectById,
 } from "../../dashboard/src/api/projects";
@@ -280,6 +281,10 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       ? (mockProject as ReturnType<typeof useCurrentProject>)
       : undefined,
   );
+  mocked(useCurrentProjectWithStatus).mockReturnValue({
+    project: shouldMockCurrentProject ? mockProject : undefined,
+    isLoading: false,
+  });
   mocked(useProjectById).mockImplementation(() => ({
     project: mockProject,
     isLoading: false,

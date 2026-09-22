@@ -341,6 +341,9 @@ export type DeploymentInfo = (
   managedAnalyticsIntegrationEnabled: boolean;
   s3ExportIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
+  /** Whether the Fivetran integration card reports the progress of active
+   *  data syncs. */
+  showFivetranSyncProgress: boolean;
   /** Opens the feedback sheet. Absent where there is nowhere to send it,
    *  such as the self-hosted dashboard. */
   openFeedbackForm?: (context: FeedbackContext) => void;

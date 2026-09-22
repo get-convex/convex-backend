@@ -113,6 +113,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
   managedAnalyticsIntegrationEnabled: false,
   s3ExportIntegrationEnabled: false,
   connectionStateCheckIntervalMs: 2500,
+  showFivetranSyncProgress: false,
   openFeedbackForm: () => {},
   captureEvent: () => {},
 };
