@@ -1,5 +1,6 @@
+import { useSyncExternalStore } from "react";
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { fn, mocked, screen, userEvent } from "storybook/test";
+import { expect, fn, mocked, screen, userEvent } from "storybook/test";
 import {
   useDirectorySyncGroups,
   useDisableDirectorySync,
@@ -15,7 +16,11 @@ import {
   useListCustomRoles,
 } from "api/roles";
 import { useGetSSO, useTeamEntitlements } from "api/teams";
-import type { DirectoryGroupResponse, TeamResponse } from "generatedApi";
+import type {
+  DirectoryGroupResponse,
+  DirectoryResponse,
+  TeamResponse,
+} from "generatedApi";
 import { DirectorySyncSheet } from "./DirectorySyncSheet";
 
 const team: TeamResponse = {
@@ -172,6 +177,20 @@ export const ManagementEnabledMenu: Story = {
   },
 };
 
+// An unlinked directory has no groups to map and no roster to review, so the
+// sheet asks for the connection and nothing else.
+export const Unlinked: Story = {
+  beforeEach: () => {
+    mocked(useGetDirectorySync).mockReturnValue({
+      data: {
+        directory: { ...linkedDirectory, state: "unlinked", linked: false },
+        enabled: false,
+      },
+      isLoading: false,
+    });
+  },
+};
+
 export const ConfiguredMenu: Story = {
   ...Configured,
   play: async () => {
@@ -234,5 +253,111 @@ export const NoPermission: Story = {
   beforeEach: () => {
     mocked(useIsCurrentMemberTeamAdmin).mockReturnValue(false);
     mocked(useHasCustomRolePermission).mockReturnValue(false);
+  },
+};
+
+// The directory as a member works through the portal: absent until their
+// identity provider creates it, then unlinked, validating, and finally linked.
+const CONNECTION_STEPS: (DirectoryResponse | null)[] = [
+  null,
+  { ...linkedDirectory, state: "unlinked", linked: false },
+  linkedDirectory,
+];
+const STEP_INTERVAL_MS = 900;
+
+let currentStep = 0;
+let stepTimer: ReturnType<typeof setInterval> | undefined;
+const stepListeners = new Set<() => void>();
+
+function clearStepTimer() {
+  if (stepTimer !== undefined) {
+    clearInterval(stepTimer);
+    stepTimer = undefined;
+  }
+}
+
+function startStepping() {
+  currentStep = 0;
+  clearStepTimer();
+  stepTimer = setInterval(() => {
+    currentStep += 1;
+    if (currentStep === CONNECTION_STEPS.length - 1) {
+      clearStepTimer();
+    }
+    stepListeners.forEach((listener) => listener());
+  }, STEP_INTERVAL_MS);
+}
+
+function resetStepping() {
+  clearStepTimer();
+  currentStep = 0;
+}
+
+// The sheet and the dialog each call the hook, so they read one step rather
+// than each running a timer of their own and drifting apart.
+function useSteppedDirectorySync(): ReturnType<typeof useGetDirectorySync> {
+  const step = useSyncExternalStore(
+    (listener) => {
+      stepListeners.add(listener);
+      return () => {
+        stepListeners.delete(listener);
+      };
+    },
+    () => currentStep,
+    () => 0,
+  );
+  return {
+    data: { directory: CONNECTION_STEPS[step], enabled: false },
+    isLoading: false,
+  };
+}
+
+// The whole first-run flow: Configure explains what connecting an identity
+// provider does, hands the member off to the portal, and then reports the
+// directory's state until it links. Continue leaves the member on the row that
+// asks them to review the role changes before enabling directory sync.
+export const ConfigureFlow: Story = {
+  beforeEach: () => {
+    resetStepping();
+    // The portal would otherwise open a real tab.
+    const realOpen = window.open;
+    // The dialog opens the tab on the click and navigates it once the link
+    // arrives, so the stub has to look enough like a window for that.
+    window.open = fn(() => ({
+      location: { href: "" },
+      close: fn(),
+    })) as unknown as typeof window.open;
+    mocked(useGenerateDirectorySyncConfigurationLink).mockReturnValue(
+      fn(async () => {
+        // The dialog polls from the hand-off, so that is when the directory
+        // starts making its way to `linked`.
+        startStepping();
+        return { link: "https://portal.workos.com/example" };
+      }) as any,
+    );
+    mocked(useGetDirectorySync).mockImplementation(useSteppedDirectorySync);
+    return () => {
+      resetStepping();
+      window.open = realOpen;
+    };
+  },
+  play: async () => {
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Configure" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: "Configure Identity Provider",
+      }),
+    );
+    // Buttons fade in, so a just-mounted Continue still computes to opacity 0.
+    // Finding it at all is what says the directory reached `linked`.
+    await expect(
+      await screen.findByRole(
+        "button",
+        { name: "Continue" },
+        { timeout: STEP_INTERVAL_MS * CONNECTION_STEPS.length * 3 },
+      ),
+    ).toBeInTheDocument();
   },
 };

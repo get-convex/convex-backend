@@ -47,7 +47,7 @@ export const MULTI_GROUP_EXPLANATION = (
 );
 
 export const INITIAL_SYNC_NOTE =
-  "It may take up to an hour to finish the initial sync. Groups appear here as they are synced.";
+  "It may take up to an hour to finish the initial sync of your directory. Groups appear here as they are synced.";
 
 export function DirectoryGroupsSheet({
   team,

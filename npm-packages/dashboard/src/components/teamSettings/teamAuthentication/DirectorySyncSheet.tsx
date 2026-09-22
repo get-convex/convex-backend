@@ -23,6 +23,7 @@ import {
   MEMBER_RESOURCE,
   SSO_RESOURCE,
 } from "lib/permissions";
+import { ConnectDirectoryDialog } from "./ConnectDirectoryDialog";
 import { DirectoryGroupsSheet } from "./DirectoryGroupsSheet";
 import { ProviderIcon } from "./ProviderIcon";
 import { ReviewDirectoryChangesModal } from "./ReviewDirectoryChangesModal";
@@ -98,6 +99,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
   useReportUnmappedProviders([provider]);
 
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [showConnectDialog, setShowConnectDialog] = useState(false);
   const [showDisableConfirmation, setShowDisableConfirmation] = useState(false);
   const [isDisabling, setIsDisabling] = useState(false);
   const [disableError, setDisableError] = useState<string>();
@@ -119,7 +121,8 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     );
   }
 
-  const directory = directorySync?.directory ?? undefined;
+  const reported = directorySync?.directory ?? undefined;
+  const directory = reported?.state === "deleting" ? undefined : reported;
   // The query is paused until the member's roles resolve `canView`, and SWR
   // only reports `isLoading` on the mount that starts a request — a query that
   // unpauses later reports `false` with nothing to show. Absent data is what
@@ -179,9 +182,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
         )
       : !directorySyncEntitled
         ? "Directory Sync is not available on your plan."
-        : !directory?.linked
-          ? "Link your directory before enabling directory sync."
-          : undefined);
+        : undefined);
 
   return (
     // The groups sheet reads as part of the directory's configuration, so the
@@ -249,7 +250,30 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
                 </Menu>
               }
             />
-            {!managementEnabled && (
+            {!directory.linked ? (
+              <div
+                className={cn(
+                  SHEET_ROW,
+                  "flex items-center gap-4 border-t text-sm",
+                )}
+              >
+                <span className="text-content-secondary">
+                  This directory is not linked yet. Check its connection with
+                  your identity provider to finish setting up directory sync.
+                </span>
+                <div className="ml-auto">
+                  <Button
+                    size="xs"
+                    icon={<ExternalLinkIcon />}
+                    disabled={!canOpenPortal}
+                    tip={configureTip}
+                    onClick={() => setShowConnectDialog(true)}
+                  >
+                    Check connection
+                  </Button>
+                </div>
+              </div>
+            ) : !managementEnabled ? (
               <div
                 className={cn(
                   SHEET_ROW,
@@ -271,7 +295,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
                   </Button>
                 </div>
               </div>
-            )}
+            ) : null}
             {showReview && (
               <ReviewDirectoryChangesModal
                 team={team}
@@ -288,14 +312,20 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
                 size="sm"
                 className="w-fit shrink-0"
                 icon={<ExternalLinkIcon />}
-                loading={isGeneratingLink}
                 disabled={!canOpenPortal}
                 tip={configureTip}
-                onClick={openPortal}
+                onClick={() => setShowConnectDialog(true)}
               >
                 Configure
               </Button>
             }
+          />
+        )}
+
+        {showConnectDialog && (
+          <ConnectDirectoryDialog
+            teamId={team.id}
+            onClose={() => setShowConnectDialog(false)}
           />
         )}
 
@@ -329,7 +359,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
           />
         )}
       </SettingsSheet>
-      {directory && (
+      {directory?.linked && (
         <DirectoryGroupsSheet
           team={team}
           canEdit={canUpdateMapping}

@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import type { DirectorySyncResponse } from "generatedApi";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useBBMutation, useBBQuery, useMutate } from "./api";
 
@@ -14,13 +15,22 @@ export const STAGED_MEMBERS_PAGE_SIZE = 50;
 
 export function useGetDirectorySync(
   teamId: number | undefined,
-  { isPaused = false }: { isPaused?: boolean } = {},
+  {
+    isPaused = false,
+    refreshInterval,
+  }: {
+    isPaused?: boolean;
+    refreshInterval?:
+      | number
+      | ((latest: DirectorySyncResponse | undefined) => number);
+  } = {},
 ) {
   const { data, isLoading } = useBBQuery({
     path: DIRECTORY_SYNC_PATH,
     pathParams: {
       team_id: isPaused ? "" : (teamId?.toString() ?? ""),
     },
+    swrOptions: { refreshInterval },
   });
   return { data, isLoading };
 }
@@ -35,7 +45,7 @@ export function useGenerateDirectorySyncConfigurationLink(teamId: number) {
 }
 
 export function useDisableDirectorySync(teamId: number) {
-  return useBBMutation({
+  const disable = useBBMutation({
     path: "/teams/{team_id}/directory_sync/disable",
     pathParams: {
       team_id: teamId.toString(),
@@ -46,6 +56,13 @@ export function useDisableDirectorySync(teamId: number) {
     },
     successToast: "Directory Sync has been disabled for your team.",
   });
+  const mutate = useMutate();
+  return useCallback(async () => {
+    const result = await disable();
+    await mutate([GROUPS_PATH]);
+    await mutate([STAGED_MEMBERS_PATH]);
+    return result;
+  }, [disable, mutate]);
 }
 
 export function useEnableDirectorySync(teamId: number) {
