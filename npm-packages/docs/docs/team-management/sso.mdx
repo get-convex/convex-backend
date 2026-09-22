@@ -36,14 +36,14 @@ Two of its sections cover SSO:
 
 ### 1. Verify a domain
 
-A connection is attached to a domain you own, so verification comes first.
+Each connection is attached to a domain you own, so start by verifying yours.
 Select **Add a domain** in the **Authentication Domains** section. Convex opens
 a separate configuration page in a new tab, where you enter the domain and
-complete the DNS verification it asks for.
+complete the DNS verification.
 
 Verification is not instant. A domain shows as **Pending** until your DNS record
-is picked up, and **Verified** once it is. Re-open **Add a domain** at any point
-to check on a pending domain.
+is picked up, and **Verified** once it is. You can re-open **Add a domain** at
+any time to check on a pending domain.
 
 <Screenshot
   story="docs/pages/TeamAuthentication#Domains"
@@ -54,8 +54,8 @@ to check on a pending domain.
 
 Your own Convex account needs a
 [verified email](https://dashboard.convex.dev/profile) on one of these domains,
-otherwise you won't be able to complete an SSO login yourself. The section shows
-a warning next to its title when none of your verified emails match.
+otherwise you won't be able to log in through SSO yourself. When none of your
+verified emails match, the section shows a warning next to its title.
 
 </Admonition>
 
@@ -74,7 +74,7 @@ When you come back, the connection appears in the section with its status:
 
 - **Active** — team members can log in through this identity provider.
 - **Inactive** — the connection exists but isn't finished. Re-open it with **⋮ →
-  Manage** and complete the remaining steps with your identity provider.
+  Manage** to complete the remaining steps with your identity provider.
 
 <Screenshot
   story="docs/pages/TeamAuthentication#Single Sign On Configured"
@@ -83,13 +83,12 @@ When you come back, the connection appears in the section with its status:
 
 ### 3. Test the connection
 
-Log out and log back in through your identity provider before requiring SSO for
-the whole team. An incomplete connection locks everyone out of the team if SSO
-is already required.
+Log out and log back in through your identity provider to confirm the connection
+works before requiring SSO for the whole team.
 
 ## Managing the connection
 
-The **⋮** menu next to the connection carries everything you can do to it:
+Use the **⋮** menu next to the connection to manage it:
 
 <Screenshot
   story="docs/pages/TeamAuthentication#Single Sign On Menu"
@@ -98,15 +97,15 @@ The **⋮** menu next to the connection carries everything you can do to it:
 
 - **⋮ → Manage** re-opens the configuration page for this connection.
 - **⋮ → Renew certificate** walks you through replacing a signing certificate
-  that is close to expiring.
+  before it expires.
 - **⋮ → Disable Single sign-on** removes the connection. Team members can no
-  longer log in through your identity provider. Your verified domains are not
-  affected.
+  longer log in through your identity provider. Your verified domains are
+  unaffected.
 
 ## Require Single Sign-On
 
 Once a connection is active, you can **require** SSO for the team by checking
-**Require SSO to access team**. Convex asks you to confirm before saving.
+**Require SSO to access team**. The dashboard asks you to confirm before saving.
 
 <Screenshot
   story="docs/pages/TeamAuthentication#Require SSO"
@@ -124,8 +123,8 @@ login methods to access any other Convex teams they belong to.
 
 <Admonition type="caution">
 
-Test your SSO configuration thoroughly before turning this on. If the connection
-doesn't work, nobody can get into the team, including you.
+Test your SSO configuration before turning this on. If the connection doesn't
+work, nobody can access the team, including you.
 
 </Admonition>
 
