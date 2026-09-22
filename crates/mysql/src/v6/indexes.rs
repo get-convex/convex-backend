@@ -50,7 +50,7 @@ use super::{
 };
 use crate::{
     chunks::{
-        smart_chunks,
+        fill_chunks,
         ApproxSize,
     },
     connection::{
@@ -242,10 +242,10 @@ impl IndexEngine {
             .iter()
             .filter_map(ScanningOp::tombstone)
             .collect();
-        for chunk in smart_chunks(&markers) {
+        for chunk in fill_chunks(&markers) {
             let timer = metrics::insert_index_chunk_timer(cluster_name);
             async {
-                tx.exec_drop(
+                tx.query_drop(
                     &sql::insert_backfill_marker_chunk(chunk.len()),
                     chunk
                         .iter()
@@ -265,7 +265,7 @@ impl IndexEngine {
             .iter()
             .map(|op| op.row().clone())
             .collect();
-        for chunk in smart_chunks(&scanning) {
+        for chunk in fill_chunks(&scanning) {
             self.write_latest_chunk(
                 tx,
                 chunk,
@@ -290,10 +290,10 @@ impl IndexEngine {
         )
         .await?;
         for (bucket, rows) in &batch.log_rows {
-            for chunk in smart_chunks(rows) {
+            for chunk in fill_chunks(rows) {
                 let timer = metrics::insert_index_chunk_timer(cluster_name);
                 async {
-                    tx.exec_drop(
+                    tx.query_drop(
                         &sql::insert_log_chunk(*bucket, chunk.len()),
                         chunk.iter().flat_map(LogRow::params).collect(),
                     )
@@ -307,7 +307,7 @@ impl IndexEngine {
                 timer.finish();
             }
         }
-        for chunk in smart_chunks(&batch.scan_complete_inserts) {
+        for chunk in fill_chunks(&batch.scan_complete_inserts) {
             self.write_latest_chunk(
                 tx,
                 chunk,
@@ -353,10 +353,10 @@ impl IndexEngine {
         deletes: &[BackfillDelete],
         cluster_name: &str,
     ) -> anyhow::Result<()> {
-        for chunk in smart_chunks(deletes) {
+        for chunk in fill_chunks(deletes) {
             let timer = metrics::insert_index_chunk_timer(cluster_name);
             async {
-                tx.exec_drop(
+                tx.query_drop(
                     &sql::delete_stale_chunk(chunk.len()),
                     chunk.iter().flat_map(BackfillDelete::params).collect(),
                 )
@@ -379,7 +379,7 @@ impl IndexEngine {
     ) -> anyhow::Result<()> {
         let timer = metrics::insert_index_chunk_timer(cluster_name);
         async {
-            tx.exec_drop(
+            tx.query_drop(
                 &chunk_sql(rows.len()),
                 rows.iter().flat_map(IndexRow::params).collect(),
             )
@@ -399,10 +399,10 @@ impl IndexEngine {
         span_kind: &str,
         cluster_name: &str,
     ) -> anyhow::Result<()> {
-        for chunk in smart_chunks(rows) {
+        for chunk in fill_chunks(rows) {
             let timer = metrics::insert_index_chunk_timer(cluster_name);
             let affected = async {
-                tx.exec_iter(
+                tx.query_iter(
                     &sql::delete_latest_chunk(chunk.len()),
                     chunk.iter().flat_map(IndexRow::delete_params).collect(),
                 )

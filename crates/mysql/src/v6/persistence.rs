@@ -100,6 +100,7 @@ use super::{
 };
 use crate::{
     chunks::{
+        fill_chunks,
         smart_chunks,
         ApproxSize,
     },
@@ -743,7 +744,7 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
         let cluster_name = self.inner.pool.cluster_name();
         self.lease
             .transact(async |tx| {
-                for chunk in smart_chunks(document_updates) {
+                for chunk in fill_chunks(document_updates) {
                     let query = match conflict_strategy {
                         ConflictStrategy::Error => documents::insert_chunk(chunk.len()),
                         ConflictStrategy::Overwrite => {
@@ -757,7 +758,7 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
                     let chunk_bytes: usize = chunk.iter().map(ApproxSize::approx_size).sum();
                     async {
                         let timer = metrics::insert_document_chunk_timer(cluster_name);
-                        tx.exec_drop(&query, params).await?;
+                        tx.query_drop(&query, params).await?;
                         timer.finish();
                         anyhow::Ok(())
                     }
@@ -796,7 +797,7 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
         metrics::log_index_write_bytes(entries.iter().map(ApproxSize::approx_size).sum());
         let rows = self.inner.engine.plan_backfill_rows(entries)?;
         let cluster_name = self.inner.pool.cluster_name();
-        for chunk in smart_chunks(&rows) {
+        for chunk in fill_chunks(&rows) {
             self.lease
                 .transact(async |tx| {
                     self.inner
@@ -975,7 +976,7 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
         self.lease
             .transact(async |tx| {
                 let mut deleted = 0;
-                for chunk in smart_chunks(&document_ids) {
+                for chunk in fill_chunks(&document_ids) {
                     let mut params = vec![self.inner.deployment_id.into()];
                     for (ts, id) in chunk {
                         params.extend([
@@ -985,7 +986,7 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
                         ]);
                     }
                     deleted += tx
-                        .exec_iter(&documents::delete_chunk(chunk.len()), params)
+                        .query_iter(&documents::delete_chunk(chunk.len()), params)
                         .await? as usize;
                 }
                 Ok(deleted)
