@@ -53,7 +53,11 @@ const meta = {
         creationTime: Date.now(),
       },
     ]);
-    mocked(useTeamDomains).mockReturnValue({ data: [], isLoading: false });
+    mocked(useTeamDomains).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+    });
   },
 } satisfies Meta<typeof DomainsSheet>;
 
@@ -71,6 +75,7 @@ export const WithDomains: Story = {
         { id: "dom_3", domain: "acme.io", state: "failed" },
       ],
       isLoading: false,
+      error: undefined,
     });
   },
 };
@@ -88,5 +93,15 @@ export const NoPermission: Story = {
   beforeEach: () => {
     mocked(useIsCurrentMemberTeamAdmin).mockReturnValue(false);
     mocked(useHasCustomRolePermission).mockReturnValue(false);
+  },
+};
+
+export const LoadFailed: Story = {
+  beforeEach: () => {
+    mocked(useTeamDomains).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("network"),
+    } as unknown as ReturnType<typeof useTeamDomains>);
   },
 };

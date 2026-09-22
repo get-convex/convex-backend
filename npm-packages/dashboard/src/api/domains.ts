@@ -6,7 +6,7 @@ export function useTeamDomains(
   teamId: number | undefined,
   { isPaused = false }: { isPaused?: boolean } = {},
 ) {
-  const { data, isLoading } = useBBQuery({
+  const { data, isLoading, error } = useBBQuery({
     path: DOMAINS_PATH,
     pathParams: {
       team_id: isPaused ? "" : (teamId?.toString() ?? ""),
@@ -15,7 +15,7 @@ export function useTeamDomains(
       revalidateOnFocus: true,
     },
   });
-  return { data: data?.domains, isLoading };
+  return { data: data?.domains, isLoading, error };
 }
 
 export function useDeleteTeamDomain(teamId: number, domainId: string) {

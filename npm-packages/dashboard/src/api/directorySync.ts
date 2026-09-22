@@ -25,14 +25,14 @@ export function useGetDirectorySync(
       | ((latest: DirectorySyncResponse | undefined) => number);
   } = {},
 ) {
-  const { data, isLoading } = useBBQuery({
+  const { data, isLoading, error } = useBBQuery({
     path: DIRECTORY_SYNC_PATH,
     pathParams: {
       team_id: isPaused ? "" : (teamId?.toString() ?? ""),
     },
     swrOptions: { refreshInterval },
   });
-  return { data, isLoading };
+  return { data, isLoading, error };
 }
 
 export function useGenerateDirectorySyncConfigurationLink(teamId: number) {

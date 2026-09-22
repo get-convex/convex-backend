@@ -74,6 +74,7 @@ const meta = {
     mocked(useGetSSO).mockReturnValue({
       data: notConfigured,
       isLoading: false,
+      error: undefined,
     });
   },
 } satisfies Meta<typeof SingleSignOnSheet>;
@@ -93,13 +94,18 @@ export const NoVerifiedDomain: Story = {
         domains: [{ id: "dom_1", domain: "acme.com", state: "pending" }],
       },
       isLoading: false,
+      error: undefined,
     });
   },
 };
 
 export const Configured: Story = {
   beforeEach: () => {
-    mocked(useGetSSO).mockReturnValue({ data: configured, isLoading: false });
+    mocked(useGetSSO).mockReturnValue({
+      data: configured,
+      isLoading: false,
+      error: undefined,
+    });
   },
 };
 
@@ -135,5 +141,15 @@ export const NoPermission: Story = {
   beforeEach: () => {
     mocked(useIsCurrentMemberTeamAdmin).mockReturnValue(false);
     mocked(useHasCustomRolePermission).mockReturnValue(false);
+  },
+};
+
+export const LoadFailed: Story = {
+  beforeEach: () => {
+    mocked(useGetSSO).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("network"),
+    } as unknown as ReturnType<typeof useGetSSO>);
   },
 };

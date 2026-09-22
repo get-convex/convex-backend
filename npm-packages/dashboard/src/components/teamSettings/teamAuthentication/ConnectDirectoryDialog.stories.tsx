@@ -11,6 +11,7 @@ function mockDirectory(directory: DirectoryResponse | null) {
   mocked(useGetDirectorySync).mockReturnValue({
     data: { directory, enabled: false, mirrored: false },
     isLoading: false,
+    error: undefined,
   });
 }
 

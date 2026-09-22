@@ -121,6 +121,7 @@ const meta = {
         domains: [{ id: "dom_1", domain: "acme.com", state: "verified" }],
       },
       isLoading: false,
+      error: undefined,
     });
     mocked(useGenerateDirectorySyncConfigurationLink).mockReturnValue(
       fn(async () => ({ link: "https://portal.workos.com/example" })) as any,
@@ -129,6 +130,7 @@ const meta = {
     mocked(useGetDirectorySync).mockReturnValue({
       data: { directory: null, enabled: false, mirrored: false },
       isLoading: false,
+      error: undefined,
     });
   },
 } satisfies Meta<typeof DirectorySyncSheet>;
@@ -150,6 +152,7 @@ function mockConfigured() {
   mocked(useGetDirectorySync).mockReturnValue({
     data: { directory: linkedDirectory, enabled: false, mirrored: true },
     isLoading: false,
+    error: undefined,
   });
 }
 
@@ -164,6 +167,7 @@ export const AwaitingInitialSync: Story = {
     mocked(useGetDirectorySync).mockReturnValue({
       data: { directory: linkedDirectory, enabled: false, mirrored: false },
       isLoading: false,
+      error: undefined,
     });
     mockGroups([]);
   },
@@ -174,6 +178,7 @@ export const ManagementEnabled: Story = {
     mocked(useGetDirectorySync).mockReturnValue({
       data: { directory: linkedDirectory, enabled: true, mirrored: true },
       isLoading: false,
+      error: undefined,
     });
   },
 };
@@ -200,6 +205,7 @@ export const Unlinked: Story = {
         mirrored: false,
       },
       isLoading: false,
+      error: undefined,
     });
   },
 };
@@ -269,6 +275,16 @@ export const NoPermission: Story = {
   },
 };
 
+export const LoadFailed: Story = {
+  beforeEach: () => {
+    mocked(useGetDirectorySync).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("network"),
+    } as unknown as ReturnType<typeof useGetDirectorySync>);
+  },
+};
+
 // The directory as a member works through the portal: absent until their
 // identity provider creates it, then unlinked, validating, and finally linked.
 const CONNECTION_STEPS: (DirectoryResponse | null)[] = [
@@ -325,6 +341,7 @@ function useSteppedDirectorySync(): ReturnType<typeof useGetDirectorySync> {
     // link rather than trailing it; AwaitingInitialSync covers that gap.
     data: { directory, enabled: false, mirrored: directory?.linked ?? false },
     isLoading: false,
+    error: undefined,
   };
 }
 

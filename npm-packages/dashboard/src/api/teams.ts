@@ -154,7 +154,11 @@ export function useGetSSO(
   teamId: number | undefined,
   { isPaused = false }: { isPaused?: boolean } = {},
 ) {
-  const { data: ssoOrganization, isLoading } = useBBQuery({
+  const {
+    data: ssoOrganization,
+    isLoading,
+    error,
+  } = useBBQuery({
     path: "/teams/{team_id}/get_sso",
     pathParams: {
       team_id: isPaused ? "" : (teamId?.toString() ?? ""),
@@ -163,7 +167,7 @@ export function useGetSSO(
       revalidateOnFocus: true,
     },
   });
-  return { data: ssoOrganization, isLoading };
+  return { data: ssoOrganization, isLoading, error };
 }
 
 export function useEnableSSO(teamId: number) {

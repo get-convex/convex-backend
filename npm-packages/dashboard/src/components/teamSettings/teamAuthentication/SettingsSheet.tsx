@@ -1,3 +1,4 @@
+import { CrossCircledIcon } from "@radix-ui/react-icons";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import { Sheet } from "@ui/Sheet";
 import { cn } from "@ui/cn";
@@ -84,6 +85,27 @@ export function EmptyStateRow({
     <div className="flex items-center justify-between gap-4 px-6 py-4">
       <span className="max-w-prose text-content-secondary">{message}</span>
       {action}
+    </div>
+  );
+}
+
+// Shown in place of a sheet's contents when the query behind them failed.
+// Without it the sheets read absent data as "still loading" and spin forever.
+// Styled after the usage page's `UsageDataError` so a failed load reads the
+// same wherever it happens, and padded like the sheets' no-permission block
+// rather than the fixed height that page's charts reserve.
+export function LoadErrorState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex animate-fadeInFromLoading flex-col justify-center px-6 py-10 text-center">
+      <CrossCircledIcon className="mx-auto size-6 text-content-error" />
+      <h4 className="mt-2">{title}</h4>
+      <p className="mt-1 text-sm text-content-secondary">{description}</p>
     </div>
   );
 }

@@ -31,6 +31,7 @@ import { ReviewDirectoryChangesModal } from "./ReviewDirectoryChangesModal";
 import {
   ConfigurationRow,
   EmptyStateRow,
+  LoadErrorState,
   SettingsSheet,
   SHEET_ROW,
 } from "./SettingsSheet";
@@ -84,9 +85,10 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
   const entitlements = useTeamEntitlements(team.id);
   const directorySyncEntitled = entitlements?.directorySyncEnabled ?? false;
   const customRolesEnabled = entitlements?.customRolesEnabled ?? false;
-  const { data: directorySync } = useGetDirectorySync(team.id, {
-    isPaused: canView !== true,
-  });
+  const { data: directorySync, error: directorySyncError } =
+    useGetDirectorySync(team.id, {
+      isPaused: canView !== true,
+    });
   // A directory can only provision members on a verified domain, so the
   // domains sheet gates this one too.
   const canViewSSO = useHasCustomRolePermission(
@@ -95,7 +97,9 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     SSO_RESOURCE,
     true,
   );
-  const { data: sso } = useGetSSO(team.id, { isPaused: canViewSSO !== true });
+  const { data: sso, error: ssoError } = useGetSSO(team.id, {
+    isPaused: canViewSSO !== true,
+  });
   const generateLink = useGenerateDirectorySyncConfigurationLink(team.id);
   const disableDirectorySync = useDisableDirectorySync(team.id);
 
@@ -136,6 +140,14 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
   const hasVerifiedDomain = (sso?.domains ?? []).some(
     (d) => d.state === "verified" || d.state === "legacyVerified",
   );
+  // SWR hands back the last good response while it revalidates, so a failed
+  // background refresh leaves the configuration on screen; only a failure with
+  // nothing to fall back on takes the sheet over. The SSO query counts too: it
+  // decides whether a verified domain exists, and without it the sheet would
+  // offer to configure a directory that cannot be configured.
+  const failedToLoad =
+    (isLoadingDirectory && directorySyncError !== undefined) ||
+    (sso === undefined && ssoError !== undefined);
 
   const directoryTitle = provider?.label ?? directory?.name ?? "Directory";
 
@@ -203,7 +215,12 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
             : NOT_CONFIGURED_DESCRIPTION
         }
       >
-        {isLoadingDirectory ? (
+        {failedToLoad ? (
+          <LoadErrorState
+            title="Error fetching Directory Sync configuration"
+            description="An error occurred while fetching your Directory Sync configuration. Please try again later."
+          />
+        ) : isLoadingDirectory ? (
           <Loading fullHeight={false} className="m-3 h-10" />
         ) : directory ? (
           <>

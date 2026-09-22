@@ -32,6 +32,7 @@ import { ProviderIcon } from "./ProviderIcon";
 import {
   ConfigurationRow,
   EmptyStateRow,
+  LoadErrorState,
   SHEET_ROW,
   SettingsSheet,
 } from "./SettingsSheet";
@@ -73,7 +74,7 @@ export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
 
   const entitlements = useTeamEntitlements(team.id);
   const ssoEntitled = entitlements?.ssoEnabled ?? false;
-  const { data: sso } = useGetSSO(team.id, {
+  const { data: sso, error: ssoError } = useGetSSO(team.id, {
     isPaused: canView !== true,
   });
   const generateSSOConfigurationLink = useGenerateSSOConfigurationLink(team.id);
@@ -99,6 +100,10 @@ export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
   useReportUnmappedProviders(connections.map((c) => c.provider));
   const configured = connections.length > 0;
   const isLoadingSso = sso === undefined;
+  // SWR hands back the last good response while it revalidates, so a failed
+  // background refresh leaves the configuration on screen; only a failure with
+  // nothing to fall back on takes the sheet over.
+  const failedToLoad = isLoadingSso && ssoError !== undefined;
   const hasVerifiedDomain = (sso?.domains ?? []).some(
     (d) => d.state === "verified" || d.state === "legacyVerified",
   );
@@ -187,7 +192,12 @@ export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
           : "Configure an identity provider for your team members to use as a login method."
       }
     >
-      {isLoadingSso ? (
+      {failedToLoad ? (
+        <LoadErrorState
+          title="Error fetching SSO configuration"
+          description="An error occurred while fetching your SSO configuration. Please try again later."
+        />
+      ) : isLoadingSso ? (
         <Loading fullHeight={false} className="m-3 h-10" />
       ) : configured ? (
         <>
