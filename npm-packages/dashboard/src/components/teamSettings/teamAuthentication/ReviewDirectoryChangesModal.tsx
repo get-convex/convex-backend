@@ -55,8 +55,8 @@ export function classifyStagedItem(item: StagedDirectoryMemberResponse): {
     return { status: "notInDirectory", roleChanges: false };
   }
   // Decided before the roster split below: a user the directory doesn't hold
-  // active confers nothing either way — a member linked to one is locked out
-  // of the team, and a non-member is not offered it at all.
+  // active confers nothing either way — a member linked to one is taken off
+  // the team, and a non-member is not offered it at all.
   if (directoryUser.state !== "active") {
     return { status: "suspended", roleChanges: false };
   }
@@ -278,7 +278,7 @@ export function ReviewDirectoryChangesModal({
                       <td className={cn(TABLE_CELL, "whitespace-nowrap")}>
                         {status === "suspended" ? (
                           <span className="text-sm text-content-secondary">
-                            {member ? "Loses access" : "Cannot join"}
+                            {member ? "Removed from team" : "Cannot join"}
                           </span>
                         ) : directoryUser ? (
                           <RoleDisplay
