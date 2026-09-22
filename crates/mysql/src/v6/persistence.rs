@@ -59,6 +59,7 @@ use common::{
     },
     shutdown::ShutdownSignal,
     types::{
+        DeploymentId as BigBrainDeploymentId,
         IndexRef,
         PersistenceIndexId,
         PersistenceVersion,
@@ -96,7 +97,7 @@ use super::{
         LogBucket,
         LogBucketBounds,
     },
-    DeploymentId,
+    PersistenceDeploymentId,
 };
 use crate::{
     chunks::{
@@ -130,7 +131,7 @@ pub(crate) struct Reader<RT: Runtime> {
 struct Inner<RT: Runtime> {
     pool: Arc<ConvexMySqlPool<RT>>,
     db_name: String,
-    deployment_id: DeploymentId,
+    deployment_id: PersistenceDeploymentId,
     fresh: AtomicBool,
     engine: IndexEngine,
 }
@@ -160,7 +161,7 @@ impl<RT: Runtime> Persistence<RT> {
     async fn new_inner(
         pool: Arc<ConvexMySqlPool<RT>>,
         db_name: String,
-        deployment_id: DeploymentId,
+        deployment_id: PersistenceDeploymentId,
         allow_read_only: bool,
         lease_lost_shutdown: ShutdownSignal,
     ) -> Result<Self, ConnectError> {
@@ -1290,7 +1291,7 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
 pub(crate) struct Lease<RT: Runtime> {
     pool: Arc<ConvexMySqlPool<RT>>,
     db_name: String,
-    deployment_id: DeploymentId,
+    deployment_id: PersistenceDeploymentId,
     lease_ts: i64,
     lease_lost_shutdown: ShutdownSignal,
 }
@@ -1299,7 +1300,7 @@ impl<RT: Runtime> Lease<RT> {
     async fn acquire(
         pool: Arc<ConvexMySqlPool<RT>>,
         db_name: String,
-        deployment_id: DeploymentId,
+        deployment_id: PersistenceDeploymentId,
         lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer(pool.cluster_name());
@@ -1392,15 +1393,13 @@ impl<RT: Runtime> Lease<RT> {
 fn deployment_id_from_options(
     version: PersistenceVersion,
     multitenant: bool,
-    deployment_id: Option<common::types::DeploymentId>,
-) -> anyhow::Result<DeploymentId> {
+    deployment_id: BigBrainDeploymentId,
+) -> anyhow::Result<PersistenceDeploymentId> {
     anyhow::ensure!(
         version == PersistenceVersion::V6 && multitenant,
         "MySQL V6 is only supported by the multitenant V6 driver"
     );
-    deployment_id
-        .context("MySQL V6 requires a deployment ID")?
-        .try_into()
+    deployment_id.try_into()
 }
 
 fn out_of_retention_error(read_timestamp: Timestamp, reason: String) -> anyhow::Error {

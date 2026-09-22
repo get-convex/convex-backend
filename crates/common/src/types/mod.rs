@@ -133,6 +133,21 @@ pub use timestamp::{
 tuple_struct_u64!(MemberId);
 tuple_struct_u64!(TeamId);
 tuple_struct_u64!(DeploymentId);
+
+impl DeploymentId {
+    /// A stable stand-in ID for a deployment big brain has no row for
+    /// (self-hosted backends, statically configured conductors). Derived from
+    /// the name so it survives restarts -- an ID-keyed persistence layout
+    /// stores rows under it -- and kept within `u32`, the widest ID such
+    /// layouts accept.
+    pub fn stable_from_name(name: &str) -> Self {
+        let digest = crate::sha256::Sha256::hash(name.as_bytes());
+        let bytes: [u8; 4] = digest.as_ref()[..4]
+            .try_into()
+            .expect("a SHA-256 digest has at least four bytes");
+        Self(u64::from(u32::from_be_bytes(bytes)))
+    }
+}
 tuple_struct_u64!(ProjectId);
 tuple_struct_u64!(CustomRoleId);
 // The autoincrement primary key of the `authorized_devices` table in big brain.

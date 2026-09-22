@@ -18,7 +18,7 @@ use common::{
     },
     runtime::Runtime,
     shutdown::ShutdownSignal,
-    types::DeploymentId as CommonDeploymentId,
+    types::DeploymentId as BigBrainDeploymentId,
 };
 use const_format::concatcp;
 use mysql_async::{
@@ -77,21 +77,21 @@ pub(crate) async fn set_persistence_read_only<RT: Runtime>(
 
 /// A deployment identifier in V6 persistence tables.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) struct DeploymentId(u32);
+pub(crate) struct PersistenceDeploymentId(u32);
 
-impl DeploymentId {
+impl PersistenceDeploymentId {
 }
 
-impl From<DeploymentId> for Value {
-    fn from(deployment_id: DeploymentId) -> Self {
+impl From<PersistenceDeploymentId> for Value {
+    fn from(deployment_id: PersistenceDeploymentId) -> Self {
         Value::UInt(u64::from(deployment_id.0))
     }
 }
 
-impl TryFrom<CommonDeploymentId> for DeploymentId {
+impl TryFrom<BigBrainDeploymentId> for PersistenceDeploymentId {
     type Error = anyhow::Error;
 
-    fn try_from(value: CommonDeploymentId) -> Result<Self, Self::Error> {
+    fn try_from(value: BigBrainDeploymentId) -> Result<Self, Self::Error> {
         let value = u32::try_from(value.0).map_err(|_| {
             anyhow::anyhow!("deployment ID {} does not fit in INT UNSIGNED", value.0)
         })?;

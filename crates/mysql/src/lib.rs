@@ -84,7 +84,7 @@ pub struct MySqlOptions {
     pub version: PersistenceVersion,
     pub instance_name: MySqlInstanceName,
     pub multitenant: bool,
-    pub deployment_id: Option<DeploymentId>,
+    pub deployment_id: DeploymentId,
 }
 
 #[derive(Debug)]
@@ -93,7 +93,7 @@ pub struct MySqlReaderOptions {
     pub version: PersistenceVersion,
     pub instance_name: MySqlInstanceName,
     pub multitenant: bool,
-    pub deployment_id: Option<DeploymentId>,
+    pub deployment_id: DeploymentId,
 }
 
 pub async fn connect_persistence<RT: Runtime>(

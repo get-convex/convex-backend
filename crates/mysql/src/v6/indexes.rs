@@ -46,7 +46,7 @@ use super::{
         LogRow,
         SqlKey,
     },
-    DeploymentId,
+    PersistenceDeploymentId,
 };
 use crate::{
     chunks::{
@@ -103,11 +103,11 @@ impl IndexWriteBatch {
 }
 
 pub(crate) struct IndexEngine {
-    deployment_id: DeploymentId,
+    deployment_id: PersistenceDeploymentId,
 }
 
 impl IndexEngine {
-    pub(crate) fn new(deployment_id: DeploymentId) -> Self {
+    pub(crate) fn new(deployment_id: PersistenceDeploymentId) -> Self {
         Self { deployment_id }
     }
 

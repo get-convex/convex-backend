@@ -34,7 +34,7 @@ use mysql_async::{
 
 use super::{
     column,
-    DeploymentId,
+    PersistenceDeploymentId,
 };
 use crate::chunks::ApproxSize;
 
@@ -185,7 +185,7 @@ SELECT created_through_ts, oldest_kept_ts FROM @db_name.indexes_maintenance_stat
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct IndexRow {
-    pub(crate) deployment_id: DeploymentId,
+    pub(crate) deployment_id: PersistenceDeploymentId,
     pub(crate) index_id: PersistenceIndexId,
     pub(crate) key: IndexKey,
     pub(crate) ts: Timestamp,
@@ -288,7 +288,7 @@ pub(crate) fn sort_by_latest_primary_key<T>(rows: &mut [T], row: impl Fn(&T) -> 
 /// timestamps are stale.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct BackfillDelete {
-    pub(crate) deployment_id: DeploymentId,
+    pub(crate) deployment_id: PersistenceDeploymentId,
     pub(crate) index_id: PersistenceIndexId,
     pub(crate) key: SqlKey,
     pub(crate) deleted_at: Timestamp,
@@ -296,7 +296,7 @@ pub(crate) struct BackfillDelete {
 
 impl BackfillDelete {
     pub(crate) fn from_row(
-        deployment_id: DeploymentId,
+        deployment_id: PersistenceDeploymentId,
         index_id: PersistenceIndexId,
         row: &Row,
     ) -> anyhow::Result<Self> {
@@ -422,7 +422,7 @@ fn append_bound_clause(
 }
 
 fn index_query_params(
-    deployment_id: DeploymentId,
+    deployment_id: PersistenceDeploymentId,
     index_id: PersistenceIndexId,
     read_timestamp: Timestamp,
     bounds: &[Value],
@@ -473,7 +473,7 @@ fn union_arms(
 /// pagination is consistent, and the index scan sorts each equal-prefix run by
 /// the reconstructed key.
 pub(crate) fn index_query(
-    deployment_id: DeploymentId,
+    deployment_id: PersistenceDeploymentId,
     index_id: PersistenceIndexId,
     read_timestamp: Timestamp,
     lower: Bound<SqlKey>,
@@ -602,7 +602,7 @@ pub(crate) fn delete_stale_chunk(chunk_size: usize) -> String {
 }
 
 pub(crate) fn backfill_markers_page(
-    deployment_id: DeploymentId,
+    deployment_id: PersistenceDeploymentId,
     index_id: PersistenceIndexId,
     after: Bound<SqlKey>,
     limit: usize,
