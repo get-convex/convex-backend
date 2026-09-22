@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.47.0
+## 1.47.0 (unreleased)
 
 - `npx convex deploy` now asks for confirmation before creating or changing an
   index on a large table, since the deploy blocks until the index is backfilled.
