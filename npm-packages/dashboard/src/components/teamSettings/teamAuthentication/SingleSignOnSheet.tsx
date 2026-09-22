@@ -7,6 +7,7 @@ import {
 import { Button } from "@ui/Button";
 import startCase from "lodash/startCase";
 import { Callout } from "@ui/Callout";
+import { Link } from "@ui/Link";
 import { Checkbox } from "@ui/Checkbox";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Loading } from "@ui/Loading";
@@ -38,6 +39,12 @@ import {
 } from "./SettingsSheet";
 import { ConnectionStatusBadge } from "./StatusBadge";
 import { connectionProvider, useReportUnmappedProviders } from "./providers";
+
+const SSO_DOCS_LINK = (
+  <Link href="https://docs.convex.dev/team-management/sso" target="_blank">
+    Learn more about SSO
+  </Link>
+);
 
 export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
   const isTeamAdmin = useIsCurrentMemberTeamAdmin();
@@ -126,7 +133,12 @@ export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
     return (
       <SettingsSheet
         title="Single sign-on"
-        description="Configure an identity provider for your team members to use as a login method."
+        description={
+          <>
+            Configure an identity provider for your team members to use as a
+            login method. {SSO_DOCS_LINK}.
+          </>
+        }
       >
         <div className="px-6 py-10">
           <NoPermissionMessage
@@ -186,10 +198,16 @@ export function SingleSignOnSheet({ team }: { team: TeamResponse }) {
   return (
     <SettingsSheet
       title="Single sign-on"
+      testId="sso-sheet"
       description={
-        configured
-          ? "Manage your SSO identity provider configuration."
-          : "Configure an identity provider for your team members to use as a login method."
+        configured ? (
+          <>Manage your SSO identity provider configuration. {SSO_DOCS_LINK}.</>
+        ) : (
+          <>
+            Configure an identity provider for your team members to use as a
+            login method. {SSO_DOCS_LINK}.
+          </>
+        )
       }
     >
       {failedToLoad ? (

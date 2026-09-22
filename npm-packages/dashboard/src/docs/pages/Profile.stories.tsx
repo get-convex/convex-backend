@@ -78,3 +78,20 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+// Teams whose directory lists one of your verified emails. Directory Sync
+// offers a team rather than adding you to it, so this is where a provisioned
+// member accepts.
+export const AvailableTeams: Story = {
+  parameters: {
+    screenshotSelector: "#available-teams",
+    // The section sits below Profile information and Emails, past the bottom
+    // of the default 700px capture viewport.
+    screenshotViewport: { width: 1024, height: 1100 },
+  },
+  beforeEach: () => {
+    mocked(useDirectorySyncOffers).mockReturnValue([
+      { teamId: 14, teamName: "Acme Corp", email: "nicolas@acme.dev" },
+    ]);
+  },
+};

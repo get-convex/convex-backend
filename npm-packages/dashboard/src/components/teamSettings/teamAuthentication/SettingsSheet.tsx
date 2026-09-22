@@ -16,17 +16,20 @@ export function SettingsSheet({
   descriptionTip,
   badge,
   action,
+  testId,
   children,
 }: {
   title: string;
-  description: string;
+  description: React.ReactNode;
   badge?: React.ReactNode;
   descriptionTip?: React.ReactNode;
   action?: React.ReactNode;
+  /** Names the section so the docs screenshots can crop to it. */
+  testId?: string;
   children?: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-3" data-testid={testId}>
       <div className="flex items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -99,7 +102,7 @@ export function LoadErrorState({
   description,
 }: {
   title: string;
-  description: string;
+  description: React.ReactNode;
 }) {
   return (
     <div className="flex animate-fadeInFromLoading flex-col justify-center px-6 py-10 text-center">

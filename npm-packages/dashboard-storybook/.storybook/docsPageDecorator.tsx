@@ -189,6 +189,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       docsPage?: {
         deploymentType?: "dev" | "prod";
         launchDarkly?: Partial<ReturnType<typeof useLaunchDarkly>>;
+        entitlements?: Partial<ReturnType<typeof useTeamEntitlements>>;
       };
     }
   )?.docsPage;
@@ -267,7 +268,10 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     isLoading: false,
   });
   mocked(useProfile).mockReturnValue(mockProfile);
-  mocked(useTeamEntitlements).mockReturnValue(mockTeamEntitlements);
+  mocked(useTeamEntitlements).mockReturnValue({
+    ...mockTeamEntitlements,
+    ...docsPageParams?.entitlements,
+  });
   mocked(useProjectBySlug).mockReturnValue(
     shouldMockCurrentProject ? mockProject : undefined,
   );

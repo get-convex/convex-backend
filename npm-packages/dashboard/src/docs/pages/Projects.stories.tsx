@@ -1,5 +1,6 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { mocked, screen, userEvent } from "storybook/test";
+import { useDirectorySyncOffers } from "api/directorySync";
 import { useTeams } from "api/teams";
 import { TeamIndexPage } from "../../pages/t/[team]";
 
@@ -42,10 +43,10 @@ const teams = [
   {
     id: 4,
     creator: 1,
-    slug: "nicolas-ettlin",
-    name: "Nicolas’s Team",
+    slug: "riley",
+    name: "Riley’s Team",
     suspended: false,
-    referralCode: "NICO01",
+    referralCode: "RILEY01",
     referredBy: null,
   },
 ];
@@ -76,4 +77,25 @@ export const TeamSwitcher: Story = {
     await userEvent.click(await screen.findByLabelText("Switch team"));
     await screen.findByText("Switch Team");
   },
+};
+
+/**
+ * How a team a directory provisions you into reaches you: as an invitation in
+ * the team switcher, alongside the teams you already belong to.
+ */
+export const TeamSwitcherWithInvitation: Story = {
+  ...TeamSwitcher,
+  decorators: [
+    (storyFn) => {
+      mocked(useTeams).mockReturnValue({
+        selectedTeamSlug: "acme-labs",
+        // Only the teams they're already in; Acme Corp is the one on offer.
+        teams: teams.filter((team) => team.slug !== "acme"),
+      });
+      mocked(useDirectorySyncOffers).mockReturnValue([
+        { teamId: 2, teamName: "Acme Corp", email: "dana@acme.dev" },
+      ]);
+      return storyFn();
+    },
+  ],
 };

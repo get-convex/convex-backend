@@ -4,7 +4,7 @@ import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 
 export { getServerSideProps } from "lib/ssr";
 
-function TeamAuthenticationPage() {
+export function TeamAuthenticationPage() {
   return (
     <TeamSettingsLayout
       page="team-authentication"

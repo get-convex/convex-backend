@@ -165,6 +165,7 @@ export function DomainsSheet({ team }: { team: TeamResponse }) {
       title="Authentication Domains"
       description={copy.description}
       descriptionTip={copy.descriptionTip}
+      testId="domains-sheet"
       // One warning for the team's domains rather than one per row: a member
       // needs a verified email on any one of them, not on each.
       badge={

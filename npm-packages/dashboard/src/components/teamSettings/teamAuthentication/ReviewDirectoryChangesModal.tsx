@@ -289,11 +289,20 @@ export function ReviewDirectoryChangesModal({
                         ) : member ? (
                           // The directory does not cover them, so the role
                           // they hold is the role they keep.
-                          <RoleDisplay
-                            role={member.role}
-                            customRoles={member.customRoles}
-                            teamSlug={team.slug}
-                          />
+                          <div className="flex items-center gap-1">
+                            <RoleDisplay
+                              role={member.role}
+                              customRoles={member.customRoles}
+                              teamSlug={team.slug}
+                            />
+                            <Tooltip
+                              side="left"
+                              aria-label="About the role of a member who is not in the directory"
+                              tip="This team member is not listed in the directory, so they keep the role they have today."
+                            >
+                              <InfoCircledIcon className="text-content-tertiary" />
+                            </Tooltip>
+                          </div>
                         ) : null}
                       </td>
                     </tr>

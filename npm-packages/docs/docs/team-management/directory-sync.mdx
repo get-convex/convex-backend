@@ -1,0 +1,273 @@
+---
+title: "Directory Sync (SCIM)"
+slug: "directory-sync"
+sidebar_position: 2
+sidebar_class_name: "convex-sidebar-beta-badge"
+description:
+  "Provision team members and their roles from your identity provider's user
+  directory."
+---
+
+<Admonition type="caution" title="Directory Sync is in beta">
+
+Directory Sync is a [beta feature](/production/state/#beta-features) available
+on the Convex Business and Enterprise plans. To have it turned on for your team,
+contact Convex support.
+
+</Admonition>
+
+Directory Sync connects your identity provider's user directory to your Convex
+team. Your directory becomes the source of truth for who belongs to the team and
+what team role they hold.
+
+Directory Sync is configured on the
+[Team Authentication page](https://dashboard.convex.dev/team/settings/team-authentication),
+under **Team Settings → Team Authentication**.
+
+<Admonition type="info">
+
+Directory Sync and [SSO](/team-management/sso.mdx) are separate features and can
+be used independently, though most teams use both. They share the
+**Authentication Domains** section of the page.
+
+</Admonition>
+
+## Setting up Directory Sync
+
+### 1. Verify a domain
+
+Directory Sync only manages members whose Convex account uses an email on a
+domain your team has verified. If you haven't verified one yet, do that first.
+See [verifying a domain](/team-management/sso.mdx#1-verify-a-domain).
+
+### 2. Connect your directory
+
+Select **Configure** in the **Directory sync** section.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Directory Sync"
+  alt="The Directory Sync section before a directory has been configured"
+/>
+
+Convex first explains what connecting a directory does, then hands you off to a
+separate configuration page in a new tab, where you pick your identity provider
+and follow its instructions to point the directory at Convex.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Directory Sync Configure"
+  alt="The dialog that explains the identity provider step before configuring a directory"
+/>
+
+Convex reports the connection's progress while you work through that page, and
+tells you once the directory is linked. You can close the dialog and come back
+later without losing anything.
+
+### 3. Wait for the initial sync
+
+Your identity provider sends the directory's groups and users over after the
+connection is made. This can take up to an hour, but is normally ready within a
+few minutes. Groups appear in **Directory group roles** as they arrive.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Directory Sync Initial Sync"
+  alt="The Directory Sync section during the initial sync, with no groups yet"
+/>
+
+### 4. Map directory groups to roles
+
+Each group in your directory maps to a Convex team role. Use the edit button
+next to a group to change the role it gives its members.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Directory Group Roles"
+  alt="Directory group roles, mapping each directory group to a Convex role"
+/>
+
+A group can map to:
+
+- **Admin** — full access to the team.
+- **Developer** — the default. Groups you never map give Developer.
+- One or more [custom roles](/team-management/custom-roles.mdx).
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Edit Group Role"
+  alt="The dialog for choosing the Convex role a directory group gives"
+/>
+
+A user often belongs to several groups. Convex resolves their role like this:
+
+1. **Admin**, if any of their groups maps to Admin.
+2. Otherwise, the union of the custom roles granted by all of their groups, if
+   any group grants one.
+3. Otherwise, **Developer**.
+
+A group named `convex-team-admins` is reserved: it always gives Admin, and its
+mapping can't be edited. See
+[Emergency lockout recovery](#emergency-lockout-recovery).
+
+### 5. Review the changes and enable
+
+Directory Sync does not manage anyone until you turn it on. Select **Review** on
+the Directory Sync section to see exactly what enabling it would do.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Directory Sync Synced"
+  alt="The Directory Sync section asking you to review role mappings before enabling"
+/>
+
+This dialog lists every current team member and every user in the directory,
+with the role each one holds today and the role the directory would give them:
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Review Directory Changes"
+  alt="The review dialog listing each member's current role and the role the directory would give them"
+/>
+
+- Members the directory contains take the role their groups give them, which may
+  be different than the role they hold today.
+- Members the directory doesn't list are marked **Not in directory** and are
+  left alone. They keep their access and their role until you remove them from
+  the team or add them to the directory.
+- Directory users who aren't on the team yet are marked **Not in team**. Once
+  Directory Sync is enabled, they may choose to join the team by selecting the
+  team invitation from the team switcher in the Convex dashboard.
+- Users your directory doesn't hold active are marked **Suspended in
+  directory**. A member linked to one is removed from the team; a non-member is
+  not offered it.
+
+Check the acknowledgement and select **Enable directory sync**. The prompt to
+review goes away, and the directory starts managing the members it covers.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Directory Sync Enabled"
+  alt="The Directory Sync section with directory management enabled"
+/>
+
+## How members join
+
+Directory Sync offers the team rather than adding people to it. A directory user
+is offered your team once they have a Convex account with a **verified email**
+matching their directory entry, on one of your verified domains.
+
+The team shows up as an invitation in their team switcher, which they select to
+accept it:
+
+<Screenshot
+  story="docs/pages/Projects#Team Switcher With Invitation"
+  alt="A directory-synced team offered as an invitation in the team switcher"
+/>
+
+It is also always listed under **Available Teams** on their
+[profile page](https://dashboard.convex.dev/profile), including after they
+dismiss it in the switcher:
+
+<Screenshot
+  story="docs/pages/Profile#Available Teams"
+  alt="The Available Teams section of the profile page, listing a team to join"
+/>
+
+To see who has been offered the team but hasn't joined, use **⋮ → View pending
+members**.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Pending Members"
+  alt="The pending members dialog listing directory users who have not joined yet"
+/>
+
+## Keeping the team in sync
+
+Once Directory Sync is enabled, changes in your identity provider flow into
+Convex on their own:
+
+- Adding a user to the directory offers them the team.
+- Moving a user between groups changes their Convex role.
+- Changing a group's mapping re-applies to everyone that group covers.
+- Suspending a user in the directory, or removing them from it, takes them off
+  the Convex team. See [Things to know](#things-to-know) for what that costs
+  them.
+
+Changes can take up to an hour to arrive, so your Convex team can lag behind
+your identity provider.
+
+Your directory also takes over the parts of the members page it covers:
+
+- Once Directory Sync is enabled, the team stops accepting manual invitations.
+  Add the person to your directory instead. Invitations sent before the
+  directory was connected can no longer be accepted either.
+- Once Directory Sync is enabled, you can't change the role of a member the
+  directory manages, or remove them from the team, from the Convex dashboard.
+  Move them between groups, or take them out of the directory, in your identity
+  provider instead.
+- Members the directory doesn't cover are unaffected, and anyone can still
+  remove themselves from the team.
+
+To manage the directory connection, view the current status of the directory, or
+request a manual sync, use the **⋮ → Manage** button.
+
+## Disabling Directory Sync
+
+**⋮ → Disable Directory Sync** disconnects the directory. Members your identity
+provider provisioned keep their team membership and the role they hold at that
+moment.
+
+The team is freed from directory management right away, but the directory itself
+can take up to an hour to disappear from this page while Convex finishes tearing
+the connection down.
+
+Deleting a verified domain has a similar effect for the members on it: the
+directory can no longer manage them.
+
+## Emergency lockout recovery
+
+Mapping every directory group to a non-admin role or removing all users from the
+directory leaves the team with no admin, and nobody left who can map one back.
+The same happens if the groups your admins belong to stop giving Admin. A
+reserved group name exists so you can always get back in:
+
+1. In your identity provider, create a directory group named
+   `convex-team-admins` (the match is case-insensitive).
+2. Add the people who should be team admins to it.
+3. Wait for the group to sync. It appears under **Directory group roles** with
+   the role **Admin**, and the edit button next to it is disabled: this mapping
+   is fixed and can't be changed from Convex.
+
+## Things to know
+
+**Project roles are managed separately.** Your directory sets a member's team
+role. [Project Admin](/dashboard/teams/teams.mdx#project-admins) is granted per
+project on the members page.
+
+**Deprovisioning is destructive.** Suspending a user in your directory, or
+removing them from it, takes them off the Convex team. They lose access
+immediately, and their membership goes with it. Making them active in the
+directory again offers them the team, but their project roles have to be set up
+from scratch.
+
+**Deleting a group in your directory deletes its role mapping**, including any
+custom roles mapped to it. If you add the group back later it arrives unmapped,
+which gives Developer, so its role and custom roles have to be set again. The
+same is true for a group you rename, which your identity provider may send as a
+delete and an add.
+
+**A custom role can't be deleted while a directory group maps to it.** Remap
+those groups first, then delete the role.
+
+**Members are matched to directory users by verified email.** A directory user
+only links to a Convex account that has verified the email your directory
+carries for them. If that email stops being verified on the account, that member
+will be removed from your Convex team.
+
+## Who can configure Directory Sync
+
+Team Admins can do everything on this page. Team Developers can see the
+configuration but not change it. With
+[custom roles](/team-management/custom-roles.mdx) you can grant the individual
+[role actions](/team-management/role-actions.mdx#directory-sync):
+`directorySync:view`, `directorySync:enable`, `directorySync:disable`,
+`directorySync:updateGroupMapping`, and `directorySync:deleteGroupMapping`.
+Reviewing the roster also needs `member:view`, since it names each team member
+and the role they hold.
+
+Enabling and disabling Directory Sync, and every change to a group's role
+mapping, is recorded in the
+[team audit log](/dashboard/teams/teams.mdx#audit-log).

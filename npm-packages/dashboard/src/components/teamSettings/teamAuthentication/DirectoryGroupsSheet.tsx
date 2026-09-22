@@ -77,7 +77,10 @@ export function DirectoryGroupsSheet({
   const showPagination = hasMore || pagination.currentPage > 1;
 
   return (
-    <section className="flex flex-col gap-2">
+    <section
+      className="flex flex-col gap-2"
+      data-testid="directory-groups-sheet"
+    >
       <div className="flex items-center gap-2">
         <h4>Directory group roles</h4>
         <HelpTooltip tipSide="right" maxWidthClassName="max-w-xs">

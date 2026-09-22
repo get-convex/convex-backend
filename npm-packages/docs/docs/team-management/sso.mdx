@@ -15,64 +15,136 @@ Single Sign-On (SSO) allows your team to authenticate with Convex using your
 organization's identity provider (IdP). Once configured, team members can sign
 in to Convex through your IdP instead of using individual credentials.
 
-## Finding SSO settings
+## Finding the settings
 
-SSO settings are located in your team settings. To access them:
+SSO is configured on the
+[Team Authentication page](https://dashboard.convex.dev/team/settings/team-authentication),
+under **Team Settings → Team Authentication**.
 
-1. Click on "Team Settings" at the top of the project list page
-2. Select the **Single Sign-On** tab
+Two of its sections cover SSO:
 
-Or navigate directly to the
-[SSO settings page](https://dashboard.convex.dev/team/settings/sso).
+- **Authentication Domains** — the email domains your team owns. SSO only
+  manages members whose account uses one of these domains.
+- **Single sign-on** — your identity provider connection.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#SSO Sections"
+  alt="The Authentication Domains and Single sign-on sections before anything is configured"
+/>
 
 ## Setting up SSO
 
-To configure SSO for your team:
+### 1. Verify a domain
 
-### 1. Enable SSO
+A connection is attached to a domain you own, so verification comes first.
+Select **Add a domain** in the **Authentication Domains** section. Convex opens
+a separate configuration page in a new tab, where you enter the domain and
+complete the DNS verification it asks for.
 
-On the Single Sign-On settings page, click **Enable SSO** to begin the setup
-process.
+Verification is not instant. A domain shows as **Pending** until your DNS record
+is picked up, and **Verified** once it is. Re-open **Add a domain** at any point
+to check on a pending domain.
 
-### 2. Verify your domain
+<Screenshot
+  story="docs/pages/TeamAuthentication#Domains"
+  alt="The Authentication Domains section listing a verified and a pending domain"
+/>
 
-Click **Manage Domains** to verify the domain used for SSO login. Follow the
-domain verification wizard to confirm ownership of your domain.
+<Admonition type="caution">
 
-### 3. Configure your identity provider
+Your own Convex account needs a
+[verified email](https://dashboard.convex.dev/profile) on one of these domains,
+otherwise you won't be able to complete an SSO login yourself. The section shows
+a warning next to its title when none of your verified emails match.
 
-After verifying your domain, click **Manage SSO Configuration** to set up SSO
-with your identity provider of choice. Follow the instructions in the wizard to
-complete the configuration.
+</Admonition>
 
-### Renewing certificates
+### 2. Connect your identity provider
 
-The SSO configuration page also allows you to renew your configuration's
-certificate when it approaches expiration.
+Once a domain is verified, select **Configure** in the **Single sign-on**
+section. Convex opens a separate configuration page in a new tab, where you pick
+your identity provider and follow its setup instructions.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Single Sign On"
+  alt="The Single sign-on section before a connection has been configured"
+/>
+
+When you come back, the connection appears in the section with its status:
+
+- **Active** — team members can log in through this identity provider.
+- **Inactive** — the connection exists but isn't finished. Re-open it with **⋮ →
+  Manage** and complete the remaining steps with your identity provider.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Single Sign On Configured"
+  alt="The Single sign-on section with an active Okta SAML connection"
+/>
+
+### 3. Test the connection
+
+Log out and log back in through your identity provider before requiring SSO for
+the whole team. An incomplete connection locks everyone out of the team if SSO
+is already required.
+
+## Managing the connection
+
+The **⋮** menu next to the connection carries everything you can do to it:
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Single Sign On Menu"
+  alt="The connection menu with Manage, Renew certificate, and Disable Single sign-on"
+/>
+
+- **⋮ → Manage** re-opens the configuration page for this connection.
+- **⋮ → Renew certificate** walks you through replacing a signing certificate
+  that is close to expiring.
+- **⋮ → Disable Single sign-on** removes the connection. Team members can no
+  longer log in through your identity provider. Your verified domains are not
+  affected.
 
 ## Require Single Sign-On
 
-Once SSO is enabled, you can optionally choose to **require** SSO for all team
-members. When this setting is turned on:
+Once a connection is active, you can **require** SSO for the team by checking
+**Require SSO to access team**. Convex asks you to confirm before saving.
+
+<Screenshot
+  story="docs/pages/TeamAuthentication#Require SSO"
+  alt="The confirmation dialog for requiring SSO to access the team"
+/>
+
+When this setting is on:
 
 - All team members must authenticate through your identity provider to access
-  this team. This applies to both access via the dashboard and CLI.
-- Members will not be able to sign in using other authentication methods to
-  access the team
+  this team. This applies to both the dashboard and the CLI.
+- Members cannot use other authentication methods to access the team.
 
-This only applies to the specific team that has SSO enabled. Members can still
-use other login methods to access any other Convex teams they belong to.
+This only applies to the team that has SSO enabled. Members can still use other
+login methods to access any other Convex teams they belong to.
 
-To enable this, toggle the **Require SSO** option on the Single Sign-On settings
-page.
+<Admonition type="caution">
+
+Test your SSO configuration thoroughly before turning this on. If the connection
+doesn't work, nobody can get into the team, including you.
+
+</Admonition>
 
 ## Customizing your domain policy
 
 By default, all Convex users that sign in with your verified SSO domain will be
-required to log in with SSO to use Convex If they are signing in with an email
+required to log in with SSO to use Convex if they are signing in with an email
 address that uses your verified domain.
 
 To configure a custom domain policy, such as allowing users to login with other
 sign-on methods, contact Convex support.
 
 These settings will be available for self-serve configuration in the future.
+
+## Who can configure SSO
+
+Team Admins can do everything on this page. Team Developers can see the
+configuration but not change it. With
+[custom roles](/team-management/custom-roles.mdx) you can grant the individual
+[role actions](/team-management/role-actions.mdx#sso): `sso:view`, `sso:enable`,
+`sso:update`, `sso:disable`, and the `team:domain:*` actions that cover the
+**Authentication Domains** section.

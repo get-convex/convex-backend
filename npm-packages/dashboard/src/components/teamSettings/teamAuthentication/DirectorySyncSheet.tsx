@@ -2,6 +2,7 @@ import { useState } from "react";
 import { DotsVerticalIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { Link } from "@ui/Link";
 import { Loading } from "@ui/Loading";
 import { Menu, MenuItem } from "@ui/Menu";
 import { Spinner } from "@ui/Spinner";
@@ -38,8 +39,21 @@ import {
 import { DirectoryStatusBadge } from "./StatusBadge";
 import { directoryProvider, useReportUnmappedProviders } from "./providers";
 
-const NOT_CONFIGURED_DESCRIPTION =
-  "Configure Directory Sync to automatically provision and deprovision team members.";
+const DIRECTORY_SYNC_DOCS_LINK = (
+  <Link
+    href="https://docs.convex.dev/team-management/directory-sync"
+    target="_blank"
+  >
+    Learn more about Directory Sync
+  </Link>
+);
+
+const NOT_CONFIGURED_DESCRIPTION = (
+  <>
+    Configure Directory Sync to automatically provision and deprovision team
+    members. {DIRECTORY_SYNC_DOCS_LINK}.
+  </>
+);
 
 export const INITIAL_SYNC_IN_PROGRESS =
   "Initial sync in progress. It may take up to an hour to finish. Once the sync has finished you will be able to review and enable your configuration here.";
@@ -209,10 +223,16 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     <div className="flex flex-col gap-6">
       <SettingsSheet
         title="Directory sync"
+        testId="directory-sync-sheet"
         description={
-          directory
-            ? "Manage your Directory Sync configuration."
-            : NOT_CONFIGURED_DESCRIPTION
+          directory ? (
+            <>
+              Manage your Directory Sync configuration.{" "}
+              {DIRECTORY_SYNC_DOCS_LINK}.
+            </>
+          ) : (
+            NOT_CONFIGURED_DESCRIPTION
+          )
         }
       >
         {failedToLoad ? (
