@@ -122,17 +122,22 @@ export async function deploymentCredentialsOrConfigure(
     chosenConfiguration,
     cmdOptions,
   );
-  const { convexSiteUrl: siteUrl } = await fetchDeploymentCanonicalUrls(ctx, {
-    adminKey: selectedDeployment.adminKey,
-    deploymentUrl: selectedDeployment.url,
-  });
+  const { convexCloudUrl, convexSiteUrl: siteUrl } =
+    await fetchDeploymentCanonicalUrls(ctx, {
+      adminKey: selectedDeployment.adminKey,
+      deploymentUrl: selectedDeployment.url,
+    });
+  const applicationUrl = deploymentUrlForApplicationEnv(
+    selectedDeployment,
+    convexCloudUrl,
+  );
 
   if (selectedDeployment.deploymentFields !== null) {
     // Set the `CONVEX_DEPLOYMENT` env var + the `CONVEX_URL` env var
     await updateEnvAndConfigForDeploymentSelection(
       ctx,
       {
-        url: selectedDeployment.url,
+        url: applicationUrl,
         siteUrl,
         deploymentName: selectedDeployment.deploymentFields.deploymentName,
         teamSlug: selectedDeployment.deploymentFields.teamSlug,
@@ -158,6 +163,21 @@ export async function deploymentCredentialsOrConfigure(
         ? null
         : { ...selectedDeployment.deploymentFields, siteUrl: siteUrl },
   };
+}
+
+export function deploymentUrlForApplicationEnv(
+  selectedDeployment: {
+    url: string;
+    deploymentFields: { deploymentType: DeploymentType } | null;
+  },
+  canonicalCloudUrl: string,
+): string {
+  const deploymentType = selectedDeployment.deploymentFields?.deploymentType;
+  return deploymentType !== undefined &&
+    deploymentType !== "local" &&
+    deploymentType !== "anonymous"
+    ? canonicalCloudUrl
+    : selectedDeployment.url;
 }
 
 export async function _deploymentCredentialsOrConfigure(

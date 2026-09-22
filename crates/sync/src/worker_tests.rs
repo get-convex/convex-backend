@@ -27,6 +27,7 @@ use common::{
     http::{
         RequestDestination,
         ResolvedHostname,
+        ResolvedHostnameSource,
     },
     runtime::Runtime,
     types::Timestamp,
@@ -123,6 +124,7 @@ fn host() -> ResolvedHostname {
     ResolvedHostname {
         deployment_name: String::new(),
         destination: RequestDestination::ConvexCloud,
+        source: ResolvedHostnameSource::Local,
     }
 }
 
