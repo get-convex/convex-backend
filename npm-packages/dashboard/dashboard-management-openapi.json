@@ -869,34 +869,6 @@
         }
       }
     },
-    "/instances/{deployment_name}/auth": {
-      "post": {
-        "operationId": "get_deployment_auth_dashboard",
-        "parameters": [
-          {
-            "name": "deployment_name",
-            "in": "path",
-            "description": "",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/InstanceAuthForDashboardInteractionsResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/local_deployments/{deployment_name}/auth": {
       "get": {
         "operationId": "get_local_deployment_auth_dashboard",
@@ -5015,54 +4987,6 @@
             "type": "boolean"
           }
         }
-      },
-      "InstanceAuthForDashboardInteractionsResponse": {
-        "oneOf": [
-          {
-            "type": "object",
-            "required": [
-              "adminKey",
-              "instanceUrl",
-              "kind"
-            ],
-            "properties": {
-              "adminKey": {
-                "$ref": "#/components/schemas/SerializedAccessToken"
-              },
-              "instanceUrl": {
-                "type": "string"
-              },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "Cloud"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
-            "required": [
-              "adminKey",
-              "instanceUrl",
-              "kind"
-            ],
-            "properties": {
-              "adminKey": {
-                "$ref": "#/components/schemas/AdminKey"
-              },
-              "instanceUrl": {
-                "type": "string"
-              },
-              "kind": {
-                "type": "string",
-                "enum": [
-                  "Local"
-                ]
-              }
-            }
-          }
-        ]
       },
       "InvitationEligibleEmailsResponse": {
         "type": "object",

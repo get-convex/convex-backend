@@ -516,22 +516,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/instances/{deployment_name}/auth": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["get_deployment_auth_dashboard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/local_deployments/{deployment_name}/auth": {
         parameters: {
             query?: never;
@@ -2333,17 +2317,6 @@ export interface components {
         HasFailedPaymentResponse: {
             hasFailedPayment: boolean;
         };
-        InstanceAuthForDashboardInteractionsResponse: {
-            adminKey: components["schemas"]["SerializedAccessToken"];
-            instanceUrl: string;
-            /** @enum {string} */
-            kind: "Cloud";
-        } | {
-            adminKey: components["schemas"]["AdminKey"];
-            instanceUrl: string;
-            /** @enum {string} */
-            kind: "Local";
-        };
         InvitationEligibleEmailsResponse: {
             eligibleEmails: string[];
             /** @description The admin email used to create this team's WorkOS account (always
@@ -3099,7 +3072,6 @@ export type GetTokenInfoResponse = components['schemas']['GetTokenInfoResponse']
 export type GroupRoleMappingResponse = components['schemas']['GroupRoleMappingResponse'];
 export type HasAssociatedWorkOsTeamResponse = components['schemas']['HasAssociatedWorkOSTeamResponse'];
 export type HasFailedPaymentResponse = components['schemas']['HasFailedPaymentResponse'];
-export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InvitationEligibleEmailsResponse = components['schemas']['InvitationEligibleEmailsResponse'];
 export type InviteWorkOsTeamMemberRequest = components['schemas']['InviteWorkOSTeamMemberRequest'];
 export type InviteWorkOsTeamMemberResponse = components['schemas']['InviteWorkOSTeamMemberResponse'];
@@ -3952,27 +3924,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    get_deployment_auth_dashboard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                deployment_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InstanceAuthForDashboardInteractionsResponse"];
-                };
             };
         };
     };
