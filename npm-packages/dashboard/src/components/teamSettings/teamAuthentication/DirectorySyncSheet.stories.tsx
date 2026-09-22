@@ -127,7 +127,7 @@ const meta = {
     );
     mocked(useDisableDirectorySync).mockReturnValue(fn() as any);
     mocked(useGetDirectorySync).mockReturnValue({
-      data: { directory: null, enabled: false },
+      data: { directory: null, enabled: false, mirrored: false },
       isLoading: false,
     });
   },
@@ -148,7 +148,7 @@ const linkedDirectory = {
 
 function mockConfigured() {
   mocked(useGetDirectorySync).mockReturnValue({
-    data: { directory: linkedDirectory, enabled: false },
+    data: { directory: linkedDirectory, enabled: false, mirrored: true },
     isLoading: false,
   });
 }
@@ -157,10 +157,22 @@ export const Configured: Story = {
   beforeEach: mockConfigured,
 };
 
+// The window right after linking, before WorkOS hands over the roster: no
+// groups to map and no members to review yet.
+export const AwaitingInitialSync: Story = {
+  beforeEach: () => {
+    mocked(useGetDirectorySync).mockReturnValue({
+      data: { directory: linkedDirectory, enabled: false, mirrored: false },
+      isLoading: false,
+    });
+    mockGroups([]);
+  },
+};
+
 export const ManagementEnabled: Story = {
   beforeEach: () => {
     mocked(useGetDirectorySync).mockReturnValue({
-      data: { directory: linkedDirectory, enabled: true },
+      data: { directory: linkedDirectory, enabled: true, mirrored: true },
       isLoading: false,
     });
   },
@@ -185,6 +197,7 @@ export const Unlinked: Story = {
       data: {
         directory: { ...linkedDirectory, state: "unlinked", linked: false },
         enabled: false,
+        mirrored: false,
       },
       isLoading: false,
     });
@@ -306,8 +319,11 @@ function useSteppedDirectorySync(): ReturnType<typeof useGetDirectorySync> {
     () => currentStep,
     () => 0,
   );
+  const directory = CONNECTION_STEPS[step];
   return {
-    data: { directory: CONNECTION_STEPS[step], enabled: false },
+    // The walkthrough ends on the review row, so the mirror lands with the
+    // link rather than trailing it; AwaitingInitialSync covers that gap.
+    data: { directory, enabled: false, mirrored: directory?.linked ?? false },
     isLoading: false,
   };
 }

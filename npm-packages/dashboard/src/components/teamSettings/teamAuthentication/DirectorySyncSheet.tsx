@@ -4,6 +4,7 @@ import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { Loading } from "@ui/Loading";
 import { Menu, MenuItem } from "@ui/Menu";
+import { Spinner } from "@ui/Spinner";
 import { cn } from "@ui/cn";
 import type { TeamResponse } from "generatedApi";
 import {
@@ -38,6 +39,9 @@ import { directoryProvider, useReportUnmappedProviders } from "./providers";
 
 const NOT_CONFIGURED_DESCRIPTION =
   "Configure Directory Sync to automatically provision and deprovision team members.";
+
+export const INITIAL_SYNC_IN_PROGRESS =
+  "Initial sync in progress. It may take up to an hour to finish. Once the sync has finished you will be able to review and enable your configuration here.";
 
 export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
   const isTeamAdmin = useIsCurrentMemberTeamAdmin();
@@ -166,6 +170,9 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     !isGeneratingLink;
 
   const managementEnabled = directorySync?.enabled ?? false;
+
+  const awaitingInitialSync =
+    directory?.linked === true && directorySync?.mirrored === false;
   const rosterTip =
     canViewMembers === false
       ? permissionDeniedTip(
@@ -277,23 +284,38 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
               <div
                 className={cn(
                   SHEET_ROW,
-                  "flex items-center gap-4 border-t bg-util-accent/10 text-sm dark:bg-util-accent/30",
+                  "flex items-center gap-4 border-t text-sm",
+                  // The accent marks a row waiting on the member; the initial
+                  // sync waits on the identity provider instead.
+                  !awaitingInitialSync &&
+                    "bg-util-accent/10 dark:bg-util-accent/30",
                 )}
               >
-                <span className="text-content-primary">
-                  Directory sync is not yet enabled. Please review directory
-                  role mappings to enable automatic provisioning.
-                </span>
-                <div className="ml-auto">
-                  <Button
-                    size="xs"
-                    disabled={reviewTip !== undefined}
-                    tip={reviewTip}
-                    onClick={() => setShowReview(true)}
-                  >
-                    Review
-                  </Button>
-                </div>
+                {awaitingInitialSync ? (
+                  <div className="flex items-center gap-2">
+                    <Spinner className="ml-0 shrink-0" />
+                    <span className="text-content-secondary">
+                      {INITIAL_SYNC_IN_PROGRESS}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <span className="text-content-primary">
+                      Directory sync is not yet enabled. Please review directory
+                      role mappings to enable automatic provisioning.
+                    </span>
+                    <div className="ml-auto">
+                      <Button
+                        size="xs"
+                        disabled={reviewTip !== undefined}
+                        tip={reviewTip}
+                        onClick={() => setShowReview(true)}
+                      >
+                        Review
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : null}
             {showReview && (
@@ -364,6 +386,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
           team={team}
           canEdit={canUpdateMapping}
           customRolesEnabled={customRolesEnabled}
+          awaitingInitialSync={awaitingInitialSync}
         />
       )}
     </div>

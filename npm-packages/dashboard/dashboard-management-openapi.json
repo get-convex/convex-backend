@@ -4570,7 +4570,8 @@
       "DirectorySyncResponse": {
         "type": "object",
         "required": [
-          "enabled"
+          "enabled",
+          "mirrored"
         ],
         "properties": {
           "directory": {
@@ -4586,6 +4587,10 @@
           "enabled": {
             "type": "boolean",
             "description": "Whether the team has turned directory management on. A directory can\nbe connected and mirrored without it; until this is set nothing from\nthe directory reaches team members."
+          },
+          "mirrored": {
+            "type": "boolean",
+            "description": "Whether Convex holds a mirror of the directory yet. WorkOS delivers the\nroster asynchronously after the directory is linked, so a directory can\nreport itself linked while this is still false, and until it flips the\ngroups and staged rosters have nothing to show."
           }
         }
       },

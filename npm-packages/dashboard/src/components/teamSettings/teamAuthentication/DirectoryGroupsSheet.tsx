@@ -49,14 +49,19 @@ export const MULTI_GROUP_EXPLANATION = (
 export const INITIAL_SYNC_NOTE =
   "It may take up to an hour to finish the initial sync of your directory. Groups appear here as they are synced.";
 
+export const NO_GROUPS_NOTE =
+  "Your identity provider has not sent any groups for this directory.";
+
 export function DirectoryGroupsSheet({
   team,
   canEdit,
   customRolesEnabled,
+  awaitingInitialSync,
 }: {
   team: TeamResponse;
   canEdit: boolean;
   customRolesEnabled: boolean;
+  awaitingInitialSync: boolean;
 }) {
   const pagination = useCursorPagination();
   const { data, isLoading, error } = useDirectorySyncGroups(
@@ -111,7 +116,11 @@ export function DirectoryGroupsSheet({
                   </tbody>
                 </table>
               ) : (
-                <EmptyStateRow message={INITIAL_SYNC_NOTE} />
+                <EmptyStateRow
+                  message={
+                    awaitingInitialSync ? INITIAL_SYNC_NOTE : NO_GROUPS_NOTE
+                  }
+                />
               ))}
           </LoadingTransition>
         )}

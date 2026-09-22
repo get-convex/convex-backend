@@ -2212,6 +2212,11 @@ export interface components {
              *     be connected and mirrored without it; until this is set nothing from
              *     the directory reaches team members. */
             enabled: boolean;
+            /** @description Whether Convex holds a mirror of the directory yet. WorkOS delivers the
+             *     roster asynchronously after the directory is linked, so a directory can
+             *     report itself linked while this is still false, and until it flips the
+             *     groups and staged rosters have nothing to show. */
+            mirrored: boolean;
         };
         /** @enum {string} */
         DirectoryUserState: "active" | "inactive" | "suspended";
