@@ -52,6 +52,7 @@ const AUDIT_LOG_ACTIONS = [
   "member:cancelInvitation",
   "member:remove",
   "member:updateRole",
+  "member:token:createWithSsoAccess",
   "billing:paymentMethod:update",
   "billing:contact:update",
   "billing:address:update",

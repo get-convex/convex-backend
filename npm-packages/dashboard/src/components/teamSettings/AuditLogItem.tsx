@@ -448,6 +448,12 @@ function EntryAction({
           )}
         </span>
       );
+    case "member:token:createWithSsoAccess":
+      return (
+        <span>
+          created a personal access token with SSO access to this team
+        </span>
+      );
     case "team:token:update":
     case "project:token:update":
     case "deployment:token:update":
