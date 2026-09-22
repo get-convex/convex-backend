@@ -145,9 +145,7 @@ impl<RT: Runtime> DeploymentDeletionPool<RT> {
             "MySQL cluster URL must contain a database name"
         );
         if require_ssl {
-            url.query_pairs_mut()
-                .append_pair("require_ssl", "true")
-                .append_pair("verify_ca", "true");
+            url.query_pairs_mut().append_pair("require_ssl", "true");
         }
         url.query_pairs_mut()
             .append_pair("enable_cleartext_plugin", "true");
