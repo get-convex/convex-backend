@@ -277,10 +277,10 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
               <div
                 className={cn(
                   SHEET_ROW,
-                  "flex items-center gap-4 border-t text-sm",
+                  "flex items-center gap-4 border-t bg-util-accent/10 text-sm dark:bg-util-accent/30",
                 )}
               >
-                <span className="text-content-secondary">
+                <span className="text-content-primary">
                   Directory sync is not yet enabled. Please review directory
                   role mappings to enable automatic provisioning.
                 </span>
