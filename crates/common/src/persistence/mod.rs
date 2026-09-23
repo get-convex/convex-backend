@@ -122,21 +122,21 @@ impl PersistenceIndexEntry {
     }
 }
 
-/// An index entry for an existing document read during index backfill.
+/// An index entry written while building or replaying an index.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexBackfillEntry {
     pub mode: IndexWriteMode,
     pub ts: Timestamp,
     pub index: IndexRef,
     pub key: IndexKeyBytes,
-    pub document_id: InternalDocumentId,
+    pub value: Option<InternalDocumentId>,
 }
 
 impl TryFrom<PersistenceIndexEntry> for IndexBackfillEntry {
     type Error = anyhow::Error;
 
     fn try_from(entry: PersistenceIndexEntry) -> anyhow::Result<Self> {
-        let document_id = entry.value.context("index backfill wrote a tombstone")?;
+        let value = entry.value.context("index backfill wrote a tombstone")?;
         anyhow::ensure!(
             entry.prev.is_none(),
             "index backfill wrote an entry superseding another"
@@ -146,8 +146,20 @@ impl TryFrom<PersistenceIndexEntry> for IndexBackfillEntry {
             ts: entry.ts,
             index: entry.index,
             key: entry.key,
-            document_id,
+            value: Some(value),
         })
+    }
+}
+
+impl IndexBackfillEntry {
+    pub fn from_replay(entry: &PersistenceIndexEntry) -> Self {
+        Self {
+            mode: entry.mode,
+            ts: entry.ts,
+            index: entry.index,
+            key: entry.key.clone(),
+            value: entry.value,
+        }
     }
 }
 
@@ -158,7 +170,7 @@ impl From<&IndexBackfillEntry> for PersistenceIndexEntry {
             ts: entry.ts,
             index: entry.index,
             key: entry.key.clone(),
-            value: Some(entry.document_id),
+            value: entry.value,
             prev: None,
         }
     }

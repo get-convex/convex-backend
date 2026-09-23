@@ -87,7 +87,7 @@ impl ApproxSize for PersistenceIndexEntry {
 
 impl ApproxSize for IndexBackfillEntry {
     fn approx_size(&self) -> usize {
-        self.index.id().size() + self.key.len() + self.document_id.size()
+        self.index.id().size() + self.key.len() + self.value.approx_size()
     }
 }
 

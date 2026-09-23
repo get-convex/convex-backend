@@ -226,14 +226,7 @@ impl IndexRow {
     }
 
     pub(crate) fn backfill_marker_params(&self) -> Vec<Value> {
-        vec![
-            self.deployment_id.into(),
-            self.index_id.value().into(),
-            Value::Bytes(self.key.key_prefix.clone()),
-            self.key.key_suffix.clone().into(),
-            self.key.key_suffix_hash.as_bytes().into(),
-            Value::Int(i64::from(self.ts)),
-        ]
+        backfill_marker_params(self.deployment_id, self.index_id, &self.key, self.ts)
     }
 
     /// Parameters naming exactly this row for `delete_latest_chunk`.
@@ -248,6 +241,49 @@ impl IndexRow {
             Value::Bytes(self.document_id.table().0.into()),
             Value::Bytes(self.document_id.internal_id().into()),
         ]
+    }
+}
+
+pub(crate) struct BackfillMarker {
+    pub(crate) deployment_id: PersistenceDeploymentId,
+    pub(crate) index_id: PersistenceIndexId,
+    pub(crate) key: IndexKey,
+    pub(crate) ts: Timestamp,
+}
+
+impl BackfillMarker {
+    pub(crate) fn latest_primary_key(&self) -> (PersistenceIndexId, &[u8], &[u8]) {
+        (
+            self.index_id,
+            &self.key.key_prefix,
+            self.key.key_suffix_hash.as_bytes(),
+        )
+    }
+
+    pub(crate) fn params(&self) -> Vec<Value> {
+        backfill_marker_params(self.deployment_id, self.index_id, &self.key, self.ts)
+    }
+}
+
+fn backfill_marker_params(
+    deployment_id: PersistenceDeploymentId,
+    index_id: PersistenceIndexId,
+    key: &IndexKey,
+    ts: Timestamp,
+) -> Vec<Value> {
+    vec![
+        deployment_id.into(),
+        index_id.value().into(),
+        Value::Bytes(key.key_prefix.clone()),
+        key.key_suffix.clone().into(),
+        key.key_suffix_hash.as_bytes().into(),
+        Value::Int(i64::from(ts)),
+    ]
+}
+
+impl ApproxSize for BackfillMarker {
+    fn approx_size(&self) -> usize {
+        self.key.key_prefix.len() + self.key.key_suffix.as_ref().map_or(0, Vec::len) + 28
     }
 }
 
@@ -568,12 +604,12 @@ pub(crate) fn upsert_latest_chunk(chunk_size: usize) -> String {
     )
 }
 
-/// Leaves existing rows unchanged, making backfill chunks idempotent and
-/// preserving newer live writes.
+/// The newest timestamp wins: retries and out-of-order replay converge, and
+/// newer live writes survive snapshot backfill of the same key.
 pub(crate) fn insert_backfill_latest_chunk(chunk_size: usize) -> String {
     format!(
         "INSERT INTO @db_name.indexes_latest {LATEST_COLUMNS} VALUES {} ON DUPLICATE KEY UPDATE \
-         deployment_id = deployment_id",
+         ts = GREATEST(ts, VALUES(ts))",
         latest_values(chunk_size)
     )
 }

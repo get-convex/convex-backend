@@ -40,6 +40,7 @@ use super::{
         self,
         sort_by_latest_primary_key,
         BackfillDelete,
+        BackfillMarker,
         IndexKey,
         IndexRow,
         LogBucket,
@@ -72,6 +73,40 @@ pub(crate) struct IndexWriteBatch {
 enum ScanningOp {
     Live(IndexRow),
     Tombstone(IndexRow),
+}
+
+pub(crate) enum BackfillOp {
+    Live(IndexRow),
+    Tombstone(BackfillMarker),
+}
+
+impl BackfillOp {
+    fn latest_primary_key(&self) -> (PersistenceIndexId, &[u8], &[u8]) {
+        match self {
+            Self::Live(row) => row.latest_primary_key(),
+            Self::Tombstone(marker) => marker.latest_primary_key(),
+        }
+    }
+
+    fn is_tombstone(&self) -> bool {
+        matches!(self, Self::Tombstone(_))
+    }
+
+    fn ts(&self) -> Timestamp {
+        match self {
+            Self::Live(row) => row.ts,
+            Self::Tombstone(marker) => marker.ts,
+        }
+    }
+}
+
+impl ApproxSize for BackfillOp {
+    fn approx_size(&self) -> usize {
+        match self {
+            Self::Live(row) => row.approx_size(),
+            Self::Tombstone(marker) => marker.approx_size(),
+        }
+    }
 }
 
 impl ScanningOp {
@@ -189,33 +224,81 @@ impl IndexEngine {
     pub(crate) fn plan_backfill_rows(
         &self,
         entries: &[IndexBackfillEntry],
-    ) -> anyhow::Result<Vec<IndexRow>> {
+    ) -> anyhow::Result<Vec<BackfillOp>> {
         let mut rows = entries
             .iter()
             .map(|entry| {
-                Ok(IndexRow {
-                    deployment_id: self.deployment_id,
-                    index_id: persistence_index_id(entry.index)?,
-                    key: IndexKey::from_key(entry.key.to_vec()),
-                    ts: entry.ts,
-                    document_id: entry.document_id,
+                let index_id = persistence_index_id(entry.index)?;
+                let key = IndexKey::from_key(entry.key.to_vec());
+                Ok(if let Some(document_id) = entry.value {
+                    BackfillOp::Live(IndexRow {
+                        deployment_id: self.deployment_id,
+                        index_id,
+                        key,
+                        ts: entry.ts,
+                        document_id,
+                    })
+                } else {
+                    BackfillOp::Tombstone(BackfillMarker {
+                        deployment_id: self.deployment_id,
+                        index_id,
+                        key,
+                        ts: entry.ts,
+                    })
                 })
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
-        sort_by_latest_primary_key(&mut rows, |row| row);
-        rows.dedup_by(|a, b| a.latest_primary_key() == b.latest_primary_key());
+        rows.sort_by(|a, b| {
+            a.latest_primary_key()
+                .cmp(&b.latest_primary_key())
+                .then_with(|| b.is_tombstone().cmp(&a.is_tombstone()))
+                .then_with(|| b.ts().cmp(&a.ts()))
+        });
+        rows.dedup_by(|a, b| {
+            a.latest_primary_key() == b.latest_primary_key() && a.is_tombstone() == b.is_tombstone()
+        });
         Ok(rows)
     }
 
     pub(crate) async fn write_backfill_chunk(
         &self,
         tx: &mut MySqlTransaction<'_>,
-        rows: &[IndexRow],
+        rows: &[BackfillOp],
         cluster_name: &str,
     ) -> anyhow::Result<()> {
+        let markers: Vec<_> = rows
+            .iter()
+            .filter_map(|op| match op {
+                BackfillOp::Tombstone(row) => Some(row),
+                BackfillOp::Live(_) => None,
+            })
+            .collect();
+        for chunk in fill_chunks(&markers) {
+            let timer = metrics::insert_index_chunk_timer(cluster_name);
+            async {
+                tx.query_drop(
+                    &sql::insert_backfill_marker_chunk(chunk.len()),
+                    chunk.iter().flat_map(|marker| marker.params()).collect(),
+                )
+                .await
+            }
+            .in_span(chunk_span("backfill_marker_chunk_write", chunk))
+            .await?;
+            timer.finish();
+        }
+        let live: Vec<_> = rows
+            .iter()
+            .filter_map(|op| match op {
+                BackfillOp::Live(row) => Some(row.clone()),
+                BackfillOp::Tombstone(_) => None,
+            })
+            .collect();
+        if live.is_empty() {
+            return Ok(());
+        }
         self.write_latest_chunk(
             tx,
-            rows,
+            &live,
             sql::insert_backfill_latest_chunk,
             "backfill_chunk_write",
             cluster_name,
