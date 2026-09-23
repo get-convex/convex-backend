@@ -759,6 +759,10 @@ fn tx_metrics<RT: Runtime>(
         documentsWritten: LimitedValue,
         functionsScheduled: LimitedValue,
         scheduledFunctionArgsBytes: LimitedValue,
+        filesWritten: LimitedValue,
+        fileWriteBytes: LimitedValue,
+        filesRead: LimitedValue,
+        fileReadBytes: LimitedValue,
     }
     Ok(serde_json::value::to_raw_value(&TxMetricsJson {
         bytesRead: limit_value(limits.bytes_read, s.read_size.total_document_size),
@@ -771,6 +775,10 @@ fn tx_metrics<RT: Runtime>(
             limits.scheduled_function_args_bytes,
             s.scheduled_size.size,
         ),
+        filesWritten: limit_value(limits.files_written, s.file_storage_size.num_writes),
+        fileWriteBytes: limit_value(limits.file_write_bytes, s.file_storage_size.write_size),
+        filesRead: limit_value(limits.files_read, s.file_storage_size.num_reads),
+        fileReadBytes: limit_value(limits.file_read_bytes, s.file_storage_size.read_size),
     })?)
 }
 

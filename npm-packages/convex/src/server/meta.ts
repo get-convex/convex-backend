@@ -26,6 +26,14 @@ export type TransactionMetrics = {
   documentsWritten: TransactionMetric;
   functionsScheduled: TransactionMetric;
   scheduledFunctionArgsBytes: TransactionMetric;
+  /** @internal */
+  filesWritten: TransactionMetric;
+  /** @internal */
+  fileWriteBytes: TransactionMetric;
+  /** @internal */
+  filesRead: TransactionMetric;
+  /** @internal */
+  fileReadBytes: TransactionMetric;
 };
 
 /**
@@ -43,6 +51,14 @@ export interface TransactionLimits {
   documentsWritten?: number;
   functionsScheduled?: number;
   scheduledFunctionArgsBytes?: number;
+  /** @internal */
+  filesWritten?: number;
+  /** @internal */
+  fileWriteBytes?: number;
+  /** @internal */
+  filesRead?: number;
+  /** @internal */
+  fileReadBytes?: number;
 }
 
 /**

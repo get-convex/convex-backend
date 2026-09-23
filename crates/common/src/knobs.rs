@@ -521,6 +521,26 @@ pub static TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES: LazyLock<usize> 
         ) // 16 MiB
     });
 
+/// Maximum number of files a single transaction may write to file storage.
+pub static TRANSACTION_MAX_NUM_FILES_WRITTEN: LazyLock<usize> =
+    LazyLock::new(|| env_config("TRANSACTION_MAX_NUM_FILES_WRITTEN", 10));
+
+/// Maximum total size of the files written to file storage by a single
+/// transaction.
+pub static TRANSACTION_MAX_FILE_WRITE_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("TRANSACTION_MAX_FILE_WRITE_SIZE_BYTES", 1 << 24) // 16 MiB
+});
+
+/// Maximum number of files a single transaction may read from file storage.
+pub static TRANSACTION_MAX_NUM_FILES_READ: LazyLock<usize> =
+    LazyLock::new(|| env_config("TRANSACTION_MAX_NUM_FILES_READ", 10));
+
+/// Maximum total size of the files read from file storage by a single
+/// transaction.
+pub static TRANSACTION_MAX_FILE_READ_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config("TRANSACTION_MAX_FILE_READ_SIZE_BYTES", 1 << 24) // 16 MiB
+});
+
 /// Number of scheduled jobs that can execute in parallel.
 // Note that the current algorithm for executing ready jobs has up to
 // SCHEDULED_JOB_EXECUTION_PARALLELISM overhead for every executed job, so we

@@ -121,6 +121,7 @@ use crate::{
     },
     committer::table_dependency_sort_key,
     execution_size::{
+        FileStorageSize,
         FunctionExecutionSize,
         ScheduledFunctionsSize,
         TransactionLimits,
@@ -173,6 +174,9 @@ pub struct Transaction<RT: Runtime> {
 
     // Size of any functions scheduled from this transaction.
     pub scheduled_size: ScheduledFunctionsSize,
+
+    // Size of the file storage accessed from this transaction.
+    pub file_storage_size: FileStorageSize,
 
     // Transaction limits (reads, writes, scheduled). Defaults to global limits.
     pub(crate) limits: TransactionLimits,
@@ -238,6 +242,7 @@ impl<RT: Runtime> Transaction<RT> {
             id_generator,
             next_creation_time: creation_time,
             scheduled_size: ScheduledFunctionsSize::default(),
+            file_storage_size: FileStorageSize::default(),
             limits: TransactionLimits::default(),
             index: NestedWrites::new(index),
             metadata: NestedWrites::new(metadata),
@@ -484,6 +489,7 @@ impl<RT: Runtime> Transaction<RT> {
             read_size: self.reads.user_tx_size().to_owned(),
             write_size: self.writes.user_size().to_owned(),
             scheduled_size: self.scheduled_size.clone(),
+            file_storage_size: self.file_storage_size.clone(),
         }
     }
 
@@ -1381,6 +1387,7 @@ impl<RT: Runtime> Transaction<RT> {
             id_generator: self.id_generator.clone_for_snapshot_query(),
             next_creation_time: self.next_creation_time,
             scheduled_size: self.scheduled_size.clone(),
+            file_storage_size: self.file_storage_size.clone(),
             limits: self.limits.clone(),
             // Don't clone the read set because it is expensive and doesn't matter in a snapshot
             // query

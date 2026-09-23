@@ -1,4 +1,8 @@
 use common::knobs::{
+    TRANSACTION_MAX_FILE_READ_SIZE_BYTES,
+    TRANSACTION_MAX_FILE_WRITE_SIZE_BYTES,
+    TRANSACTION_MAX_NUM_FILES_READ,
+    TRANSACTION_MAX_NUM_FILES_WRITTEN,
     TRANSACTION_MAX_NUM_SCHEDULED,
     TRANSACTION_MAX_NUM_USER_WRITES,
     TRANSACTION_MAX_READ_SET_INTERVALS,
@@ -20,6 +24,7 @@ pub struct FunctionExecutionSize {
     pub read_size: TransactionReadSize,
     pub write_size: TransactionWriteSize,
     pub scheduled_size: ScheduledFunctionsSize,
+    pub file_storage_size: FileStorageSize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -30,6 +35,19 @@ pub struct ScheduledFunctionsSize {
     pub size: usize,
     /// Max of scheduled argument sizes
     pub max_args_size: usize,
+}
+
+/// File storage accessed from within a transaction.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FileStorageSize {
+    /// Number of files written to file storage
+    pub num_writes: usize,
+    /// Sum of the sizes of the files written to file storage
+    pub write_size: usize,
+    /// Number of files read from file storage
+    pub num_reads: usize,
+    /// Sum of the sizes of the files read from file storage
+    pub read_size: usize,
 }
 
 /// Transaction limits. All fields are resolved absolute values.
@@ -46,6 +64,10 @@ pub struct TransactionLimits {
     pub bytes_written: usize,
     pub functions_scheduled: usize,
     pub scheduled_function_args_bytes: usize,
+    pub files_written: usize,
+    pub file_write_bytes: usize,
+    pub files_read: usize,
+    pub file_read_bytes: usize,
 }
 
 impl Default for TransactionLimits {
@@ -58,6 +80,10 @@ impl Default for TransactionLimits {
             bytes_written: *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
             functions_scheduled: *TRANSACTION_MAX_NUM_SCHEDULED,
             scheduled_function_args_bytes: *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
+            files_written: *TRANSACTION_MAX_NUM_FILES_WRITTEN,
+            file_write_bytes: *TRANSACTION_MAX_FILE_WRITE_SIZE_BYTES,
+            files_read: *TRANSACTION_MAX_NUM_FILES_READ,
+            file_read_bytes: *TRANSACTION_MAX_FILE_READ_SIZE_BYTES,
         }
     }
 }
@@ -106,6 +132,26 @@ impl TransactionLimits {
                 usage.scheduled_size.size,
                 budget.scheduled_function_args_bytes,
                 ceiling.scheduled_function_args_bytes,
+            ),
+            files_written: combine(
+                usage.file_storage_size.num_writes,
+                budget.files_written,
+                ceiling.files_written,
+            ),
+            file_write_bytes: combine(
+                usage.file_storage_size.write_size,
+                budget.file_write_bytes,
+                ceiling.file_write_bytes,
+            ),
+            files_read: combine(
+                usage.file_storage_size.num_reads,
+                budget.files_read,
+                ceiling.files_read,
+            ),
+            file_read_bytes: combine(
+                usage.file_storage_size.read_size,
+                budget.file_read_bytes,
+                ceiling.file_read_bytes,
             ),
         }
     }
