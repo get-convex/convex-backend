@@ -349,8 +349,7 @@ impl UsageCounter {
             });
         }
         // Merge the "by table" bandwidth stats. They're tracked in separate
-        // maps but describe the same access, so they're reported as one event
-        // per (component, table).
+        // maps but describe the same access.
         #[derive(Default)]
         struct DatabaseBandwidthCounters {
             ingress: u64,
@@ -392,13 +391,27 @@ impl UsageCounter {
                 .or_default()
                 .virtual_table_egress += egress;
         }
-        for ((component_path, table_name), bandwidth) in &database_bandwidth {
+        let mut bandwidth_by_component: BTreeMap<ComponentPath, DatabaseBandwidthCounters> =
+            BTreeMap::new();
+        for ((component_path, _), bandwidth) in &database_bandwidth {
+            let component_bandwidth = bandwidth_by_component
+                .entry(component_path.clone())
+                .or_default();
+            component_bandwidth.ingress += bandwidth.ingress;
+            component_bandwidth.ingress_v2 += bandwidth.ingress_v2;
+            component_bandwidth.egress += bandwidth.egress;
+            component_bandwidth.egress_rows += bandwidth.egress_rows;
+            component_bandwidth.egress_v2 += bandwidth.egress_v2;
+            component_bandwidth.virtual_table_ingress += bandwidth.virtual_table_ingress;
+            component_bandwidth.virtual_table_egress += bandwidth.virtual_table_egress;
+        }
+        for (component_path, bandwidth) in bandwidth_by_component {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
                 request_id: request_id.to_string(),
-                component_path: component_path.clone().serialize(),
+                component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
-                table_name: table_name.clone(),
+                table_name: (),
                 ingress: bandwidth.ingress,
                 ingress_v2: bandwidth.ingress_v2,
                 egress: bandwidth.egress,
