@@ -2817,7 +2817,7 @@ export interface components {
             email: string;
             state: components["schemas"]["DirectoryUserState"];
             groups: components["schemas"]["StagedDirectoryGroupResponse"][];
-            role: components["schemas"]["Role"];
+            role?: null | components["schemas"]["Role"];
             customRoles?: components["schemas"]["TeamMemberCustomRole"][];
         };
         StagedMemberResponse: {

@@ -1,7 +1,12 @@
 import { useCallback, useMemo } from "react";
 import type { DirectorySyncResponse } from "generatedApi";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
-import { useBBMutation, useBBQuery, useMutate } from "./api";
+import {
+  useBBMutation,
+  useBBQuery,
+  useMutate,
+  useMutateManagementApi,
+} from "./api";
 
 const OFFERS_PATH = "/member/directory_sync_offers";
 const DIRECTORY_SYNC_PATH = "/teams/{team_id}/directory_sync";
@@ -12,6 +17,23 @@ const MAPPING_PATH =
 export const DIRECTORY_GROUPS_PAGE_SIZE = 25;
 const STAGED_MEMBERS_PATH = "/teams/{team_id}/directory_sync/staged_members";
 export const STAGED_MEMBERS_PAGE_SIZE = 50;
+
+/**
+ * Invalidates the team-members roster, which the management API serves and a
+ * Big Brain mutation therefore doesn't touch. Anything that moves what the
+ * directory confers can re-role a member or take them off the team.
+ */
+function useMutateTeamMembers(teamId: number) {
+  const mutateMgmt = useMutateManagementApi();
+  return useCallback(
+    () =>
+      mutateMgmt([
+        "/teams/{team_id}/list_members",
+        { params: { path: { team_id: teamId.toString() } } },
+      ] as any),
+    [mutateMgmt, teamId],
+  );
+}
 
 export function useGetDirectorySync(
   teamId: number | undefined,
@@ -78,13 +100,15 @@ export function useEnableDirectorySync(teamId: number) {
     successToast: "Directory Sync has been enabled for your team.",
   });
   const mutate = useMutate();
+  const mutateTeamMembers = useMutateTeamMembers(teamId);
   return useCallback(async () => {
     const result = await enable();
     // Once management is on the roster only lists who can still join, so
     // the staged list has to be refetched too.
     await mutate([STAGED_MEMBERS_PATH]);
+    await mutateTeamMembers();
     return result;
-  }, [enable, mutate]);
+  }, [enable, mutate, mutateTeamMembers]);
 }
 
 export function useStagedDirectoryMembers(
@@ -133,7 +157,7 @@ export function useDirectorySyncGroups(
 }
 
 export function useSetGroupRoleMapping(teamId: number, workosGroupId: string) {
-  return useBBMutation({
+  const setMapping = useBBMutation({
     method: "put",
     path: MAPPING_PATH,
     pathParams: {
@@ -146,6 +170,42 @@ export function useSetGroupRoleMapping(teamId: number, workosGroupId: string) {
     },
     successToast: "Group role updated.",
   });
+  const mutateTeamMembers = useMutateTeamMembers(teamId);
+  return useCallback(
+    async (
+      body: { role: "admin" | "developer" } | { customRoles: number[] },
+    ) => {
+      const result = await setMapping(body);
+      await mutateTeamMembers();
+      return result;
+    },
+    [setMapping, mutateTeamMembers],
+  );
+}
+
+export function useDeleteGroupRoleMapping(
+  teamId: number,
+  workosGroupId: string,
+) {
+  const deleteMapping = useBBMutation({
+    method: "delete",
+    path: MAPPING_PATH,
+    pathParams: {
+      team_id: teamId,
+      workos_group_id: workosGroupId,
+    },
+    mutateKey: GROUPS_PATH,
+    mutatePathParams: {
+      team_id: teamId.toString(),
+    },
+    successToast: "Group role updated.",
+  });
+  const mutateTeamMembers = useMutateTeamMembers(teamId);
+  return useCallback(async () => {
+    const result = await deleteMapping();
+    await mutateTeamMembers();
+    return result;
+  }, [deleteMapping, mutateTeamMembers]);
 }
 
 // Teams whose directory roster lists one of the caller's verified emails and

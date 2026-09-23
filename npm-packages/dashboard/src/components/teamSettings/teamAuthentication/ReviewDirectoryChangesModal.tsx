@@ -32,6 +32,7 @@ export const SYNC_DELAY_NOTE =
 export type StagedStatus =
   | "inDirectory"
   | "suspended"
+  | "noAccess"
   | "notInDirectory"
   | "canJoin";
 
@@ -59,6 +60,9 @@ export function classifyStagedItem(item: StagedDirectoryMemberResponse): {
   // the team, and a non-member is not offered it at all.
   if (directoryUser.state !== "active") {
     return { status: "suspended", roleChanges: false };
+  }
+  if (!directoryUser.role) {
+    return { status: "noAccess", roleChanges: false };
   }
   if (!member) {
     return { status: "canJoin", roleChanges: false };
@@ -117,7 +121,7 @@ export function ReviewDirectoryChangesModal({
       description={
         enabled
           ? "Directory users who have not joined the team yet."
-          : "Once enabled, your directory sets the roles of the members it covers and removes the ones it suspends. Review the changes below before enabling."
+          : "Once enabled, your directory sets the roles of the members it covers, and removes the ones it suspends along with the ones no mapped group covers. Review the changes below before enabling."
       }
       onBeforeClose={() => !isEnabling}
       onClose={onClose}
@@ -213,6 +217,14 @@ export function ReviewDirectoryChangesModal({
                               />
                             </span>
                           )}
+                          {status === "noAccess" && (
+                            <span className="mt-1">
+                              <StatusDot
+                                label="Directory does not grant access"
+                                tone="error"
+                              />
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className={TABLE_CELL}>
@@ -260,7 +272,9 @@ export function ReviewDirectoryChangesModal({
                                   tip={
                                     status === "suspended"
                                       ? "This user is not active in your directory, so they will not be offered the team."
-                                      : "The Convex member who owns this email address will be offered to join the team once directory sync is enabled."
+                                      : status === "noAccess"
+                                        ? "None of this user's groups is mapped to a role, so the directory gives them no access and they will not be offered the team."
+                                        : "The Convex member who owns this email address will be offered to join the team once directory sync is enabled."
                                   }
                                 >
                                   <InfoCircledIcon className="text-content-tertiary" />
@@ -276,11 +290,11 @@ export function ReviewDirectoryChangesModal({
                         </>
                       )}
                       <td className={cn(TABLE_CELL, "whitespace-nowrap")}>
-                        {status === "suspended" ? (
+                        {status === "suspended" || status === "noAccess" ? (
                           <span className="text-sm text-content-secondary">
                             {member ? "Removed from team" : "Cannot join"}
                           </span>
-                        ) : directoryUser ? (
+                        ) : directoryUser?.role ? (
                           <RoleDisplay
                             role={directoryUser.role}
                             customRoles={directoryUser.customRoles}

@@ -6683,8 +6683,7 @@
           "directoryUserId",
           "email",
           "state",
-          "groups",
-          "role"
+          "groups"
         ],
         "properties": {
           "directoryUserId": {
@@ -6703,7 +6702,14 @@
             }
           },
           "role": {
-            "$ref": "#/components/schemas/Role"
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Role"
+              }
+            ]
           },
           "customRoles": {
             "type": "array",

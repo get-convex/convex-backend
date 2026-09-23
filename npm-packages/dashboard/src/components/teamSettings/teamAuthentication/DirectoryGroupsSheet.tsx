@@ -39,8 +39,13 @@ export const MULTI_GROUP_EXPLANATION = (
         roles granted.
       </li>
       <li>
-        Otherwise, <span className="font-semibold">Developer</span>, if all of
-        their groups map to Developer or they are in no group.
+        Otherwise, <span className="font-semibold">Developer</span>, if any of
+        their groups maps to Developer.
+      </li>
+      <li>
+        Otherwise <span className="font-semibold">no access</span>: a user no
+        mapped group covers is not offered the team, and a member the directory
+        reaches this way is removed from it.
       </li>
     </ul>
   </div>
@@ -160,21 +165,23 @@ function GroupRow({
   const [showEdit, setShowEdit] = useState(false);
 
   const isReserved = group.name.toLowerCase() === RESERVED_ADMIN_GROUP_NAME;
-  // An unmapped group confers Developer, so that is simply what it shows.
-  const role = group.mapping?.role ?? "developer";
-  // The mapping carries its custom roles' names, so the cell reads like the
-  // members table without waiting on the team's role list.
-  const mappedCustomRoles = group.mapping?.customRoles ?? [];
 
   return (
     <tr className="border-b last:border-b-0">
       <td className={cn(TABLE_CELL, "truncate")}>{group.name}</td>
       <td className={TABLE_CELL}>
-        <RoleDisplay
-          role={role}
-          customRoles={mappedCustomRoles}
-          teamSlug={team.slug}
-        />
+        {group.mapping ? (
+          // The mapping carries its custom roles' names, so the cell reads
+          // like the members table without waiting on the team's role list.
+          <RoleDisplay
+            role={group.mapping.role}
+            customRoles={group.mapping.customRoles}
+            teamSlug={team.slug}
+          />
+        ) : (
+          // An unmapped group gives its members no place on the team.
+          <div className="text-sm text-content-secondary">No access</div>
+        )}
       </td>
       <td className={cn(TABLE_CELL, "text-right")}>
         <Button

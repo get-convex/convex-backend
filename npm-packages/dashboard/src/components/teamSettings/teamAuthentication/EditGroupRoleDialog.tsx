@@ -7,13 +7,17 @@ import { Modal } from "@ui/Modal";
 import { Sheet } from "@ui/Sheet";
 import { Tooltip } from "@ui/Tooltip";
 import type { DirectoryGroupResponse, TeamResponse } from "generatedApi";
-import { useSetGroupRoleMapping } from "api/directorySync";
+import {
+  useDeleteGroupRoleMapping,
+  useSetGroupRoleMapping,
+} from "api/directorySync";
 import { useHasCustomRolePermission, useListCustomRoles } from "api/roles";
 import { NoPermissionMessage } from "elements/NoPermissionMessage";
 import { CUSTOM_ROLE_RESOURCE } from "lib/permissions";
 import { CustomRolesSelector } from "../CustomRolesSelector";
 
-type RoleChoice = "admin" | "developer" | "custom";
+/** `noAccess` is a group with no mapping: it gives its members no place on the team. */
+type RoleChoice = "admin" | "developer" | "custom" | "noAccess";
 
 function sameIds(a: number[], b: number[]) {
   if (a.length !== b.length) return false;
@@ -33,9 +37,8 @@ export function EditGroupRoleDialog({
   customRolesEnabled: boolean;
   onClose: () => void;
 }) {
-  // An unmapped group confers Developer, so that is what the dialog starts
-  // from rather than an empty selection.
-  const currentRole: RoleChoice = group.mapping?.role ?? "developer";
+  // An unmapped group confers nothing, so that is what the dialog starts from.
+  const currentRole: RoleChoice = group.mapping?.role ?? "noAccess";
   const currentCustomRoleIds = (group.mapping?.customRoles ?? []).map(
     (r) => r.id,
   );
@@ -45,6 +48,7 @@ export function EditGroupRoleDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [didAttemptSave, setDidAttemptSave] = useState(false);
   const setMapping = useSetGroupRoleMapping(team.id, group.workosGroupId);
+  const deleteMapping = useDeleteGroupRoleMapping(team.id, group.workosGroupId);
 
   const canViewCustomRoles = useHasCustomRolePermission(
     team.id,
@@ -69,6 +73,7 @@ export function EditGroupRoleDialog({
   const customRolesLoading =
     customDisabledReason === undefined && customRolesData === undefined;
   const roleOptions = [
+    { label: "No access", value: "noAccess" as const, disabled: false },
     { label: "Admin", value: "admin" as const, disabled: false },
     { label: "Developer", value: "developer" as const, disabled: false },
     {
@@ -92,6 +97,17 @@ export function EditGroupRoleDialog({
     (customDisabledReason !== undefined ||
       customRolesLoading ||
       customRoles.length === 0);
+
+  const save = async () => {
+    // No access is the absence of a mapping, so it is the mapping coming off.
+    if (choice === "noAccess") {
+      await deleteMapping();
+    } else if (choice === "custom") {
+      await setMapping({ customRoles: selectedCustomRoleIds });
+    } else {
+      await setMapping({ role: choice });
+    }
+  };
 
   return (
     <Modal
@@ -119,11 +135,7 @@ export function EditGroupRoleDialog({
           }
           setIsSaving(true);
           try {
-            if (choice === "custom") {
-              await setMapping({ customRoles: selectedCustomRoleIds });
-            } else {
-              await setMapping({ role: choice });
-            }
+            await save();
             onClose();
           } finally {
             setIsSaving(false);
@@ -154,6 +166,12 @@ export function EditGroupRoleDialog({
             }
           />
         </div>
+
+        {choice === "noAccess" && (
+          <p className="text-xs text-content-secondary">
+            This group will not grant access to this Convex team.
+          </p>
+        )}
 
         {choice === "custom" && (
           <div className="flex flex-col gap-1">

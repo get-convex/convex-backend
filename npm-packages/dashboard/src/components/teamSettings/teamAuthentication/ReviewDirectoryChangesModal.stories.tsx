@@ -63,6 +63,21 @@ const items: StagedDirectoryMemberResponse[] = [
     },
   },
   {
+    member: {
+      id: 14,
+      name: "Ungrouped",
+      email: "ungrouped@acme.com",
+      role: "developer",
+    },
+    directoryUser: {
+      directoryUserId: "dir_ungrouped",
+      email: "ungrouped@acme.com",
+      state: "active",
+      groups: [],
+      role: null,
+    },
+  },
+  {
     member: null,
     directoryUser: {
       directoryUserId: "dir_new",

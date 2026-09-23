@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { expect, fn, mocked, screen, userEvent } from "storybook/test";
 import {
+  useDeleteGroupRoleMapping,
   useDirectorySyncGroups,
   useDisableDirectorySync,
   useEnableDirectorySync,
@@ -106,6 +107,7 @@ const meta = {
       },
     } as unknown as ReturnType<typeof useListCustomRoles>);
     mocked(useSetGroupRoleMapping).mockReturnValue(fn() as any);
+    mocked(useDeleteGroupRoleMapping).mockReturnValue(fn() as any);
     mocked(useEnableDirectorySync).mockReturnValue(fn() as any);
     mocked(useStagedDirectoryMembers).mockReturnValue({
       data: { items: [], pagination: { hasMore: false, nextCursor: null } },
