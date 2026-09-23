@@ -99,8 +99,6 @@ export async function getServiceToken(service: ServiceName): Promise<string> {
  *
  * @param service - The service to address.
  * @returns The service's origin, without a trailing slash.
- *
- * @internal
  */
 export async function getServiceUrl(service: ServiceName): Promise<string> {
   validateArg(service, 1, "getServiceUrl", "service");
