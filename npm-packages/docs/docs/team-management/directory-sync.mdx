@@ -50,23 +50,27 @@ Select **Configure** in the **Directory sync** section.
 />
 
 The dashboard describes what connecting a directory does, then opens a separate
-configuration page in a new tab. On that page you pick your identity provider
-and follow its instructions to point the directory at Convex.
+configuration page in a new tab. That page is where the connection is set up:
+you pick your identity provider, follow its instructions to point the directory
+at Convex, and select which directory groups to sync. Complete every step there
+before coming back to the Convex dashboard, because the directory is not
+connected until they are all done.
 
 <Screenshot
   story="docs/pages/TeamAuthentication#Directory Sync Configure"
   alt="The dialog that explains the identity provider step before configuring a directory"
 />
 
-The dialog shows the connection's progress while you work through that page, and
-updates once the directory is linked. You can close it and come back later
-without losing your progress.
+Back in the Convex dashboard, the dialog shows the connection's progress while
+you work through that page, and updates once the directory is linked. You can
+close it and come back later without losing your progress.
 
 ### 3. Wait for the initial sync
 
-After the connection is made, your identity provider sends over the directory's
-groups and users. This usually takes a few minutes, and can take up to an hour.
-Groups appear in **Directory group roles** as they arrive.
+After the connection is made, your identity provider sends over its users and
+the groups you selected to sync. Syncing those groups usually takes a few
+minutes, and can take up to an hour, as directory updates are processed on a
+schedule. Groups appear in **Directory group roles** as they arrive.
 
 <Screenshot
   story="docs/pages/TeamAuthentication#Directory Sync Initial Sync"
@@ -197,8 +201,8 @@ Convex automatically:
   [Deprovisioning removes members](#deprovisioning-removes-members) for what
   that means for them.
 
-Changes can take up to an hour to arrive, so your Convex team can lag behind
-your identity provider.
+Directory updates are processed on a schedule, so changes can take up to an hour
+to arrive and your Convex team can lag behind your identity provider.
 
 Your directory also takes over the parts of the members page it covers:
 
