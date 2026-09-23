@@ -330,28 +330,6 @@ impl<RT: Runtime> Persistence<RT> {
             .is_some())
     }
 
-    /// READ COMMITTED keeps the `LIMIT` scan from gap-locking the marker
-    /// range against the committer's concurrent marker inserts.
-    pub(crate) async fn delete_index_backfill_markers_chunk(
-        &self,
-        index: PersistenceIndexId,
-    ) -> anyhow::Result<u64> {
-        let chunk_size = u64::try_from(*INDEX_RETENTION_DELETE_CHUNK)?;
-        self.lease
-            .transact_read_committed(async |tx| {
-                tx.exec_iter(
-                    sql::DELETE_BACKFILL_MARKERS_CHUNK,
-                    vec![
-                        self.inner.deployment_id.into(),
-                        index.value().into(),
-                        chunk_size.into(),
-                    ],
-                )
-                .await
-            })
-            .await
-    }
-
     fn document_params(&self, update: &DocumentLogEntry) -> anyhow::Result<Vec<Value>> {
         if let Some(document) = &update.value {
             anyhow::ensure!(update.id == document.id_with_table_id());
@@ -871,22 +849,26 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
             .await
     }
 
-    /// Deletes at most `INDEX_RETENTION_DELETE_CHUNK` rows per transaction.
-    /// The caller must ensure no new rows are added for these indexes.
-    async fn delete_index_backfill_markers(
+    /// READ COMMITTED allows concurrent marker inserts for other indexes
+    /// during the `LIMIT` scan by avoiding gap locks.
+    async fn delete_index_backfill_markers_chunk(
         &self,
-        indexes: &[PersistenceIndexId],
-    ) -> anyhow::Result<()> {
+        index: PersistenceIndexId,
+    ) -> anyhow::Result<u64> {
         let chunk_size = u64::try_from(*INDEX_RETENTION_DELETE_CHUNK)?;
-        for index in indexes {
-            loop {
-                let deleted = self.delete_index_backfill_markers_chunk(*index).await?;
-                if deleted < chunk_size {
-                    break;
-                }
-            }
-        }
-        Ok(())
+        self.lease
+            .transact_read_committed(async |tx| {
+                tx.exec_iter(
+                    sql::DELETE_BACKFILL_MARKERS_CHUNK,
+                    vec![
+                        self.inner.deployment_id.into(),
+                        index.value().into(),
+                        chunk_size.into(),
+                    ],
+                )
+                .await
+            })
+            .await
     }
 
     async fn write_persistence_global(

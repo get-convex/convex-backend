@@ -729,6 +729,26 @@ pub static INDEX_BACKFILL_PROGRESS_INTERVAL: LazyLock<Duration> = LazyLock::new(
     Duration::from_secs(env_config("INDEX_BACKFILL_PROGRESS_INTERVAL_SECONDS", 1))
 });
 
+/// Time between index backfill marker cleanup passes while cleanup is making
+/// progress.
+pub static INDEX_BACKFILL_MARKER_CLEANUP_BUSY_INTERVAL_SECONDS: LazyLock<Duration> =
+    LazyLock::new(|| {
+        Duration::from_secs_f64(env_config(
+            "INDEX_BACKFILL_MARKER_CLEANUP_BUSY_INTERVAL_SECONDS",
+            0.01,
+        ))
+    });
+
+/// Time between index backfill marker cleanup passes when no markers were
+/// deleted.
+pub static INDEX_BACKFILL_MARKER_CLEANUP_IDLE_INTERVAL_SECONDS: LazyLock<Duration> =
+    LazyLock::new(|| {
+        Duration::from_secs_f64(env_config(
+            "INDEX_BACKFILL_MARKER_CLEANUP_IDLE_INTERVAL_SECONDS",
+            60.0,
+        ))
+    });
+
 /// Chunk size of index entries for deleting from Persistence.
 pub static INDEX_RETENTION_DELETE_CHUNK: LazyLock<usize> =
     LazyLock::new(|| env_config("INDEX_RETENTION_DELETE_CHUNK", 512));

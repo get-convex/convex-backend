@@ -6,6 +6,7 @@ use std::{
     collections::{
         hash_map::DefaultHasher,
         BTreeMap,
+        BTreeSet,
     },
     hash::{
         Hash,
@@ -56,6 +57,8 @@ use common::{
         DOCUMENT_RETENTION_DELETE_CHUNK,
         DOCUMENT_RETENTION_DELETE_PARALLEL,
         DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS,
+        INDEX_BACKFILL_MARKER_CLEANUP_BUSY_INTERVAL_SECONDS,
+        INDEX_BACKFILL_MARKER_CLEANUP_IDLE_INTERVAL_SECONDS,
         INDEX_RETENTION_DELAY,
         MAX_RETENTION_DELAY_SECONDS,
         RETENTION_CHECKPOINT_PERIOD_SECS,
@@ -91,6 +94,8 @@ use common::{
     types::{
         GenericIndexName,
         IndexId,
+        IndexWriteMode,
+        PersistenceIndexId,
         RepeatableReason,
         RepeatableTimestamp,
         Timestamp,
@@ -129,6 +134,7 @@ use value::InternalDocumentId;
 
 use crate::{
     metrics::{
+        index_backfill_marker_cleanup_timer,
         index_retention_delete_timer,
         latest_min_document_snapshot_timer,
         latest_min_snapshot_timer,
@@ -137,6 +143,7 @@ use crate::{
         log_document_retention_cursor_lag,
         log_document_retention_no_cursor,
         log_document_retention_scanned_document,
+        log_index_backfill_markers_deleted,
         log_index_retention_cursor_age,
         log_index_retention_cursor_lag,
         log_index_retention_no_cursor,
@@ -443,10 +450,19 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
                 deleted_tablet_sender,
             ),
         );
+        let index_backfill_marker_cleanup_handle = rt.spawn(
+            "index_backfill_marker_cleanup",
+            LeaderRetentionWorkers::go_delete_index_backfill_markers(
+                rt.clone(),
+                self.persistence,
+                snapshot_reader,
+            ),
+        );
         Ok(LeaderRetentionWorkers {
             handles: Arc::new(Mutex::new(vec![
                 // Order matters because we need to shutdown the threads that have
                 // receivers before the senders
+                index_backfill_marker_cleanup_handle,
                 index_deletion_handle,
                 document_deletion_handle,
                 tablet_deletion_handle,
@@ -463,6 +479,95 @@ impl LeaderRetentionWorkers {
             shutdown_and_join(handle).await?;
         }
         Ok(())
+    }
+
+    pub(crate) async fn delete_index_backfill_markers_once(
+        persistence: &dyn Persistence,
+        snapshot_reader: &Reader<SnapshotManager>,
+    ) -> anyhow::Result<bool> {
+        let timer = index_backfill_marker_cleanup_timer();
+        // Read marker index IDs before the snapshot: with this ordering, an ID
+        // absent from the registry belongs to a dropped index. Persistence index
+        // IDs are never reused.
+        let marker_indexes = persistence.index_backfill_marker_indexes().await?;
+        if marker_indexes.is_empty() {
+            timer.finish();
+            return Ok(false);
+        }
+        let scanning_indexes: BTreeSet<PersistenceIndexId> = snapshot_reader
+            .lock()
+            .latest_snapshot()
+            .index_registry
+            .all_indexes()
+            .filter_map(|index| match &index.config {
+                IndexConfig::Database {
+                    on_disk_state,
+                    persistence_index_id,
+                    ..
+                } if on_disk_state.write_mode() == IndexWriteMode::Scanning => {
+                    *persistence_index_id
+                },
+                IndexConfig::Database { .. }
+                | IndexConfig::Text { .. }
+                | IndexConfig::Vector { .. } => None,
+            })
+            .collect();
+        let indexes_with_obsolete_markers: Vec<_> = marker_indexes
+            .into_iter()
+            .filter(|index| !scanning_indexes.contains(index))
+            .collect();
+        let mut deleted = 0;
+        // One chunk per index lets each pass make progress on every eligible
+        // index, even when one index has many markers.
+        for index in &indexes_with_obsolete_markers {
+            deleted += persistence
+                .delete_index_backfill_markers_chunk(*index)
+                .await?;
+        }
+        if deleted > 0 {
+            log_index_backfill_markers_deleted(deleted);
+            tracing::debug!(
+                "Deleted {deleted} index backfill markers for {} indexes",
+                indexes_with_obsolete_markers.len()
+            );
+        }
+        timer.finish();
+        Ok(deleted > 0)
+    }
+
+    async fn go_delete_index_backfill_markers<RT: Runtime>(
+        rt: RT,
+        persistence: Arc<dyn Persistence>,
+        snapshot_reader: Reader<SnapshotManager>,
+    ) {
+        let mut error_backoff = Backoff::new(INITIAL_BACKOFF, *MAX_RETENTION_DELAY_SECONDS);
+        let mut delay = *INDEX_BACKFILL_MARKER_CLEANUP_IDLE_INTERVAL_SECONDS;
+        loop {
+            Self::wait_with_jitter(&rt, delay).await;
+            delay = match Self::delete_index_backfill_markers_once(
+                persistence.as_ref(),
+                &snapshot_reader,
+            )
+            .await
+            {
+                Ok(deleted) => {
+                    error_backoff.reset();
+                    if deleted {
+                        *INDEX_BACKFILL_MARKER_CLEANUP_BUSY_INTERVAL_SECONDS
+                    } else {
+                        *INDEX_BACKFILL_MARKER_CLEANUP_IDLE_INTERVAL_SECONDS
+                    }
+                },
+                Err(mut error) => {
+                    report_error(&mut error).await;
+                    let delay = error_backoff.fail(&mut rt.rng());
+                    tracing::debug!(
+                        "index backfill marker cleanup failed, delaying {delay:?}: {error:?}"
+                    );
+                    delay
+                },
+            };
+        }
     }
 
     /// Returns a list of tablets in `Deleting` state and the timestamp at which

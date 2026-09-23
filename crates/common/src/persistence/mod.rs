@@ -348,11 +348,14 @@ pub trait Persistence: Sync + Send + 'static {
         Ok(Vec::new())
     }
 
-    async fn delete_index_backfill_markers(
+    /// Returns the number of deletion markers removed. Each call deletes a
+    /// bounded chunk; the caller must ensure no new markers can be written
+    /// for the index.
+    async fn delete_index_backfill_markers_chunk(
         &self,
-        _indexes: &[PersistenceIndexId],
-    ) -> anyhow::Result<()> {
-        Ok(())
+        _index: PersistenceIndexId,
+    ) -> anyhow::Result<u64> {
+        Ok(0)
     }
 
     /// Writes global key-value data for the whole persistence.

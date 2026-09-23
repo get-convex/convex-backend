@@ -685,6 +685,23 @@ pub fn log_retention_unique_indexes(unique_indexes: usize, source: IndexRetentio
     )
 }
 
+register_convex_histogram!(
+    INDEX_BACKFILL_MARKER_CLEANUP_SECONDS,
+    "Time for one index backfill marker cleanup pass",
+    &STATUS_LABEL
+);
+pub fn index_backfill_marker_cleanup_timer() -> StatusTimer {
+    StatusTimer::new(&INDEX_BACKFILL_MARKER_CLEANUP_SECONDS)
+}
+
+register_convex_counter!(
+    INDEX_BACKFILL_MARKERS_DELETED_TOTAL,
+    "The total number of index backfill markers persistence returns as having been deleted"
+);
+pub fn log_index_backfill_markers_deleted(deleted_rows: u64) {
+    log_counter(&INDEX_BACKFILL_MARKERS_DELETED_TOTAL, deleted_rows)
+}
+
 register_convex_counter!(
     RETENTION_DOCUMENTS_DELETED_FROM_DELETED_TABLETS_TOTAL,
     "The total number of documents deleted from tablets deleted outside the document retention \
