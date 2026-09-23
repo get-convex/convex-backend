@@ -196,6 +196,11 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     !isGeneratingLink;
 
   const managementEnabled = directorySync?.enabled ?? false;
+  // Until the roster is enabled the directory provisions nobody, so tearing it
+  // down is a deletion rather than a change to how members are managed.
+  const disableTitle = managementEnabled
+    ? "Disable Directory Sync"
+    : "Delete directory";
 
   const awaitingInitialSync =
     directory?.linked === true && directorySync?.mirrored === false;
@@ -283,13 +288,15 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
                       canDisable
                         ? undefined
                         : permissionDeniedTip(
-                            "You do not have permission to disable Directory Sync.",
+                            managementEnabled
+                              ? "You do not have permission to disable Directory Sync."
+                              : "You do not have permission to delete this directory.",
                             "directorySync:disable",
                           )
                     }
                     action={() => setShowDisableConfirmation(true)}
                   >
-                    Disable Directory Sync
+                    {disableTitle}
                   </MenuItem>
                 </Menu>
               }
@@ -409,12 +416,18 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
                 setIsDisabling(false);
               }
             }}
-            confirmText="Disable"
+            confirmText={managementEnabled ? "Disable" : "Delete"}
             variant="danger"
-            dialogTitle="Disable Directory Sync"
-            dialogBody="This disconnects your directory, and team members will no longer be provisioned or deprovisioned by your identity provider. Members already on the team keep their access."
+            dialogTitle={disableTitle}
+            dialogBody={
+              managementEnabled
+                ? "This disconnects your directory, and team members will no longer be provisioned or deprovisioned by your identity provider. Members already on the team keep their access."
+                : "This disconnects your directory from your identity provider. Directory Sync never started provisioning, so your team members are unaffected."
+            }
             error={disableError}
-            validationText="DISABLE DIRECTORY SYNC"
+            validationText={
+              managementEnabled ? "DISABLE DIRECTORY SYNC" : "DELETE DIRECTORY"
+            }
           />
         )}
       </SettingsSheet>
