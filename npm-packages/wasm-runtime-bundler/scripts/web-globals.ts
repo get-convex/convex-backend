@@ -15,6 +15,7 @@ import { setupHeaders } from "udf-runtime/src/20_headers";
 import { setupFormData } from "udf-runtime/src/21_formdata";
 import { setupRequest } from "udf-runtime/src/23_request";
 import { setupResponse } from "udf-runtime/src/23_response";
+import { setupPerformance } from "udf-runtime/src/27_performance";
 
 setupDate(globalThis);
 setupMisc(globalThis);
@@ -28,6 +29,7 @@ setupHeaders(globalThis);
 setupFormData(globalThis);
 setupRequest(globalThis);
 setupResponse(globalThis);
+setupPerformance(globalThis);
 
 // TODO: implement actions
 globalThis.fetch = async () => {
