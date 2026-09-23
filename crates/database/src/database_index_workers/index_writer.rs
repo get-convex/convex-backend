@@ -4,11 +4,13 @@ use std::{
         BTreeSet,
     },
     fmt::Display,
+    future::Future,
     num::NonZeroU32,
     sync::Arc,
     time::Duration,
 };
 
+use anyhow::Context;
 use common::{
     self,
     bootstrap_model::index::database_index::IndexedFields,
@@ -22,7 +24,6 @@ use common::{
         INDEX_BACKFILL_WORKERS,
     },
     persistence::{
-        ConflictStrategy,
         IndexBackfillEntry,
         LatestDocument,
         Persistence,
@@ -418,10 +419,10 @@ impl<RT: Runtime> IndexWriter<RT> {
     /// Preconditions:
     /// - The selected indexes are fully backfilled for all revisions at
     ///   `start_ts`.
+    /// - No concurrent writes target the selected indexes.
     ///
     /// Postconditions:
-    /// - The selected indexes will be fully backfilled up to `end_ts`, and they
-    ///   will be valid for all timestamps less than or equal to `end_ts`.
+    /// - The selected indexes represent the documents at `end_ts`.
     pub async fn backfill_forwards(
         &self,
         start_ts: Timestamp,
@@ -471,6 +472,33 @@ impl<RT: Runtime> IndexWriter<RT> {
         // Consider ourselves successful if both the producer and consumer exit
         // successfully.
         let ((), ()) = futures::try_join!(producer, consumer)?;
+        let marker_indexes: BTreeSet<_> = self
+            .persistence
+            .index_backfill_marker_indexes()
+            .await?
+            .into_iter()
+            .collect();
+        let selected_indexes = index_selector
+            .index_ids()
+            .map(|id| {
+                let index = index_registry
+                    .enabled_index_by_index_id(&id)
+                    .or_else(|| index_registry.pending_index_by_index_id(&id))
+                    .with_context(|| format!("Missing selected index {id}"))?;
+                Ok(IndexRef::try_from(index)?.persistence_index_id())
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let selected_indexes: Vec<_> = selected_indexes
+            .into_iter()
+            .flatten()
+            .filter(|id| marker_indexes.contains(id))
+            .collect();
+        for index in &selected_indexes {
+            retry_persistence_operation("reconcile_index_backfill", retry_config, || async {
+                self.persistence.reconcile_index_backfill(*index).await
+            })
+            .await?;
+        }
         Ok(())
     }
 
@@ -487,26 +515,13 @@ impl<RT: Runtime> IndexWriter<RT> {
                 .cloned()
                 .map(IndexBackfillEntry::try_from)
                 .collect::<anyhow::Result<Vec<_>>>()?,
-            IndexWriteKind::Replay => Vec::new(),
+            IndexWriteKind::Replay => index_updates
+                .iter()
+                .map(IndexBackfillEntry::from_replay)
+                .collect(),
         };
-        let write = || async {
-            match write_kind {
-                IndexWriteKind::Snapshot => {
-                    persistence.write_index_backfill(&backfill_entries).await
-                },
-                IndexWriteKind::Replay => {
-                    persistence
-                        .write(&[], index_updates, ConflictStrategy::Overwrite)
-                        .await
-                },
-            }
-        };
-        match retry_config {
-            None => write().await,
-            Some(retry) => {
-                retry_with_backoff("index_chunk_write", retry, is_transient_db_error, write).await
-            },
-        }
+        let write = || async { persistence.write_index_backfill(&backfill_entries).await };
+        retry_persistence_operation("index_chunk_write", retry_config, write).await
     }
 
     async fn write_index_entries(
@@ -706,5 +721,20 @@ impl<RT: Runtime> IndexWriter<RT> {
         )
         .await?;
         Ok(())
+    }
+}
+
+async fn retry_persistence_operation<T, F, Fut>(
+    name: &'static str,
+    retry_config: Option<RetryConfig>,
+    operation: F,
+) -> anyhow::Result<T>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = anyhow::Result<T>>,
+{
+    match retry_config {
+        None => operation().await,
+        Some(retry) => retry_with_backoff(name, retry, is_transient_db_error, operation).await,
     }
 }
