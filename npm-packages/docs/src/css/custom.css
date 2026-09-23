@@ -1088,7 +1088,15 @@ html[data-theme="dark"] .convex-menu-header {
 }
 
 .convex-sidebar-http-api {
-  --convex-icon: url(heroicons/24/outline/book-open.svg);
+  --convex-icon: url(heroicons/24/outline/link.svg);
+}
+
+.convex-sidebar-config-files {
+  --convex-icon: url(heroicons/24/outline/document-duplicate.svg);
+}
+
+.convex-sidebar-errors {
+  --convex-icon: url(heroicons/24/outline/exclamation-triangle.svg);
 }
 
 .convex-sidebar-eslint {

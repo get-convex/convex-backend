@@ -4873,6 +4873,22 @@ importers:
         specifier: ~5.0.3
         version: 5.0.4
 
+  private-demos/snippets-config-files:
+    dependencies:
+      '@convex-dev/resend':
+        specifier: ^0.2.0
+        version: 0.2.3(convex-helpers@0.1.123(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.13.5)(react@19.2.4)(typescript@5.9.3)(zod@4.4.3))(convex@convex)(react@19.2.4)
+      convex:
+        specifier: workspace:*
+        version: link:../../convex
+    devDependencies:
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.130
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+
   private-demos/static-codegen:
     dependencies:
       '@convex-dev/ratelimiter':

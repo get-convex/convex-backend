@@ -107,6 +107,7 @@ packages:
   - "private-demos/quickstarts/tanstack-start"
   - "private-demos/quickstarts/vue"
   - "private-demos/snippets"
+  - "private-demos/snippets-config-files"
   - "private-demos/static-codegen"
   - "private-demos/static-codegen-ts"
   - "private-demos/tanstack-start"
