@@ -194,6 +194,16 @@ export interface StorageWriter extends StorageReader {
   delete<T extends StorageId>(
     storageId: T extends { __tableName: any } ? never : T,
   ): Promise<void>;
+
+  /**
+   * @internal
+   */
+  // TODO: move `store` from StorageActionWriter to StorageWriter when mutation
+  // file storage access is ready for release
+  store(
+    blob: Blob,
+    options?: { sha256?: string },
+  ): Promise<GenericId<"_storage">>;
 }
 
 /**

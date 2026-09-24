@@ -65,6 +65,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use headers::ContentType;
 use itertools::Itertools;
 use model::{
     components::{
@@ -113,6 +114,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     obj,
     serialized_args_ext::SerializedArgsExt,
+    sha256::Sha256Digest,
     ConvexArray,
     ConvexObject,
     PendingValue,
@@ -694,6 +696,7 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
                 "1.0/storageGenerateUploadUrl" => {
                     Box::pin(storage_generate_upload_url(provider, args)).await
                 },
+                "1.0/storageStore" => Box::pin(storage_store(provider, args)).await,
                 // Scheduling
                 "1.0/schedule" => Box::pin(schedule(provider, args)).await,
                 "1.0/cancel_job" => Box::pin(cancel_job(provider, args)).await,
@@ -999,6 +1002,47 @@ async fn storage_delete<RT: Runtime>(
     provider.file_storage_delete(storage_id).await?;
 
     Ok(RawValue::NULL.to_owned())
+}
+
+#[convex_macro::instrument_future]
+async fn storage_store<RT: Runtime>(
+    _provider: &mut DatabaseUdfSyscallProvider<RT>,
+    args: JsonValue,
+) -> anyhow::Result<Box<RawValue>> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct StorageStoreArgs {
+        /// Base64-encoded file contents.
+        blob: String,
+        content_type: Option<String>,
+        /// Base64-encoded sha256 of the contents, to check them against.
+        sha256: Option<String>,
+    }
+    let (_blob, _content_type, _expected_sha256) = with_argument_error("storage.store", || {
+        let StorageStoreArgs {
+            blob,
+            content_type,
+            sha256,
+        } = serde_json::from_value(args)?;
+        let blob = base64::decode(&blob).context(ArgName("blob"))?;
+        let content_type = content_type
+            .filter(|ct| !ct.is_empty())
+            .map(|ct| mime::Mime::from_str(&ct).map(ContentType::from))
+            .transpose()
+            .context(ArgName("contentType"))?;
+        let expected_sha256 = sha256
+            .as_deref()
+            .map(Sha256Digest::from_base64)
+            .transpose()
+            .context(ArgName("sha256"))?;
+        Ok((blob, content_type, expected_sha256))
+    })?;
+
+    anyhow::bail!(ErrorMetadata::bad_request(
+        "StorageStoreNotImplemented",
+        "ctx.storage.store() is not supported in queries and mutations yet. Please use an action, \
+         or ctx.storage.generateUploadUrl() to upload from a client.",
+    ))
 }
 
 #[convex_macro::instrument_future]
