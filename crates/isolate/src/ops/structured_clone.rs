@@ -18,7 +18,11 @@ pub fn op_structured_clone<'b, P: V8OpProvider<'b>>(
     mut rv: v8::ReturnValue,
 ) -> anyhow::Result<()> {
     let value = args.get(1);
-    let data = op_serialize(&mut provider.scope(), value)?;
+    // `None` means the serializer already threw a `TypeError` into the
+    // isolate, and returning lets that exception reach the caller intact.
+    let Some(data) = op_serialize(&mut provider.scope(), value)? else {
+        return Ok(());
+    };
     let value = op_deserialize(&mut provider.scope(), data)?;
     rv.set(value);
     Ok(())
@@ -119,7 +123,7 @@ impl v8::ValueDeserializerImpl for SerializeDeserialize {
 pub fn op_serialize(
     scope: &mut v8::PinScope,
     value: v8::Local<v8::Value>,
-) -> anyhow::Result<Vec<u8>> {
+) -> anyhow::Result<Option<Vec<u8>>> {
     let key = v8::String::new(scope, "Deno.core.hostObject").unwrap();
     let symbol = v8::Symbol::for_key(scope, key);
     let host_object_brand = Some(v8::Global::new(scope, symbol));
@@ -132,11 +136,10 @@ pub fn op_serialize(
     let ret = value_serializer.write_value(scope.get_current_context(), value);
     if scope.has_caught() || scope.has_terminated() {
         scope.rethrow();
-        // Dummy value, this result will be discarded because an error was thrown.
-        Ok(vec![])
+        Ok(None)
     } else if let Some(true) = ret {
         let vector = value_serializer.release();
-        Ok(vector)
+        Ok(Some(vector))
     } else {
         // TODO: incorrect error type, should be TypeError
         Err(ErrorMetadata::bad_request("SerializeFailed", "Failed to serialize response").into())
