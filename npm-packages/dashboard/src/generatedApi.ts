@@ -1150,10 +1150,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List a team's prepaid credits, ordered by the order they'll be drawn down.
-         * @description Every credit is returned in one response, so `pagination.hasMore` is always
-         *     false. The envelope is shaped for paging so that adding it later is a
-         *     backwards-compatible change.
+         * List a team's USD prepaid credits in Orb's drawdown order.
+         * @description Balances are dollar amounts; included usage in custom pricing units has
+         *     separate ledgers. Every credit is returned in one response, so
+         *     `pagination.hasMore` is always false. The envelope is shaped for paging so
+         *     that adding it later is a backwards-compatible change.
          */
         get: operations["list_credits"];
         put?: never;

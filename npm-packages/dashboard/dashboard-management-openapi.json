@@ -1900,8 +1900,8 @@
     },
     "/teams/{team_id}/list_credits": {
       "get": {
-        "summary": "List a team's prepaid credits, ordered by the order they'll be drawn down.",
-        "description": "Every credit is returned in one response, so `pagination.hasMore` is always\nfalse. The envelope is shaped for paging so that adding it later is a\nbackwards-compatible change.",
+        "summary": "List a team's USD prepaid credits in Orb's drawdown order.",
+        "description": "Balances are dollar amounts; included usage in custom pricing units has\nseparate ledgers. Every credit is returned in one response, so\n`pagination.hasMore` is always false. The envelope is shaped for paging so\nthat adding it later is a backwards-compatible change.",
         "operationId": "list_credits",
         "parameters": [
           {
