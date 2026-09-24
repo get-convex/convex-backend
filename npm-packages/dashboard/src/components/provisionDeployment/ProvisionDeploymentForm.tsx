@@ -9,7 +9,6 @@ import {
 import { Button } from "@ui/Button";
 import { Checkbox } from "@ui/Checkbox";
 import { Tooltip } from "@ui/Tooltip";
-import { useManagementApiQuery } from "api/api";
 import type { DeploymentRegionMetadata } from "@convex-dev/platform/managementApi";
 import type { RegionName } from "generatedApi";
 import { useCurrentTeam, useUpdateTeam } from "api/teams";
@@ -23,13 +22,14 @@ import { useCurrentTheme } from "@common/lib/useCurrentTheme";
 import createGlobe from "cobe";
 import { SignalIcon } from "@heroicons/react/24/outline";
 import { GlobeIcon } from "@radix-ui/react-icons";
-import { Region, sortRegions } from "elements/Region";
-import { EUPricingWarning } from "elements/EUPricingWarning";
-
-const REGION_COORDINATES: Record<RegionName, [number, number]> = {
-  "aws-us-east-1": [38.9072, -77.0369], // Washington DC area (US East)
-  "aws-eu-west-1": [53.3498, -6.2603], // Dublin (EU West)
-};
+import { Region } from "elements/Region";
+import { RegionPricingWarning } from "elements/RegionPricingWarning";
+import {
+  DEFAULT_GLOBE_COORDINATES,
+  getRegionCoordinates,
+  useEnabledRegionCoordinates,
+  useSelectableRegions,
+} from "lib/regions";
 
 export function ProvisionDeploymentForm({
   projectId,
@@ -46,13 +46,7 @@ export function ProvisionDeploymentForm({
   const updateTeam = useUpdateTeam(team?.id ?? 0, /* toast */ false);
   const isAdmin = useIsCurrentMemberTeamAdmin();
 
-  const { data: regionsData } = useManagementApiQuery({
-    path: "/teams/{team_id}/list_deployment_regions",
-    pathParams: { team_id: team?.id?.toString() ?? "paused" },
-    swrOptions: {
-      isPaused: () => !team?.id,
-    },
-  });
+  const { regions, expectedRegionCount } = useSelectableRegions(team?.id);
 
   const handleCreate = useCallback(
     async (region: string, setAsDefault: boolean) => {
@@ -71,7 +65,8 @@ export function ProvisionDeploymentForm({
   return (
     <ProvisionDeploymentFormInner
       deploymentType={deploymentType}
-      regions={regionsData?.items}
+      regions={regions}
+      expectedRegionCount={expectedRegionCount}
       onCreate={handleCreate}
       teamSlug={team?.slug}
       teamName={team?.name}
@@ -83,6 +78,7 @@ export function ProvisionDeploymentForm({
 export function ProvisionDeploymentFormInner({
   deploymentType,
   regions,
+  expectedRegionCount,
   onCreate,
   teamSlug,
   teamName,
@@ -90,16 +86,13 @@ export function ProvisionDeploymentFormInner({
 }: {
   deploymentType: "prod" | "dev";
   regions: DeploymentRegionMetadata[] | undefined;
+  /** How many region tiles to render while `regions` loads. */
+  expectedRegionCount: number;
   onCreate: (region: string, setAsDefault: boolean) => Promise<void>;
   teamSlug: string | undefined;
   teamName: string | undefined;
   isAdmin: boolean;
 }) {
-  const sortedRegions = useMemo(
-    () => (regions ? sortRegions(regions) : undefined),
-    [regions],
-  );
-
   const [selectedRegion, setSelectedRegion] = useState<RegionName | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [setAsDefault, setSetAsDefault] = useState(false);
@@ -111,10 +104,10 @@ export function ProvisionDeploymentFormInner({
 
   // Select the first region by default (will be us-east in prod)
   useEffect(() => {
-    if (!selectedRegion && sortedRegions && sortedRegions.length > 0) {
-      setSelectedRegion(sortedRegions[0].name);
+    if (!selectedRegion && regions && regions.length > 0) {
+      setSelectedRegion(regions[0].name);
     }
-  }, [sortedRegions, selectedRegion]);
+  }, [regions, selectedRegion]);
 
   const defaultCheckboxId = useId();
 
@@ -167,15 +160,15 @@ export function ProvisionDeploymentFormInner({
                 onChange={setSelectedRegion}
               >
                 <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2">
-                  {sortedRegions === undefined
-                    ? [1, 2].map((i) => (
+                  {regions === undefined
+                    ? Array.from({ length: expectedRegionCount }, (_, i) => (
                         <Region
                           key={i}
                           region={undefined}
                           teamSlug={teamSlug}
                         />
                       ))
-                    : sortedRegions.map((region) => (
+                    : regions.map((region) => (
                         <Region
                           key={region.name}
                           region={region}
@@ -184,7 +177,7 @@ export function ProvisionDeploymentFormInner({
                       ))}
                 </div>
               </RadioGroup>
-              <EUPricingWarning show={selectedRegion === "aws-eu-west-1"} />
+              <RegionPricingWarning region={selectedRegion} />
             </Fieldset>
 
             <Tooltip
@@ -239,11 +232,19 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
   const currentTheme = useCurrentTheme();
   const isDark = currentTheme === "dark";
 
+  // Derived from the launch flags rather than the fetched region list, so the
+  // globe isn't torn down and rebuilt when that request lands.
+  const regionCoordinates = useEnabledRegionCoordinates();
+  const markers = useMemo(
+    () => regionCoordinates.map((location) => ({ location, size: 0.07 })),
+    [regionCoordinates],
+  );
+
   // Update focus when region changes
   useEffect(() => {
-    if (selectedRegion && REGION_COORDINATES[selectedRegion]) {
-      const [lat, long] = REGION_COORDINATES[selectedRegion];
-      focusRef.current = locationToAngles(lat, long);
+    const coordinates = selectedRegion && getRegionCoordinates(selectedRegion);
+    if (coordinates) {
+      focusRef.current = locationToAngles(...coordinates);
     }
   }, [selectedRegion]);
 
@@ -251,7 +252,7 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
     if (!canvasRef.current) return;
 
     let windowWidth = 0;
-    focusRef.current = locationToAngles(...REGION_COORDINATES["aws-us-east-1"]);
+    focusRef.current = locationToAngles(...DEFAULT_GLOBE_COORDINATES);
     let [currentPhi, currentTheta] = [...focusRef.current];
     const doublePi = Math.PI * 2;
 
@@ -279,10 +280,7 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
       glowColor: isDark
         ? [42 / 255, 40 / 255, 37 / 255]
         : [253 / 255, 252 / 255, 250 / 255],
-      markers: Object.values(REGION_COORDINATES).map(([lat, long]) => ({
-        location: [lat, long],
-        size: 0.07,
-      })),
+      markers,
       onRender: (state) => {
         state.phi = currentPhi;
         state.theta = currentTheta;
@@ -319,7 +317,7 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
       globe.destroy();
       window.removeEventListener("resize", onResize);
     };
-  }, [isDark]);
+  }, [isDark, markers]);
 
   return (
     <canvas

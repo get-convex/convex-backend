@@ -18,6 +18,7 @@ import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
 import { Donut } from "@ui/Donut";
 import { Loading } from "@ui/Loading";
+import { PRIMARY_REGION } from "lib/regions";
 
 const BUSINESS_METRIC_TO_SECTION: Record<string, string> = {
   functionCalls: "functionCalls",
@@ -306,11 +307,11 @@ export function BusinessPlanSummary({
     aggregated.aiGatewayCost = aiGatewayCost;
   }
 
-  // For self-serve plans, aggregate only primary region (aws-us-east-1)
-  // so that included limits only apply to US-hosted deployments.
+  // For self-serve plans, aggregate only the primary region so that included
+  // limits only apply to US-hosted deployments.
   const primaryRegionAggregated =
     !isBusinessPlan && summary
-      ? aggregateRows(summary.filter((row) => row.region === "aws-us-east-1"))
+      ? aggregateRows(summary.filter((row) => row.region === PRIMARY_REGION))
       : undefined;
 
   // Deployment count is team-wide, so its primary-region value is the full
@@ -328,31 +329,31 @@ export function BusinessPlanSummary({
     ? BUSINESS_METRIC_TO_SECTION
     : SELF_SERVE_METRIC_TO_SECTION;
 
-  const hasEuDeployments =
-    !isBusinessPlan && summary?.some((s) => s.region !== "aws-us-east-1");
+  const hasNonPrimaryRegionDeployments =
+    !isBusinessPlan && summary?.some((s) => s.region !== PRIMARY_REGION);
 
   return (
     <>
-      {hasEuDeployments && (
+      {hasNonPrimaryRegionDeployments && (
         <Callout variant="instructions" className="flex items-start gap-2">
           <InfoCircledIcon className="mt-0.5 size-4 shrink-0" />
           <p>
             {hasSubscription ? (
               <>
                 <span className="font-semibold">
-                  EU region usage is billed on-demand.
+                  Non-US deployment usage is billed on-demand.
                 </span>{" "}
                 Included plan limits only apply to US-hosted deployments. All
-                usage on EU deployments is charged at on-demand rates, plus a
-                30% regional surcharge.
+                usage on non-US deployments is charged at on-demand rates, plus
+                a 30% regional surcharge.
               </>
             ) : (
               <>
                 <span className="font-semibold">
-                  EU region usage has no included limits on paid plans.
+                  Non-US deployment usage has no included limits on paid plans.
                 </span>{" "}
                 If you upgrade, included plan limits will only apply to
-                US-hosted deployments. EU deployment usage will be billed
+                US-hosted deployments. Non-US deployment usage will be billed
                 on-demand at plan rates, plus a 30% regional surcharge.
               </>
             )}

@@ -1,30 +1,27 @@
-import { useMemo } from "react";
 import { Fieldset, RadioGroup } from "@headlessui/react";
-import { Region, sortRegions } from "elements/Region";
+import { Region } from "elements/Region";
 import {
   DeploymentRegionMetadata,
   RegionName,
 } from "@convex-dev/platform/managementApi";
-import { EUPricingWarning } from "elements/EUPricingWarning";
+import { RegionPricingWarning } from "elements/RegionPricingWarning";
 
 export function DefaultRegionSelector({
   value,
   onChange,
   regions,
+  expectedRegionCount,
   teamSlug,
   disabledDueToPermissions = false,
 }: {
   value: RegionName | null;
   onChange: (region: RegionName | null) => void;
   regions: DeploymentRegionMetadata[] | undefined;
+  /** How many region tiles to render while `regions` loads. */
+  expectedRegionCount: number;
   teamSlug: string | undefined;
   disabledDueToPermissions?: boolean;
 }) {
-  const sortedRegions = useMemo(
-    () => (regions ? sortRegions(regions) : undefined),
-    [regions],
-  );
-
   return (
     <Fieldset>
       <RadioGroup
@@ -34,14 +31,14 @@ export function DefaultRegionSelector({
         onChange={onChange}
       >
         <div className="grid max-w-xl auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {sortedRegions ? (
+          {regions ? (
             <>
               <Region
                 region={null}
                 teamSlug={teamSlug}
                 disabledDueToPermissions={disabledDueToPermissions}
               />
-              {sortedRegions.map((region) => (
+              {regions.map((region) => (
                 <Region
                   key={region.name}
                   region={region}
@@ -51,7 +48,8 @@ export function DefaultRegionSelector({
               ))}
             </>
           ) : (
-            [1, 2, 3].map((i) => (
+            // One extra tile for the "Ask every time" option.
+            Array.from({ length: expectedRegionCount + 1 }, (_, i) => (
               <Region
                 key={i}
                 region={undefined}
@@ -62,7 +60,7 @@ export function DefaultRegionSelector({
           )}
         </div>
       </RadioGroup>
-      <EUPricingWarning show={value === "aws-eu-west-1"} />
+      <RegionPricingWarning region={value} />
     </Fieldset>
   );
 }

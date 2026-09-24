@@ -26,6 +26,7 @@ import {
 import { loadProjectLocalConfig } from "./localDeployment/filePaths.js";
 import { chalkStderr } from "chalk";
 import { RegionName } from "../generatedApi.js";
+import type { RegionName as PublishedRegionName } from "@convex-dev/platform/managementApi";
 export type DeploymentName = string;
 export type CloudDeploymentType = "prod" | "dev" | "preview" | "custom";
 export type AccountRequiredDeploymentType = CloudDeploymentType | "local";
@@ -66,7 +67,8 @@ export async function createProject(
       body: {
         projectName,
         deploymentType: deploymentToProvision?.deploymentType ?? null,
-        deploymentRegion: deploymentToProvision?.region ?? null,
+        deploymentRegion: (deploymentToProvision?.region ??
+          null) as PublishedRegionName | null,
       },
     },
   );

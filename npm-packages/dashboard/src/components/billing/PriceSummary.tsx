@@ -92,7 +92,7 @@ export function PriceSummary({
           <span className="font-semibold">
             Included limits apply to US region only.
           </span>{" "}
-          All usage on EU-hosted deployments is billed on-demand at plan rates,
+          All usage on non-US deployments is billed on-demand at plan rates,
           plus a 30% regional surcharge.
         </p>
       </Callout>

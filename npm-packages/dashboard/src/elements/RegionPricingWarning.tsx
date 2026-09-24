@@ -1,6 +1,18 @@
 import { cn } from "@ui/cn";
+import type { RegionName } from "generatedApi";
+import { PRIMARY_REGION } from "lib/regions";
 
-export function EUPricingWarning({ show }: { show: boolean }) {
+/**
+ * Warns that a region is billed differently from the primary one. Always
+ * rendered so that picking a region doesn't shift the surrounding layout.
+ */
+export function RegionPricingWarning({
+  region,
+}: {
+  region: RegionName | null;
+}) {
+  const show = region !== null && region !== PRIMARY_REGION;
+
   return (
     <p
       className={cn(

@@ -127,6 +127,9 @@ export function useDeploymentRegions(teamId: number | undefined) {
     pathParams: {
       team_id: teamId?.toString() || "",
     },
+    swrOptions: {
+      isPaused: () => teamId === undefined,
+    },
   });
 
   return { regions: data?.items, isLoading };

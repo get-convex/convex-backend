@@ -2694,7 +2694,7 @@ export interface components {
             referredBy?: null | components["schemas"]["TeamName"];
         };
         /** @enum {string} */
-        RegionName: "aws-us-east-1" | "aws-eu-west-1";
+        RegionName: "aws-us-east-1" | "aws-eu-west-1" | "aws-ca-central-1" | "aws-ap-southeast-2";
         RegisterOauthAppArgs: {
             appName: components["schemas"]["AppName"];
             redirectUris: string[];

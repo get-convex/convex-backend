@@ -1,7 +1,7 @@
 import { Sheet } from "@ui/Sheet";
 import { useState } from "react";
 import { RegionName, TeamResponse } from "generatedApi";
-import { useDeploymentRegions } from "api/deployments";
+import { useSelectableRegions } from "lib/regions";
 import { DefaultRegionSelector } from "./DefaultRegionSelector";
 import { TEAM_SETTINGS_SECTIONS } from "lib/sectionAnchors";
 
@@ -16,7 +16,7 @@ export function DefaultRegionForm({
   onUpdateTeam,
   canUpdate,
 }: DefaultRegionFormProps) {
-  const { regions } = useDeploymentRegions(team.id);
+  const { regions, expectedRegionCount } = useSelectableRegions(team.id);
   // Track the selection locally so it updates immediately on click, while the
   // team data refetches in the background.
   const [selectedRegion, setSelectedRegion] = useState<RegionName | null>(
@@ -36,6 +36,7 @@ export function DefaultRegionForm({
           void onUpdateTeam({ defaultRegion: region });
         }}
         regions={regions}
+        expectedRegionCount={expectedRegionCount}
         teamSlug={team.slug}
         disabledDueToPermissions={!canUpdate}
       />

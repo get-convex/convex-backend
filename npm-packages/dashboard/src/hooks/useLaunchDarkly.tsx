@@ -12,6 +12,8 @@ export const flagDefaults: {
   managedAnalyticsIntegration: boolean;
   s3ExportIntegration: boolean;
   showFivetranSyncProgress: boolean;
+  canadaAvailable: boolean;
+  australiaAvailable: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
@@ -23,6 +25,8 @@ export const flagDefaults: {
   managedAnalyticsIntegration: false,
   s3ExportIntegration: false,
   showFivetranSyncProgress: false,
+  canadaAvailable: false,
+  australiaAvailable: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(
