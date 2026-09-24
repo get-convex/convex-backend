@@ -1,3 +1,5 @@
+import Markdown from "react-markdown";
+
 import skills from "../data/agent-skills.json";
 
 const SKILLS_BASE_URL =
@@ -20,7 +22,12 @@ export function AgentSkills() {
                 <code>/{name}</code>
               </a>
             </td>
-            <td>{description}</td>
+            <td>
+              {/* Unwrapping <p> keeps paragraph margins out of the table cell. */}
+              <Markdown disallowedElements={["p"]} unwrapDisallowed>
+                {description}
+              </Markdown>
+            </td>
           </tr>
         ))}
       </tbody>
