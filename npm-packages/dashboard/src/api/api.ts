@@ -158,15 +158,11 @@ async function handleMutationSuccess(
   if (googleAnalyticsEvent) fireGoogleAnalyticsEvent(googleAnalyticsEvent);
 
   if (mutateKey && cachePrefix) {
-    await globalMutate(
-      (key) => {
-        if (!Array.isArray(key) || key.length < 3) return false;
-        const [prefix, keyPath] = key;
-        return prefix === cachePrefix && keyPath === mutateKey;
-      },
-      undefined,
-      { revalidate: true },
-    );
+    await globalMutate((key) => {
+      if (!Array.isArray(key) || key.length < 3) return false;
+      const [prefix, keyPath] = key;
+      return prefix === cachePrefix && keyPath === mutateKey;
+    });
   }
 }
 
