@@ -60,9 +60,12 @@ WORKDIR /app
 # ancestor of the package, so Next uses it as outputFileTracingRoot and nests the
 # app one level down, under dashboard-self-hosted/.
 COPY --from=build --chown=nextjs:nodejs /app/npm-packages/dashboard-self-hosted/.next/standalone/ ./
-# Static assets are not part of the standalone bundle, so copy them in separately.
-# (public/ is already included under dashboard-self-hosted/ by the standalone output.)
+# The standalone output carries only what file tracing found, which is the server and the
+# modules it requires. Neither .next/static nor public/ is traced, so both are copied in next
+# to server.js, where it serves them. Without public/ the favicon, the Convex logo, the
+# apple-touch icon and the web manifest all 404 on a page that otherwise renders.
 COPY --from=build --chown=nextjs:nodejs /app/npm-packages/dashboard-self-hosted/.next/static/ ./dashboard-self-hosted/.next/static/
+COPY --from=build --chown=nextjs:nodejs /app/npm-packages/dashboard-self-hosted/public/ ./dashboard-self-hosted/public/
 USER nextjs
 EXPOSE 6791
 ENV PORT=6791
