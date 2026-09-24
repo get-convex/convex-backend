@@ -426,9 +426,22 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
             variant="danger"
             dialogTitle={disableTitle}
             dialogBody={
-              managementEnabled
-                ? "This disconnects your directory, and team members will no longer be provisioned or deprovisioned by your identity provider. Members already on the team keep their access."
-                : "This disconnects your directory from your identity provider. Directory Sync never started provisioning, so your team members are unaffected."
+              <div className="flex flex-col gap-3 text-sm">
+                <p>
+                  {managementEnabled
+                    ? "This disconnects your directory, and team members will no longer be provisioned or deprovisioned by your identity provider. Members already on the team keep their access."
+                    : "This disconnects your directory from your identity provider. Directory Sync never started provisioning, so your team members are unaffected."}
+                </p>
+                {/* True of both wordings: the teardown deletes the directory
+                    itself, and the groups and mappings keyed off it go with
+                    it. */}
+                <p>
+                  Your directory's groups and their role mappings are discarded
+                  along with it. Setting Directory Sync up again means
+                  connecting the directory and mapping every group to a role
+                  from scratch.
+                </p>
+              </div>
             }
             error={disableError}
             validationText={

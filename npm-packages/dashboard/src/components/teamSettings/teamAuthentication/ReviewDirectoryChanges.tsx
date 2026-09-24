@@ -85,6 +85,46 @@ export function classifyStagedItem(item: StagedDirectoryMemberResponse): {
   };
 }
 
+/** What a staged row costs the person it names, which is what it highlights. */
+export type StagedChange = "removed" | "roleChange" | "none";
+
+export function stagedChange(
+  item: StagedDirectoryMemberResponse,
+  { status, roleChanges }: ReturnType<typeof classifyStagedItem>,
+): StagedChange {
+  // A directory user who isn't on the team yet loses nothing by not being
+  // offered it, whatever the directory says about them.
+  if (!item.member) {
+    return "none";
+  }
+  if (status === "suspended" || status === "noAccess") {
+    return "removed";
+  }
+  return roleChanges ? "roleChange" : "none";
+}
+
+// The tint is what the row costs the member, not what the directory says about
+// them: a member no mapped group covers reads as a warning beside their name
+// and still loses their place, so the pill is an error either way.
+const PILL_TONE: Record<StagedChange, string> = {
+  removed: "bg-background-error",
+  roleChange: "bg-background-warning",
+  none: "",
+};
+
+const ARROW_TONE: Record<StagedChange, string> = {
+  removed: "text-content-error",
+  roleChange: "text-content-warning",
+  none: "text-content-secondary",
+};
+
+// The transition reads as one pill across the three cells that make it up. The
+// roles keep their own columns so they stay aligned down the table, so the
+// background is laid on a segment inside each cell rather than on the row: the
+// cells give up the padding between them, the segments carry it instead, and a
+// shared height keeps the join seamless whatever the cells hold.
+const PILL_SEGMENT = "inline-flex h-8 items-center";
+
 export function ReviewDirectoryChanges({
   team,
   enabled,
@@ -120,10 +160,14 @@ export function ReviewDirectoryChanges({
     }
   }, [items, hasMore]);
 
-  const classified = (items ?? []).map((item) => ({
-    item,
-    ...classifyStagedItem(item),
-  }));
+  const classified = (items ?? []).map((item) => {
+    const classification = classifyStagedItem(item);
+    return {
+      item,
+      ...classification,
+      change: stagedChange(item, classification),
+    };
+  });
   return (
     // Claims the pane's height so the table is what scrolls and the
     // acknowledgement below it stays on screen, and stops shrinking at a
@@ -206,7 +250,7 @@ export function ReviewDirectoryChanges({
               </tr>
             </thead>
             <tbody>
-              {classified.map(({ item, status }) => {
+              {classified.map(({ item, status, change }) => {
                 const member = item.member ?? undefined;
                 const directoryUser = item.directoryUser ?? undefined;
                 return (
@@ -250,6 +294,15 @@ export function ReviewDirectoryChanges({
                             />
                           </span>
                         )}
+                        {change === "roleChange" && (
+                          <span className="mt-1">
+                            <StatusDot
+                              label="Role changes"
+                              tone="warning"
+                              tip="The directory confers a different role than this member holds today, so enabling will change it."
+                            />
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className={TABLE_CELL}>
@@ -280,69 +333,107 @@ export function ReviewDirectoryChanges({
                     </td>
                     {!enabled && (
                       <>
-                        <td className={cn(TABLE_CELL, "whitespace-nowrap")}>
-                          {member ? (
-                            <RoleDisplay
-                              role={member.role}
-                              customRoles={member.customRoles}
-                              teamSlug={team.slug}
-                              align="right"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-end gap-1 text-sm text-content-secondary">
-                              Not in team
-                              <Tooltip
-                                side="left"
-                                aria-label="About directory users who are not on the team"
-                                tip={
-                                  status === "suspended"
-                                    ? "This user is not active in your directory, so they will not be offered the team."
-                                    : status === "noAccess"
-                                      ? "This user is in no directory group, or none of their groups is mapped to a role, so they will not be offered the team."
-                                      : "The Convex member who owns this email address will be offered to join the team once directory sync is enabled."
-                                }
-                              >
-                                <InfoCircledIcon className="text-content-tertiary" />
-                              </Tooltip>
-                            </div>
-                          )}
+                        <td
+                          className={cn(TABLE_CELL, "pr-0 whitespace-nowrap")}
+                        >
+                          <div className="flex justify-end">
+                            <span
+                              className={cn(
+                                PILL_SEGMENT,
+                                "rounded-l-full pr-4 pl-3",
+                                PILL_TONE[change],
+                              )}
+                            >
+                              {member ? (
+                                <RoleDisplay
+                                  role={member.role}
+                                  customRoles={member.customRoles}
+                                  teamSlug={team.slug}
+                                  align="right"
+                                />
+                              ) : (
+                                <div className="flex items-center justify-end gap-1 text-sm text-content-secondary">
+                                  Not in team
+                                  <Tooltip
+                                    side="left"
+                                    aria-label="About directory users who are not on the team"
+                                    tip={
+                                      status === "suspended"
+                                        ? "This user is not active in your directory, so they will not be offered the team."
+                                        : status === "noAccess"
+                                          ? "This user is in no directory group, or none of their groups is mapped to a role, so they will not be offered the team."
+                                          : "The Convex member who owns this email address will be offered to join the team once directory sync is enabled."
+                                    }
+                                  >
+                                    <InfoCircledIcon className="text-content-tertiary" />
+                                  </Tooltip>
+                                </div>
+                              )}
+                            </span>
+                          </div>
                         </td>
                         {/* Every row reads as one role becoming another,
                             whether or not the two differ. */}
                         <td className={cn(TABLE_CELL, "w-0 px-0")}>
-                          <ArrowRightIcon className="text-content-secondary" />
+                          <span className={cn(PILL_SEGMENT, PILL_TONE[change])}>
+                            <ArrowRightIcon className={ARROW_TONE[change]} />
+                          </span>
                         </td>
                       </>
                     )}
-                    <td className={cn(TABLE_CELL, "whitespace-nowrap")}>
-                      {status === "suspended" || status === "noAccess" ? (
-                        <span className="text-sm text-content-secondary">
-                          {member ? "Removed from team" : "Cannot join"}
-                        </span>
-                      ) : directoryUser?.role ? (
-                        <RoleDisplay
-                          role={directoryUser.role}
-                          customRoles={directoryUser.customRoles}
-                          teamSlug={team.slug}
-                        />
-                      ) : member ? (
-                        // The directory does not cover them, so the role
-                        // they hold is the role they keep.
-                        <div className="flex items-center gap-1">
+                    <td
+                      className={cn(
+                        TABLE_CELL,
+                        "whitespace-nowrap",
+                        // The pill only spans the transition, which the
+                        // pending-members view has no columns for.
+                        !enabled && "pl-0",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          !enabled && [
+                            PILL_SEGMENT,
+                            "rounded-r-full pr-3 pl-4",
+                            PILL_TONE[change],
+                          ],
+                        )}
+                      >
+                        {status === "suspended" || status === "noAccess" ? (
+                          member ? (
+                            <span className="text-sm font-medium text-content-error">
+                              Removed from team
+                            </span>
+                          ) : (
+                            <span className="text-sm text-content-secondary">
+                              Cannot join
+                            </span>
+                          )
+                        ) : directoryUser?.role ? (
                           <RoleDisplay
-                            role={member.role}
-                            customRoles={member.customRoles}
+                            role={directoryUser.role}
+                            customRoles={directoryUser.customRoles}
                             teamSlug={team.slug}
                           />
-                          <Tooltip
-                            side="left"
-                            aria-label="About the role of a member who is not in the directory"
-                            tip="This team member is not listed in the directory, so they keep the role they have today."
-                          >
-                            <InfoCircledIcon className="text-content-tertiary" />
-                          </Tooltip>
-                        </div>
-                      ) : null}
+                        ) : member ? (
+                          // The directory does not cover them, so the role
+                          // they hold is the role they keep.
+                          <div className="flex items-center gap-1">
+                            <RoleDisplay
+                              role={member.role}
+                              customRoles={member.customRoles}
+                              teamSlug={team.slug}
+                            />
+                            <Tooltip
+                              side="left"
+                              aria-label="About the role of a member who is not in the directory"
+                              tip="This team member is not listed in the directory, so they keep the role they have today."
+                            >
+                              <InfoCircledIcon className="text-content-tertiary" />
+                            </Tooltip>
+                          </div>
+                        ) : null}
+                      </span>
                     </td>
                   </tr>
                 );
