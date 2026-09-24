@@ -1,6 +1,3 @@
-import { useState } from "react";
-import { Pencil1Icon } from "@radix-ui/react-icons";
-import { Button } from "@ui/Button";
 import { HelpTooltip } from "@ui/HelpTooltip";
 import { LoadingTransition } from "@ui/Loading";
 import { Sheet } from "@ui/Sheet";
@@ -17,7 +14,7 @@ import {
   useSnapBackOnEmptyPage,
 } from "hooks/useCursorPagination";
 import { RoleDisplay } from "../RoleDisplay";
-import { EditGroupRoleDialog } from "./EditGroupRoleDialog";
+import { EditGroupRolePopover } from "./EditGroupRolePopover";
 import { EmptyStateRow, TABLE_CELL, TABLE_HEADER_CELL } from "./SettingsSheet";
 
 const RESERVED_ADMIN_GROUP_NAME = "convex-team-admins";
@@ -162,8 +159,6 @@ function GroupRow({
   canEdit: boolean;
   customRolesEnabled: boolean;
 }) {
-  const [showEdit, setShowEdit] = useState(false);
-
   const isReserved = group.name.toLowerCase() === RESERVED_ADMIN_GROUP_NAME;
 
   return (
@@ -184,13 +179,12 @@ function GroupRow({
         )}
       </td>
       <td className={cn(TABLE_CELL, "text-right")}>
-        <Button
-          variant="neutral"
-          size="xs"
-          icon={<Pencil1Icon />}
-          aria-label={`Edit ${group.name} role`}
+        <EditGroupRolePopover
+          team={team}
+          group={group}
+          customRolesEnabled={customRolesEnabled}
           disabled={isReserved || !canEdit}
-          tip={
+          disabledTip={
             isReserved
               ? "Members of convex-team-admins are always team admins. This mapping cannot be changed."
               : canEdit
@@ -200,16 +194,7 @@ function GroupRow({
                     "directorySync:updateGroupMapping",
                   )
           }
-          onClick={() => setShowEdit(true)}
         />
-        {showEdit && (
-          <EditGroupRoleDialog
-            team={team}
-            group={group}
-            customRolesEnabled={customRolesEnabled}
-            onClose={() => setShowEdit(false)}
-          />
-        )}
       </td>
     </tr>
   );

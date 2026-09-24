@@ -16,10 +16,19 @@ export function TeamSettingsLayout({
   page: selectedPage,
   Component,
   title,
+  fillHeight = false,
 }: {
   page: TeamSettingsPage;
   Component: React.FunctionComponent<{ team: TeamResponse }>;
   title: string;
+  /**
+   * Hands the page a definite height rather than one that grows with its
+   * content, for a page that scrolls regions of its own: without it their
+   * `h-full` resolves against an auto height and they grow instead of
+   * scrolling. Falls back to growing where the height above is itself
+   * indefinite, as it is when the sidebar stacks on a narrow screen.
+   */
+  fillHeight?: boolean;
 }) {
   const selectedTeam = useCurrentTeam();
 
@@ -101,7 +110,12 @@ export function TeamSettingsLayout({
             </SidebarLink>
           </aside>
           <div className="scrollbar w-full overflow-y-auto">
-            <div className="flex min-h-full max-w-7xl flex-col gap-6 p-6">
+            <div
+              className={classNames(
+                "flex max-w-7xl flex-col gap-6 p-6",
+                fillHeight ? "h-full" : "min-h-full",
+              )}
+            >
               {selectedTeam ? (
                 <Component team={selectedTeam} key={selectedTeam.id} />
               ) : (

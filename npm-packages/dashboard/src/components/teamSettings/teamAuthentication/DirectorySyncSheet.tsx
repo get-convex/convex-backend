@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useRouter } from "next/router";
 import { DotsVerticalIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { ConfirmationDialog } from "@ui/ConfirmationDialog";
@@ -28,7 +29,6 @@ import {
 import { ConnectDirectoryDialog } from "./ConnectDirectoryDialog";
 import { DirectoryGroupsSheet } from "./DirectoryGroupsSheet";
 import { ProviderIcon } from "./ProviderIcon";
-import { ReviewDirectoryChangesModal } from "./ReviewDirectoryChangesModal";
 import {
   ConfigurationRow,
   EmptyStateRow,
@@ -59,6 +59,7 @@ export const INITIAL_SYNC_IN_PROGRESS =
   "Initial sync in progress. It may take up to an hour to finish. Once the sync has finished you will be able to review and enable your configuration here.";
 
 export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
+  const router = useRouter();
   const isTeamAdmin = useIsCurrentMemberTeamAdmin();
   const canView = useHasCustomRolePermission(
     team.id,
@@ -85,7 +86,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
     false,
   );
   // The staged roster names each member and the role they hold, so the
-  // endpoint behind the review modal asks for `member:view` as well.
+  // endpoint behind the review subpage asks for `member:view` as well.
   const canViewMembers = useHasCustomRolePermission(
     team.id,
     "member:view",
@@ -125,7 +126,19 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
   const [showDisableConfirmation, setShowDisableConfirmation] = useState(false);
   const [isDisabling, setIsDisabling] = useState(false);
   const [disableError, setDisableError] = useState<string>();
-  const [showReview, setShowReview] = useState(false);
+
+  // The roster is a subpage of team authentication rather than a dialog, so
+  // it is reached by navigating within the page.
+  const goToReview = () => {
+    void router.push(
+      {
+        pathname: "/t/[team]/settings/team-authentication",
+        query: { team: team.slug, review: "1" },
+      },
+      undefined,
+      { shallow: true },
+    );
+  };
 
   if (canView === false) {
     return (
@@ -267,7 +280,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
                     <MenuItem
                       disabled={rosterTip !== undefined}
                       tip={rosterTip}
-                      action={() => setShowReview(true)}
+                      action={goToReview}
                     >
                       View pending members
                     </MenuItem>
@@ -353,7 +366,7 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
                         size="xs"
                         disabled={reviewTip !== undefined}
                         tip={reviewTip}
-                        onClick={() => setShowReview(true)}
+                        onClick={goToReview}
                       >
                         Review
                       </Button>
@@ -362,13 +375,6 @@ export function DirectorySyncSheet({ team }: { team: TeamResponse }) {
                 )}
               </div>
             ) : null}
-            {showReview && (
-              <ReviewDirectoryChangesModal
-                team={team}
-                enabled={managementEnabled}
-                onClose={() => setShowReview(false)}
-              />
-            )}
           </>
         ) : (
           <EmptyStateRow

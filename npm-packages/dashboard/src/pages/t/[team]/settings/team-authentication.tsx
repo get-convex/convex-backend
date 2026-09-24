@@ -10,6 +10,9 @@ export function TeamAuthenticationPage() {
       page="team-authentication"
       Component={TeamSSO}
       title="Team Authentication"
+      // The review subpage bounds its table against the page's height and
+      // scrolls it, so the page needs a height that does not grow with it.
+      fillHeight
     />
   );
 }

@@ -33,6 +33,10 @@ const SSO_SHEET = '[data-testid="sso-sheet"]';
 const DOMAINS_SHEET = '[data-testid="domains-sheet"]';
 const DIRECTORY_SHEET = '[data-testid="directory-sync-sheet"]';
 const DIRECTORY_GROUPS_SHEET = '[data-testid="directory-groups-sheet"]';
+// The breadcrumb names the subpage, so it crops with it.
+const REVIEW_PANE =
+  '[data-testid="team-authentication-breadcrumb"], [data-testid="review-directory-changes"]';
+const EDIT_GROUP_ROLE_POPOVER = '[data-testid="edit-group-role"]';
 
 // The SSO docs don't cover Directory Sync, and their screenshots crop tightly
 // enough that the section below still bleeds into the padding. Turning the flag
@@ -407,7 +411,7 @@ export const DirectoryGroupRoles: Story = {
 };
 
 export const EditGroupRole: Story = {
-  parameters: { screenshotSelector: '[role="dialog"]' },
+  parameters: { screenshotSelector: EDIT_GROUP_ROLE_POPOVER },
   beforeEach: mockDirectorySynced,
   play: async () => {
     await userEvent.click(
@@ -416,18 +420,28 @@ export const EditGroupRole: Story = {
   },
 };
 
+// The roster is a subpage of team authentication, so the story opens it by
+// the URL that the Review button navigates to.
+const REVIEW_SUBPAGE = {
+  nextjs: {
+    router: {
+      pathname: "/t/[team]/settings/team-authentication",
+      route: "/t/[team]/settings/team-authentication",
+      asPath: "/t/acme/settings/team-authentication?review=1",
+      query: { team: "acme", review: "1" },
+    },
+  },
+};
+
 export const ReviewDirectoryChanges: Story = {
   parameters: {
-    screenshotSelector: '[role="dialog"]',
-    // The roster is wider than the page, and the modal grows with it.
+    ...REVIEW_SUBPAGE,
+    screenshotSelector: REVIEW_PANE,
+    // The roster is wider than the page's own content, and the subpage grows
+    // with it.
     screenshotViewport: { width: 1280, height: 900 },
   },
   beforeEach: mockDirectorySynced,
-  play: async () => {
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Review" }),
-    );
-  },
 };
 
 export const DirectorySyncEnabled: Story = {
@@ -443,7 +457,7 @@ export const DirectorySyncEnabled: Story = {
 
 /** Who the directory covers that has not joined the team yet. */
 export const PendingMembers: Story = {
-  parameters: { screenshotSelector: '[role="dialog"]' },
+  parameters: { ...REVIEW_SUBPAGE, screenshotSelector: REVIEW_PANE },
   beforeEach: () => {
     mockSsoConfigured();
     mockDirectory({ directory: linkedDirectory, enabled: true });
@@ -455,13 +469,5 @@ export const PendingMembers: Story = {
       isLoading: false,
       error: undefined,
     });
-  },
-  play: async () => {
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Okta options" }),
-    );
-    await userEvent.click(
-      await screen.findByRole("menuitem", { name: "View pending members" }),
-    );
   },
 };

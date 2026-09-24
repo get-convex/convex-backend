@@ -1,11 +1,11 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { fn, mocked } from "storybook/test";
+import { expect, fn, mocked, screen } from "storybook/test";
 import {
   useEnableDirectorySync,
   useStagedDirectoryMembers,
 } from "api/directorySync";
 import type { StagedDirectoryMemberResponse, TeamResponse } from "generatedApi";
-import { ReviewDirectoryChangesModal } from "./ReviewDirectoryChangesModal";
+import { ReviewDirectoryChanges } from "./ReviewDirectoryChanges";
 
 const team: TeamResponse = {
   id: 1,
@@ -101,13 +101,20 @@ function mockStaged(data: StagedDirectoryMemberResponse[], hasMore = false) {
 }
 
 const meta = {
-  component: ReviewDirectoryChangesModal,
-  args: { team, enabled: false, onClose: fn() },
+  component: ReviewDirectoryChanges,
+  // The subpage's description and its sync note read in `--content-secondary`,
+  // which measures 4.43:1 against the page background in the light theme — the
+  // token is a hair under AA wherever it sits outside a sheet, not something
+  // this page can fix. Every other rule still runs.
+  parameters: {
+    a11y: { config: { rules: [{ id: "color-contrast", enabled: false }] } },
+  },
+  args: { team, enabled: false, onEnabled: fn() },
   beforeEach: () => {
     mocked(useEnableDirectorySync).mockReturnValue(fn() as any);
     mockStaged(items);
   },
-} satisfies Meta<typeof ReviewDirectoryChangesModal>;
+} satisfies Meta<typeof ReviewDirectoryChanges>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -137,5 +144,51 @@ export const NoPendingMembers: Story = {
   args: { enabled: true },
   beforeEach: () => {
     mockStaged([]);
+  },
+};
+
+// A roster longer than the space it is given. The subpage fills the height of
+// the pane it sits in, so the decorator stands in for that pane: the table is
+// what scrolls, and the acknowledgement and its button stay on screen.
+export const ManyMembersInAShortPane: Story = {
+  decorators: [
+    (Story) => (
+      <div className="flex h-128 flex-col overflow-y-auto">
+        <Story />
+      </div>
+    ),
+  ],
+  beforeEach: () => {
+    mockStaged(
+      Array.from({ length: 40 }, (_, i) => ({
+        member: {
+          id: 100 + i,
+          name: `Member ${i + 1}`,
+          email: `member${i + 1}@acme.com`,
+          role: "admin" as const,
+        },
+        directoryUser: {
+          directoryUserId: `dir_${i}`,
+          email: `member${i + 1}@acme.com`,
+          state: "active" as const,
+          groups: [{ workosGroupId: "group_eng", name: "Engineering" }],
+          role: "developer" as const,
+        },
+      })),
+    );
+  },
+  play: async () => {
+    const table = (await screen.findByRole("table")).closest("div")!;
+    await expect(table.scrollHeight).toBeGreaterThan(table.clientHeight);
+
+    // The point of the inner scroll: the decision stays reachable without
+    // scrolling past forty rows to find it.
+    const enable = await screen.findByRole("button", {
+      name: "Enable directory sync",
+    });
+    const pane = enable.closest("[data-testid='review-directory-changes']")!;
+    await expect(enable.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      pane.getBoundingClientRect().bottom + 1,
+    );
   },
 };

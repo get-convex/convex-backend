@@ -929,26 +929,26 @@ export const screenshots = [
     "storyTitle": "docs/pages/TeamAuthentication#Edit Group Role",
     "light": {
       "filename": "pages_team_authentication_edit_group_role_light.webp",
-      "width": 2048,
-      "height": 1400
+      "width": 812,
+      "height": 544
     },
     "dark": {
       "filename": "pages_team_authentication_edit_group_role_dark.webp",
-      "width": 2048,
-      "height": 1400
+      "width": 812,
+      "height": 544
     }
   },
   {
     "storyTitle": "docs/pages/TeamAuthentication#Review Directory Changes",
     "light": {
       "filename": "pages_team_authentication_review_directory_changes_light.webp",
-      "width": 2560,
-      "height": 1800
+      "width": 2168,
+      "height": 1752
     },
     "dark": {
       "filename": "pages_team_authentication_review_directory_changes_dark.webp",
-      "width": 2560,
-      "height": 1800
+      "width": 2168,
+      "height": 1752
     }
   },
   {
@@ -968,13 +968,13 @@ export const screenshots = [
     "storyTitle": "docs/pages/TeamAuthentication#Pending Members",
     "light": {
       "filename": "pages_team_authentication_pending_members_light.webp",
-      "width": 2048,
-      "height": 1400
+      "width": 1674,
+      "height": 1352
     },
     "dark": {
       "filename": "pages_team_authentication_pending_members_dark.webp",
-      "width": 2048,
-      "height": 1400
+      "width": 1674,
+      "height": 1352
     }
   },
   {

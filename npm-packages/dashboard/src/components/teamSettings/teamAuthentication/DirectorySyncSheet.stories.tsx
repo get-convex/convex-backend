@@ -235,8 +235,25 @@ export const ConfiguredAwaitingSync: Story = {
   },
 };
 
+// HeadlessUI brackets a portaled popover panel with `aria-hidden` sentinel
+// buttons that hand focus back across the portal boundary. They are how the
+// panel keeps its place in the tab order, and axe reads them as hidden
+// controls. Repeats the meta's color-contrast exemption: story parameters
+// replace the rule list rather than extending it.
+const OPEN_POPOVER_A11Y = {
+  a11y: {
+    config: {
+      rules: [
+        { id: "color-contrast", enabled: false },
+        { id: "aria-hidden-focus", enabled: false },
+      ],
+    },
+  },
+};
+
 export const EditGroupRole: Story = {
   ...Configured,
+  parameters: OPEN_POPOVER_A11Y,
   play: async () => {
     await userEvent.click(
       await screen.findByRole("button", { name: "Edit Engineering role" }),
@@ -244,9 +261,38 @@ export const EditGroupRole: Story = {
   },
 };
 
+// The role combobox and the custom-role menu open surfaces of their own, and
+// the popover dismisses on a click outside its panel. They portal into the
+// panel instead, so picking a role adds it rather than closing the editor.
+export const EditGroupRoleAddsCustomRole: Story = {
+  ...Configured,
+  parameters: OPEN_POPOVER_A11Y,
+  play: async () => {
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Edit Engineering role" }),
+    );
+    await userEvent.click(await screen.findByTestId("combobox-button-Role"));
+    await userEvent.click(await screen.findByText("Custom"));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Add custom role" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Support Engineer" }),
+    );
+
+    await expect(await screen.findByTestId("edit-group-role")).toBeVisible();
+    await expect(
+      await screen.findByRole("button", {
+        name: "Remove custom role Support Engineer",
+      }),
+    ).toBeVisible();
+  },
+};
+
 // A member who may manage the directory but not read the team's custom
-// roles: the dialog says so where the selector would be.
+// roles: the popover says so where the selector would be.
 export const EditGroupRoleWithoutCustomRolePermission: Story = {
+  parameters: OPEN_POPOVER_A11Y,
   beforeEach: () => {
     mockConfigured();
     mocked(useIsCurrentMemberTeamAdmin).mockReturnValue(false);
