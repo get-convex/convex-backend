@@ -392,6 +392,12 @@ pub trait Persistence: Sync + Send + 'static {
         request: IndexRetentionRequest<'_>,
     ) -> anyhow::Result<IndexRetentionProgress>;
 
+    /// Whether the database must run the index retention worker. Backends with
+    /// independent index history maintenance return `false`.
+    fn needs_index_retention_deletes(&self) -> bool {
+        true
+    }
+
     // Deletes documents
     async fn delete(
         &self,
