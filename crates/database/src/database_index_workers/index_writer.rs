@@ -417,8 +417,8 @@ impl<RT: Runtime> IndexWriter<RT> {
     /// - `index_selector`: Subset of `index_registry` to backfill.
     ///
     /// Preconditions:
-    /// - The selected indexes are fully backfilled for all revisions at
-    ///   `start_ts`.
+    /// - The selected indexes are fully backfilled at `start_ts`, or the latest
+    ///   documents at `end_ts` have already been snapshot-backfilled.
     /// - No concurrent writes target the selected indexes.
     ///
     /// Postconditions:
