@@ -6055,6 +6055,9 @@ importers:
       effect4:
         specifier: npm:effect@4.0.0-beta.74
         version: effect@4.0.0-beta.74
+      fast-check:
+        specifier: 3.23.2
+        version: 3.23.2
       id-encoding:
         specifier: workspace:*
         version: link:../../id-encoding

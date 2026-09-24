@@ -7,6 +7,7 @@ import { setupDate } from "udf-runtime/src/00_date.js";
 import { setupMisc } from "udf-runtime/src/00_misc";
 import { setupWeakRefs } from "udf-runtime/src/00_weakref";
 import { setupConsole } from "udf-runtime/src/02_console";
+import { setupStructuredClone } from "udf-runtime/src/02_structured_clone";
 import { setupEvent } from "udf-runtime/src/02_event";
 import { setupStreams } from "udf-runtime/src/06_streams";
 import { setupBlob } from "udf-runtime/src/09_file";
@@ -17,10 +18,21 @@ import { setupRequest } from "udf-runtime/src/23_request";
 import { setupResponse } from "udf-runtime/src/23_response";
 import { setupPerformance } from "udf-runtime/src/27_performance";
 
+Object.assign((globalThis as any).__convex_guest_ops, {
+  // V8 terminates the isolate for this op so that no `catch` in a deployment's
+  // dependencies can swallow the message. The guest has no way to terminate
+  // from JS, so here the error is an ordinary throw and reaches the function
+  // like any other.
+  throwUncatchableDeveloperError: (message: string) => {
+    throw new Error(message);
+  },
+});
+
 setupDate(globalThis);
 setupMisc(globalThis);
 setupWeakRefs(globalThis);
 setupConsole(globalThis);
+setupStructuredClone(globalThis);
 setupEvent(globalThis);
 setupStreams(globalThis);
 setupAbortSignal(globalThis);
@@ -70,8 +82,6 @@ globalThis.setInterval = unsupportedFunction("setInterval") as any;
 // Nothing can be scheduled, so there is never a timer to clear.
 globalThis.clearTimeout = () => {};
 globalThis.clearInterval = () => {};
-
-globalThis.structuredClone = unsupportedFunction("structuredClone") as any;
 
 globalThis.WebAssembly = {
   compile: unsupportedFunction("WebAssembly.compile"),
