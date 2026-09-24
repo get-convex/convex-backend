@@ -1,46 +1,29 @@
 ---
-title: "Project Configuration"
-sidebar_label: "Project Configuration"
-sidebar_position: 3
+title: "convex.json"
+slug: "convex.json"
+sidebar_label: "convex.json"
 description:
-  "Configure your Convex project for development and production deployment using
-  convex.json, environment variables, and deployment settings."
+  "Configure your Convex deployment with the convex.json file: functions
+  directory, Node.js version, codegen, bundler and AuthKit options."
 ---
 
-## Local development
+`convex.json` allows you to configure **deployment-specific settings** such as
+the location of your `convex/` folder, the Node.js version, code generation, and
+the WorkOS AuthKit integration.
 
-When you're developing locally you need two pieces of information:
+To modify these settings:
 
-1. The name of your dev deployment. This is where your functions are pushed to
-   and served from. It is stored in the `CONVEX_DEPLOYMENT` environment
-   variable. `npx convex dev` writes it to the `.env.local` file.
-2. The URL of your dev deployment, for your client to connect to. The name of
-   the variable and which file it can be read from varies between client
-   frameworks. `npx convex dev` writes the URL to the `.env.local` or `.env`
-   file.
+1. Modify the `convex.json` file (or create it if it doesn’t already exist).
+   This file must be located at the root of your project (in the same directory
+   as your `package.json`).
+2. Apply these settings by running [`npx convex dev`](/cli/reference/dev.mdx) in
+   development or [`npx convex deploy`](/cli/reference/deploy.mdx) in
+   production.
 
-## Production deployment
-
-You should only be deploying to your production deployment once you have tested
-your changes on your local deployment. When you're ready, you can deploy either
-via a hosting/CI provider or from your local machine.
-
-For a CI environment you can follow the
-[hosting](/production/hosting/hosting.mdx) docs. `npx convex deploy` run by the
-CI pipeline will use the `CONVEX_DEPLOY_KEY`, and the frontend build command
-will use the deployment URL variable, both configured in your CI environment.
-
-You can also deploy your backend from your local machine. `npx convex deploy`
-will ask for a confirmation and then deploy to the production deployment in the
-same project as your configured development `CONVEX_DEPLOYMENT`.
-
-## `convex.json`
-
-Additional project configuration can be specified in the `convex.json` file in
-the root of your project (in the same directory as your `package.json`).
-
-You can use the JSON schema for editor validation by adding a `$schema`
-property:
+To ensure the contents of your `convex.json` file are valid, you can set the
+`$schema` property: code editors that support
+[JSON Schema](https://json-schema.org) will use it to validate the contents of
+the file and provide relevant documentation for each field.
 
 ```json title="convex.json"
 {
@@ -50,7 +33,7 @@ property:
 
 The file supports the following configuration options:
 
-### Changing the `convex/` folder name or location
+## Changing the `convex/` folder name or location
 
 You can choose a different name or location for the `convex/` folder via the
 `functions` field. For example, Create React App doesn't allow importing from
@@ -64,7 +47,7 @@ have the following config:
 }
 ```
 
-### Configuring AI files messages
+## Configuring AI files messages
 
 Convex can install AI helper files (for tools like Cursor and Claude Code) and
 show install or update suggestions during `npx convex dev`.
@@ -104,19 +87,19 @@ You can also configure which agents the Convex skills are installed for
 }
 ```
 
-### Installing packages on the server
+## Installing packages on the server
 
 You can specify which packages used by Node actions should be installed on the
 server, instead of being bundled, via the `node.externalPackages` field.
 [Read more](/functions/bundling.mdx#external-packages).
 
-### Importing the generated functions API via `require()` syntax
+## Importing the generated functions API via `require()` syntax
 
 The Convex code generation can be configured to generate a CommonJS-version of
 the `_generated/api.js` file via the `generateCommonJSApi` field.
 [Read more](/client/javascript/node.mdx#javascript-with-commonjs-require-syntax).
 
-### Configuring the Node.js version
+## Configuring the Node.js version
 
 You can specify which Node.js version is used by Node actions via the
 `node.nodeVersion` field. The currently supported values are `"20"`, `"22"`, and
@@ -146,7 +129,7 @@ used instead.
 When pushing a new Node.js version to the server, the new code for your
 functions may be executed in the old Node.js version for up a few minutes.
 
-### Using static code generation (beta)
+## Using static code generation (beta)
 
 Convex's code generation heavily relies on TypeScript's type inference. This
 makes updates snappy and jump-to-definition work for the `api` and `internal`
@@ -181,7 +164,7 @@ but it does have some tradeoffs:
 This feature is currently in beta, and we'd love to improve these limitations.
 Let us know if you run into any issues or have any feedback!
 
-### Configuring the TypeScript compiler
+## Configuring the TypeScript compiler
 
 By default, Convex uses the `tsc` binary installed in your project for
 typechecking. This works with TypeScript 6 and TypeScript 7 without any
@@ -207,7 +190,7 @@ uses Convex's default `tsc` selection.
 
 </Admonition>
 
-### Configuring WorkOS AuthKit integration
+## Configuring WorkOS AuthKit integration
 
 If you're using [WorkOS AuthKit](/auth/authkit/index.mdx) for authentication,
 you can configure automatic provisioning (development only) and configuration of

@@ -126,6 +126,7 @@
 /open-source                        /self-hosting
 /components/using-components        /components/using
 /chef                               /chef/migration-guide
+/production/project-configuration   /config/convex.json
 
 /tutorial                           /tutorial/overview
 /quickstarts                        /quickstart/overview

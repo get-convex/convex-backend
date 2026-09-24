@@ -1197,7 +1197,7 @@ impl StartPushRequest {
             Some(NodeVersion::V18x) => {
                 anyhow::bail!(ErrorMetadata::bad_request(
                     "NodeVersionNotSupported",
-                    "Node 18 is no longer supported. Upgrade to a newer Node version (https://docs.convex.dev/production/project-configuration#configuring-the-nodejs-version)."
+                    "Node 18 is no longer supported. Upgrade to a newer Node version (https://docs.convex.dev/config/convex.json#configuring-the-nodejs-version)."
                 ))
             },
             version => version,
