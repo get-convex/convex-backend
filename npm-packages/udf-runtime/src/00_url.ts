@@ -68,8 +68,15 @@ class URLSearchParams {
         this.append(key, value);
       });
     } else {
+      // WebIDL record conversion: keys become USVStrings, so keys that differ
+      // only in lone surrogates collapse into one entry, keeping the first
+      // key's position and the last key's value.
+      const record = new Map<string, string>();
       for (const key in init) {
-        this.append(key, init[key]!);
+        record.set(key.toWellFormed(), String(init[key]));
+      }
+      for (const [key, value] of record) {
+        this.append(key, value);
       }
     }
   }
@@ -83,7 +90,10 @@ class URLSearchParams {
   }
 
   append(name: string, value: string): void {
-    this[_searchParamPairs].push([String(name), String(value)]);
+    this[_searchParamPairs].push([
+      String(name).toWellFormed(),
+      String(value).toWellFormed(),
+    ]);
     this._updateUrl();
   }
 
