@@ -58,6 +58,7 @@ use value::{
     NamespacedTableMapping,
 };
 
+pub(crate) use self::errors::uncatchable_developer_error;
 use self::{
     console::{
         op_console_message,

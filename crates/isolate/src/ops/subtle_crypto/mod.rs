@@ -48,10 +48,8 @@ use crate::{
         ToV8,
         TypeError,
     },
-    ops::{
-        errors::throw_uncatchable_developer_error,
-        V8OpProvider,
-    },
+    environment::UncatchableDeveloperError,
+    ops::V8OpProvider,
     strings,
 };
 
@@ -197,23 +195,16 @@ impl FromV8 for JsKeyDeriveParams {
     }
 }
 
-fn unimplemented<'b, P: V8OpProvider<'b>>(
-    provider: &mut P,
-    operation: &'static str,
-    algorithm: &'static str,
-) -> anyhow::Result<!> {
-    throw_uncatchable_developer_error(
-        provider,
-        format!(
+fn unimplemented(operation: &'static str, algorithm: &'static str) -> anyhow::Error {
+    UncatchableDeveloperError {
+        message: format!(
             "Not implemented: crypto.subtle.{operation} for {algorithm}. {USE_NODE_SUGGESTION}"
         ),
-    )
+    }
+    .into()
 }
 
-fn flatten_error<'b, P: V8OpProvider<'b>>(
-    provider: &mut P,
-    error: webcrypto::Error,
-) -> anyhow::Error {
+fn flatten_error(error: webcrypto::Error) -> anyhow::Error {
     match error {
         webcrypto::Error::Dom { name, message } => JsException::DOMException(DOMException {
             name: name.into(),
@@ -224,16 +215,9 @@ fn flatten_error<'b, P: V8OpProvider<'b>>(
         webcrypto::Error::NotImplemented {
             operation,
             algorithm,
-        } => unimplemented(provider, operation, algorithm).unwrap_err(),
+        } => unimplemented(operation, algorithm),
         webcrypto::Error::Other(e) => e,
     }
-}
-
-fn flatten_result<'b, P: V8OpProvider<'b>, T>(
-    provider: &mut P,
-    result: webcrypto::Result<T>,
-) -> anyhow::Result<T> {
-    result.map_err(|e| flatten_error(provider, e))
 }
 
 #[convex_macro::v8_op]
@@ -245,11 +229,9 @@ pub(crate) fn op_crypto_subtle_import_key<'b, P: V8OpProvider<'b>>(
     extractable: bool,
     key_usages: IndexSet<KeyUsage>,
 ) -> anyhow::Result<JsCryptoKey> {
-    flatten_result(
-        provider,
-        webcrypto::import_key(format, key_data, algorithm, extractable, key_usages),
-    )
-    .map(JsCryptoKey)
+    webcrypto::import_key(format, key_data, algorithm, extractable, key_usages)
+        .map_err(flatten_error)
+        .map(JsCryptoKey)
 }
 
 #[convex_macro::v8_op]
@@ -259,7 +241,9 @@ pub(crate) fn op_crypto_subtle_derive_bits<'b, P: V8OpProvider<'b>>(
     key: JsCryptoKey,
     length: Option<usize>,
 ) -> anyhow::Result<ArrayBuffer> {
-    flatten_result(provider, webcrypto::derive_bits(algorithm, &key, length)).map(ArrayBuffer)
+    webcrypto::derive_bits(algorithm, &key, length)
+        .map_err(flatten_error)
+        .map(ArrayBuffer)
 }
 
 pub(super) struct JsDerivedKeyAlgorithm;
@@ -296,16 +280,14 @@ pub(crate) fn op_crypto_subtle_derive_key<'b, P: V8OpProvider<'b>>(
     extractable: bool,
     key_usages: IndexSet<KeyUsage>,
 ) -> anyhow::Result<JsCryptoKey> {
-    flatten_result(
-        provider,
-        webcrypto::derive_key(
-            algorithm,
-            &base_key,
-            derived_key_type,
-            extractable,
-            key_usages,
-        ),
+    webcrypto::derive_key(
+        algorithm,
+        &base_key,
+        derived_key_type,
+        extractable,
+        key_usages,
     )
+    .map_err(flatten_error)
     .map(JsCryptoKey)
 }
 
@@ -348,11 +330,9 @@ pub(crate) fn op_crypto_subtle_generate_key<'b, P: V8OpProvider<'b>>(
     key_usages: IndexSet<KeyUsage>,
 ) -> anyhow::Result<JsCryptoKeyOrPair> {
     let rng = provider.crypto_rng()?;
-    flatten_result(
-        provider,
-        webcrypto::generate_key(algorithm, &rng, extractable, key_usages),
-    )
-    .map(JsCryptoKeyOrPair)
+    webcrypto::generate_key(algorithm, &rng, extractable, key_usages)
+        .map_err(flatten_error)
+        .map(JsCryptoKeyOrPair)
 }
 
 #[convex_macro::v8_op]
@@ -361,7 +341,9 @@ pub(crate) fn op_crypto_subtle_export_key<'b, P: V8OpProvider<'b>>(
     format: KeyFormat,
     key: JsCryptoKey,
 ) -> anyhow::Result<JsKeyData> {
-    flatten_result(provider, webcrypto::export_key(format, &key)).map(JsKeyData)
+    webcrypto::export_key(format, &key)
+        .map_err(flatten_error)
+        .map(JsKeyData)
 }
 
 pub(super) struct JsEncryptDecryptAlgorithm;
@@ -401,11 +383,9 @@ pub(crate) fn op_crypto_subtle_decrypt<'b, P: V8OpProvider<'b>>(
     key: JsCryptoKey,
     data: ByteBuf,
 ) -> anyhow::Result<ArrayBuffer> {
-    flatten_result(
-        provider,
-        webcrypto::decrypt(algorithm, &key, data.into_vec()),
-    )
-    .map(ArrayBuffer)
+    webcrypto::decrypt(algorithm, &key, data.into_vec())
+        .map_err(flatten_error)
+        .map(ArrayBuffer)
 }
 
 #[convex_macro::v8_op]
@@ -421,7 +401,7 @@ pub(crate) fn op_crypto_subtle_encrypt<'b, P: V8OpProvider<'b>>(
         || Ok(provider.crypto_rng()?),
         data.into_vec(),
     );
-    flatten_result(provider, result).map(ArrayBuffer)
+    result.map_err(flatten_error).map(ArrayBuffer)
 }
 
 pub(super) struct JsDigestAlgorithm;
@@ -450,7 +430,9 @@ pub(crate) fn op_crypto_subtle_digest<'b, P: V8OpProvider<'b>>(
     algorithm: JsDigestAlgorithm,
     data: ByteBuf,
 ) -> anyhow::Result<ArrayBuffer> {
-    flatten_result(provider, webcrypto::digest(algorithm, &data)).map(ArrayBuffer)
+    webcrypto::digest(algorithm, &data)
+        .map_err(flatten_error)
+        .map(ArrayBuffer)
 }
 
 pub(super) struct JsSignVerifyAlgorithm;
@@ -488,7 +470,7 @@ pub(crate) fn op_crypto_subtle_sign<'b, P: V8OpProvider<'b>>(
     data: ByteBuf,
 ) -> anyhow::Result<ArrayBuffer> {
     let result = webcrypto::sign(algorithm, &key, || Ok(provider.crypto_rng()?), &data);
-    flatten_result(provider, result).map(ArrayBuffer)
+    result.map_err(flatten_error).map(ArrayBuffer)
 }
 
 #[convex_macro::v8_op]
@@ -499,10 +481,7 @@ pub(crate) fn op_crypto_subtle_verify<'b, P: V8OpProvider<'b>>(
     signature: ByteBuf,
     data: ByteBuf,
 ) -> anyhow::Result<bool> {
-    flatten_result(
-        provider,
-        webcrypto::verify(algorithm, &key, &signature, &data),
-    )
+    webcrypto::verify(algorithm, &key, &signature, &data).map_err(flatten_error)
 }
 
 /// Note: this op is never called, JS raises an error directly

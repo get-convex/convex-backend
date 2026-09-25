@@ -185,6 +185,7 @@ use crate::{
         JsEnvironment,
         OpProvider,
         SyscallProvider,
+        UncatchableDeveloperError,
     },
     helpers::{
         self,
@@ -1208,7 +1209,22 @@ where
                 scope!(let result_scope, &mut *scope);
                 let result_v8 = match result {
                     Ok(v) => Ok(serde_v8::to_v8(result_scope, v)?),
-                    Err(e) => Err(e),
+                    Err(e) => match e.downcast::<UncatchableDeveloperError>() {
+                        // Ends the function before any JS sees this result,
+                        // which is what makes it uncatchable.
+                        Ok(UncatchableDeveloperError { message }) => {
+                            report_error_sync(&mut anyhow::anyhow!(
+                                "UncatchableDeveloperError: {message}"
+                            ));
+                            handle.terminate_and_throw(
+                                ContextTerminationReason::UncatchableDeveloperError(
+                                    JsError::from_message(message),
+                                )
+                                .into(),
+                            )?;
+                        },
+                        Err(e) => Err(e),
+                    },
                 };
                 resolve_promise(result_scope, resolver, result_v8)?;
             }

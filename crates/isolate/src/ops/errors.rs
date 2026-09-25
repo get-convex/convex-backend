@@ -19,10 +19,11 @@ use crate::{
     strings,
 };
 
-pub(crate) fn throw_uncatchable_developer_error<'b, P: V8OpProvider<'b>>(
+/// Gather the current stack trace and construct a JsError.
+pub(crate) fn uncatchable_developer_error<'b, P: V8OpProvider<'b>>(
     provider: &mut P,
     message: String,
-) -> anyhow::Result<!> {
+) -> JsError {
     let frame_data: anyhow::Result<Vec<FrameData>> = try_anyhow!({
         let mut scope = provider.scope();
         scope!(let scope, &mut scope);
@@ -41,8 +42,9 @@ pub(crate) fn throw_uncatchable_developer_error<'b, P: V8OpProvider<'b>>(
         let frame_data_json = frame_data_json.to_rust_string_lossy(scope);
         serde_json::from_str(&frame_data_json)?
     });
-    let js_error = JsError::from_frames(
-        message.clone(),
+    report_error_sync(&mut anyhow::anyhow!("UncatchableDeveloperError: {message}"));
+    JsError::from_frames(
+        message,
         match frame_data {
             Ok(data) => data,
             Err(mut e) => {
@@ -52,20 +54,15 @@ pub(crate) fn throw_uncatchable_developer_error<'b, P: V8OpProvider<'b>>(
         },
         None,
         |s| provider.lookup_source_map(s),
-    );
-    report_error_sync(&mut anyhow::anyhow!(format!(
-        "UncatchableDeveloperError: {}",
-        message
-    )));
-    anyhow::bail!(UncatchableDeveloperError { js_error })
+    )
 }
 
 #[convex_macro::v8_op]
 pub fn op_throw_uncatchable_developer_error<'b, P: V8OpProvider<'b>>(
-    provider: &mut P,
+    _provider: &mut P,
     message: String,
 ) -> anyhow::Result<()> {
-    throw_uncatchable_developer_error(provider, message)?;
+    anyhow::bail!(UncatchableDeveloperError { message })
 }
 
 /// Do source mapping to find the stack trace for an error.

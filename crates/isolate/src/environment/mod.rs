@@ -20,7 +20,6 @@ pub mod schema;
 pub mod udf;
 
 use common::{
-    errors::JsError,
     log_lines::LogLevel,
     runtime::{
         Runtime,
@@ -131,10 +130,14 @@ impl<RT: Runtime, E> V8IsolateEnvironment<RT> for E where
 {
 }
 
+/// An uncatchable developer error thrown from an op or provider.
+///
+/// This is caught by the syscall or op boundary, which captures the JS stack
+/// (if any) at that point and ends the function with it.
 #[derive(Debug, thiserror::Error)]
-#[error("UncatchableDeveloperError")]
+#[error("{message}")]
 pub struct UncatchableDeveloperError {
-    pub js_error: JsError,
+    pub message: String,
 }
 
 pub enum ModuleCodeCacheResult {

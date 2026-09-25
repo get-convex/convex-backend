@@ -66,6 +66,7 @@ use crate::{
     ops::{
         run_v8_op,
         start_async_op,
+        uncatchable_developer_error,
     },
     strings,
     termination::{
@@ -345,19 +346,19 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>> RequestScope<
     }
 
     fn handle_syscall_or_op_error(scope: &mut ExecutionScope<RT, E>, err: anyhow::Error) {
-        if let Some(uncatchable_error) = err.downcast_ref::<UncatchableDeveloperError>() {
-            scope.handle().terminate(
-                ContextTerminationReason::UncatchableDeveloperError(
-                    uncatchable_error.js_error.clone(),
-                )
-                .into(),
-            );
-            let message = uncatchable_error.js_error.message.to_string();
-            let message_v8 = v8::String::new(scope, &message[..]).unwrap();
-            let exception = v8::Exception::error(scope, message_v8);
-            scope.throw_exception(exception);
-            return;
-        }
+        let err = match err.downcast::<UncatchableDeveloperError>() {
+            Ok(UncatchableDeveloperError { message }) => {
+                let js_error = uncatchable_developer_error(scope, message);
+                let message_v8 = v8::String::new(scope, &js_error.message[..]).unwrap();
+                scope.handle().terminate(
+                    ContextTerminationReason::UncatchableDeveloperError(js_error).into(),
+                );
+                let exception = v8::Exception::error(scope, message_v8);
+                scope.throw_exception(exception);
+                return;
+            },
+            Err(err) => err,
+        };
 
         let js_exception = err.downcast::<JsException>();
         let err = match js_exception {
