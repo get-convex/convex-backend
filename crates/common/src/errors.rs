@@ -520,7 +520,9 @@ impl fmt::Display for FrameData {
         if self.is_promise_all
             && let Some(promise_index) = self.promise_index
         {
-            write!(f, "Promise.all (index {promise_index})")?;
+            // V8's `SerializeJSStackFrame` renders a `Promise.all` frame as
+            // just its element index, with no function name or location.
+            return write!(f, "Promise.all (index {promise_index})");
         }
         let is_method_call = !(self.is_top_level == Some(true) || self.is_constructor);
         if is_method_call {
