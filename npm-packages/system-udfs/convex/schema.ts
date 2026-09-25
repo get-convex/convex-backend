@@ -560,9 +560,7 @@ export default defineSchema({
         totalDocs: v.union(v.int64(), v.null()),
       }),
     ),
-  )
-    .index("by_validation_id", ["validationId"])
-    .index("by_schema_id", ["schemaId"]),
+  ).index("by_validation_id", ["validationId"]),
   _log_sinks: logSinksTable,
   _backend_state: backendStateTable,
   _snapshot_imports: snapshotImportsTable,

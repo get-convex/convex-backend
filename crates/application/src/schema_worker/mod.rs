@@ -297,8 +297,8 @@ impl<RT: Runtime> SchemaWorker<RT> {
             let mut current_page_ts = None;
             let mut fresh_mapping = table_mapping.clone();
             let mut table_name = fresh_mapping.tablet_name(tablet_id)?;
-            // Progress rows are keyed by the table's name when the walk
-            // started; a mid-walk rename must keep writing to the same row.
+            // Progress documents are keyed by the table's name when the walk
+            // started; a mid-walk rename must keep writing to the same document.
             let row_table_name = table_name.clone();
             while let Some((LatestDocument { value: doc, .. }, page_ts)) = stream.try_next().await?
             {
@@ -398,7 +398,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
 }
 
 /// Tracks per-table progress of schema validation for the tables that need to
-/// be validated, periodically writing progress to that table's row in the
+/// be validated, periodically writing progress to that table's document in the
 /// `_schema_validation_progress` table for the given namespace and schema.
 struct SchemaValidationProgressTracker<RT: Runtime> {
     database: Database<RT>,
@@ -503,8 +503,8 @@ impl<RT: Runtime> SchemaValidationProgressTracker<RT> {
         self.update_validation_progress(table_name).await
     }
 
-    /// Flushes the table's remaining progress and marks its row `Valid` once
-    /// its walk completes. Returns false if validation was canceled.
+    /// Flushes the table's remaining progress and marks its document `Valid`
+    /// once its walk completes. Returns false if validation was canceled.
     async fn record_table_finished(&mut self, table_name: &TableName) -> anyhow::Result<bool> {
         if !self.update_validation_progress(table_name).await? {
             return Ok(false);
@@ -524,9 +524,9 @@ impl<RT: Runtime> SchemaValidationProgressTracker<RT> {
     }
 }
 
-/// Flush progress to the table's row every 5% of the table or 500 documents,
-/// whichever is smaller, so progress stays fresh without slowing validation
-/// down with writes.
+/// Flush progress to the table's document every 5% of the table or 500
+/// documents, whichever is smaller, so progress stays fresh without slowing
+/// validation down with writes.
 fn progress_update_threshold(total_docs: Option<u64>) -> NonZeroU64 {
     NonZeroU64::new(
         total_docs

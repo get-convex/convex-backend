@@ -54,19 +54,7 @@ export const schemaValidationProgress = queryPrivateSystem("ViewData")({
       attempts.map((attempt) => validationProgress(db, attempt)),
     );
     if (rows.length === 0) {
-      const legacy = await db
-        .query("_schema_validation_progress")
-        .withIndex("by_schema_id", (q) => q.eq("schemaId", pending._id))
-        .unique();
-      return legacy === null
-        ? null
-        : {
-            numDocsValidated: Number(legacy.numDocsValidated),
-            totalDocs:
-              legacy.totalDocs === null
-                ? null
-                : Number(legacy.totalDocs) || null,
-          };
+      return null;
     }
     return {
       numDocsValidated: rows.reduce(

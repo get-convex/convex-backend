@@ -173,7 +173,6 @@ pub use self::{
             types::SchemaValidationProgress,
             SchemaValidationProgressModel,
             SchemaValidationProgressTable,
-            SCHEMA_VALIDATION_PROGRESS_BY_SCHEMA_ID,
             SCHEMA_VALIDATION_PROGRESS_BY_VALIDATION_ID,
             SCHEMA_VALIDATION_PROGRESS_TABLE,
         },

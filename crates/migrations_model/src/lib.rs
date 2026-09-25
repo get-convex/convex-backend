@@ -28,13 +28,14 @@ pub mod migr_121;
 pub mod migr_124;
 pub mod migr_125;
 pub mod migr_130;
+pub mod migr_133;
 
 pub type DatabaseVersion = i64;
 // The version for the format of the database. We support all previous
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 132; // ayush
+pub const DATABASE_VERSION: DatabaseVersion = 133; // ayush
 
 pub struct MigrationExecutor<RT: Runtime> {
     pub db: Database<RT>,
@@ -156,6 +157,14 @@ impl<RT: Runtime> MigrationExecutor<RT> {
             },
             132 => {
                 // Bootstrap creates by_validation_id before attempt-owned counters are written.
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
+            133 => {
+                let mut tx = self.db.begin_system().await?;
+                migr_133::run_migration(&mut tx).await?;
+                self.db
+                    .commit_with_write_source(tx, "migration_133")
+                    .await?;
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             _ => anyhow::bail!("Version did not define a migration! {}", to_version),
