@@ -137,6 +137,10 @@ class URLSearchParams {
     this._updateUrl();
   }
 
+  get size(): number {
+    return this[_searchParamPairs].length;
+  }
+
   sort() {
     this[_searchParamPairs].sort((a, b) => {
       return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0;
