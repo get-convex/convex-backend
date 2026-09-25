@@ -142,8 +142,23 @@ class URLSearchParams {
   }
 
   set(name: string, value: string) {
-    this.delete(name);
-    this.append(name, value);
+    name = String(name);
+    value = String(value);
+    let found = false;
+    this[_searchParamPairs] = this[_searchParamPairs].filter((pair) => {
+      if (pair[0] !== name) {
+        return true;
+      }
+      if (found) {
+        return false;
+      }
+      found = true;
+      pair[1] = value;
+      return true;
+    });
+    if (!found) {
+      this[_searchParamPairs].push([name, value]);
+    }
     this._updateUrl();
   }
 
