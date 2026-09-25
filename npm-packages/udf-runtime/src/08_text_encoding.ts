@@ -82,12 +82,15 @@ class TextDecoder {
 
     try {
       if (!stream && this.#decoder === null) {
-        const { text } = performOp("textEncoder/decodeSingle", {
+        const { text, error } = performOp("textEncoder/decodeSingle", {
           bytes: copyBuffer(buffer),
           encoding: this.encoding,
           fatal: this.fatal,
           ignoreBOM: this.ignoreBOM,
         });
+        if (error) {
+          throw new TypeError(error);
+        }
         return text;
       }
 
@@ -100,12 +103,15 @@ class TextDecoder {
         );
       }
 
-      const { text } = performOp(
+      const { text, error } = performOp(
         "textEncoder/decode",
         copyBuffer(buffer),
         this.#decoder,
         stream,
       );
+      if (error) {
+        throw new TypeError(error);
+      }
       return text;
     } finally {
       if (!stream) {
