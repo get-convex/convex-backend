@@ -16,6 +16,11 @@ class TextEncoder {
     return performOp("textEncoder/encode", text);
   }
   encodeInto(input: string, dest: Uint8Array) {
+    if (!(dest instanceof Uint8Array)) {
+      throw new TypeError(
+        "Failed to execute 'encodeInto' on 'TextEncoder': parameter 2 is not of type 'Uint8Array'.",
+      );
+    }
     const space = dest.length;
     const output = performOp("textEncoder/encodeInto", input, space);
     const { bytes, read, written } = output;
