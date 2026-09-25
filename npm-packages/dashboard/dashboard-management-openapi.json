@@ -3522,6 +3522,7 @@
           "enableSSO",
           "disableSSO",
           "updateSSO",
+          "loginWithSSO",
           "enableDirectorySync",
           "disableDirectorySync",
           "updateDirectorySyncGroupMapping",

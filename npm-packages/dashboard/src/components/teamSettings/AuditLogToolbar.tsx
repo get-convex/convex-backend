@@ -78,6 +78,7 @@ const AUDIT_LOG_ACTIONS = [
   "sso:enable",
   "sso:disable",
   "sso:update",
+  "member:loginWithSso",
   "directorySync:enable",
   "directorySync:disable",
   "directorySync:updateGroupMapping",

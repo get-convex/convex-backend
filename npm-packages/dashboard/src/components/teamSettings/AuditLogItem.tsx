@@ -647,6 +647,9 @@ function EntryAction({
     case "sso:update": {
       return <span>updated SSO settings</span>;
     }
+    case "member:loginWithSso": {
+      return <span>signed in with SSO</span>;
+    }
     case "directorySync:enable": {
       return <span>enabled directory sync</span>;
     }
