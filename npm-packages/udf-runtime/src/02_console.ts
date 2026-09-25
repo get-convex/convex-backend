@@ -17,11 +17,9 @@ function getMessage(args) {
 }
 
 function toString(value: unknown, defaultValue: string) {
-  return value === undefined
-    ? defaultValue
-    : value === null
-      ? "null"
-      : value.toString();
+  // `String()` yields a string for the op even when a label's `toString`
+  // returns a non-string.
+  return value === undefined ? defaultValue : String(value);
 }
 
 function consoleMessage(level, args) {
