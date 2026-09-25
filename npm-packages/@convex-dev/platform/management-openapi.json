@@ -917,7 +917,18 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
       }
     },
     "/teams/{team_id}/list_deployments": {
