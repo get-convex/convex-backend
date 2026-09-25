@@ -17,16 +17,7 @@ import { setupFormData } from "udf-runtime/src/21_formdata";
 import { setupRequest } from "udf-runtime/src/23_request";
 import { setupResponse } from "udf-runtime/src/23_response";
 import { setupPerformance } from "udf-runtime/src/27_performance";
-
-Object.assign((globalThis as any).__convex_guest_ops, {
-  // V8 terminates the isolate for this op so that no `catch` in a deployment's
-  // dependencies can swallow the message. The guest has no way to terminate
-  // from JS, so here the error is an ordinary throw and reaches the function
-  // like any other.
-  throwUncatchableDeveloperError: (message: string) => {
-    throw new Error(message);
-  },
-});
+import { setupJsSyscall } from "udf-runtime/src/js_syscall";
 
 setupDate(globalThis);
 setupMisc(globalThis);
@@ -42,6 +33,7 @@ setupFormData(globalThis);
 setupRequest(globalThis);
 setupResponse(globalThis);
 setupPerformance(globalThis);
+setupJsSyscall(globalThis);
 
 // TODO: implement actions
 globalThis.fetch = async () => {

@@ -15,13 +15,12 @@ import { setupTextEncoding } from "./08_text_encoding.js";
 import { setupBlob } from "./09_file.js";
 import { setupHeaders } from "./20_headers.js";
 import { setupFormData } from "./21_formdata.js";
-import { requestFromConvexJson, setupRequest } from "./23_request.js";
-import { convexJsonFromResponse, setupResponse } from "./23_response.js";
+import { setupRequest } from "./23_request.js";
+import { setupResponse } from "./23_response.js";
 import { setupFetch } from "./26_fetch.js";
 import { setupPerformance } from "./27_performance.js";
 import { setupSourceMapping } from "./errors.js";
-import { throwUncatchableDeveloperError } from "./helpers.js";
-import { getBlob, storeBlob } from "./storage.js";
+import { setupJsSyscall } from "./js_syscall.js";
 import { setupStructuredClone } from "./02_structured_clone.js";
 
 /**
@@ -62,18 +61,5 @@ export function setup(global: any) {
   setupFetch(global);
   setupPerformance(global);
 
-  global.Convex.jsSyscall = (op: string, args: Record<string, any>) => {
-    switch (op) {
-      case "requestFromConvexJson":
-        return requestFromConvexJson(args as any);
-      case "convexJsonFromResponse":
-        return convexJsonFromResponse(args as any);
-      case "storage/storeBlob":
-        return storeBlob(args as any);
-      case "storage/getBlob":
-        return getBlob(args as any);
-      default:
-        return throwUncatchableDeveloperError(`Unknown JS syscall: ${op}`);
-    }
-  };
+  setupJsSyscall(global);
 }
