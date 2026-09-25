@@ -97,10 +97,12 @@ class URLSearchParams {
     this._updateUrl();
   }
 
-  delete(name: string) {
-    this[_searchParamPairs] = this[_searchParamPairs].filter(([key]) => {
-      return key !== String(name);
-    });
+  delete(name: string, value?: string) {
+    const n = String(name);
+    const v = value === undefined ? undefined : String(value);
+    this[_searchParamPairs] = this[_searchParamPairs].filter(
+      ([key, val]) => key !== n || (v !== undefined && val !== v),
+    );
     this._updateUrl();
   }
 
