@@ -8,6 +8,18 @@ import {
 } from "./helpers.js";
 import { performOp } from "udf-syscall-ffi";
 
+const INTEGER_TYPED_ARRAYS = [
+  Int8Array,
+  Uint8Array,
+  Uint8ClampedArray,
+  Int16Array,
+  Uint16Array,
+  Int32Array,
+  Uint32Array,
+  BigInt64Array,
+  BigUint64Array,
+];
+
 class Crypto {
   constructor() {
     throwUncatchableDeveloperError("Illegal constructor: Crypto");
@@ -16,10 +28,7 @@ class Crypto {
   getRandomValues(typedArray: ArrayBufferView) {
     const prefix = "Failed to execute 'getRandomValues' on 'Crypto'";
     requiredArguments(arguments.length, 1, prefix);
-    if (
-      typedArray instanceof Float32Array ||
-      typedArray instanceof Float64Array
-    ) {
+    if (!INTEGER_TYPED_ARRAYS.some((ctor) => typedArray instanceof ctor)) {
       throw new DOMException(
         "The provided ArrayBufferView is not an integer array type",
         "TypeMismatchError",
