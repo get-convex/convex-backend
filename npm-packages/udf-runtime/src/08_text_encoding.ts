@@ -50,7 +50,7 @@ class TextDecoder {
       label,
     );
     if (error) {
-      throw new DOMException(error, "RangeError");
+      throw new RangeError(error);
     }
 
     this.#encoding = encoding;
