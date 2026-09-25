@@ -114,7 +114,7 @@ export function ProvisionDeploymentFormInner({
   return (
     <div className="flex size-full justify-center">
       <div className="my-auto flex w-full max-w-xl flex-col gap-6 p-4">
-        <Sheet className="relative">
+        <Sheet className="relative overflow-hidden">
           <Globe selectedRegion={selectedRegion} />
           <form
             className="relative flex flex-col gap-6 p-3"
