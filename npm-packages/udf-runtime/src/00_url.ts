@@ -139,7 +139,7 @@ class URLSearchParams {
 
   sort() {
     this[_searchParamPairs].sort((a, b) => {
-      return a[0].localeCompare(b[0]);
+      return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0;
     });
     this._updateUrl();
   }
