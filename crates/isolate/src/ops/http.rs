@@ -234,6 +234,22 @@ struct UrlInfo {
     search: String,
     username: String,
     password: String,
+    origin: String,
+}
+
+/// The URL spec restricts a blob: URL's origin to its inner URL's origin when
+/// that inner URL is http(s); the url crate also accepts other schemes (e.g.
+/// ftp, ws), which the spec treats as opaque.
+fn url_origin(url: &Url) -> String {
+    if url.scheme() == "blob" {
+        return match Url::parse(url.path()) {
+            Ok(inner) if matches!(inner.scheme(), "http" | "https") => {
+                inner.origin().ascii_serialization()
+            },
+            _ => "null".to_string(),
+        };
+    }
+    url.origin().ascii_serialization()
 }
 
 impl From<Url> for UrlInfo {
@@ -249,6 +265,7 @@ impl From<Url> for UrlInfo {
             search: value[Position::BeforeQuery..Position::AfterQuery].to_string(),
             username: value.username().to_owned(),
             password: value.password().unwrap_or_default().to_owned(),
+            origin: url_origin(&value),
         }
     }
 }

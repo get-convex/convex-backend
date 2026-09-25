@@ -223,6 +223,7 @@ type UrlInfo = {
   href: string;
   username: string;
   password: string;
+  origin: string;
 };
 
 class URL {
@@ -300,16 +301,7 @@ class URL {
   }
 
   get origin() {
-    switch (this.#urlInfo.scheme) {
-      case "ftp":
-      case "http":
-      case "https":
-      case "ws":
-      case "wss":
-        return `${this.#urlInfo.scheme}://${this.host}`;
-      default:
-        return "null";
-    }
+    return this.#urlInfo.origin;
   }
 
   get password() {
