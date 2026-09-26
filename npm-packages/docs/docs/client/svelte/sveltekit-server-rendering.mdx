@@ -68,6 +68,27 @@ export const transport = {
 };
 ```
 
+If you call `convexLoad()` in universal load functions (`+page.ts`,
+`+layout.ts`), also add the `convexLoadHydration` handle to `hooks.server.ts`
+(requires SvelteKit 2.56 or later):
+
+```ts title="src/hooks.server.ts"
+import { convexLoadHydration } from "convex-svelte/sveltekit/server/hydration";
+
+export const handle = convexLoadHydration;
+```
+
+SvelteKit runs universal load functions on the server and then
+[again in the browser during hydration](https://svelte.dev/docs/kit/load#Universal-vs-server).
+That second run happens before `setupAuth()` in your root layout has
+authenticated the client. The handle embeds the server's `convexLoad()` results
+in the HTML, and the browser reuses them instead of querying Convex again. That
+way authenticated data stays authenticated, and the page becomes interactive
+without waiting for the WebSocket. The live subscription starts once auth is set
+up. To combine the handle with your own, use
+[`sequence()`](https://svelte.dev/docs/kit/@sveltejs-kit-hooks#sequence), as in
+[Authenticated fetches](#authenticated-fetches).
+
 ### Usage with convexLoad
 
 ```ts title="src/routes/+page.ts"
@@ -157,13 +178,17 @@ needed.
 
 ```ts title="src/hooks.server.ts"
 import type { Handle } from "@sveltejs/kit";
+import { sequence } from "@sveltejs/kit/hooks";
 import { withServerConvexToken } from "convex-svelte/sveltekit/server";
+import { convexLoadHydration } from "convex-svelte/sveltekit/server/hydration";
 
-export const handle: Handle = async ({ event, resolve }) => {
+const convexAuth: Handle = async ({ event, resolve }) => {
   const token = await getAuthToken(event.cookies); // your auth provider
   event.locals.token = token;
   return withServerConvexToken(token, () => resolve(event));
 };
+
+export const handle = sequence(convexLoadHydration, convexAuth);
 ```
 
 Then use `convexLoad` in **any** load function — `+page.ts` or
@@ -212,17 +237,83 @@ without making any request. `convexLoadPaginated` returns
 **client-side navigation** (after the first SSR page load):
 
 - **`+page.ts` (universal):** On client-side navigation, `convexLoad` runs in
-  the browser and queries Convex directly — no server roundtrip. Auth is handled
-  implicitly via the already-authenticated `ConvexClient` singleton (configured
-  by `setupAuth()` in your root layout).
+  the browser and subscribes to Convex directly — no server roundtrip. Auth is
+  handled implicitly via the already-authenticated `ConvexClient` singleton
+  (configured by `setupAuth()` in your root layout). On the first page load, the
+  browser reuses the server's result during hydration, as long as
+  [`convexLoadHydration`](#setup) is set up.
 - **`+page.server.ts` (server-only):** On client-side navigation, SvelteKit
   fetches from your server, which then queries Convex — adding an extra network
   hop. Auth is always explicit (server-side via `withServerConvexToken` or
   `locals.token`).
 
 Both produce identical SSR on first page load. Use `+page.ts` for best
-navigation performance. Use `+page.server.ts` if you need access to server-only
+navigation performance.
+
+<Admonition type="caution" title="+page.ts without convexLoadHydration">
+
+Without the `convexLoadHydration` handle, the hydration run of a `+page.ts` load
+queries Convex before `setupAuth()` has authenticated the client. Auth-protected
+queries then return their unauthenticated result (or fail the load) until the
+live subscription catches up.
+
+</Admonition>
+ Use `+page.server.ts` if you need access to server-only
 data (e.g. `locals`, cookies) or prefer explicit auth handling.
+
+### Subscription lifecycle
+
+Queries created by `convexLoad()` and `convexLoadPaginated()` are scoped to the
+route. A query stays subscribed while the current route uses it, meaning it's
+reachable from `page.data` (every layout plus the current page) or rendered by a
+component. Once you navigate away, the query is released.
+
+A released query doesn't unsubscribe right away. It waits in a small idle
+buffer, so revisiting a page reuses the live subscription instead of subscribing
+again. In a universal `+page.ts`, that also makes the revisit instant: the load
+gets its data from the live subscription without a round trip. A revisited
+`convexLoadPaginated()` query also keeps the pages loaded with `loadMore()`.
+Server-only loads (`+page.server.ts`) still fetch through your server on each
+navigation.
+
+The query unsubscribes once newer idle queries push it out of the buffer
+(`maxQueries`) or it has been idle for `maxIdleMs`. If a page uses it again
+later, it resubscribes automatically.
+
+Configure the buffer with the `keepAlive` option of `initConvex()`:
+
+```ts title="src/hooks.ts"
+initConvex(PUBLIC_CONVEX_URL, {
+  // The defaults. Pass `keepAlive: false` to unsubscribe as soon as a route
+  // stops using a query.
+  keepAlive: { maxQueries: 10, maxIdleMs: 60_000 },
+});
+```
+
+To skip the buffer for a single query, for example one that's expensive to keep
+running, pass `keepAlive: false` to `convexLoad()` or `convexLoadPaginated()`:
+
+```ts title="src/routes/+page.ts"
+export const load = async () => ({
+  feed: await convexLoad(api.feed.live, {}, { keepAlive: false }),
+});
+```
+
+To stop a subscription yourself, call `dispose()` on the result. A disposed
+query never resubscribes.
+
+A few details:
+
+- Queries that no route ever uses, such as a
+  [preload](https://svelte.dev/docs/kit/link-options#data-sveltekit-preload-data)
+  for a link you never click, are released 30 seconds after their first result
+  arrived.
+- After a `convexLoad()` query unsubscribes, `.isStale` is `true` and `.data`
+  keeps the last known value until it resubscribes. A `convexLoadPaginated()`
+  query keeps its last `.results`. After `dispose()`, its `loadMore()` returns
+  `false`.
+- `useQuery()` and `usePaginatedQuery()` aren't affected. They unsubscribe when
+  their component unmounts.
 
 ## SSR with initialData (manual alternative)
 
@@ -307,6 +398,32 @@ declare global {
 With this setup, `convexLoad()` and `createConvexHttpClient()` automatically
 authenticate during SSR — no `{ token }` option needed in load functions.
 
+### convexLoadHydration
+
+Import from `convex-svelte/sveltekit/server/hydration`; requires SvelteKit 2.56
+or later. A SvelteKit `handle` that embeds the `convexLoad()` and
+`convexLoadPaginated()` results of universal load functions in the
+server-rendered HTML, so the load's re-run during hydration reuses them. See
+[Setup](#setup) for why this matters.
+
+- Everything `convexLoad()` fetches while a universal load (`+page.ts`,
+  `+layout.ts`) runs is embedded, including calls in helpers the load invokes.
+  Pass `{ hydrate: false }` for a result that must not reach the browser, e.g.
+  one fetched for the server to pick a few fields from.
+- Server loads (`+page.server.ts`) never contribute, not even results they only
+  use internally. The results they return reach the browser through the
+  transport hook.
+- Await `convexLoad()` in universal loads. A streamed (not awaited) result is
+  only embedded if it finished before the page HTML was generated; otherwise its
+  hydration run queries Convex before `setupAuth()`. In development, a console
+  warning points out loads that find no embedded result.
+- With `{ hydrate: false }` (e.g. for a large result), that load queries Convex
+  during hydration, before `setupAuth()`, like without the handle.
+- Results are only reused while the initial page hydrates. Client-side
+  navigations always subscribe to Convex.
+- The handle relies on SvelteKit marking universal loads on the server. If it
+  can't read that marker, it embeds nothing and logs a warning.
+
 ### Setting up `locals.token` (without withServerConvexToken)
 
 If you prefer not to use `withServerConvexToken`, you can still extract the
@@ -380,6 +497,10 @@ Functions and types exported from `convex-svelte/sveltekit`:
 | `decodeConvexLoadPaginated`                 | Function | Paginated transport decoder — use in `hooks.ts`.                                           |
 | `createConvexHttpClient(options?)`          | Function | Create a `ConvexHttpClient` for server-side use.                                           |
 | `CreateConvexHttpClientOptions`             | Type     | Options for `createConvexHttpClient`: `url`, `token`, `options`.                           |
+| `InitConvexOptions`                         | Type     | `ConvexClientOptions` plus [`keepAlive`](#subscription-lifecycle) for `initConvex`.        |
+| `KeepAliveOptions`                          | Type     | Idle buffer settings: `maxQueries` (default `10`), `maxIdleMs` (default `60_000`).         |
 
 The server-only helper `withServerConvexToken` is imported from
-`convex-svelte/sveltekit/server`.
+`convex-svelte/sveltekit/server`, and
+[`convexLoadHydration`](#convexloadhydration) from
+`convex-svelte/sveltekit/server/hydration`.
