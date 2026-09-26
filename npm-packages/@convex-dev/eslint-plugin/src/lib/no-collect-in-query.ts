@@ -41,7 +41,12 @@ function isOrderedQuery(
     seen.add(t);
     const target = (t as ts.TypeReference).target ?? t;
     if (target.getSymbol() === orderedQuerySymbol) return true;
-    if (!target.isClassOrInterface()) return false;
+    if (!target.isClassOrInterface()) {
+      // A type parameter such as `T extends OrderedQuery<...>` is judged by
+      // its constraint.
+      const constraint = checker.getBaseConstraintOfType(target);
+      return constraint ? visit(constraint) : false;
+    }
     return (checker.getBaseTypes(target) ?? []).some(visit);
   };
   return visit(type);
