@@ -53,3 +53,33 @@ export function setupTemporal(global: any) {
     },
   );
 }
+
+// `Intl.DateTimeFormat`'s `format` and `formatToParts` format the current time
+// when called without a date. V8 reads that from its platform clock rather than
+// `Date.now`, which would bypass the frozen UDF time.
+export function patchDateTimeFormat(global: any, now: () => number) {
+  const proto = global.Intl.DateTimeFormat.prototype;
+  const formatGetter = Object.getOwnPropertyDescriptor(proto, "format")!.get!;
+  const boundFormat = Symbol("boundFormat");
+  Object.defineProperty(proto, "format", {
+    get(this: any) {
+      const nativeFormat = formatGetter.call(this);
+      // Cache the returned function, as required by the Intl specification (to
+      // satisfy `dtf.format === dtf.format`)
+      return (nativeFormat[boundFormat] ??= (date?: any) =>
+        nativeFormat(date === undefined ? now() : date));
+    },
+    enumerable: false,
+    configurable: true,
+  });
+
+  const nativeFormatToParts = proto.formatToParts;
+  Object.defineProperty(proto, "formatToParts", {
+    value: function formatToParts(this: any, date?: any) {
+      return nativeFormatToParts.call(this, date === undefined ? now() : date);
+    },
+    writable: true,
+    enumerable: false,
+    configurable: true,
+  });
+}

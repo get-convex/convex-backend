@@ -2,7 +2,7 @@ import { setupURL } from "./00_url.js";
 import { setupCrypto } from "./00_crypto.js";
 import { setupDate } from "./00_date.js";
 import { setupMisc } from "./00_misc.js";
-import { setupTemporal } from "./00_temporal.js";
+import { patchDateTimeFormat, setupTemporal } from "./00_temporal.js";
 import { setupWeakRefs } from "./00_weakref.js";
 import { setupDOMException } from "./01_dom_exception.js";
 import { setupConsole } from "./02_console";
@@ -32,6 +32,7 @@ import { setupStructuredClone } from "./02_structured_clone.js";
 export function setup(global: any) {
   setupSourceMapping();
   setupDate(global);
+  patchDateTimeFormat(global, global.Date.now);
   // V8 installs Temporal when deserializing a context, after snapshot setup.
   global.Convex.setupTemporal = () => setupTemporal(global);
   // NB: It's important we call into `setupMisc` before the other setup functions
