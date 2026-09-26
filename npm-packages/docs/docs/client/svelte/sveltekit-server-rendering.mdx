@@ -405,14 +405,21 @@ the `convexLoad()` and `convexLoadPaginated()` results of universal load
 functions in the server-rendered HTML, so the load's re-run during hydration
 reuses them. See [Setup](#setup) for why this matters.
 
-- Results of server loads (`+page.server.ts`) aren't embedded: they already
-  reach the browser through the transport hook.
-- The embedded JSON contains the full query result, just like the serialized
-  data of a `+page.server.ts` load. Pass `{ hydrate: false }` to `convexLoad()`
-  or `convexLoadPaginated()` to leave a result out, e.g. a large one. That load
-  then queries Convex during hydration instead.
+- Only results of universal loads (`+page.ts`, `+layout.ts`) are embedded. They
+  contain the same data the browser would fetch when it re-runs the load. Server
+  loads (`+page.server.ts`) never contribute, not even results they only use
+  internally. The results they return reach the browser through the transport
+  hook.
+- Await `convexLoad()` in universal loads. A streamed (not awaited) result isn't
+  embedded, so its hydration run queries Convex before `setupAuth()`. In
+  development, a console warning points out loads that find no embedded result.
+- Pass `{ hydrate: false }` to `convexLoad()` or `convexLoadPaginated()` to
+  leave a result out, e.g. a large one. That load then queries Convex during
+  hydration, before `setupAuth()`, like without the handle.
 - Results are only reused while the initial page hydrates. Client-side
   navigations always subscribe to Convex.
+- The handle relies on SvelteKit marking universal loads on the server. If your
+  SvelteKit version doesn't, it embeds nothing and logs a warning.
 
 ### Setting up `locals.token` (without withServerConvexToken)
 
