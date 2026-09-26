@@ -91,6 +91,7 @@ export function UpgradePlanContentContainer({
     onSubmit: async (v) => {
       await createSubscription({
         planId: v.planId,
+        promoCode: v.promoCode || undefined,
         paymentMethod: v.paymentMethod,
         billingAddress: v.billingAddress,
         name: v.name,
