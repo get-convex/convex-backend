@@ -69,10 +69,11 @@ export const transport = {
 ```
 
 If you call `convexLoad()` in universal load functions (`+page.ts`,
-`+layout.ts`), also add the `convexLoadHydration` handle to `hooks.server.ts`:
+`+layout.ts`), also add the `convexLoadHydration` handle to `hooks.server.ts`
+(requires SvelteKit 2.56 or later):
 
 ```ts title="src/hooks.server.ts"
-import { convexLoadHydration } from "convex-svelte/sveltekit/server";
+import { convexLoadHydration } from "convex-svelte/sveltekit/server/hydration";
 
 export const handle = convexLoadHydration;
 ```
@@ -178,10 +179,8 @@ needed.
 ```ts title="src/hooks.server.ts"
 import type { Handle } from "@sveltejs/kit";
 import { sequence } from "@sveltejs/kit/hooks";
-import {
-  convexLoadHydration,
-  withServerConvexToken,
-} from "convex-svelte/sveltekit/server";
+import { withServerConvexToken } from "convex-svelte/sveltekit/server";
+import { convexLoadHydration } from "convex-svelte/sveltekit/server/hydration";
 
 const convexAuth: Handle = async ({ event, resolve }) => {
   const token = await getAuthToken(event.cookies); // your auth provider
@@ -307,7 +306,8 @@ A few details:
 
 - Queries that no route ever uses, such as a
   [preload](https://svelte.dev/docs/kit/link-options#data-sveltekit-preload-data)
-  for a link you never click, are released after 30 seconds.
+  for a link you never click, are released 30 seconds after their first result
+  arrived.
 - After a `convexLoad()` query unsubscribes, `.isStale` is `true` and `.data`
   keeps the last known value until it resubscribes. A `convexLoadPaginated()`
   query keeps its last `.results`. After `dispose()`, its `loadMore()` returns
@@ -400,26 +400,29 @@ authenticate during SSR — no `{ token }` option needed in load functions.
 
 ### convexLoadHydration
 
-Import from `convex-svelte/sveltekit/server`. A SvelteKit `handle` that embeds
-the `convexLoad()` and `convexLoadPaginated()` results of universal load
-functions in the server-rendered HTML, so the load's re-run during hydration
-reuses them. See [Setup](#setup) for why this matters.
+Import from `convex-svelte/sveltekit/server/hydration`; requires SvelteKit 2.56
+or later. A SvelteKit `handle` that embeds the `convexLoad()` and
+`convexLoadPaginated()` results of universal load functions in the
+server-rendered HTML, so the load's re-run during hydration reuses them. See
+[Setup](#setup) for why this matters.
 
-- Only results of universal loads (`+page.ts`, `+layout.ts`) are embedded. They
-  contain the same data the browser would fetch when it re-runs the load. Server
-  loads (`+page.server.ts`) never contribute, not even results they only use
-  internally. The results they return reach the browser through the transport
-  hook.
-- Await `convexLoad()` in universal loads. A streamed (not awaited) result isn't
-  embedded, so its hydration run queries Convex before `setupAuth()`. In
-  development, a console warning points out loads that find no embedded result.
-- Pass `{ hydrate: false }` to `convexLoad()` or `convexLoadPaginated()` to
-  leave a result out, e.g. a large one. That load then queries Convex during
-  hydration, before `setupAuth()`, like without the handle.
+- Everything `convexLoad()` fetches while a universal load (`+page.ts`,
+  `+layout.ts`) runs is embedded, including calls in helpers the load invokes.
+  Pass `{ hydrate: false }` for a result that must not reach the browser, e.g.
+  one fetched for the server to pick a few fields from.
+- Server loads (`+page.server.ts`) never contribute, not even results they only
+  use internally. The results they return reach the browser through the
+  transport hook.
+- Await `convexLoad()` in universal loads. A streamed (not awaited) result is
+  only embedded if it finished before the page HTML was generated; otherwise its
+  hydration run queries Convex before `setupAuth()`. In development, a console
+  warning points out loads that find no embedded result.
+- With `{ hydrate: false }` (e.g. for a large result), that load queries Convex
+  during hydration, before `setupAuth()`, like without the handle.
 - Results are only reused while the initial page hydrates. Client-side
   navigations always subscribe to Convex.
-- The handle relies on SvelteKit marking universal loads on the server. If your
-  SvelteKit version doesn't, it embeds nothing and logs a warning.
+- The handle relies on SvelteKit marking universal loads on the server. If it
+  can't read that marker, it embeds nothing and logs a warning.
 
 ### Setting up `locals.token` (without withServerConvexToken)
 
@@ -497,6 +500,7 @@ Functions and types exported from `convex-svelte/sveltekit`:
 | `InitConvexOptions`                         | Type     | `ConvexClientOptions` plus [`keepAlive`](#subscription-lifecycle) for `initConvex`.        |
 | `KeepAliveOptions`                          | Type     | Idle buffer settings: `maxQueries` (default `10`), `maxIdleMs` (default `60_000`).         |
 
-The server-only helpers `withServerConvexToken` and
-[`convexLoadHydration`](#convexloadhydration) are imported from
-`convex-svelte/sveltekit/server`.
+The server-only helper `withServerConvexToken` is imported from
+`convex-svelte/sveltekit/server`, and
+[`convexLoadHydration`](#convexloadhydration) from
+`convex-svelte/sveltekit/server/hydration`.
