@@ -187,9 +187,9 @@ impl FromV8 for JsKeyDeriveParams {
             "x25519" => Ok(KeyDeriveParams::X25519(key_agreement_params_from_v8(
                 scope, input,
             )?)),
-            _ => anyhow::bail!(DOMException::new(
-                "invalid algorithm for key".to_string(),
-                DOMExceptionName::InvalidAccessError
+            name => anyhow::bail!(DOMException::new(
+                format!("Unrecognized or invalid algorithm {name}"),
+                DOMExceptionName::NotSupportedError
             )),
         }
     }
