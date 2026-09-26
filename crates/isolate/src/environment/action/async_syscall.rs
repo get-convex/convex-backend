@@ -200,13 +200,14 @@ impl<RT: Runtime> TaskExecutor<RT> {
         };
         let action_callbacks = self.action_callbacks.clone();
         let identity = self.identity.clone();
+        let request_id = self.context.request_id.clone();
         let token = self
             .service_token
             .get_or_mint(
                 || self.rt.system_time(),
                 || async move {
                     action_callbacks
-                        .create_ai_gateway_token(identity, caller)
+                        .create_ai_gateway_token(identity, caller, request_id)
                         .await
                 },
             )

@@ -36,6 +36,7 @@ use common::{
     execution_context::{
         ExecutionContext,
         RequestContext,
+        RequestId,
     },
     fastrace_helpers::EncodedSpan,
     knobs::{
@@ -745,6 +746,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         identity: &Identity,
         attribution: AttributionClaims,
+        request_id: &RequestId,
     ) -> anyhow::Result<String> {
         match identity {
             // Deploy keys and dashboard members carry an op set, from the key's
@@ -782,7 +784,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                  provider directly with your own API key."
             ));
         };
-        minter.mint(&self.deployment, attribution).await
+        minter.mint(&self.deployment, attribution, request_id).await
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
@@ -2115,8 +2117,9 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         &self,
         identity: Identity,
         caller: AttributedCaller,
+        request_id: RequestId,
     ) -> anyhow::Result<String> {
-        self.mint_ai_gateway_jwt(&identity, AttributionClaims::from(caller))
+        self.mint_ai_gateway_jwt(&identity, AttributionClaims::from(caller), &request_id)
             .await
     }
 

@@ -1016,8 +1016,11 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: &Identity,
         claims: AttributionClaims,
+        request_id: &RequestId,
     ) -> anyhow::Result<String> {
-        self.runner.mint_ai_gateway_jwt(identity, claims).await
+        self.runner
+            .mint_ai_gateway_jwt(identity, claims, request_id)
+            .await
     }
 
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {

@@ -15,6 +15,7 @@ use application::ai_gateway_jwt::AiGatewayJwtMinter;
 use async_trait::async_trait;
 use big_brain_client::BigBrainClient;
 use common::{
+    execution_context::RequestId,
     knobs::{
         GET_SERVICE_TOKEN_GUARANTEED_LIFETIME,
         SERVICE_TOKEN_CACHE_CAPACITY,
@@ -85,6 +86,7 @@ impl AiGatewayJwtMinter for LocalAiGatewayTokenMinter {
         &self,
         deployment: &DeploymentMetadata,
         attribution: AttributionClaims,
+        _request_id: &RequestId,
     ) -> anyhow::Result<String> {
         let client = self.client.as_ref().ok_or_else(|| {
             anyhow::anyhow!(ErrorMetadata::bad_request(

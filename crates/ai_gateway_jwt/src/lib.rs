@@ -23,12 +23,15 @@ use chrono::{
     Duration,
     Utc,
 };
-use common::types::{
-    AttributionClaims,
-    DeploymentMetadata,
-    MemberId,
-    ProjectId,
-    TeamId,
+use common::{
+    execution_context::RequestId,
+    types::{
+        AttributionClaims,
+        DeploymentMetadata,
+        MemberId,
+        ProjectId,
+        TeamId,
+    },
 };
 use serde::{
     Deserialize,
@@ -115,6 +118,14 @@ pub struct AiGatewayJwtClaims {
         skip_serializing_if = "Option::is_none"
     )]
     pub function_type: Option<String>,
+    /// Signed association with the backend request. Optional so gateways can
+    /// be deployed before every token minter during a rolling release.
+    #[serde(
+        rename = "convex.requestId",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub request_id: Option<String>,
 }
 
 /// A caller the gateway has authenticated, and what it may be billed for.
@@ -129,6 +140,7 @@ pub struct AuthenticatedDeployment {
     /// The verifier converts the issuer-specific wire claims above into this
     /// validated billing identity, eliminating partial project/team states.
     usage_owner: UsageOwner,
+    request_id: Option<String>,
 }
 
 /// Who owns usage after the JWT's issuer-specific claims have been validated.
@@ -160,6 +172,10 @@ impl AuthenticatedDeployment {
 
     pub fn member_id(&self) -> Option<MemberId> {
         self.member_id
+    }
+
+    pub fn request_id(&self) -> Option<&str> {
+        self.request_id.as_deref()
     }
 
     pub fn usage_owner(&self) -> UsageOwner {
@@ -261,6 +277,7 @@ impl AiGatewayJwtSigner {
         &self,
         deployment: &DeploymentMetadata,
         attribution: AttributionClaims,
+        request_id: &RequestId,
         now: DateTime<Utc>,
     ) -> Result<Jwt, JwtError> {
         let AttributionClaims {
@@ -275,6 +292,7 @@ impl AiGatewayJwtSigner {
                 version: AI_GATEWAY_JWT_VERSION,
                 region: deployment.region.as_ref().map(ToString::to_string),
                 deployment_class: Some(deployment.class.to_string()),
+                request_id: Some(request_id.to_string()),
                 component_path,
                 function_name,
                 function_type,
@@ -362,6 +380,7 @@ impl AiGatewayJwtVerifier {
             attribution,
             member_id: None,
             usage_owner: UsageOwner::Deployment,
+            request_id: claims.private.request_id,
         })
     }
 }
@@ -397,6 +416,7 @@ impl LocalAiGatewayJwtVerifier {
             instance_name,
             region: None,
             deployment_class: None,
+            request_id: None,
             attribution,
             member_id,
             usage_owner: UsageOwner::Project {
