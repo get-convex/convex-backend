@@ -190,7 +190,21 @@ convexGateway.embeddingModel = function (modelId: string): EmbeddingModel {
 
 /** Image model for the AI SDK's `generateImage`. */
 convexGateway.imageModel = function (modelId: string): ImageModel {
-  return createGatewayProvider().imageModel(modelId);
+  const model = createGatewayProvider().imageModel(modelId);
+  return {
+    specificationVersion: model.specificationVersion,
+    provider: model.provider,
+    modelId,
+    maxImagesPerCall: model.maxImagesPerCall,
+    async doGenerate(options) {
+      if (options.files?.length || options.mask) {
+        throw new Error(
+          "Convex AI Gateway does not support image editing. Use a text prompt without input images or a mask.",
+        );
+      }
+      return model.doGenerate(options);
+    },
+  };
 };
 
 /** Video generation for the AI SDK's `experimental_generateVideo`. */
