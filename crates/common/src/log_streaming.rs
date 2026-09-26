@@ -210,6 +210,95 @@ pub struct FunctionConcurrencyStats {
 // - add it to the docs
 //
 // Also consider getting rid of the V1 format!
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct AiGatewayFunctionEventSource {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub component_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub function_type: Option<String>,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    strum::EnumString,
+    strum::IntoStaticStr,
+)]
+pub enum AiGatewayProvider {
+    #[serde(rename = "openRouter")]
+    #[strum(serialize = "openRouter")]
+    OpenRouter,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema, strum::EnumString,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum AiGatewayEndpoint {
+    ChatCompletions,
+    Decisions,
+    Embeddings,
+    Images,
+    Messages,
+    Responses,
+    Videos,
+}
+
+/// Combines the response outcome with usage availability.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    ToSchema,
+    strum::EnumString,
+    strum::IntoStaticStr,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum AiGatewayOutcome {
+    /// Finished with usage reported.
+    Completed,
+    /// Finished without usage; cost may still be recoverable via `upstream_id`.
+    NoUsage,
+    /// Upstream returned a non-success HTTP status.
+    ProviderError,
+    /// Transport failed while reading the body. Earlier chunks may contain
+    /// an `upstream_id` for cost recovery.
+    UpstreamError,
+    /// Shutdown cancelled the read. Retains any usage and upstream ID received
+    /// before cancellation; the provider may still have charged.
+    Abandoned,
+    /// Buffer ceiling discarded unparsed bytes that may have held usage.
+    /// Recovery is via `upstream_id` from earlier chunks only.
+    Oversized,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema, strum::EnumString,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+#[derive(clap::ValueEnum, strum::IntoStaticStr)]
+pub enum AiGatewayEnvironment {
+    Production,
+    Staging,
+}
+
 #[derive(Debug, Clone)]
 pub enum StructuredLogEvent {
     /// Topic for verification logs. These are issued on sink startup and are
@@ -284,6 +373,24 @@ pub enum StructuredLogEvent {
         storage_id: String,
         egress_bytes: u64,
     },
+    /// Terminal usage reported by the AI gateway after an inference response
+    /// has been drained.
+    AiGatewayUsage {
+        function: Option<AiGatewayFunctionEventSource>,
+        inference_id: String,
+        provider: AiGatewayProvider,
+        endpoint: AiGatewayEndpoint,
+        upstream_id: Option<String>,
+        model: Option<String>,
+        prompt_tokens: Option<u64>,
+        completion_tokens: Option<u64>,
+        total_tokens: Option<u64>,
+        cached_prompt_tokens: Option<u64>,
+        reasoning_tokens: Option<u64>,
+        cost: Option<f64>,
+        outcome: AiGatewayOutcome,
+        environment: AiGatewayEnvironment,
+    },
     /// Topic for log stream egress. Emitted when a log sink sends a batch
     /// of events to an external service, reporting the egress bytes used.
     LogStreamEgress {
@@ -333,6 +440,7 @@ pub enum LogTopic {
     CurrentStorageUsage,
     ConcurrencyStats,
     StorageApiBandwidth,
+    AiGatewayUsage,
     LogStreamEgress,
     CustomAudit,
 }
@@ -348,6 +456,7 @@ impl LogTopic {
         LogTopic::CurrentStorageUsage,
         LogTopic::ConcurrencyStats,
         LogTopic::StorageApiBandwidth,
+        LogTopic::AiGatewayUsage,
         LogTopic::LogStreamEgress,
         LogTopic::CustomAudit,
     ];
@@ -371,6 +480,7 @@ impl StructuredLogEvent {
             StructuredLogEvent::CurrentStorageUsage { .. } => LogTopic::CurrentStorageUsage,
             StructuredLogEvent::ConcurrencyStats { .. } => LogTopic::ConcurrencyStats,
             StructuredLogEvent::StorageApiBandwidth { .. } => LogTopic::StorageApiBandwidth,
+            StructuredLogEvent::AiGatewayUsage { .. } => LogTopic::AiGatewayUsage,
             StructuredLogEvent::LogStreamEgress { .. } => LogTopic::LogStreamEgress,
             StructuredLogEvent::CustomAudit { .. } => LogTopic::CustomAudit,
         }
@@ -586,6 +696,40 @@ impl LogEvent {
                     "_topic": "_storage_api_bandwidth",
                     "storage_id": storage_id,
                     "egress_bytes": egress_bytes
+                }),
+                StructuredLogEvent::AiGatewayUsage {
+                    function,
+                    inference_id,
+                    provider,
+                    endpoint,
+                    upstream_id,
+                    model,
+                    prompt_tokens,
+                    completion_tokens,
+                    total_tokens,
+                    cached_prompt_tokens,
+                    reasoning_tokens,
+                    cost,
+                    outcome,
+                    environment,
+                } => serialize_map!({
+                    "_timestamp": ms,
+                    "_topic": "_ai_gateway_usage",
+                    "function": function,
+                    "inference_id": inference_id,
+                    "provider": provider,
+                    "endpoint": endpoint,
+                    "upstream_id": upstream_id,
+                    "model": model,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
+                    "cached_prompt_tokens": cached_prompt_tokens,
+                    "reasoning_tokens": reasoning_tokens,
+                    "cost": cost,
+                    "cost_unit": "USD",
+                    "outcome": outcome,
+                    "environment": environment,
                 }),
                 StructuredLogEvent::LogStreamEgress { egress_bytes } => serialize_map!({
                     "_timestamp": ms,
@@ -816,6 +960,42 @@ impl LogEvent {
                         "topic": "storage_api_bandwidth",
                         "storage_id": storage_id,
                         "egress_bytes": egress_bytes
+                    })
+                },
+                StructuredLogEvent::AiGatewayUsage {
+                    function,
+                    inference_id,
+                    provider,
+                    endpoint,
+                    upstream_id,
+                    model,
+                    prompt_tokens,
+                    completion_tokens,
+                    total_tokens,
+                    cached_prompt_tokens,
+                    reasoning_tokens,
+                    cost,
+                    outcome,
+                    environment,
+                } => {
+                    serialize_map!({
+                        "timestamp": ms,
+                        "topic": "ai_gateway_usage",
+                        "function": function,
+                        "inference_id": inference_id,
+                        "provider": provider,
+                        "endpoint": endpoint,
+                        "upstream_id": upstream_id,
+                        "model": model,
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": total_tokens,
+                        "cached_prompt_tokens": cached_prompt_tokens,
+                        "reasoning_tokens": reasoning_tokens,
+                        "cost": cost,
+                        "cost_unit": "USD",
+                        "outcome": outcome,
+                        "environment": environment,
                     })
                 },
                 StructuredLogEvent::LogStreamEgress { egress_bytes } => {

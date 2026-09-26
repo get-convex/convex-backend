@@ -196,6 +196,7 @@ export const logTopic = v.union(
   v.literal("current_storage_usage"),
   v.literal("concurrency_stats"),
   v.literal("storage_api_bandwidth"),
+  v.literal("ai_gateway_usage"),
   v.literal("log_stream_egress"),
   v.literal("custom_audit"),
 );

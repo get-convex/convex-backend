@@ -7,6 +7,47 @@ export type paths = Record<string, never>;
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        AiGatewayEndpoint: "chat_completions" | "decisions" | "embeddings" | "images" | "messages" | "responses" | "videos";
+        /** @enum {string} */
+        AiGatewayEnvironment: "production" | "staging";
+        /**
+         * @description Combines the response outcome with usage availability.
+         * @enum {string}
+         */
+        AiGatewayOutcome: "completed" | "no_usage" | "provider_error" | "upstream_error" | "abandoned" | "oversized";
+        /** @enum {string} */
+        AiGatewayProvider: "openRouter";
+        AiGatewayUsageEvent: {
+            /** Format: int64 */
+            timestamp: number;
+            function?: null | {
+                request_id?: string | null;
+                component_path?: string | null;
+                path?: string | null;
+                type?: string | null;
+            };
+            inference_id: string;
+            provider: components["schemas"]["AiGatewayProvider"];
+            endpoint: components["schemas"]["AiGatewayEndpoint"];
+            upstream_id?: string | null;
+            model?: string | null;
+            /** Format: int64 */
+            prompt_tokens?: number | null;
+            /** Format: int64 */
+            completion_tokens?: number | null;
+            /** Format: int64 */
+            total_tokens?: number | null;
+            /** Format: int64 */
+            cached_prompt_tokens?: number | null;
+            /** Format: int64 */
+            reasoning_tokens?: number | null;
+            /** Format: double */
+            cost?: number | null;
+            cost_unit: string;
+            outcome: components["schemas"]["AiGatewayOutcome"];
+            environment: components["schemas"]["AiGatewayEnvironment"];
+        };
         ConsoleLogEvent: {
             /** Format: int64 */
             timestamp: number;
@@ -136,6 +177,9 @@ export interface components {
         }) | (components["schemas"]["StorageApiBandwidthEvent"] & {
             /** @enum {string} */
             topic: "storage_api_bandwidth";
+        }) | (components["schemas"]["AiGatewayUsageEvent"] & {
+            /** @enum {string} */
+            topic: "ai_gateway_usage";
         }) | (components["schemas"]["CustomAuditEvent"] & {
             /** @enum {string} */
             topic: "custom_audit";
@@ -193,6 +237,11 @@ export interface components {
     headers: never;
     pathItems: never;
 }
+export type AiGatewayEndpoint = components['schemas']['AiGatewayEndpoint'];
+export type AiGatewayEnvironment = components['schemas']['AiGatewayEnvironment'];
+export type AiGatewayOutcome = components['schemas']['AiGatewayOutcome'];
+export type AiGatewayProvider = components['schemas']['AiGatewayProvider'];
+export type AiGatewayUsageEvent = components['schemas']['AiGatewayUsageEvent'];
 export type ConsoleLogEvent = components['schemas']['ConsoleLogEvent'];
 export type CustomAuditEvent = components['schemas']['CustomAuditEvent'];
 export type DeploymentAuditLogEvent = components['schemas']['DeploymentAuditLogEvent'];

@@ -240,6 +240,7 @@ impl<RT: Runtime> PostHogLogsSink<RT> {
             StructuredLogEvent::ConcurrencyStats { .. } => "concurrency_stats",
             StructuredLogEvent::Exception { .. } => "exception",
             StructuredLogEvent::StorageApiBandwidth { .. } => "storage_bandwidth",
+            StructuredLogEvent::AiGatewayUsage { .. } => "ai_gateway_usage",
             StructuredLogEvent::LogStreamEgress { .. } => "log_stream_egress",
             StructuredLogEvent::CustomAudit { .. } => "custom_audit",
         };
