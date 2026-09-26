@@ -14,7 +14,6 @@ import {
 import {
   axiomConfig,
   datadogConfig,
-  managedAnalyticsConfig,
   postHogErrorTrackingConfig,
   postHogLogsConfig,
   sentryConfig,
@@ -22,7 +21,7 @@ import {
 } from "system-udfs/convex/schema";
 import { Link } from "@ui/Link";
 import classNames from "classnames";
-import { ArchiveBoxIcon, CircleStackIcon } from "@heroicons/react/24/outline";
+import { ArchiveBoxIcon } from "@heroicons/react/24/outline";
 import { WebhookIcon } from "@common/elements/icons";
 import { DatadogLogo } from "@common/lib/logos/DatadogLogo";
 import { AxiomLogo } from "@common/lib/logos/AxiomLogo";
@@ -57,7 +56,7 @@ export const LOG_INTEGRATIONS = [
 ] as const;
 export const EXC_INTEGRATIONS = ["sentry", "postHogErrorTracking"] as const;
 export const AUTH_INTEGRATIONS = ["workos"] as const;
-export const ANALYTICS_INTEGRATIONS = ["managedAnalytics", "s3Export"] as const;
+export const ANALYTICS_INTEGRATIONS = ["s3Export"] as const;
 export const EXPORT_INTEGRATIONS: ExportIntegrationType[] = ["fivetran"];
 export const IMPORT_INTEGRATIONS: ImportIntegrationType[] = ["airbyte"];
 
@@ -80,16 +79,12 @@ export type ExceptionReportingIntegration =
       existing: LogSinkDoc<"postHogErrorTracking"> | null;
     };
 
-export type AnalyticsIntegration =
-  | {
-      kind: "managedAnalytics";
-      existing: LogSinkDoc<"managedAnalytics"> | null;
-    }
-  | { kind: "s3Export"; existing: LogSinkDoc<"s3Export"> | null };
+export type AnalyticsIntegration = {
+  kind: "s3Export";
+  existing: LogSinkDoc<"s3Export"> | null;
+};
 
-export type AnalyticsIntegrationConfig =
-  | Infer<typeof managedAnalyticsConfig>
-  | RedactedS3ExportConfig;
+export type AnalyticsIntegrationConfig = RedactedS3ExportConfig;
 
 export type ExceptionReportingIntegrationConfig =
   | Infer<typeof sentryConfig>
@@ -162,19 +157,6 @@ export function integrationToLogo(
             className={classNames("rounded-sm border", sizeClass)}
             size={size}
           />
-        ),
-      };
-    case "managedAnalytics":
-      return {
-        logo: (
-          <div
-            className={classNames(
-              "flex items-center justify-center rounded-sm border",
-              sizeClass,
-            )}
-          >
-            <CircleStackIcon className={small ? "size-4" : "size-7"} />
-          </div>
         ),
       };
     case "s3Export":
@@ -252,7 +234,6 @@ export function integrationUsingLegacyFormat(
       return config.version !== "2";
     case "postHogLogs":
     case "postHogErrorTracking":
-    case "managedAnalytics":
     case "s3Export":
       return false;
     default: {
@@ -361,9 +342,7 @@ export const UNAVAILABLE_TOOLTIP_TEXT = {
   LocalDeployment: "You cannot manage integrations in a local deployment.",
 };
 
-// The external service this integration writes to, or `null` when there is
-// nowhere to link.
-export function configToUrl(config: IntegrationConfig): string | null {
+export function configToUrl(config: IntegrationConfig): string {
   const kind = config.type;
   switch (kind) {
     case "sentry":
@@ -388,8 +367,6 @@ export function configToUrl(config: IntegrationConfig): string | null {
       );
       return `${etHost}/error_tracking`;
     }
-    case "managedAnalytics":
-      return null;
     case "s3Export":
       return `https://s3.console.aws.amazon.com/s3/buckets/${config.bucket}?region=${encodeURIComponent(config.region)}`;
     default:
@@ -427,8 +404,6 @@ export const integrationName = (kind: IntegrationType) => {
       return "PostHog Logs";
     case "postHogErrorTracking":
       return "PostHog Error Tracking";
-    case "managedAnalytics":
-      return "Managed Analytics";
     case "s3Export":
       return "Streaming Export to AWS S3";
     default:

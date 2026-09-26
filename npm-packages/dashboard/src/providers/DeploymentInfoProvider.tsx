@@ -155,7 +155,6 @@ export function DeploymentInfoProvider({
   }, [accessToken]);
   const {
     connectionStateCheckIntervalMs,
-    managedAnalyticsIntegration,
     s3ExportIntegration,
     showFivetranSyncProgress,
   } = useLaunchDarkly();
@@ -338,7 +337,6 @@ export function DeploymentInfoProvider({
         deploymentsURI,
         isSelfHosted: false,
         workosIntegrationEnabled: true,
-        managedAnalyticsIntegrationEnabled: managedAnalyticsIntegration,
         s3ExportIntegrationEnabled: s3ExportIntegration,
         connectionStateCheckIntervalMs,
         showFivetranSyncProgress,
@@ -361,7 +359,6 @@ export function DeploymentInfoProvider({
     canProveDeploymentMissing,
     cloudDeploymentUrl,
     authRefreshKey,
-    managedAnalyticsIntegration,
     s3ExportIntegration,
   ]);
 

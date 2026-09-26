@@ -338,7 +338,6 @@ export type DeploymentInfo = (
   deploymentsURI: string;
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
-  managedAnalyticsIntegrationEnabled: boolean;
   s3ExportIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
   /** Whether the Fivetran integration card reports the progress of active

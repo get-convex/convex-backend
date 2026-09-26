@@ -2,7 +2,6 @@ import { Infer } from "convex/values";
 import {
   axiomConfig,
   datadogConfig,
-  managedAnalyticsConfig,
   postHogErrorTrackingConfig,
   postHogLogsConfig,
   s3ExportConfig,
@@ -186,10 +185,8 @@ export type PostHogErrorTrackingConfig = Infer<
   typeof postHogErrorTrackingConfig
 >;
 
-export type ManagedAnalyticsConfig = Infer<typeof managedAnalyticsConfig>;
-
 export type S3ExportConfig = Infer<typeof s3ExportConfig>;
 
-export type SyncPeriod = ManagedAnalyticsConfig["period"];
+export type SyncPeriod = S3ExportConfig["period"];
 
-export type SyncSelection = ManagedAnalyticsConfig["selection"];
+export type SyncSelection = S3ExportConfig["selection"];

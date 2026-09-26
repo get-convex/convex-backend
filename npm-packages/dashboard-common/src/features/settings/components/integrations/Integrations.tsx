@@ -38,11 +38,9 @@ export function Integrations({
   >["data"];
   onAddedIntegration?: (kind: string) => void;
 }) {
-  const {
-    workosIntegrationEnabled,
-    managedAnalyticsIntegrationEnabled,
-    s3ExportIntegrationEnabled,
-  } = useContext(DeploymentInfoContext);
+  const { workosIntegrationEnabled, s3ExportIntegrationEnabled } = useContext(
+    DeploymentInfoContext,
+  );
   const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canWriteIntegrations = useIsOperationAllowed("WriteIntegrations");
 
@@ -90,7 +88,6 @@ export function Integrations({
     AnalyticsIntegration["kind"],
     boolean
   > = {
-    managedAnalytics: managedAnalyticsIntegrationEnabled,
     s3Export: s3ExportIntegrationEnabled,
   };
   const analyticsIntegrations: AnalyticsIntegration[] =
@@ -185,7 +182,7 @@ export function Integrations({
               key={i.kind}
               integration={i}
               unavailableReason={
-                i.kind === "managedAnalytics" || i.kind === "s3Export"
+                i.kind === "s3Export"
                   ? streamingExportIntegrationUnavailableReason
                   : logIntegrationUnvaliableReason
               }

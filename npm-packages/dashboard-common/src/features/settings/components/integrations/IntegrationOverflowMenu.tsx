@@ -39,9 +39,6 @@ export function IntegrationOverflowMenu({
     integration.kind === "webhook"
       ? (integration.existing?.config ?? null)
       : null;
-  const externalUrl = existingIntegration
-    ? configToUrl(existingIntegration.config)
-    : null;
 
   return existingIntegration && logStreamId ? (
     <>
@@ -80,11 +77,9 @@ export function IntegrationOverflowMenu({
         >
           Configure
         </MenuItem>
-        {externalUrl ? (
-          <MenuItem href={externalUrl}>
-            Go to {integrationName(existingIntegration.config.type)}
-          </MenuItem>
-        ) : null}
+        <MenuItem href={configToUrl(existingIntegration.config)}>
+          Go to {integrationName(existingIntegration.config.type)}
+        </MenuItem>
         {webhookConfig && (
           <MenuItem
             action={async () => {

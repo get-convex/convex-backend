@@ -1,6 +1,6 @@
 //! Configuration for mirroring a deployment's data into object storage so it
-//! can be queried by analytics engines. These rows live in the log sinks table
-//! alongside log streams, but they carry no log sink client.
+//! can be queried by analytics engines. These documents live in the log sinks
+//! table alongside log streams, but they carry no log sink client.
 
 use std::fmt;
 
@@ -21,45 +21,6 @@ pub enum SyncPeriod {
     Continuous,
     Hourly,
     Daily,
-}
-
-/// A mirror in a Convex-owned bucket, queried through Convex.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ManagedAnalyticsConfig {
-    /// The components, tables, and columns to mirror.
-    pub selection: Selection,
-    pub period: SyncPeriod,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SerializedManagedAnalyticsConfig {
-    pub selection: Selection,
-    pub period: SyncPeriod,
-}
-
-impl From<ManagedAnalyticsConfig> for SerializedManagedAnalyticsConfig {
-    fn from(value: ManagedAnalyticsConfig) -> Self {
-        Self {
-            selection: value.selection,
-            period: value.period,
-        }
-    }
-}
-
-impl From<SerializedManagedAnalyticsConfig> for ManagedAnalyticsConfig {
-    fn from(value: SerializedManagedAnalyticsConfig) -> Self {
-        Self {
-            selection: value.selection,
-            period: value.period,
-        }
-    }
-}
-
-impl fmt::Display for ManagedAnalyticsConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ManagedAnalyticsConfig {{ period: {:?} }}", self.period)
-    }
 }
 
 /// A mirror in a customer-owned S3 bucket.

@@ -40,7 +40,6 @@ import { SentryConfigurationForm } from "./SentryConfigurationForm";
 import { WebhookConfigurationForm } from "./WebhookConfigurationForm";
 import { PostHogLogsConfigurationForm } from "./PostHogLogsConfigurationForm";
 import { PostHogErrorTrackingConfigurationForm } from "./PostHogErrorTrackingConfigurationForm";
-import { ManagedAnalyticsConfigurationForm } from "./ManagedAnalyticsConfigurationForm";
 import { S3ExportConfigurationForm } from "./S3ExportConfigurationForm";
 import { WorkOSConfigurationForm } from "./WorkOSConfigurationForm";
 import { WorkOSIntegrationStatus } from "./WorkOSIntegrationStatus";
@@ -174,7 +173,6 @@ export function PanelCard({
         integration.kind === "webhook" ||
         integration.kind === "postHogLogs" ||
         integration.kind === "postHogErrorTracking" ||
-        integration.kind === "managedAnalytics" ||
         integration.kind === "s3Export") && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {isModalOpen &&
@@ -183,7 +181,6 @@ export function PanelCard({
             logo={logo}
             integrationKind={integration.kind}
             description={
-              integration.kind === "managedAnalytics" ||
               integration.kind === "s3Export"
                 ? ANALYTICS_EXPORT_DESCRIPTION
                 : LOG_STREAMS_DESCRIPTION
@@ -337,22 +334,6 @@ function renderForm(
               exceptions to PostHog Error Tracking for visibility and analysis.
             </div>
             <PostHogErrorTrackingConfigurationForm
-              integration={integration}
-              onClose={closeModal}
-              {...addedIntegrationProp}
-            />
-          </div>
-        </Modal>
-      );
-    case "managedAnalytics":
-      return (
-        <Modal onClose={closeModal} title="Configure Managed Analytics">
-          <div className="flex flex-col gap-4">
-            <div className="max-w-prose text-xs text-pretty text-content-secondary">
-              Mirror this deployment's data into a Convex-managed bucket in
-              Apache Iceberg format, and query it from your analytics engine.
-            </div>
-            <ManagedAnalyticsConfigurationForm
               integration={integration}
               onClose={closeModal}
               {...addedIntegrationProp}

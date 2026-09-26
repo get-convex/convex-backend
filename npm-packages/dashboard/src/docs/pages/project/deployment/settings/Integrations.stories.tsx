@@ -157,14 +157,6 @@ export const ConfigureDatadog: Story = {
 };
 
 // Each Analytics export destination is behind its own LaunchDarkly flag.
-export const ConfigureManagedAnalytics: Story = {
-  render: () =>
-    renderIntegrations({ managedAnalyticsIntegrationEnabled: true }),
-  play: async ({ canvasElement }) => {
-    await openConfigure(canvasElement, "Managed Analytics");
-  },
-};
-
 export const ConfigureS3Export: Story = {
   render: () => renderIntegrations({ s3ExportIntegrationEnabled: true }),
   play: async ({ canvasElement }) => {

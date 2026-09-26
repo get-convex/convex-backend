@@ -289,12 +289,6 @@ const syncPeriod = v.union(
   v.literal("daily"),
 );
 
-export const managedAnalyticsConfig = v.object({
-  type: v.literal("managedAnalytics"),
-  selection: syncSelection,
-  period: syncPeriod,
-});
-
 export const s3ExportConfig = v.object({
   type: v.literal("s3Export"),
   bucket: v.string(),
@@ -313,7 +307,6 @@ export const sinkConfig = v.union(
   sentryConfig,
   postHogLogsConfig,
   postHogErrorTrackingConfig,
-  managedAnalyticsConfig,
   s3ExportConfig,
 );
 

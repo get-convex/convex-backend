@@ -734,7 +734,7 @@ impl<RT: Runtime> LogManager<RT> {
                 )
                 .await
             },
-            SinkConfig::ManagedAnalytics(_) | SinkConfig::S3Export(_) => {
+            SinkConfig::S3Export(_) => {
                 tracing::info!(
                     "Started {} without a sync worker",
                     config.sink_type().as_str()

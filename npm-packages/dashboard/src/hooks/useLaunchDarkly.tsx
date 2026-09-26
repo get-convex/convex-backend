@@ -9,7 +9,6 @@ export const flagDefaults: {
   ephemeralZipExportToken: boolean;
   directorySync: boolean;
   promos: boolean;
-  managedAnalyticsIntegration: boolean;
   s3ExportIntegration: boolean;
   showFivetranSyncProgress: boolean;
   canadaAvailable: boolean;
@@ -22,7 +21,6 @@ export const flagDefaults: {
   ephemeralZipExportToken: false,
   directorySync: false,
   promos: false,
-  managedAnalyticsIntegration: false,
   s3ExportIntegration: false,
   showFivetranSyncProgress: false,
   canadaAvailable: false,
