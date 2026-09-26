@@ -113,9 +113,6 @@ CREATE TABLE IF NOT EXISTS @db_name.documents (
 ) ROW_FORMAT=DYNAMIC;
 "#;
 
-/// Partitioned on `(deployment_id, index_id)`: persistence index IDs restart at
-/// 1 per deployment, so hashing `index_id` alone would put every tenant's index
-/// number k in the same partition.
 const INDEXES_LATEST_DDL: &str = r#"
 CREATE TABLE IF NOT EXISTS @db_name.indexes_latest (
     deployment_id INT UNSIGNED NOT NULL,
@@ -128,7 +125,7 @@ CREATE TABLE IF NOT EXISTS @db_name.indexes_latest (
     document_id BINARY(16) NOT NULL,
     PRIMARY KEY (deployment_id, index_id, key_prefix, key_suffix_hash),
     CHECK (ts >= 0)
-) ROW_FORMAT=DYNAMIC PARTITION BY KEY(deployment_id, index_id) PARTITIONS 16;
+) ROW_FORMAT=DYNAMIC;
 "#;
 
 /// Deletion markers used to reconcile index backfill rows. Each marker records
@@ -142,7 +139,7 @@ CREATE TABLE IF NOT EXISTS @db_name.indexes_backfill_deletes (
     key_suffix_hash VARBINARY(16) NOT NULL,
     ts BIGINT NOT NULL,
     PRIMARY KEY (deployment_id, index_id, key_prefix, key_suffix_hash)
-) ROW_FORMAT=DYNAMIC PARTITION BY KEY(deployment_id, index_id) PARTITIONS 16;
+) ROW_FORMAT=DYNAMIC;
 "#;
 
 const LEASES_DDL: &str = r#"

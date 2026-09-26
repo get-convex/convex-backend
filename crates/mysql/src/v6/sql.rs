@@ -692,8 +692,6 @@ pub(crate) fn drop_log_ddl(bucket: LogBucket) -> String {
     format!("DROP TABLE IF EXISTS @db_name.{}", bucket.table_name())
 }
 
-/// Log buckets are not partitioned: each lives for the retention window and is
-/// reclaimed whole, so partitions would only multiply the DDL per rollover.
 /// The check constraint declares what the planner guarantees, and is unnamed
 /// because constraint names are unique per database.
 pub(crate) fn log_ddl(bucket: LogBucket) -> String {
