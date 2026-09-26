@@ -232,10 +232,15 @@ reachable from `page.data` (every layout plus the current page) or rendered by a
 component. Once you navigate away, the query is released.
 
 A released query doesn't unsubscribe right away. It waits in a small idle
-buffer, so going back or revisiting a page shows live data instantly, without
-another round trip. The query unsubscribes once newer idle queries push it out
-of the buffer (`maxQueries`) or it has been idle for `maxIdleMs`. If a page uses
-it again later, it resubscribes automatically.
+buffer, so revisiting a page reuses the live subscription instead of subscribing
+again. For `convexLoad()` in a universal `+page.ts`, that also makes the revisit
+instant: the load gets its data from the live subscription without a round trip.
+On each navigation, server-only loads (`+page.server.ts`) still fetch through
+your server, and `convexLoadPaginated()` still fetches its first page.
+
+The query unsubscribes once newer idle queries push it out of the buffer
+(`maxQueries`) or it has been idle for `maxIdleMs`. If a page uses it again
+later, it resubscribes automatically.
 
 Configure the buffer with the `keepAlive` option of `initConvex()`:
 
@@ -264,8 +269,10 @@ A few details:
 - Queries that no route ever uses, such as a
   [preload](https://svelte.dev/docs/kit/link-options#data-sveltekit-preload-data)
   for a link you never click, are released after 30 seconds.
-- After a query unsubscribes, `.isStale` is `true` and `.data` keeps the last
-  known value until it resubscribes.
+- After a `convexLoad()` query unsubscribes, `.isStale` is `true` and `.data`
+  keeps the last known value until it resubscribes. A `convexLoadPaginated()`
+  query keeps its last `.results`. After `dispose()`, its `loadMore()` returns
+  `false`.
 - `useQuery()` and `usePaginatedQuery()` aren't affected. They unsubscribe when
   their component unmounts.
 
