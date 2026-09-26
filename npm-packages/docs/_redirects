@@ -138,6 +138,7 @@
 /search                             /search/overview
 /components                         /components/overview
 /agents                             /agents/overview
+/ai-gateway                         /ai-gateway/overview
 /testing                            /testing/overview
 /production                         /production/overview
 /platform-apis                      /platform-apis/overview
