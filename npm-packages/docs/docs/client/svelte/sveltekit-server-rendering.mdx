@@ -224,6 +224,51 @@ Both produce identical SSR on first page load. Use `+page.ts` for best
 navigation performance. Use `+page.server.ts` if you need access to server-only
 data (e.g. `locals`, cookies) or prefer explicit auth handling.
 
+### Subscription lifecycle
+
+Queries created by `convexLoad()` and `convexLoadPaginated()` are scoped to the
+route. A query stays subscribed while the current route uses it, meaning it's
+reachable from `page.data` (every layout plus the current page) or rendered by a
+component. Once you navigate away, the query is released.
+
+A released query doesn't unsubscribe right away. It waits in a small idle
+buffer, so going back or revisiting a page shows live data instantly, without
+another round trip. The query unsubscribes once newer idle queries push it out
+of the buffer (`maxQueries`) or it has been idle for `maxIdleMs`. If a page uses
+it again later, it resubscribes automatically.
+
+Configure the buffer with the `keepAlive` option of `initConvex()`:
+
+```ts title="src/hooks.ts"
+initConvex(PUBLIC_CONVEX_URL, {
+  // The defaults. Pass `keepAlive: false` to unsubscribe as soon as a route
+  // stops using a query.
+  keepAlive: { maxQueries: 10, maxIdleMs: 60_000 },
+});
+```
+
+To skip the buffer for a single query, for example one that's expensive to keep
+running, pass `keepAlive: false` to `convexLoad()` or `convexLoadPaginated()`:
+
+```ts title="src/routes/+page.ts"
+export const load = async () => ({
+  feed: await convexLoad(api.feed.live, {}, { keepAlive: false }),
+});
+```
+
+To stop a subscription yourself, call `dispose()` on the result. A disposed
+query never resubscribes.
+
+A few details:
+
+- Queries that no route ever uses, such as a
+  [preload](https://svelte.dev/docs/kit/link-options#data-sveltekit-preload-data)
+  for a link you never click, are released after 30 seconds.
+- After a query unsubscribes, `.isStale` is `true` and `.data` keeps the last
+  known value until it resubscribes.
+- `useQuery()` and `usePaginatedQuery()` aren't affected. They unsubscribe when
+  their component unmounts.
+
 ## SSR with initialData (manual alternative)
 
 If you prefer server-only load functions (`+page.server.ts`) or need more
@@ -380,6 +425,8 @@ Functions and types exported from `convex-svelte/sveltekit`:
 | `decodeConvexLoadPaginated`                 | Function | Paginated transport decoder — use in `hooks.ts`.                                           |
 | `createConvexHttpClient(options?)`          | Function | Create a `ConvexHttpClient` for server-side use.                                           |
 | `CreateConvexHttpClientOptions`             | Type     | Options for `createConvexHttpClient`: `url`, `token`, `options`.                           |
+| `InitConvexOptions`                         | Type     | `ConvexClientOptions` plus [`keepAlive`](#subscription-lifecycle) for `initConvex`.        |
+| `KeepAliveOptions`                          | Type     | Idle buffer settings: `maxQueries` (default `10`), `maxIdleMs` (default `60_000`).         |
 
 The server-only helper `withServerConvexToken` is imported from
 `convex-svelte/sveltekit/server`.
