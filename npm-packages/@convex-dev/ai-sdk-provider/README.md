@@ -110,6 +110,10 @@ const { images } = await generateImage({
 });
 ```
 
+Image request costs are available in
+`result.calls[i].providerMetadata.convexGateway.cost`, in US dollars. Each call
+may generate multiple images; the cost is for the call, not each image.
+
 ## Generate videos
 
 Video generation is in alpha. APIs may change, and completion callbacks are best

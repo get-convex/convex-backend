@@ -82,11 +82,11 @@ const costMetadataExtractor: MetadataExtractor = {
   },
 };
 
-function createGatewayProvider(): Provider {
+function createGatewayProvider(fetch = gatewayFetch): Provider {
   return createOpenAICompatible({
     name: "convexGateway",
     baseURL: gatewayBaseURL(),
-    fetch: gatewayFetch,
+    fetch,
     metadataExtractor: costMetadataExtractor,
     supportsStructuredOutputs: true,
     supportedUrls: () => ({ "image/*": [/^https?:\/\/.*$/] }),
@@ -190,19 +190,38 @@ convexGateway.embeddingModel = function (modelId: string): EmbeddingModel {
 
 /** Image model for the AI SDK's `generateImage`. */
 convexGateway.imageModel = function (modelId: string): ImageModel {
-  const model = createGatewayProvider().imageModel(modelId);
+  const { specificationVersion, provider, maxImagesPerCall } =
+    createGatewayProvider().imageModel(modelId);
   return {
-    specificationVersion: model.specificationVersion,
-    provider: model.provider,
+    specificationVersion,
+    provider,
     modelId,
-    maxImagesPerCall: model.maxImagesPerCall,
+    maxImagesPerCall,
     async doGenerate(options) {
       if (options.files?.length || options.mask) {
         throw new Error(
           "Convex AI Gateway does not support image editing. Use a text prompt without input images or a mask.",
         );
       }
-      return model.doGenerate(options);
+      // The SDK's image adapter discards `usage` and has no metadata hook, so
+      // each call reads it from its own response through a per-call fetch.
+      let usage: unknown;
+      const model = createGatewayProvider(async (input, init) => {
+        const response = await gatewayFetch(input, init);
+        if (response.ok) {
+          usage = (await response.clone().json()).usage;
+        }
+        return response;
+      }).imageModel(modelId);
+      const result = await model.doGenerate(options);
+      const metadata = convexGatewayUsageMetadata(usage)?.convexGateway;
+      return {
+        ...result,
+        ...(metadata && {
+          // The SDK's image metadata type requires a per-image `images` array.
+          providerMetadata: { convexGateway: { ...metadata, images: [] } },
+        }),
+      };
     },
   };
 };
