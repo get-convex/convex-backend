@@ -86,10 +86,10 @@ impl InFlightGuard {
 
 impl Drop for InFlightGuard {
     fn drop(&mut self) {
-        if self.0.count.fetch_sub(1, Ordering::AcqRel) == 1 {
-            if let Ok(mut idle_since) = self.0.idle_since.lock() {
-                *idle_since = Some(Instant::now());
-            }
+        if self.0.count.fetch_sub(1, Ordering::AcqRel) == 1
+            && let Ok(mut idle_since) = self.0.idle_since.lock()
+        {
+            *idle_since = Some(Instant::now());
         }
     }
 }
@@ -338,6 +338,10 @@ impl NodeExecutor for LocalNodeExecutor {
         result
     }
 
+    fn shutdown(&self) {}
+}
+
+impl LocalNodeExecutor {
     fn spawn_reaper(&self, slot: &mut ExecutorSlot) {
         let Some(period) = reaper_period(
             *common::knobs::NODE_EXECUTOR_IDLE_TIMEOUT,
@@ -436,8 +440,6 @@ impl NodeExecutor for LocalNodeExecutor {
             Err(e) => Ok(e),
         }
     }
-
-    fn shutdown(&self) {}
 }
 
 fn reaper_period(idle_timeout: Duration, max_lifetime: Duration) -> Option<Duration> {
@@ -540,9 +542,16 @@ mod tests {
         ];
         for (idle, life, in_flight, idle_for, alive_for, retire) in cases {
             assert_eq!(
-                should_retire(secs(idle), secs(life), in_flight, secs(idle_for), secs(alive_for)),
+                should_retire(
+                    secs(idle),
+                    secs(life),
+                    in_flight,
+                    secs(idle_for),
+                    secs(alive_for),
+                ),
                 retire,
-                "idle {idle} life {life} in_flight {in_flight} idle_for {idle_for} alive {alive_for}"
+                "idle {idle} life {life} in_flight {in_flight} idle_for {idle_for} alive \
+                 {alive_for}",
             );
         }
     }
