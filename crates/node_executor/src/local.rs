@@ -52,7 +52,7 @@ const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 pub struct LocalNodeExecutor {
     inner: Arc<Mutex<Option<InnerLocalNodeExecutor>>>,
     config: LocalNodeExecutorConfig,
-    consecutive_timeouts: AtomicU32,
+    consecutive_timeouts: Arc<Mutex<u32>>,
 }
 
 struct LocalNodeExecutorConfig {
