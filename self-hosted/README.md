@@ -116,6 +116,7 @@ e.g., instead of setting `CONVEX_DEPLOY_KEY`, you'll need to set
 - [Running the binary directly](./advanced/running_binary_directly.md)
 - [Hosting on fly.io](./advanced/fly/README.md)
 - [Hosting on Railway.com](./advanced/railway/README.md)
+- [Hosting on Easypanel](https://easypanel.io/templates/convex) (official one-click template)
 - [Hosting on your own servers](./advanced/hosting_on_own_infra.md)
 - [Running the database on Postgres or MySQL](./advanced/postgres_or_mysql.md)
 - [Storing files in S3 instead of local filesystem](./advanced/s3_storage.md)
