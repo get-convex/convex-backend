@@ -2,7 +2,12 @@ use std::{
     fs,
     path::PathBuf,
     sync::{
+        atomic::{
+            AtomicUsize,
+            Ordering,
+        },
         Arc,
+        Mutex as StdMutex,
         Weak,
     },
     time::{
@@ -55,15 +60,38 @@ const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 
 pub struct LocalNodeExecutor {
     slot: Arc<Mutex<ExecutorSlot>>,
+    flight: Arc<Flight>,
     config: LocalNodeExecutorConfig,
 }
 
 struct ExecutorSlot {
     process: Option<Arc<InnerLocalNodeExecutor>>,
-    in_flight: usize,
     started_at: Option<Instant>,
-    idle_since: Option<Instant>,
     reaper_started: bool,
+}
+
+struct Flight {
+    count: AtomicUsize,
+    idle_since: StdMutex<Option<Instant>>,
+}
+
+struct InFlightGuard(Arc<Flight>);
+
+impl InFlightGuard {
+    fn enter(flight: &Arc<Flight>) -> Self {
+        flight.count.fetch_add(1, Ordering::AcqRel);
+        Self(flight.clone())
+    }
+}
+
+impl Drop for InFlightGuard {
+    fn drop(&mut self) {
+        if self.0.count.fetch_sub(1, Ordering::AcqRel) == 1 {
+            if let Ok(mut idle_since) = self.0.idle_since.lock() {
+                *idle_since = Some(Instant::now());
+            }
+        }
+    }
 }
 
 struct LocalNodeExecutorConfig {
@@ -219,11 +247,13 @@ impl LocalNodeExecutor {
         let executor = Self {
             slot: Arc::new(Mutex::new(ExecutorSlot {
                 process: None,
-                in_flight: 0,
                 started_at: None,
-                idle_since: None,
                 reaper_started: false,
             })),
+            flight: Arc::new(Flight {
+                count: AtomicUsize::new(0),
+                idle_since: StdMutex::new(None),
+            }),
             config: LocalNodeExecutorConfig {
                 node_process_timeout,
                 callback_initial_backoff: None,
@@ -293,18 +323,19 @@ impl NodeExecutor for LocalNodeExecutor {
                     .context("Failed to create inner local node executor")?;
                 slot.process = Some(Arc::new(created));
                 slot.started_at = Some(Instant::now());
-                slot.idle_since = None;
+                if let Ok(mut idle_since) = self.flight.idle_since.lock() {
+                    *idle_since = None;
+                }
                 self.spawn_reaper(&mut slot);
             }
-            slot.in_flight += 1;
             slot.process.as_ref().unwrap().clone()
         };
+        let _in_flight = InFlightGuard::enter(&self.flight);
         let result = self
-            .invoke_with_client(process.client.clone(), request, log_line_sender)
+            .invoke_with_client(&process, request, log_line_sender)
             .await;
         drop(process);
-        self.note_invoke_finished().await;
-        return result;
+        result
     }
 
     fn spawn_reaper(&self, slot: &mut ExecutorSlot) {
@@ -319,25 +350,31 @@ impl NodeExecutor for LocalNodeExecutor {
         }
         slot.reaper_started = true;
         let weak = Arc::downgrade(&self.slot);
+        let flight = self.flight.clone();
         tokio::spawn(async move {
-            reaper_loop(weak, period).await;
+            reaper_loop(weak, flight, period).await;
         });
     }
 
-    async fn note_invoke_finished(&self) {
+    async fn retire_if_current(&self, process: &Arc<InnerLocalNodeExecutor>) {
         let mut slot = self.slot.lock().await;
-        slot.in_flight = slot.in_flight.saturating_sub(1);
-        if slot.in_flight == 0 {
-            slot.idle_since = Some(Instant::now());
+        if slot
+            .process
+            .as_ref()
+            .is_some_and(|current| Arc::ptr_eq(current, process))
+        {
+            slot.process.take();
+            slot.started_at = None;
         }
     }
 
     async fn invoke_with_client(
         &self,
-        client: reqwest::Client,
+        process: &Arc<InnerLocalNodeExecutor>,
         request: ExecutorRequest,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     ) -> anyhow::Result<InvokeResponse> {
+        let client = process.client.clone();
         let request_json = JsonValue::try_from(request)?;
 
         let response_result = client
@@ -358,7 +395,7 @@ impl NodeExecutor for LocalNodeExecutor {
                     // Connection error likely means the Node server crashed (e.g., OOM).
                     // Drop the dead server so it will be restarted on next invoke.
                     tracing::warn!("Node server connection failed, dropping server: {e}");
-                    self.slot.lock().await.process.take();
+                    self.retire_if_current(process).await;
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
                 } else {
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
@@ -389,7 +426,7 @@ impl NodeExecutor for LocalNodeExecutor {
                     .unwrap_or(false)
                 {
                     // Drop the server if it claims to be exiting.
-                    self.slot.lock().await.process.take();
+                    self.retire_if_current(process).await;
                 }
                 Ok(InvokeResponse {
                     response: payload,
@@ -429,7 +466,7 @@ fn should_retire(
     idle_hit || lifetime_hit
 }
 
-async fn reaper_loop(weak: Weak<Mutex<ExecutorSlot>>, period: Duration) {
+async fn reaper_loop(weak: Weak<Mutex<ExecutorSlot>>, flight: Arc<Flight>, period: Duration) {
     let idle_timeout = *common::knobs::NODE_EXECUTOR_IDLE_TIMEOUT;
     let max_lifetime = *common::knobs::NODE_EXECUTOR_MAX_LIFETIME;
     loop {
@@ -438,19 +475,23 @@ async fn reaper_loop(weak: Weak<Mutex<ExecutorSlot>>, period: Duration) {
             return;
         };
         let mut slot = slot.lock().await;
-        let (Some(started_at), Some(idle_since)) = (slot.started_at, slot.idle_since) else {
+        let Some(started_at) = slot.started_at else {
             continue;
         };
         if slot.process.is_none() {
             continue;
         }
+        let idle_since = flight.idle_since.lock().ok().and_then(|idle| *idle);
+        let Some(idle_since) = idle_since else {
+            continue;
+        };
         let now = Instant::now();
         let idle_for = now.saturating_duration_since(idle_since);
         let alive_for = now.saturating_duration_since(started_at);
         if should_retire(
             idle_timeout,
             max_lifetime,
-            slot.in_flight,
+            flight.count.load(Ordering::Acquire),
             idle_for,
             alive_for,
         ) {
@@ -461,7 +502,6 @@ async fn reaper_loop(weak: Weak<Mutex<ExecutorSlot>>, period: Duration) {
             );
             slot.process.take();
             slot.started_at = None;
-            slot.idle_since = None;
         }
     }
 }
