@@ -431,7 +431,6 @@ impl<RT: Runtime> FileStorageSizeTracker<RT> {
         self.synced = Some(synced);
         Ok(size)
     }
-
 }
 
 /// Drive the iterator until it is caught up, accumulating deltas: add each

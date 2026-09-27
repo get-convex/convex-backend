@@ -250,8 +250,7 @@ fn ends_with_tld(host: &str) -> bool {
     tld::exist(maybe_tld)
 }
 
-impl AuthInfo {
-}
+impl AuthInfo {}
 
 #[derive(Debug)]
 pub struct AuthConfig {

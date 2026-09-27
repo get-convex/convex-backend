@@ -24,7 +24,6 @@ impl ShapeConfig for SmallConfig {
     fn is_valid_string_literal(s: &str) -> bool {
         ProdConfig::is_valid_string_literal(s)
     }
-
 }
 
 fn repl<C: ShapeConfig>() -> anyhow::Result<()> {

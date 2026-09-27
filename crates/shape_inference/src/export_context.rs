@@ -123,7 +123,6 @@ impl<C: ShapeConfig, S: ShapeCounter> Shape<C, S> {
             _ => btreeset!(),
         }
     }
-
 }
 
 impl ExportContext {

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+
 use anyhow::Context;
 use common::runtime::Runtime;
 use errors::ErrorMetadata;
@@ -6,6 +7,7 @@ use keybroker::{
     Identity,
     KeyBroker,
 };
+
 use crate::{
     access_token_auth::AccessTokenAuth,
     metrics::{
@@ -18,7 +20,6 @@ pub struct ApplicationAuth<RT: Runtime> {
     key_broker: KeyBroker,
     access_token_auth: Arc<dyn AccessTokenAuth>,
     rt: RT,
-
 }
 
 // Encapsulates auth logic supporting both legacy Deploy Keys and new Convex
@@ -69,5 +70,4 @@ impl<RT: Runtime> ApplicationAuth<RT> {
                 .await
         }
     }
-
 }

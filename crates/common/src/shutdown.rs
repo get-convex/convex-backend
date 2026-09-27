@@ -53,5 +53,4 @@ impl ShutdownSignal {
     pub fn panic() -> Self {
         Self { mode: Mode::Panic }
     }
-
 }

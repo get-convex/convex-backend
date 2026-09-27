@@ -790,7 +790,6 @@ impl IndexRegistry {
             .map(|(_name, index)| index.id())
             .collect()
     }
-
 }
 
 pub trait IndexedDocument {

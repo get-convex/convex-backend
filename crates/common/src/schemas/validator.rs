@@ -750,9 +750,7 @@ impl TryFrom<ConvexValue> for LiteralValidator {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ObjectValidator(
-    pub BTreeMap<IdentifierFieldName, FieldValidator>,
-);
+pub struct ObjectValidator(pub BTreeMap<IdentifierFieldName, FieldValidator>);
 
 #[macro_export]
 macro_rules! object_validator {

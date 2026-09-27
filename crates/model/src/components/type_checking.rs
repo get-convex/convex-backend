@@ -730,7 +730,6 @@ impl CheckedHttpRoutes {
             .unwrap_or(true)
             && self.mounts.is_empty()
     }
-
 }
 
 mod json {

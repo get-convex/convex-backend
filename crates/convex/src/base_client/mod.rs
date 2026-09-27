@@ -92,8 +92,7 @@ struct Query {
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct SubscriberId(QueryId, usize);
 
-impl SubscriberId {
-}
+impl SubscriberId {}
 
 fn serialize_path_and_args(udf_path: UdfPath, args: BTreeMap<String, Value>) -> QueryToken {
     let json_path: String = udf_path.canonicalize().into();

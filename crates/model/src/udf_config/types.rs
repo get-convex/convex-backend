@@ -22,8 +22,7 @@ pub struct UdfConfig {
     pub import_phase_unix_timestamp: UnixTimestamp,
 }
 
-impl UdfConfig {
-}
+impl UdfConfig {}
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

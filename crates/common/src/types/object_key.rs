@@ -18,9 +18,7 @@ static OBJECT_KEY_REGEX: LazyLock<Regex> =
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 #[must_use]
-pub struct ObjectKey(
-    String,
-);
+pub struct ObjectKey(String);
 
 /// Fully qualified object key. For s3, in the format
 /// {bucket}/{prefix}-{object_key}
@@ -36,9 +34,7 @@ pub struct ObjectKey(
     derive_more::From,
     derive_more::Into,
 )]
-pub struct FullyQualifiedObjectKey(
-    String,
-);
+pub struct FullyQualifiedObjectKey(String);
 
 impl FullyQualifiedObjectKey {
     pub fn as_str(&self) -> &str {

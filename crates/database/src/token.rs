@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use common::types::Timestamp;
 use value::heap_size::HeapSize;
+
 use crate::reads::ReadSet;
 
 /// Serialized representation of [`Token`].

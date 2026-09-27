@@ -43,8 +43,6 @@ use crate::{
     NodeExecutorStreamPart,
 };
 
-use std::sync::atomic::AtomicU32;
-
 const NVMRC_VERSION: &str = include_str!("../../../.nvmrc");
 const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
@@ -294,15 +292,15 @@ impl NodeExecutor for LocalNodeExecutor {
         let response = match response_result {
             Ok(response) => response,
             Err(e) => {
-                if e.is_timeout() { 
+                if e.is_timeout() {
                     let mut timeouts = self.consecutive_timeouts.lock().await;
-                        *timeouts +=1;
-                        if *timeouts >=3 {
-                            self.timeouts.lock().await.take();
-                            *timeouts = 0;
+                    *timeouts += 1;
+                    if *timeouts >= 3 {
+                        self.inner.lock().await.take();
+                        *timeouts = 0;
 
-                            tracing::warn!("Node executor timed out 3 consecutive times, reccycling");
-                        }
+                        tracing::warn!("Node executor timed out 3 consecutive times, reccycling");
+                    }
 
                     return Ok(InvokeResponse {
                         response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
@@ -352,7 +350,23 @@ impl NodeExecutor for LocalNodeExecutor {
                     aws_request_id: None,
                 })
             },
-            Err(e) => Ok(e),
+
+            Err(e) if e.is_timeout() => {
+                let mut timeouts = self.consecutive_timeouts.lock().await;
+                *timeouts += 1;
+
+                if *timeouts >= 3 {
+                    self.inner.lock().await.take();
+                    *timeouts = 0;
+
+                    tracing::warn!("Node executor timed out 3 consecutive times; recycling");
+                }
+
+                Ok(InvokeResponse {
+                    response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
+                    aws_request_id: None,
+                })
+            },
         }
     }
 

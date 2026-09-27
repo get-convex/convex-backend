@@ -768,7 +768,6 @@ impl JsError {
             frames: Some(JsFrames(mapped_frames.into())),
         }
     }
-
 }
 
 // Based on deno's `02_error.js:formatLocation`.

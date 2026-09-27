@@ -159,7 +159,6 @@ impl StreamingExportSelection {
             },
         }
     }
-
 }
 
 /// What to do during streaming export for a particular component.

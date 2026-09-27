@@ -603,12 +603,8 @@ impl TextQueryTermRead {
 // code.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TextQueryTerm {
-    Exact(
-        String,
-    ),
-    Prefix(
-        String,
-    ),
+    Exact(String),
+    Prefix(String),
 }
 
 impl TextQueryTerm {

@@ -84,7 +84,6 @@ mod v1 {
         compressed.truncate(5 + compressed_len);
         Ok(compressed)
     }
-
 }
 
 pub(crate) fn encode(maybe_doc: Option<&ResolvedDocument>) -> anyhow::Result<Vec<u8>> {

@@ -4,9 +4,7 @@ use value::ConvexValue;
 #[derive(
     Clone, Debug, Eq, PartialEq, Ord, PartialOrd, derive_more::Display, derive_more::FromStr,
 )]
-pub struct StorageUuid(
-    Uuid,
-);
+pub struct StorageUuid(Uuid);
 
 impl From<Uuid> for StorageUuid {
     fn from(u: Uuid) -> Self {

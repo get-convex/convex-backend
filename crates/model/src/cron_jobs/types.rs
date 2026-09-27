@@ -949,9 +949,7 @@ impl TryFrom<ConvexObject> for CronJobStatus {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CronJobResult {
-    Default(
-        PendingValue,
-    ),
+    Default(PendingValue),
     Truncated(String),
 }
 

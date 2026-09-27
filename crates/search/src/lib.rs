@@ -208,8 +208,7 @@ pub type EditDistance = u8;
 #[derive(Debug, Clone, Copy, Default, PartialOrd, Ord, Eq, PartialEq)]
 pub struct FieldPosition(u32);
 
-impl FieldPosition {
-}
+impl FieldPosition {}
 
 impl From<FieldPosition> for u32 {
     fn from(value: FieldPosition) -> Self {

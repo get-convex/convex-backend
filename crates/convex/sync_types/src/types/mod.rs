@@ -123,9 +123,7 @@ pub enum QuerySetModification {
 }
 
 #[derive(Clone, Debug)]
-pub struct SerializedArgs(
-    Box<RawValue>,
-);
+pub struct SerializedArgs(Box<RawValue>);
 
 impl PartialEq for SerializedArgs {
     fn eq(&self, other: &Self) -> bool {
