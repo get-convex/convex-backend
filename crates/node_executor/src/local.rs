@@ -1,8 +1,14 @@
 use std::{
     fs,
     path::PathBuf,
-    sync::Arc,
-    time::Duration,
+    sync::{
+        Arc,
+        Weak,
+    },
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use anyhow::Context;
@@ -48,8 +54,16 @@ const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 
 pub struct LocalNodeExecutor {
-    inner: Arc<Mutex<Option<InnerLocalNodeExecutor>>>,
+    slot: Arc<Mutex<ExecutorSlot>>,
     config: LocalNodeExecutorConfig,
+}
+
+struct ExecutorSlot {
+    process: Option<Arc<InnerLocalNodeExecutor>>,
+    in_flight: usize,
+    started_at: Option<Instant>,
+    idle_since: Option<Instant>,
+    reaper_started: bool,
 }
 
 struct LocalNodeExecutorConfig {
@@ -203,7 +217,13 @@ impl InnerLocalNodeExecutor {
 impl LocalNodeExecutor {
     pub async fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
         let executor = Self {
-            inner: Arc::new(Mutex::new(None)),
+            slot: Arc::new(Mutex::new(ExecutorSlot {
+                process: None,
+                in_flight: 0,
+                started_at: None,
+                idle_since: None,
+                reaper_started: false,
+            })),
             config: LocalNodeExecutorConfig {
                 node_process_timeout,
                 callback_initial_backoff: None,
@@ -265,18 +285,59 @@ impl NodeExecutor for LocalNodeExecutor {
         request: ExecutorRequest,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     ) -> anyhow::Result<InvokeResponse> {
-        let client = {
-            let mut inner = self.inner.lock().await;
-            if inner.is_none() {
-                *inner = Some(
-                    InnerLocalNodeExecutor::new(&self.config)
-                        .await
-                        .context("Failed to create inner local node executor")?,
-                )
+        let process = {
+            let mut slot = self.slot.lock().await;
+            if slot.process.is_none() {
+                let created = InnerLocalNodeExecutor::new(&self.config)
+                    .await
+                    .context("Failed to create inner local node executor")?;
+                slot.process = Some(Arc::new(created));
+                slot.started_at = Some(Instant::now());
+                slot.idle_since = None;
+                self.spawn_reaper(&mut slot);
             }
-            let inner = inner.as_ref().unwrap();
-            inner.client.clone()
+            slot.in_flight += 1;
+            slot.process.as_ref().unwrap().clone()
         };
+        let result = self
+            .invoke_with_client(process.client.clone(), request, log_line_sender)
+            .await;
+        drop(process);
+        self.note_invoke_finished().await;
+        return result;
+    }
+
+    fn spawn_reaper(&self, slot: &mut ExecutorSlot) {
+        let Some(period) = reaper_period(
+            *common::knobs::NODE_EXECUTOR_IDLE_TIMEOUT,
+            *common::knobs::NODE_EXECUTOR_MAX_LIFETIME,
+        ) else {
+            return;
+        };
+        if slot.reaper_started {
+            return;
+        }
+        slot.reaper_started = true;
+        let weak = Arc::downgrade(&self.slot);
+        tokio::spawn(async move {
+            reaper_loop(weak, period).await;
+        });
+    }
+
+    async fn note_invoke_finished(&self) {
+        let mut slot = self.slot.lock().await;
+        slot.in_flight = slot.in_flight.saturating_sub(1);
+        if slot.in_flight == 0 {
+            slot.idle_since = Some(Instant::now());
+        }
+    }
+
+    async fn invoke_with_client(
+        &self,
+        client: reqwest::Client,
+        request: ExecutorRequest,
+        log_line_sender: mpsc::UnboundedSender<LogLine>,
+    ) -> anyhow::Result<InvokeResponse> {
         let request_json = JsonValue::try_from(request)?;
 
         let response_result = client
@@ -297,7 +358,7 @@ impl NodeExecutor for LocalNodeExecutor {
                     // Connection error likely means the Node server crashed (e.g., OOM).
                     // Drop the dead server so it will be restarted on next invoke.
                     tracing::warn!("Node server connection failed, dropping server: {e}");
-                    self.inner.lock().await.take();
+                    self.slot.lock().await.process.take();
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
                 } else {
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
@@ -328,7 +389,7 @@ impl NodeExecutor for LocalNodeExecutor {
                     .unwrap_or(false)
                 {
                     // Drop the server if it claims to be exiting.
-                    self.inner.lock().await.take();
+                    self.slot.lock().await.process.take();
                 }
                 Ok(InvokeResponse {
                     response: payload,
@@ -340,4 +401,126 @@ impl NodeExecutor for LocalNodeExecutor {
     }
 
     fn shutdown(&self) {}
+}
+
+fn reaper_period(idle_timeout: Duration, max_lifetime: Duration) -> Option<Duration> {
+    let shortest = match (idle_timeout.is_zero(), max_lifetime.is_zero()) {
+        (true, true) => return None,
+        (false, true) => idle_timeout,
+        (true, false) => max_lifetime,
+        (false, false) => idle_timeout.min(max_lifetime),
+    };
+    let quarter = Duration::from_secs_f64(shortest.as_secs_f64() / 4.0);
+    Some(quarter.clamp(Duration::from_secs(1), Duration::from_secs(30)))
+}
+
+fn should_retire(
+    idle_timeout: Duration,
+    max_lifetime: Duration,
+    in_flight: usize,
+    idle_for: Duration,
+    alive_for: Duration,
+) -> bool {
+    if in_flight > 0 {
+        return false;
+    }
+    let idle_hit = !idle_timeout.is_zero() && idle_for >= idle_timeout;
+    let lifetime_hit = !max_lifetime.is_zero() && alive_for >= max_lifetime;
+    idle_hit || lifetime_hit
+}
+
+async fn reaper_loop(weak: Weak<Mutex<ExecutorSlot>>, period: Duration) {
+    let idle_timeout = *common::knobs::NODE_EXECUTOR_IDLE_TIMEOUT;
+    let max_lifetime = *common::knobs::NODE_EXECUTOR_MAX_LIFETIME;
+    loop {
+        tokio::time::sleep(period).await;
+        let Some(slot) = weak.upgrade() else {
+            return;
+        };
+        let mut slot = slot.lock().await;
+        let (Some(started_at), Some(idle_since)) = (slot.started_at, slot.idle_since) else {
+            continue;
+        };
+        if slot.process.is_none() {
+            continue;
+        }
+        let now = Instant::now();
+        let idle_for = now.saturating_duration_since(idle_since);
+        let alive_for = now.saturating_duration_since(started_at);
+        if should_retire(
+            idle_timeout,
+            max_lifetime,
+            slot.in_flight,
+            idle_for,
+            alive_for,
+        ) {
+            tracing::info!(
+                "Retiring local node executor (idle {:.2}s, alive {:.2}s)",
+                idle_for.as_secs_f64(),
+                alive_for.as_secs_f64(),
+            );
+            slot.process.take();
+            slot.started_at = None;
+            slot.idle_since = None;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn secs(value: u64) -> Duration {
+        Duration::from_secs(value)
+    }
+
+    #[test]
+    fn reaper_wakes_a_quarter_of_the_shortest_deadline() {
+        assert_eq!(reaper_period(secs(0), secs(0)), None);
+        assert_eq!(reaper_period(secs(40), secs(0)), Some(secs(10)));
+        assert_eq!(reaper_period(secs(40), secs(400)), Some(secs(10)));
+        assert_eq!(reaper_period(secs(0), secs(80)), Some(secs(20)));
+        assert_eq!(reaper_period(secs(8), secs(0)), Some(secs(2)));
+        assert_eq!(reaper_period(secs(300), secs(0)), Some(secs(30)));
+        assert_eq!(reaper_period(secs(3600), secs(86400)), Some(secs(30)));
+        assert_eq!(reaper_period(secs(2), secs(0)), Some(secs(1)));
+    }
+
+    #[test]
+    fn retire_decision_matches_measured_vectors() {
+        let cases = [
+            (300, 0, 0, 299, 299, false),
+            (300, 0, 0, 300, 300, true),
+            (1, 1, 1, 3600, 3600, false),
+            (1, 1, 0, 3600, 3600, true),
+            (300, 3600, 0, 5, 3599, false),
+            (300, 3600, 0, 5, 3600, true),
+            (0, 3600, 0, 86400, 60, false),
+            (0, 0, 0, 86400, 86400, false),
+        ];
+        for (idle, life, in_flight, idle_for, alive_for, retire) in cases {
+            assert_eq!(
+                should_retire(secs(idle), secs(life), in_flight, secs(idle_for), secs(alive_for)),
+                retire,
+                "idle {idle} life {life} in_flight {in_flight} idle_for {idle_for} alive {alive_for}"
+            );
+        }
+    }
+
+    #[test]
+    fn three_hundred_second_idle_retires_on_the_330_second_wake() {
+        let tick = reaper_period(secs(300), secs(0)).unwrap();
+        let finished_at = secs(1);
+        let mut wake = tick;
+        let mut retired_at = None;
+        while wake < secs(1000) {
+            let idle_for = wake.saturating_sub(finished_at);
+            if should_retire(secs(300), secs(0), 0, idle_for, wake) {
+                retired_at = Some((wake, idle_for));
+                break;
+            }
+            wake += tick;
+        }
+        assert_eq!(retired_at, Some((secs(330), secs(329))));
+    }
 }
