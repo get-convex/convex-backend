@@ -9016,7 +9016,6 @@ dependencies = [
  "imbl_slab",
  "indexing",
  "itertools 0.14.0",
- "levenshtein_automata",
  "maplit",
  "metrics",
  "once_cell",

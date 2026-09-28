@@ -1,11 +1,7 @@
 use std::{
-    collections::BTreeSet,
     mem,
     ops::Deref,
-    sync::{
-        Arc,
-        LazyLock,
-    },
+    sync::Arc,
 };
 
 use imbl_slab::{
@@ -13,30 +9,19 @@ use imbl_slab::{
     SlabKey,
 };
 use ref_cast::RefCast;
-use tantivy::{
-    schema::Type,
-    Term,
-};
+use tantivy::Term;
 
 use crate::{
     aggregation::TokenMatchAggregator,
-    levenshtein_dfa::build_fuzzy_dfa,
     memory_index::{
         art::ART,
         small_slice::SmallSlice,
     },
-    scoring::term_from_str,
     searcher::{
         TokenMatch,
         TokenQuery,
     },
-    EditDistance,
 };
-
-/// Used to skip the Term metadata bits Tantivy does not publicly expose
-/// in Terms of type String.
-static TERM_STRING_METADATA_BITS: LazyLock<Vec<u8>> =
-    LazyLock::new(|| term_from_str("").as_slice().to_vec());
 
 pub type TermId = SlabKey;
 
@@ -119,25 +104,18 @@ impl TermTable {
         self.index.get(TermRef::ref_cast(term)).cloned()
     }
 
-    pub fn get_fuzzy(
-        &self,
-        term: &Term,
-        max_distance: u8,
-        prefix: bool,
-    ) -> impl Iterator<Item = (TermId, EditDistance, Term)> + use<'_> {
-        assert!(max_distance <= 2);
-        let term = term.as_str().expect("Term must be string for get_fuzzy");
-        let dfa = build_fuzzy_dfa(term, max_distance, prefix);
-
+    /// Terms that start with `prefix` (including `prefix` itself), in
+    /// lexicographic order. Term bytes begin with the field and type, so only
+    /// string terms of `prefix`'s field match.
+    pub fn get_prefix<'a>(&'a self, prefix: &'a Term) -> impl Iterator<Item = (TermId, Term)> + 'a {
         self.index
-            .intersect(dfa, Some(&TERM_STRING_METADATA_BITS))
-            .map(|(key, dist, bytes)| {
-                let term = Term::wrap(bytes);
-                debug_assert_eq!(term.typ(), Type::Str);
-                (*key, dist, term)
-            })
+            .iter_prefix(prefix.as_slice())
+            .map(|(term_id, bytes)| (*term_id, Term::wrap(bytes)))
     }
 
+    /// Visits the exact match for `query.term` and then, for prefix queries,
+    /// the terms it prefixes in lexicographic order. This is ascending
+    /// `TokenMatch` order, so the first match `results` rejects ends the scan.
     #[fastrace::trace]
     pub fn visit_top_terms_for_query(
         &self,
@@ -145,9 +123,7 @@ impl TermTable {
         query: &TokenQuery,
         results: &mut TokenMatchAggregator,
     ) -> anyhow::Result<()> {
-        let mut seen_terms = BTreeSet::new();
         if self.get(&query.term).is_some() {
-            seen_terms.insert(query.term.clone());
             let m = TokenMatch {
                 distance: 0,
                 prefix: false,
@@ -158,26 +134,24 @@ impl TermTable {
                 return Ok(());
             }
         }
-        if !query.prefix {
-            return Ok(());
-        }
-        // TODO: There's a bug here where skipping a prefix allows
-        // matching terms for other fields!
-        assert!(query.term.as_str().is_some());
-        for (_, _, match_term) in self.get_fuzzy(&query.term, 0, true) {
-            // The prefix DFA also matches the query term itself, which the exact
-            // lookup above already emitted.
-            if !seen_terms.insert(match_term.clone()) {
-                continue;
-            }
-            let m = TokenMatch {
-                distance: 0,
-                prefix: true,
-                term: match_term,
-                token_ord,
-            };
-            if !results.insert(m) {
-                break;
+        if query.prefix {
+            anyhow::ensure!(
+                query.term.as_str().is_some(),
+                "Prefix query on non-string term"
+            );
+            for (_, match_term) in self.get_prefix(&query.term) {
+                if match_term == query.term {
+                    continue;
+                }
+                let m = TokenMatch {
+                    distance: 0,
+                    prefix: true,
+                    term: match_term,
+                    token_ord,
+                };
+                if !results.insert(m) {
+                    break;
+                }
             }
         }
         Ok(())

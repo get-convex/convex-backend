@@ -10,7 +10,6 @@ use std::{
     collections::{
         BTreeMap,
         BTreeSet,
-        BinaryHeap,
     },
     fmt::Debug,
     mem,
@@ -80,7 +79,6 @@ use crate::{
     },
     CandidateRevision,
     DocumentTerm,
-    EditDistance,
     SEARCH_FIELD_ID,
 };
 
@@ -389,21 +387,11 @@ impl MemoryTextIndex {
 
             let term = query_term.term();
             let term_matches = if query_term.prefix() {
-                // We want `terms_heap` to be a min-heap where higher distances compare to lower
-                // values. BinaryHeap is already a max-heap that will yield
-                // distances of higher values first, so we can just use
-                // this.
-                let mut terms_heap = BinaryHeap::<(EditDistance, Term, TermId)>::new();
-                for (term_id, dist, match_term) in
-                    self.term_table.get_fuzzy(term, 0, query_term.prefix())
-                {
-                    terms_heap.push((dist, match_term, term_id));
-
-                    if terms_heap.len() > MAX_PREFIX_MATCHES_PER_QUERY_TERM {
-                        terms_heap.pop();
-                    }
-                }
-                terms_heap.into_sorted_vec()
+                self.term_table
+                    .get_prefix(term)
+                    .take(MAX_PREFIX_MATCHES_PER_QUERY_TERM)
+                    .map(|(term_id, match_term)| (0, match_term, term_id))
+                    .collect()
             } else if let Some(term_id) = self.term_table.get(term) {
                 vec![(0, term.clone(), term_id)]
             } else {

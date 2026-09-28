@@ -105,10 +105,6 @@ use crate::{
         FragmentedSegmentStorageKeys,
     },
     incremental_index::fetch_compact_and_upload_text_segment,
-    levenshtein_dfa::{
-        build_fuzzy_dfa,
-        LevenshteinDfaWrapper,
-    },
     searcher::{
         metrics::{
             text_compaction_searcher_latency_seconds,
@@ -621,23 +617,18 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 let segment = searcher.segment_reader(*segment_ord);
                 anyhow::ensure!(max_results <= MAX_UNIQUE_QUERY_TERMS);
 
-                // Deterministically choose the "best" terms for a set of query tokens.
-                // Each query token `q_i` totally orders the terms `t_j` it matches by
-                // `(is_prefix_match, t_j, i)`: an exact match comes before prefix matches,
-                // with ties broken by the term contents and then the query token index.
-                // Logically, we merge these streams across all query tokens and take
-                // tuples until we have seen `max_results` unique terms.
-                //
-                // Since the term dictionary may be very large, the sort is pushed down
-                // into each query token: we take tuples from each `q_i` until we've seen
-                // `max_results` unique terms (at most `max_results * k` tuples), and
-                // `TokenMatchAggregator` merges them and keeps the best tuples until it
-                // has seen `max_results` unique terms.
+                // Deterministically choose the best terms in the segment for the query
+                // tokens. Each query token `q_i` totally orders the matching terms by
+                // `TokenMatch` order: its exact match first, then (for prefix tokens) the
+                // terms it prefixes, ties broken by term contents and then `i`. Logically,
+                // we merge these streams and take tuples until we have seen `max_results`
+                // unique terms. `TokenMatchAggregator` performs the merge; each token stops
+                // producing tuples once the aggregator rejects one, since the rest of its
+                // stream sorts after it.
                 let mut match_aggregator = TokenMatchAggregator::new(max_results);
 
                 for (token_ord, token_query) in queries.into_iter().enumerate() {
                     let token_ord = token_ord as u32;
-                    // Query the top scoring tuples for just our query term.
                     Self::visit_top_terms_for_query(
                         segment,
                         deletion_tracker,
@@ -662,11 +653,11 @@ impl<RT: Runtime> SearcherImpl<RT> {
         let field = query.term.field();
         let inverted_index = segment.inverted_index(field)?;
         let term_dict = inverted_index.terms();
-        let mut seen_terms = BTreeSet::new();
-        if let Some(term_ord) = term_dict.term_ord(query.term.value_bytes())?
-            && deletion_tracker.doc_frequency(field, term_dict, term_ord)? != 0
+        let query_bytes = query.term.value_bytes();
+
+        if let Some(term_ord) = term_dict.term_ord(query_bytes)?
+            && deletion_tracker.doc_frequency(field, term_dict, term_ord)? > 0
         {
-            seen_terms.insert(query.term.clone());
             let m = TokenMatch {
                 distance: 0,
                 prefix: false,
@@ -680,31 +671,27 @@ impl<RT: Runtime> SearcherImpl<RT> {
         if !query.prefix {
             return Ok(());
         }
-        let term_str = query
-            .term
-            .as_str()
-            .context("Non-exact match for non-string field")?;
-        let dfa = build_fuzzy_dfa(term_str, 0, true);
-        let dfa_compat = LevenshteinDfaWrapper(&dfa);
-        let mut term_stream = term_dict.search(dfa_compat).into_stream()?;
+
+        // The term dictionary streams keys in lexicographic order, so the terms
+        // `query_bytes` prefixes are a contiguous run starting at `query_bytes`.
+        anyhow::ensure!(
+            query.term.as_str().is_some(),
+            "Prefix query on non-string term"
+        );
+        let mut term_stream = term_dict.range().gt(query_bytes).into_stream()?;
         while term_stream.advance() {
             let match_term_bytes = term_stream.key();
+            if !match_term_bytes.starts_with(query_bytes) {
+                break;
+            }
+            if deletion_tracker.doc_frequency(field, term_dict, term_stream.term_ord())? == 0 {
+                continue;
+            }
             let match_str = std::str::from_utf8(match_term_bytes)?;
-            let match_term = Term::from_field_text(query.term.field(), match_str);
-
-            let term_ord = term_stream.term_ord();
-            if deletion_tracker.doc_frequency(field, term_dict, term_ord)? == 0 {
-                continue;
-            }
-            // The prefix DFA also matches the query term itself, which the exact
-            // lookup above already emitted.
-            if !seen_terms.insert(match_term.clone()) {
-                continue;
-            }
             let m = TokenMatch {
                 distance: 0,
                 prefix: true,
-                term: match_term,
+                term: Term::from_field_text(field, match_str),
                 token_ord,
             };
             if !results.insert(m) {

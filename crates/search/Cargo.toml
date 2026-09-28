@@ -40,7 +40,6 @@ imbl = { workspace = true }
 imbl_slab = { workspace = true }
 indexing = { workspace = true }
 itertools = { workspace = true }
-levenshtein_automata = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 once_cell = { workspace = true }

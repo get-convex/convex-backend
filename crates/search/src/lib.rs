@@ -11,7 +11,6 @@ mod convex_query;
 pub mod disk_index;
 pub mod fragmented_segment;
 mod incremental_index;
-mod levenshtein_dfa;
 mod memory_index;
 pub mod metrics;
 pub mod query;
