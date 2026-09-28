@@ -311,6 +311,7 @@ impl NodeExecutor for LocalNodeExecutor {
                     // Drop the dead server so it will be restarted on next invoke.
                     tracing::warn!("Node server connection failed, dropping server: {e}");
                     self.inner.lock().await.take();
+                    *self.consecutive_timeouts.lock().await = 0;
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
                 } else {
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
