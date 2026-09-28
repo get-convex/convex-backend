@@ -4,6 +4,7 @@
 #![feature(try_blocks_heterogeneous)]
 mod chunks;
 mod connection;
+mod deployment_deletion;
 mod document_encoding;
 mod metrics;
 mod sql;
@@ -38,11 +39,12 @@ pub(crate) const MAX_INSERT_SIZE: usize = 56000;
 
 pub type MySqlPersistence<RT> = v5::Persistence<RT>;
 pub type MySqlReader<RT> = v5::Reader<RT>;
-pub use v5::{
+pub use deployment_deletion::{
     DeploymentDeleter,
     DeploymentDeletionBatch,
     DeploymentDeletionCursor,
     DeploymentDeletionPool,
+    DeploymentDeletionTarget,
 };
 
 #[derive(Clone, Debug)]

@@ -1,6 +1,5 @@
 //! V5 persistence.
 
-mod deployment_deletion;
 pub(crate) mod documents;
 pub(crate) mod indexes;
 mod persistence;
@@ -17,12 +16,6 @@ use common::{
     shutdown::ShutdownSignal,
 };
 use const_format::formatcp;
-pub use deployment_deletion::{
-    DeploymentDeleter,
-    DeploymentDeletionBatch,
-    DeploymentDeletionCursor,
-    DeploymentDeletionPool,
-};
 pub(super) use persistence::{
     internal_doc_id_param,
     internal_id_param,
