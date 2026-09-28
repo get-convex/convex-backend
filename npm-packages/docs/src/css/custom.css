@@ -1648,6 +1648,12 @@ html[data-theme="dark"] .StackPosts-title-image--dark {
   object-fit: cover;
 }
 
+.StackPosts-post-image--default {
+  padding: 2rem;
+  background: var(--color-n1);
+  object-fit: contain;
+}
+
 .StackPosts-post-content {
   display: flex;
   flex-direction: column;
