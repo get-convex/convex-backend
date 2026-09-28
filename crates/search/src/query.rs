@@ -131,10 +131,6 @@ impl QueryTerm {
         self.term
     }
 
-    pub fn max_distance(&self) -> u32 {
-        0
-    }
-
     pub fn prefix(&self) -> bool {
         self.prefix
     }

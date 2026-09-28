@@ -12,9 +12,10 @@ service Searchlight {
 
   rpc FetchTermOrdinals(FetchTermOrdinalsRequest) returns (FetchTermOrdinalsResponse);
 
-  // Query a set of tokens against the term dictionary, optionally allowing
-  // for fuzzy matching and prefix matching. Take the top `K` results with
-  // respect to to `(edit distance, term)` lexicographical order.
+  // Query a set of tokens against the term dictionary with exact matching
+  // and, for tokens that request it, prefix matching. Take the top `K`
+  // results, ordering exact matches before prefix matches and breaking ties
+  // by term.
   rpc QueryTokens(QueryTokensRequest) returns (QueryTokensResponse);
 
   // For the given index, compute the total number of documents and terms
@@ -312,6 +313,8 @@ message MultiSegmentMetadata {
 
 message TokenQuery {
   optional bytes term = 1;
+  // Always written as 0 and ignored on read. Older searchlight nodes require
+  // it to be present; a follow-up stops writing it and reserves field 2.
   optional uint32 max_distance = 2;
   optional bool prefix = 3;
 }

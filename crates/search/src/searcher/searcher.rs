@@ -91,10 +91,7 @@ use super::{
 use crate::{
     aggregation::TokenMatchAggregator,
     archive::cache::ArchiveCacheManager,
-    constants::{
-        MAX_EDIT_DISTANCE,
-        MAX_UNIQUE_QUERY_TERMS,
-    },
+    constants::MAX_UNIQUE_QUERY_TERMS,
     convex_query::{
         AliveDocuments,
         ConvexSearchQuery,
@@ -624,56 +621,22 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 let segment = searcher.segment_reader(*segment_ord);
                 anyhow::ensure!(max_results <= MAX_UNIQUE_QUERY_TERMS);
 
-                // The goal of this algorithm is to deterministically choose a set of terms
-                // from our database that are the "best" matches for a given set of query
-                // tokens. For two strings `q` and `t`, define their score to be the
-                // better of fuzzy matching with and without prefix matching:
-                // ```rust
-                // fn score(q: &str, t: &str) -> (u32, bool) {
-                //    let with_prefix_distance = levenshtein_distance_with_prefix(q, t);
-                //    let without_prefix_distance = levenshtein_distance(q, t);
-                //    if with_prefix_distance < without_prefix_distance {
-                //        (with_prefix_distance, true)
-                //    else {
-                //        (without_prefix_distance, false)
-                //    }
-                // }
+                // Deterministically choose the "best" terms for a set of query tokens.
+                // Each query token `q_i` totally orders the terms `t_j` it matches by
+                // `(is_prefix_match, t_j, i)`: an exact match comes before prefix matches,
+                // with ties broken by the term contents and then the query token index.
+                // Logically, we merge these streams across all query tokens and take
+                // tuples until we have seen `max_results` unique terms.
                 //
-                // // The levenshtein distance with prefix is defined as the minimum edit
-                // // distance over all prefixes of the query string.
-                // fn levenshtein_distance_with_prefix(q: &str, t: &str) -> u32 {
-                //     q.prefixes().map(|prefix| levenshtein_distance(prefix, t)).min()
-                // }
-                // ```
-                // Then, for each query token `q_i`, we can totally order all of the terms in
-                // the database by sorting them by `(score(q_i, t_j), t_j, i)`,
-                // breaking ties by the term contents and the query token index.
-                // ```
-                // q_i: (score(q_i, t_1), t_1, i), (score(q_i, t_2), t_2, i), ..., (score(q_i, t_n), t_n, i)
-                // ```
-                // Note that each query token `q_i` chooses a different order on our terms:
-                // ```
-                // q_0: (score(q_0, t_1), t_1, 0), (score(q_0, t_2), t_2, 0), ..., (score(q_0, t_n), t_n, 0)
-                // q_1: (score(q_1, t_1), t_1, 1), (score(q_1, t_2), t_2, 1), ..., (score(q_1, t_n), t_n, 1)
-                // ...
-                // q_k: (score(q_k, t_1), t_1, k), (score(q_k, t_2), t_2, k), ..., (score(q_k, t_n), t_n, k)
-                // ```
-                // Logically, our algorithm merges these `k` streams, resorts them, and then
-                // takes some number of the best values. Instead of taking the top
-                // `max_results` values, we continue taking these tuples until we
-                // have seen `max_results` unique terms.
-                //
-                // Since `n` may be very large, our implementation pushes down this sorting into
-                // each query term. So, we take tuples from each `q_i` until we've seen
-                // `max_results` unique terms (yielding at most `max_results * k` tuples), merge
-                // and sort the results, and then take the best tuples until we have seen
-                // `max_results` unique terms in the merged stream.
+                // Since the term dictionary may be very large, the sort is pushed down
+                // into each query token: we take tuples from each `q_i` until we've seen
+                // `max_results` unique terms (at most `max_results * k` tuples), and
+                // `TokenMatchAggregator` merges them and keeps the best tuples until it
+                // has seen `max_results` unique terms.
                 let mut match_aggregator = TokenMatchAggregator::new(max_results);
 
                 for (token_ord, token_query) in queries.into_iter().enumerate() {
                     let token_ord = token_ord as u32;
-                    anyhow::ensure!(token_query.max_distance <= MAX_EDIT_DISTANCE);
-
                     // Query the top scoring tuples for just our query term.
                     Self::visit_top_terms_for_query(
                         segment,
@@ -700,74 +663,52 @@ impl<RT: Runtime> SearcherImpl<RT> {
         let inverted_index = segment.inverted_index(field)?;
         let term_dict = inverted_index.terms();
         let mut seen_terms = BTreeSet::new();
-        'query: for distance in [0, 1, 2] {
-            for prefix in [false, true] {
-                if distance > query.max_distance || (!query.prefix && prefix) {
-                    continue;
-                }
-                if distance == 0 && !prefix {
-                    if let Some(term_ord) = term_dict.term_ord(query.term.value_bytes())? {
-                        if deletion_tracker.doc_frequency(field, term_dict, term_ord)? == 0 {
-                            continue;
-                        }
-                        anyhow::ensure!(seen_terms.insert(query.term.clone()));
-                        let m = TokenMatch {
-                            distance,
-                            prefix,
-                            term: query.term.clone(),
-                            token_ord,
-                        };
-                        if !results.insert(m) {
-                            break 'query;
-                        }
-                    }
-                } else {
-                    let term_str = query
-                        .term
-                        .as_str()
-                        .context("Non-exact match for non-string field")?;
-                    let dfa = build_fuzzy_dfa(term_str, distance as u8, prefix);
-                    let dfa_compat = LevenshteinDfaWrapper(&dfa);
-                    let mut term_stream = term_dict.search(dfa_compat).into_stream()?;
-                    while term_stream.advance() {
-                        let match_term_bytes = term_stream.key();
-                        let match_str = std::str::from_utf8(match_term_bytes)?;
-                        let match_term = Term::from_field_text(query.term.field(), match_str);
+        if let Some(term_ord) = term_dict.term_ord(query.term.value_bytes())?
+            && deletion_tracker.doc_frequency(field, term_dict, term_ord)? != 0
+        {
+            seen_terms.insert(query.term.clone());
+            let m = TokenMatch {
+                distance: 0,
+                prefix: false,
+                term: query.term.clone(),
+                token_ord,
+            };
+            if !results.insert(m) {
+                return Ok(());
+            }
+        }
+        if !query.prefix {
+            return Ok(());
+        }
+        let term_str = query
+            .term
+            .as_str()
+            .context("Non-exact match for non-string field")?;
+        let dfa = build_fuzzy_dfa(term_str, 0, true);
+        let dfa_compat = LevenshteinDfaWrapper(&dfa);
+        let mut term_stream = term_dict.search(dfa_compat).into_stream()?;
+        while term_stream.advance() {
+            let match_term_bytes = term_stream.key();
+            let match_str = std::str::from_utf8(match_term_bytes)?;
+            let match_term = Term::from_field_text(query.term.field(), match_str);
 
-                        let term_ord = term_stream.term_ord();
-                        if deletion_tracker.doc_frequency(field, term_dict, term_ord)? == 0 {
-                            continue;
-                        }
-
-                        // We need to skip terms we've already processed since we perform
-                        // overlapping edit distance queries.
-                        if seen_terms.contains(&match_term) {
-                            continue;
-                        }
-
-                        // TODO: extend Tantivy::TermStreamer to a TermStreamerWithState to avoid
-                        // recomputing distance again here.
-                        // This comment on a Tantivy open issue describes how to approach this:
-                        // https://github.com/quickwit-oss/tantivy/issues/563#issuecomment-801444469
-                        // TODO: Ideally we could make DFAs that only match a particular
-                        // edit distance so we don't have to skip duplicates above.
-                        let match_distance = dfa.eval(match_term_bytes).to_u8() as u32;
-                        if distance != match_distance {
-                            continue;
-                        }
-
-                        seen_terms.insert(match_term.clone());
-                        let m = TokenMatch {
-                            distance,
-                            prefix,
-                            term: match_term,
-                            token_ord,
-                        };
-                        if !results.insert(m) {
-                            break 'query;
-                        }
-                    }
-                }
+            let term_ord = term_stream.term_ord();
+            if deletion_tracker.doc_frequency(field, term_dict, term_ord)? == 0 {
+                continue;
+            }
+            // The prefix DFA also matches the query term itself, which the exact
+            // lookup above already emitted.
+            if !seen_terms.insert(match_term.clone()) {
+                continue;
+            }
+            let m = TokenMatch {
+                distance: 0,
+                prefix: true,
+                term: match_term,
+                token_ord,
+            };
+            if !results.insert(m) {
+                break;
             }
         }
         Ok(())
@@ -960,7 +901,6 @@ impl Bm25StatisticsProvider for StatsProvider {
 #[derive(Clone, Debug)]
 pub struct TokenQuery {
     pub term: Term,
-    pub max_distance: u32,
     pub prefix: bool,
 }
 
@@ -970,7 +910,6 @@ impl TryFrom<pb::searchlight::TokenQuery> for TokenQuery {
     fn try_from(value: pb::searchlight::TokenQuery) -> Result<Self, Self::Error> {
         Ok(TokenQuery {
             term: Term::wrap(value.term.context("Missing term")?),
-            max_distance: value.max_distance.context("Missing max_distance")?,
             prefix: value.prefix.context("Missing prefix")?,
         })
     }
@@ -982,7 +921,8 @@ impl TryFrom<TokenQuery> for pb::searchlight::TokenQuery {
     fn try_from(value: TokenQuery) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::TokenQuery {
             term: Some(value.term.as_slice().to_vec()),
-            max_distance: Some(value.max_distance),
+            // Older searchlight nodes reject requests without this field.
+            max_distance: Some(0),
             prefix: Some(value.prefix),
         })
     }

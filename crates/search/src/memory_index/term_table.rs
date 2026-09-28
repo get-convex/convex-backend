@@ -146,50 +146,38 @@ impl TermTable {
         results: &mut TokenMatchAggregator,
     ) -> anyhow::Result<()> {
         let mut seen_terms = BTreeSet::new();
-        'query: for distance in [0, 1, 2] {
-            for prefix in [false, true] {
-                if distance > query.max_distance || (!query.prefix && prefix) {
-                    continue;
-                }
-                if distance == 0 && !prefix {
-                    if self.get(&query.term).is_some() {
-                        anyhow::ensure!(seen_terms.insert(query.term.clone()));
-                        let m = TokenMatch {
-                            distance,
-                            prefix,
-                            term: query.term.clone(),
-                            token_ord,
-                        };
-                        if !results.insert(m) {
-                            break 'query;
-                        }
-                    }
-                } else {
-                    // TODO: There's a bug here where skipping a prefix allows
-                    // matching terms for other fields!
-                    assert!(query.term.as_str().is_some());
-                    for (_, match_distance, match_term) in
-                        self.get_fuzzy(&query.term, distance as u8, prefix)
-                    {
-                        let match_distance = match_distance as u32;
-                        if seen_terms.contains(&match_term) {
-                            continue;
-                        }
-                        if distance != match_distance {
-                            continue;
-                        }
-                        seen_terms.insert(match_term.clone());
-                        let m = TokenMatch {
-                            distance,
-                            prefix,
-                            term: match_term,
-                            token_ord,
-                        };
-                        if !results.insert(m) {
-                            break 'query;
-                        }
-                    }
-                }
+        if self.get(&query.term).is_some() {
+            seen_terms.insert(query.term.clone());
+            let m = TokenMatch {
+                distance: 0,
+                prefix: false,
+                term: query.term.clone(),
+                token_ord,
+            };
+            if !results.insert(m) {
+                return Ok(());
+            }
+        }
+        if !query.prefix {
+            return Ok(());
+        }
+        // TODO: There's a bug here where skipping a prefix allows
+        // matching terms for other fields!
+        assert!(query.term.as_str().is_some());
+        for (_, _, match_term) in self.get_fuzzy(&query.term, 0, true) {
+            // The prefix DFA also matches the query term itself, which the exact
+            // lookup above already emitted.
+            if !seen_terms.insert(match_term.clone()) {
+                continue;
+            }
+            let m = TokenMatch {
+                distance: 0,
+                prefix: true,
+                term: match_term,
+                token_ord,
+            };
+            if !results.insert(m) {
+                break;
             }
         }
         Ok(())

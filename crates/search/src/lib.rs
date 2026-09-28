@@ -60,11 +60,9 @@ use common::{
 use constants::CONVEX_EN_TOKENIZER;
 pub use constants::{
     convex_en,
-    EXACT_SEARCH_MAX_WORD_LENGTH,
     MAX_CANDIDATE_REVISIONS,
     MAX_FILTER_CONDITIONS,
     MAX_QUERY_TERMS,
-    SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
 };
 use convex_query::OrTerm;
 use errors::ErrorMetadata;
@@ -477,7 +475,6 @@ impl TantivySearchIndexSchema {
         let num_text_query_terms = compiled_query.text_query.len() as u32;
         for query_term in compiled_query.text_query {
             let query = TokenQuery {
-                max_distance: query_term.max_distance(),
                 prefix: query_term.prefix(),
                 term: query_term.into_term(),
             };
@@ -487,7 +484,6 @@ impl TantivySearchIndexSchema {
         for CompiledFilterCondition::Must(term) in compiled_query.filter_conditions {
             let query = TokenQuery {
                 term: term.clone(),
-                max_distance: 0,
                 prefix: false,
             };
             token_queries.push(query);
