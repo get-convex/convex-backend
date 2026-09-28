@@ -53,7 +53,6 @@ use crate::{
     },
     metrics,
     scoring::term_from_str,
-    EditDistance,
 };
 
 /// A search query compiled against a particular `SearchIndexSchema`.
@@ -193,9 +192,9 @@ impl From<QueryTerm> for pb::searchlight::TextQueryTerm {
     }
 }
 
-/// An expanded version of CompiledQuery's search terms which expands fuzzy
+/// An expanded version of CompiledQuery's search terms which expands prefix
 /// queries. Maps each QueryTerm from a CompiledQuery to a vector of term
-/// matches and their distance.
+/// matches.
 ///
 /// TermShortlist is the list of terms that will be considered for a search
 /// query. `shortlist` and `query_term_shortlist_items` are normalized (with the
@@ -209,12 +208,12 @@ impl From<QueryTerm> for pb::searchlight::TextQueryTerm {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TermShortlist {
     shortlist: Vec<Term>,
-    pub query_term_shortlist_items: BTreeMap<QueryTerm, Vec<(EditDistance, ShortlistId)>>,
+    pub query_term_shortlist_items: BTreeMap<QueryTerm, Vec<ShortlistId>>,
 }
 
 pub struct TermShortlistBuilder {
     shortlist: Vec<Term>,
-    query_term_shortlist_items: BTreeMap<QueryTerm, Vec<(EditDistance, ShortlistId)>>,
+    query_term_shortlist_items: BTreeMap<QueryTerm, Vec<ShortlistId>>,
 
     term_to_shortlist: BTreeMap<Term, ShortlistId>,
 }
@@ -245,17 +244,17 @@ impl TermShortlistBuilder {
     fn add_matches(
         &mut self,
         term: QueryTerm,
-        matches: BTreeSet<(EditDistance, Term)>,
+        matches: BTreeSet<Term>,
     ) -> Vec<Option<ShortlistId>> {
         let shortlist_items = self.query_term_shortlist_items.entry(term).or_default();
         let mut shortlist_ids = vec![];
 
-        for (distance, term) in matches {
+        for term in matches {
             let maybe_new_shortlist_id = if !self.term_to_shortlist.contains_key(&term) {
                 let shortlist_id = ShortlistId(self.shortlist.len() as u16);
                 self.term_to_shortlist.insert(term.clone(), shortlist_id);
                 self.shortlist.push(term);
-                shortlist_items.push((distance, shortlist_id));
+                shortlist_items.push(shortlist_id);
 
                 Some(shortlist_id)
             } else {
@@ -286,15 +285,12 @@ impl TryFrom<u32> for ShortlistId {
 }
 
 pub(crate) fn shortlist_and_id_mapping(
-    term_matches: BTreeMap<QueryTerm, Vec<(EditDistance, Term, TermId)>>,
+    term_matches: BTreeMap<QueryTerm, Vec<(Term, TermId)>>,
 ) -> (TermShortlist, BTreeMap<ShortlistId, TermId>) {
     let mut shortlist_id_to_term_id = BTreeMap::new();
     let mut builder = TermShortlistBuilder::new();
     for (query_term, matches) in term_matches {
-        let (matches, term_ids): (BTreeSet<_>, Vec<TermId>) = matches
-            .into_iter()
-            .map(|(distance, match_term, term_id)| ((distance, match_term), term_id))
-            .unzip();
+        let (matches, term_ids): (BTreeSet<_>, Vec<TermId>) = matches.into_iter().unzip();
         let shortlist_ids = builder.add_matches(query_term, matches);
         shortlist_id_to_term_id.extend(shortlist_ids.into_iter().zip(term_ids).filter_map(
             |(shortlist_id, term_id)| shortlist_id.map(|shortlist_id| (shortlist_id, term_id)),
@@ -304,7 +300,7 @@ pub(crate) fn shortlist_and_id_mapping(
 }
 
 impl TermShortlist {
-    pub fn new(term_matches: BTreeMap<QueryTerm, BTreeSet<(EditDistance, Term)>>) -> Self {
+    pub fn new(term_matches: BTreeMap<QueryTerm, BTreeSet<Term>>) -> Self {
         let mut builder = TermShortlistBuilder::new();
         for (query_term, matches) in term_matches {
             builder.add_matches(query_term, matches);
@@ -332,7 +328,7 @@ impl TermShortlist {
     pub fn get_shortlisted_terms_for_query_term(
         &self,
         query_term: &QueryTerm,
-    ) -> impl Iterator<Item = &(EditDistance, ShortlistId)> + use<'_> {
+    ) -> impl Iterator<Item = &ShortlistId> + use<'_> {
         if let Some(vec) = self.query_term_shortlist_items.get(query_term) {
             Either::Left(vec.iter())
         } else {
@@ -364,12 +360,7 @@ impl TermShortlist {
                         query_term_shortlist
                             .items
                             .into_iter()
-                            .map(|item| {
-                                Ok((
-                                    item.distance as EditDistance,
-                                    ShortlistId::try_from(item.shortlist_id)?,
-                                ))
-                            })
+                            .map(|item| ShortlistId::try_from(item.shortlist_id))
                             .collect::<anyhow::Result<Vec<_>>>()?,
                     ))
                 })
@@ -398,8 +389,9 @@ impl From<TermShortlist> for pb::searchlight::TermShortlist {
                         query_term: Some(pb::searchlight::TextQueryTerm::from(qterm)),
                         items: matches
                             .into_iter()
-                            .map(|(dist, id)| pb::searchlight::ShortlistItem {
-                                distance: dist as u32,
+                            .map(|id| pb::searchlight::ShortlistItem {
+                                // Every shortlisted term is an exact or prefix match.
+                                distance: 0,
                                 shortlist_id: id.0 as u32,
                             })
                             .collect_vec(),
@@ -579,7 +571,7 @@ impl QueryResults {
 /// A read based on a single token extracted from a text query search.
 ///
 /// A single text query will be split into many parts (tokenized), each part
-/// will be combined with the constant metadata (path, distance prefix etc) into
+/// will be combined with the constant metadata (path, prefix etc) into
 /// a term, then we track reads based on individual terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextQueryTermRead {
@@ -652,9 +644,9 @@ pub struct QueryReads {
     pub filter_conditions: WithHeapSize<Vec<FilterConditionRead>>,
 
     // State derived from text_queries for more efficient matching with many
-    // fuzzy text subscriptions. Because this is strictly derived, it can always
+    // text subscriptions. Because this is strictly derived, it can always
     // be reconstructed from the simpler text_queries / filter_conditions.
-    fuzzy_terms: SearchTermTries<()>,
+    term_tries: SearchTermTries<()>,
 }
 
 impl QueryReads {
@@ -662,12 +654,12 @@ impl QueryReads {
         text_queries: WithHeapSize<Vec<TextQueryTermRead>>,
         filter_conditions: WithHeapSize<Vec<FilterConditionRead>>,
     ) -> Self {
-        let mut fuzzy_terms = SearchTermTries::new();
-        fuzzy_terms.extend((), &text_queries);
+        let mut term_tries = SearchTermTries::new();
+        term_tries.extend((), &text_queries);
         Self {
             text_queries,
             filter_conditions,
-            fuzzy_terms,
+            term_tries,
         }
     }
 }
@@ -681,7 +673,7 @@ impl PartialEq for QueryReads {
 impl Eq for QueryReads {}
 
 impl HeapSize for QueryReads {
-    // TODO(CX-5459): Include fuzzy_terms in heap size.
+    // TODO(CX-5459): Include term_tries in heap size.
     fn heap_size(&self) -> usize {
         self.text_queries.heap_size() + self.filter_conditions.heap_size()
     }
@@ -828,12 +820,12 @@ impl QueryReads {
         QueryReads {
             text_queries: WithHeapSize::default(),
             filter_conditions: WithHeapSize::default(),
-            fuzzy_terms: SearchTermTries::new(),
+            term_tries: SearchTermTries::new(),
         }
     }
 
     pub fn merge(&mut self, other: Self) {
-        self.fuzzy_terms.extend((), &other.text_queries);
+        self.term_tries.extend((), &other.text_queries);
 
         self.text_queries.extend(other.text_queries);
         self.filter_conditions.extend(other.filter_conditions);
@@ -848,7 +840,7 @@ impl QueryReads {
             let document_value = document.value().get_path(field_path);
             let document_value = FilterValue::from_search_value(document_value.as_ref());
             // If the document doesn't match the filter condition, we can skip checking
-            // fuzzy terms
+            // text query terms
             if document_value != *filter_value {
                 metrics::log_query_reads_outcome(false);
                 return false;
@@ -862,10 +854,10 @@ impl QueryReads {
             return true;
         }
         // If all the filter conditions match and there are text queries, we then check
-        // for fuzzy matches.
-        let is_fuzzy_match = self.fuzzy_terms.overlaps_document(document);
-        metrics::log_query_reads_outcome(is_fuzzy_match);
-        is_fuzzy_match
+        // for exact or prefix term matches.
+        let is_term_match = self.term_tries.overlaps_document(document);
+        metrics::log_query_reads_outcome(is_term_match);
+        is_term_match
     }
 
     #[fastrace::trace]
@@ -897,10 +889,10 @@ impl QueryReads {
             return true;
         }
         // If all the filter conditions match and there are text queries, we then check
-        // for fuzzy matches.
-        let is_fuzzy_match = self.fuzzy_terms.overlaps_index_key_value(index_key_value);
-        metrics::log_query_reads_outcome(is_fuzzy_match);
-        is_fuzzy_match
+        // for exact or prefix term matches.
+        let is_term_match = self.term_tries.overlaps_index_key_value(index_key_value);
+        metrics::log_query_reads_outcome(is_term_match);
+        is_term_match
     }
 }
 
@@ -969,7 +961,7 @@ impl TextSearchSubscriptions {
         notify: &mut impl FnMut(SubscriberId),
     ) {
         self.add_filter_conditions_matches(&subscription.filter_conditions, index_key, notify);
-        self.add_fuzzy_matches(&subscription.tries, index_key, notify);
+        self.add_term_matches(&subscription.tries, index_key, notify);
     }
 
     fn add_filter_conditions_matches(
@@ -1000,7 +992,7 @@ impl TextSearchSubscriptions {
     /// This inverse looking search optimizes for cases where the number of
     /// reads/subscriptions is significantly larger than the number of
     /// tokens in the document.
-    fn add_fuzzy_matches(
+    fn add_term_matches(
         &self,
         tries: &SearchTermTries<SubscriberId>,
         index_key: &SearchIndexKeyValue,

@@ -68,10 +68,7 @@ use crate::{
         TermListBitsetQuery,
         TermShortlist,
     },
-    scoring::{
-        bm25_weight_boost_for_edit_distance,
-        Bm25StatisticsDiff,
-    },
+    scoring::Bm25StatisticsDiff,
     searcher::{
         Bm25Stats,
         PostingListMatch,
@@ -398,7 +395,13 @@ impl MemoryTextIndex {
                 vec![]
             };
 
-            query_term_matches.insert(query_term.clone(), term_matches);
+            query_term_matches.insert(
+                query_term.clone(),
+                term_matches
+                    .into_iter()
+                    .map(|(_, term, term_id)| (term, term_id))
+                    .collect(),
+            );
         }
         shortlist_and_id_mapping(query_term_matches)
     }
@@ -631,15 +634,14 @@ impl MemoryTextIndex {
         }
         for query in &query.text_query {
             let term_matches = term_shortlist.get_shortlisted_terms_for_query_term(query);
-            for (dist, id) in term_matches {
+            for id in term_matches {
                 // If term_shortlist_ids contains this shortlist ID, this means the memory index
                 // contains this shortlisted term. This will only ever evaluate to None when
                 // the disk index returns a combined shortlist of results that includes terms
                 // that the memory index does not have.
                 if let Some(term_id) = term_shortlist_ids.get(id) {
                     term_ids.insert(*term_id);
-                    *union_id_boosts.entry(*term_id).or_insert(0.) +=
-                        bm25_weight_boost_for_edit_distance(*dist);
+                    *union_id_boosts.entry(*term_id).or_insert(0.) += 1.;
                 }
             }
         }

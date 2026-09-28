@@ -3,15 +3,11 @@ use std::collections::BTreeMap;
 use tantivy::{
     query::Bm25StatisticsProvider,
     schema::Field,
-    Score,
     TantivyError,
     Term,
 };
 
-use crate::{
-    EditDistance,
-    SEARCH_FIELD_ID,
-};
+use crate::SEARCH_FIELD_ID;
 
 pub fn term_from_str(term_value: &str) -> Term {
     Term::from_field_text(Field::from_field_id(SEARCH_FIELD_ID), term_value)
@@ -100,9 +96,4 @@ impl From<Bm25StatisticsDiff> for pb::searchlight::Bm25StatisticsDiff {
             num_search_tokens_diff: stats.num_search_tokens_diff,
         }
     }
-}
-
-/// TODO: try 1 / (1 + distance) later
-pub fn bm25_weight_boost_for_edit_distance(_distance: EditDistance) -> Score {
-    1.
 }

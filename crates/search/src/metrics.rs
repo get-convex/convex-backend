@@ -282,19 +282,17 @@ pub fn log_num_discarded_revisions(discarded_revisions: usize) {
 }
 
 register_convex_counter!(
-    SEARCH_SEARCH_TERM_EDIT_DISTANCE_TOTAL,
-    "Number of times a search term was edited",
-    &["distance", "prefix"]
+    SEARCH_TERM_MATCHES_TOTAL,
+    "Number of index terms scored by text search queries, labeled by whether the term matched the \
+     final query term as a prefix rather than exactly",
+    &["prefix"]
 );
 
-pub fn log_search_term_edit_distance(distance: u32, prefix: bool) {
+pub fn log_search_term_match(prefix: bool) {
     log_counter_with_labels(
-        &SEARCH_SEARCH_TERM_EDIT_DISTANCE_TOTAL,
+        &SEARCH_TERM_MATCHES_TOTAL,
         1,
-        vec![
-            StaticMetricLabel::new("distance", distance.to_string()),
-            StaticMetricLabel::new("prefix", prefix.to_string()),
-        ],
+        vec![StaticMetricLabel::new("prefix", prefix.as_label())],
     );
 }
 

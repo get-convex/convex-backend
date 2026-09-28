@@ -198,8 +198,8 @@ any term that is a prefix of the original term. For example, the expression
 - `"rabbit"`
 - `"send request"`
 
-Fuzzy search matches are deprecated. After January 15, 2025, search results will
-not include `"snake"` for a typo like `"stake"`.
+Every other search term matches only identical terms. Search has no typo
+tolerance: `search("body", "stake")` does not match `"snake"`.
 
 ### Relevance order
 

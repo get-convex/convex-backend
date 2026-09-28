@@ -747,7 +747,7 @@ pub trait TransactionTextSnapshot: Send + Sync + 'static {
         // should be rare.
         // As a potential future optimization, we could try to make the caller much
         // more coupled with the search algorithm and require it to send bm25 statistics
-        // diff, top fuzzy search suggestions and other search specific properties derived
+        // diff, shortlisted query terms and other search specific properties derived
         // from the writes. Alternatively, we could only do subset of that and relax the
         // determinism requirement since we don't really need to have deterministic between
         // search calls in mutations and search calls in queries, and if anyone relies on

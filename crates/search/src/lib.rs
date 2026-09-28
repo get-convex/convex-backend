@@ -549,21 +549,18 @@ impl TantivySearchIndexSchema {
             }
         }
 
-        // Deduplicate terms, using the best distance for each term.
+        // Deduplicate terms, preferring an exact match over a prefix match for each
+        // term.
         let mut results_by_term = BTreeMap::new();
         for token_match in match_aggregator.into_results() {
-            let sort_key = (
-                token_match.distance,
-                token_match.prefix,
-                token_match.token_ord,
-            );
+            let sort_key = (token_match.prefix, token_match.token_ord);
             let existing_key = results_by_term.entry(token_match.term).or_insert(sort_key);
 
             // NB: Since OR and AND queries are on different fields, we can assume their
             // terms are disjoint. Assert this condition here since we're deduplicating
             // terms and taking their minimum `token_ord`, which could potentially lose
             // intersection conditions otherwise.
-            let (_, _, existing_token_ord) = *existing_key;
+            let (_, existing_token_ord) = *existing_key;
             let existing_is_intersection = existing_token_ord >= num_text_query_terms;
             let is_intersection = token_match.token_ord >= num_text_query_terms;
             anyhow::ensure!(existing_is_intersection == is_intersection);
@@ -574,7 +571,7 @@ impl TantivySearchIndexSchema {
         // If there are no matches, short-circuit and return an empty result.
         let not_enough_and_tokens_present = results_by_term
             .iter()
-            .filter(|(_, (_, _, token_ord))| *token_ord >= num_text_query_terms)
+            .filter(|(_, (_, token_ord))| *token_ord >= num_text_query_terms)
             .count()
             < num_expected_filter_conditions;
         let no_filter_matches = exist_filter_conditions && not_enough_and_tokens_present;
@@ -613,28 +610,22 @@ impl TantivySearchIndexSchema {
         // Step 4: Decide on our posting list queries given the previous results.
         let mut or_terms = vec![];
         let mut and_terms = vec![];
-        for (term, (distance, prefix, token_ord)) in results_by_term {
+        for (term, (prefix, token_ord)) in results_by_term {
             if token_ord >= num_text_query_terms {
-                anyhow::ensure!(distance == 0 && !prefix);
+                anyhow::ensure!(!prefix);
                 and_terms.push(term);
             } else {
                 let doc_frequency = *bm25_stats
                     .doc_frequencies
                     .get(&term)
                     .context("Missing term frequency")?;
-                // TODO: Come up with a smarter way to boost scores based on edit distance.
-                // Eventually this will be in user space so developers can tweak
-                // it as they desire.
-                let mut boost = 1. / (1. + distance as f32);
-                if prefix {
-                    boost *= 0.5;
-                }
+                let boost = if prefix { 0.5 } else { 1. };
                 let or_term = OrTerm {
                     term,
                     doc_frequency,
                     bm25_boost: boost,
                 };
-                metrics::log_search_term_edit_distance(distance, prefix);
+                metrics::log_search_term_match(prefix);
                 or_terms.push(or_term);
             }
         }
@@ -730,7 +721,7 @@ impl TantivySearchIndexSchema {
         Ok(finish(result, filtered_bytes_searched))
     }
 
-    fn compile_tokens_with_typo_tolerance(
+    fn compile_tokens_with_prefix_last_term(
         search_field: Field,
         tokens: &Vec<String>,
     ) -> anyhow::Result<Vec<QueryTerm>> {
@@ -836,9 +827,9 @@ impl TantivySearchIndexSchema {
                     Ok(QueryTerm::new(term, false))
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?,
-            // Only the V2 search codepath can generate QueryTerm::Fuzzy
+            // V2 matches the final query term as a prefix; V1 matches every term exactly.
             SearchVersion::V2 => {
-                Self::compile_tokens_with_typo_tolerance(self.search_field, &tokens)?
+                Self::compile_tokens_with_prefix_last_term(self.search_field, &tokens)?
             },
         };
 

@@ -33,7 +33,7 @@ use common::{
         IndexName,
         TabletIndexName,
     },
-    version::MIN_NPM_VERSION_FOR_FUZZY_SEARCH,
+    version::MIN_NPM_VERSION_FOR_PREFIX_SEARCH,
 };
 use database::{
     test_helpers::{
@@ -422,7 +422,7 @@ impl TextFixtures {
             tx,
             TableNamespace::test_user(),
             query,
-            Some(MIN_NPM_VERSION_FOR_FUZZY_SEARCH.clone()),
+            Some(MIN_NPM_VERSION_FOR_PREFIX_SEARCH.clone()),
         )?;
         let mut values = vec![];
         while let Some(value) = query_stream.next(tx, None).await? {
