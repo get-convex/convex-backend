@@ -1172,6 +1172,26 @@ pub static ISOLATE_MAX_HEAP_EXTRA_SIZE: LazyLock<usize> =
 pub static ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_MAX_ARRAY_BUFFER_TOTAL_SIZE", 1 << 26));
 
+/// The heap limit for a function run in the wasm runtime, in bytes. One budget
+/// covers what V8 splits between its heap and its ArrayBuffer pool, and it
+/// counts only what a deployment's modules and the function allocate, not the
+/// runtime's own globals. Defaults to V8's heap limit,
+/// `ISOLATE_MAX_USER_HEAP_SIZE` plus `ISOLATE_MAX_HEAP_EXTRA_SIZE`.
+pub static WASM_UDF_MAX_HEAP_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "WASM_UDF_MAX_HEAP_SIZE",
+        *ISOLATE_MAX_USER_HEAP_SIZE + *ISOLATE_MAX_HEAP_EXTRA_SIZE,
+    )
+});
+
+/// How far a wasm function's linear memory may grow past its starting size, as
+/// a multiple of `WASM_UDF_MAX_HEAP_SIZE`. The heap limit counts the bytes live
+/// allocations requested; this backstop bounds what that count leaves out, the
+/// allocator's bookkeeping and fragmentation, which a function that frees and
+/// reallocates in mixed sizes can make large since linear memory never shrinks.
+pub static WASM_UDF_MEMORY_HEADROOM_FACTOR: LazyLock<f64> =
+    LazyLock::new(|| env_config("WASM_UDF_MEMORY_HEADROOM_FACTOR", 2.0));
+
 /// Chunk sizes: 1, 2, 3, ..., MAX_DYNAMIC_SMART_CHUNK_SIZE incrementing by 1.
 /// These chunk sizes allow small (common) batches to be handled in a single
 /// chunk, while limiting the size of a chunk (don't overload the db), and

@@ -63,6 +63,7 @@ pub use self::{
     termination::{
         ContextId,
         ExecutionHandle,
+        OutOfMemoryError,
     },
     timeout::{
         start_cooperative_request,
