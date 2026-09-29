@@ -34,19 +34,21 @@ import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { Sheet } from "@ui/Sheet";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
 
+// Shared by header and body cells, so every column needs a width that doesn't
+// depend on its content for the header to line up with the rows.
 const COLUMN_STYLES = [
-  { fontWeight: "500", flex: "2 0 80px", fontSize: "0.875rem" },
+  { flex: "2 0 80px" },
   { flex: "1 0 180px" },
   { flex: "2 2 60px" },
   { flex: "1 0 160px" },
-  { flex: "0 0 auto" },
-  { flex: "0 0 auto" },
+  { flex: "0 0 7rem" },
+  { flex: "0 0 2rem" },
 ];
 
 function Name({ getValue }: CellContext<CronDatum, string>) {
   const value = getValue();
   return (
-    <div title={value} className="">
+    <div title={value} className="text-sm font-medium">
       {value}
     </div>
   );
@@ -182,7 +184,7 @@ function Args({ getValue }: CellContext<CronDatum, JSONValue[]>) {
   const [showArgs, setShowArgs] = useState(false);
 
   if (value.length === 0) {
-    return <div className="h-6 w-24" />;
+    return <div className="h-6" />;
   }
 
   const args = value.map((arg) => jsonToConvex(arg));
@@ -253,7 +255,11 @@ export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
         cell: PrevNextTs,
       }),
       columnHelper.accessor("udfArgs", { header: "Args", cell: Args }),
-      columnHelper.accessor("name", { id: "more", header: "More", cell: More }),
+      columnHelper.accessor("name", {
+        id: "more",
+        header: () => <span className="sr-only">More</span>,
+        cell: More,
+      }),
     ],
     [],
   );
@@ -268,13 +274,36 @@ export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
 
   return (
     <Sheet padding={false} className="scrollbar overflow-x-auto">
-      <div role="table" className="mx-4 block min-w-2xl">
+      <div role="table" className="block min-w-2xl">
+        <div role="rowgroup" className="border-b">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <div
+              key={headerGroup.id}
+              role="row"
+              className="flex gap-2 px-4 py-2 text-xs text-content-secondary"
+            >
+              {headerGroup.headers.map((header, i) => (
+                <div
+                  key={header.id}
+                  role="columnheader"
+                  style={COLUMN_STYLES[i]}
+                  className="overflow-hidden text-left"
+                >
+                  {flexRender(
+                    header.column.columnDef.header,
+                    header.getContext(),
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
         <div role="rowgroup" className="divide-y">
           {table.getRowModel().rows.map((row) => (
             <div
               key={row.id}
               role="row"
-              className="flex items-stretch justify-start gap-2 py-3 text-xs text-content-primary"
+              className="flex items-stretch justify-start gap-2 px-4 py-3 text-xs text-content-primary"
             >
               {row.getVisibleCells().map((cell, i) => (
                 <div
