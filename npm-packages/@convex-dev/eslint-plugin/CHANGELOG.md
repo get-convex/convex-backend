@@ -1,6 +1,6 @@
 # Changelog
 
-### 5.0.0
+## 5.0.0
 
 - Add a new rule `@convex-dev/no-process-env` (enabled by default as an error)
   that flags `process.env` in Convex code and, where it can, autofixes it to the
@@ -14,13 +14,13 @@
   ensures that every public Convex function calls an access control helper (e.g.
   `requireAdmin`, `assertIsLoggedIn`, etc).
 
-### 4.0.0
+## 4.0.0
 
 - Add a new rule `@convex-dev/no-schema-import-cycle` (enabled by default as an
   error) that detects cases where `schema.ts` imports files that themselves
   depend on the schema.
 
-### 3.0.0
+## 3.0.0
 
 - Add a new rule `@convex-dev/no-top-of-hour-crons` (enabled by default as a
   warning) that flags cron jobs scheduled exactly on the hour. The top of the
@@ -32,7 +32,7 @@
   rules now work when type-aware linting is disabled.
 - When type-aware linting is disabled, error messages now recommend enabling it.
 
-### 2.0.0
+## 2.0.0
 
 - Add a new rule `@convex-dev/no-filter-in-query` (enabled by default as a
   warning).
