@@ -174,8 +174,7 @@ where
     }
 }
 
-impl<T: ElementsHeapSize> WithHeapSize<T> {
-}
+impl<T: ElementsHeapSize> WithHeapSize<T> {}
 
 // HeapSize for Vec<u8> can be implemented in constant time.
 impl HeapSize for Vec<u8> {

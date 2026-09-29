@@ -6,9 +6,7 @@ pub const MIN_VECTOR_DIMENSIONS: u32 = 2;
 pub const MAX_VECTOR_DIMENSIONS: u32 = 4096;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct VectorDimensions(
-    u32,
-);
+pub struct VectorDimensions(u32);
 
 impl From<VectorDimensions> for usize {
     fn from(value: VectorDimensions) -> Self {

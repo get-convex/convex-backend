@@ -383,7 +383,6 @@ impl IntervalMap {
             }
         }
     }
-
 }
 
 impl Default for IntervalMap {

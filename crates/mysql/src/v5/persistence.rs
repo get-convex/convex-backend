@@ -279,7 +279,6 @@ impl<RT: Runtime> Persistence<RT> {
             .await?
             .is_none())
     }
-
 }
 
 #[async_trait]

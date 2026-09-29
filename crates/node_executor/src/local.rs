@@ -50,6 +50,7 @@ const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 pub struct LocalNodeExecutor {
     inner: Arc<Mutex<Option<InnerLocalNodeExecutor>>>,
     config: LocalNodeExecutorConfig,
+    consecutive_timeouts: Arc<Mutex<u32>>,
 }
 
 struct LocalNodeExecutorConfig {
@@ -65,6 +66,7 @@ struct InnerLocalNodeExecutor {
     _source_dir: TempDir,
     client: reqwest::Client,
     _server_handle: Child,
+    consecutive_timeouts: u32,
 }
 
 impl InnerLocalNodeExecutor {
@@ -119,6 +121,7 @@ impl InnerLocalNodeExecutor {
                     _source_dir: source_dir,
                     client,
                     _server_handle: server_handle,
+                    consecutive_timeouts: 0,
                 });
             }
             tokio::time::sleep(HEALTH_CHECK_INTERVAL).await;
@@ -204,6 +207,7 @@ impl LocalNodeExecutor {
     pub async fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
         let executor = Self {
             inner: Arc::new(Mutex::new(None)),
+            consecutive_timeouts: Arc::new(Mutex::new(0)),
             config: LocalNodeExecutorConfig {
                 node_process_timeout,
                 callback_initial_backoff: None,
@@ -289,6 +293,15 @@ impl NodeExecutor for LocalNodeExecutor {
             Ok(response) => response,
             Err(e) => {
                 if e.is_timeout() {
+                    let mut timeouts = self.consecutive_timeouts.lock().await;
+                    *timeouts += 1;
+                    if *timeouts >= 3 {
+                        self.inner.lock().await.take();
+                        *timeouts = 0;
+
+                        tracing::warn!("Node executor timed out 3 consecutive times, reccycling");
+                    }
+
                     return Ok(InvokeResponse {
                         response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
                         aws_request_id: None,
@@ -298,6 +311,7 @@ impl NodeExecutor for LocalNodeExecutor {
                     // Drop the dead server so it will be restarted on next invoke.
                     tracing::warn!("Node server connection failed, dropping server: {e}");
                     self.inner.lock().await.take();
+                    *self.consecutive_timeouts.lock().await = 0;
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
                 } else {
                     return Err(anyhow::anyhow!(e).context("Node server request failed"));
@@ -322,6 +336,8 @@ impl NodeExecutor for LocalNodeExecutor {
         let result = handle_node_executor_stream(log_line_sender, stream).await?;
         match result {
             Ok(payload) => {
+                let mut timeouts = self.consecutive_timeouts.lock().await;
+                *timeouts = 0;
                 if payload
                     .get("exitingProcess")
                     .and_then(|v| v.as_bool())
@@ -335,7 +351,23 @@ impl NodeExecutor for LocalNodeExecutor {
                     aws_request_id: None,
                 })
             },
-            Err(e) => Ok(e),
+
+            Err(e) if e.is_timeout() => {
+                let mut timeouts = self.consecutive_timeouts.lock().await;
+                *timeouts += 1;
+
+                if *timeouts >= 3 {
+                    self.inner.lock().await.take();
+                    *timeouts = 0;
+
+                    tracing::warn!("Node executor timed out 3 consecutive times; recycling");
+                }
+
+                Ok(InvokeResponse {
+                    response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
+                    aws_request_id: None,
+                })
+            },
         }
     }
 

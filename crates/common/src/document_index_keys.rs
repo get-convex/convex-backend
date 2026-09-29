@@ -68,8 +68,7 @@ impl HeapSize for IndexUpdate {
     }
 }
 
-impl IndexUpdate {
-}
+impl IndexUpdate {}
 
 #[derive(Clone, Debug)]
 pub struct DatabaseIndexWrite {
@@ -106,8 +105,7 @@ pub struct DocumentIndexKeys(
     pub BTreeMap<TabletIndexName, IndexUpdate>,
 );
 
-impl DocumentIndexKeys {
-}
+impl DocumentIndexKeys {}
 
 #[derive(Clone, Debug)]
 pub struct SearchIndexKeyValue {

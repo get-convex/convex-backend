@@ -233,8 +233,7 @@ pub struct ReducedFloatRange {
     pub has_special_values: bool,
 }
 
-impl ReducedFloatRange {
-}
+impl ReducedFloatRange {}
 
 impl TryFrom<JsonValue> for ReducedFloatRange {
     type Error = anyhow::Error;

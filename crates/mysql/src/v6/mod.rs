@@ -79,8 +79,7 @@ pub(crate) async fn set_persistence_read_only<RT: Runtime>(
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct PersistenceDeploymentId(u32);
 
-impl PersistenceDeploymentId {
-}
+impl PersistenceDeploymentId {}
 
 impl From<PersistenceDeploymentId> for Value {
     fn from(deployment_id: PersistenceDeploymentId) -> Self {

@@ -372,7 +372,6 @@ impl BackendInMemoryIndexes {
             .get(&index_id)
             .map(|index_map| order.apply(index_map.range(interval)).collect()))
     }
-
 }
 
 /// Implementor of `InMemoryIndexes` if no indexes are available in-memory.

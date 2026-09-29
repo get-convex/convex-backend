@@ -68,8 +68,7 @@ macro_rules! codegen_convex_serialization {
             type Serialized = $serialized_struct;
         }
 
-        $crate::paste! {
-        }
+        $crate::paste! {}
     };
 }
 

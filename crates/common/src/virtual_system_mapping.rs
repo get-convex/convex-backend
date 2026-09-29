@@ -105,7 +105,6 @@ impl AssociatedVirtualTable {
             Self::Secondary(table_name) => table_name,
         }
     }
-
 }
 
 #[derive(Clone, Default)]

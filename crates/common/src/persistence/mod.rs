@@ -717,7 +717,6 @@ pub trait PersistenceReader: Send + Sync + 'static {
     async fn table_size_stats(&self) -> anyhow::Result<Vec<PersistenceTableSize>> {
         Ok(vec![])
     }
-
 }
 
 /// Timestamp that is repeatable because the caller is holding the lease and

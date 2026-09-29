@@ -197,8 +197,7 @@ pub struct ScheduledJobContext<RT: Runtime> {
     function_log: FunctionExecutionLog<RT>,
 }
 
-impl<RT: Runtime> ScheduledJobContext<RT> {
-}
+impl<RT: Runtime> ScheduledJobContext<RT> {}
 
 impl<RT: Runtime> ScheduledJobExecutor<RT> {
     pub async fn run(

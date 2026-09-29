@@ -8,7 +8,6 @@ pub trait ShapeConfig: Copy + Clone + Debug + Eq + Ord + PartialEq + PartialOrd 
     const MAX_OBJECT_FIELDS: usize;
 
     fn is_valid_string_literal(s: &str) -> bool;
-
 }
 
 #[derive(Copy, Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -21,5 +20,4 @@ impl ShapeConfig for ProdConfig {
     fn is_valid_string_literal(s: &str) -> bool {
         is_valid_identifier(s)
     }
-
 }

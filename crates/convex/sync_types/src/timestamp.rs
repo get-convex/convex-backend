@@ -90,7 +90,6 @@ impl Timestamp {
     pub fn size(&self) -> usize {
         8
     }
-
 }
 
 impl fmt::Display for Timestamp {

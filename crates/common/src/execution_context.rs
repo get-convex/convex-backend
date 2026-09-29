@@ -91,7 +91,6 @@ impl RequestMetadata {
             user_agent: None,
         }
     }
-
 }
 
 impl HeapSize for RequestMetadata {
@@ -126,7 +125,6 @@ impl RequestContext {
             request_metadata: RequestMetadata::system(),
         }
     }
-
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

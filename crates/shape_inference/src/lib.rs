@@ -18,12 +18,12 @@ mod string;
 mod union;
 
 mod contains;
+pub mod export_context;
 mod json;
 mod overlaps;
+pub mod pretty;
 mod subtype;
 mod supertype;
-pub mod export_context;
-pub mod pretty;
 use std::{
     collections::BTreeMap,
     sync::Arc,

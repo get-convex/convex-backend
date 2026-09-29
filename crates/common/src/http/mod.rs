@@ -212,8 +212,7 @@ impl From<HttpRequest> for HttpRequestStream {
     }
 }
 
-impl HttpRequestStream {
-}
+impl HttpRequestStream {}
 
 impl HeapSize for HttpRequest {
     fn heap_size(&self) -> usize {
@@ -634,7 +633,6 @@ impl ConvexHttpService {
             .await
         }
     }
-
 }
 
 /// Serves an HTTP server using the given service.
