@@ -703,8 +703,7 @@ impl LogReader {
     }
 
     pub fn max_ts(&self) -> Timestamp {
-        let snapshot = { self.inner.lock().log.clone() };
-        snapshot.max_ts()
+        self.inner.lock().log.max_ts()
     }
 
     /// Blocks until the log has advanced past the given timestamp.
