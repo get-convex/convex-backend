@@ -325,7 +325,7 @@ pub struct Database<RT: Runtime> {
     retention_workers: LeaderRetentionWorkers,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
-    index_cache_handle: Option<IndexCacheHandle>,
+    index_cache_handle: IndexCacheHandle,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
     invalidation_callback: InvalidationMetricCallback,
@@ -1142,7 +1142,7 @@ impl<RT: Runtime> Database<RT> {
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
             search_storage: Arc::new(OnceLock::new()),
-            index_cache_handle: Some(index_cache_handle),
+            index_cache_handle,
             virtual_system_mapping,
             bootstrap_metadata,
             invalidation_callback,
@@ -1250,9 +1250,7 @@ impl<RT: Runtime> Database<RT> {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.committer.shutdown();
         self.subscriptions.shutdown();
-        if let Some(handle) = &self.index_cache_handle {
-            handle.remove_deployment();
-        }
+        self.index_cache_handle.remove_deployment();
         self.retention_workers.shutdown().await?;
         tracing::info!("Database shutdown");
         Ok(())
@@ -1762,12 +1760,14 @@ impl<RT: Runtime> Database<RT> {
                 self.index_ref_at(snapshot.as_ref(), index.id())?
             };
             let mut reader = Arc::new(persistence_snapshot) as Arc<dyn IndexReader>;
-            if let Some(snapshot) = snapshot
-                && let Some(handle) = self.index_cache_handle.clone()
-            {
+            if let Some(snapshot) = snapshot {
                 // TODO: it is probably OK to still use the index cache even if
                 // we don't have an index_registry at the same timestamp.
-                reader = Arc::new(handle.caching_index_reader(reader, snapshot.index_registry));
+                reader = Arc::new(
+                    self.index_cache_handle
+                        .clone()
+                        .caching_index_reader(reader, snapshot.index_registry),
+                );
             }
             let index_page = reader
                 .index_page(index, tablet_id, interval, order, max_size)
@@ -2031,7 +2031,7 @@ impl<RT: Runtime> Database<RT> {
                     )
                     .read_snapshot(repeatable_ts)?,
                 ),
-                self.index_cache_handle.clone(),
+                Some(self.index_cache_handle.clone()),
                 index_cache,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -2096,7 +2096,7 @@ impl<RT: Runtime> Database<RT> {
             snapshot,
             table_summaries: None,
             persistence_snapshot: repeatable_persistence.read_snapshot(ts)?,
-            index_cache_handle: self.index_cache_handle.clone(),
+            index_cache_handle: Some(self.index_cache_handle.clone()),
             persistence_reader: self.reader.clone(),
             retention_validator: self.retention_validator(),
         })
