@@ -179,7 +179,6 @@ impl From<QueryTerm> for pb::searchlight::TextQueryTerm {
         let term_type = if value.prefix {
             pb::searchlight::text_query_term::TermType::Prefix(pb::searchlight::PrefixTextTerm {
                 token: term_str,
-                prefix: value.prefix,
             })
         } else {
             pb::searchlight::text_query_term::TermType::Exact(pb::searchlight::ExactTextTerm {

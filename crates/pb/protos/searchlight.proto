@@ -62,7 +62,7 @@ message ExactTextTerm {
 message PrefixTextTerm {
   string token = 1;
   reserved 2;
-  bool prefix = 3;
+  reserved 3;
 }
 
 message Bm25StatisticsDiff {
