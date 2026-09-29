@@ -21,7 +21,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     errors::lease_lost_error,
-    index::IndexKeyBytes,
+    index::{
+        IndexKeyBytes,
+        MAX_INDEX_KEY_PREFIX_LEN,
+    },
     interval::Interval,
     knobs::{
         INDEX_RETENTION_DELETE_CHUNK,
@@ -615,6 +618,10 @@ impl<RT: Runtime> Reader<RT> {
                     }
                 }
                 buffered_prefix = Some(prefix.clone());
+                // A prefix shorter than the limit is the whole key, so no other
+                // row can share it: yield now instead of reading the next page
+                // to find where this prefix's run ends.
+                let complete_key = prefix.len() < MAX_INDEX_KEY_PREFIX_LEN;
 
                 let mut key = prefix;
                 if let Some(suffix) = column::maybe_bytes(&row, 3)? {
@@ -646,6 +653,12 @@ impl<RT: Runtime> Reader<RT> {
                 ));
                 stats.rows_returned += 1;
                 stats.max_rows_buffered = stats.max_rows_buffered.max(buffered.len());
+                if complete_key {
+                    buffered_prefix = None;
+                    for result in buffered.drain(..) {
+                        yield result;
+                    }
+                }
             }
             if rows_loaded < page_size {
                 break;
