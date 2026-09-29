@@ -27,7 +27,6 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
 async_zip_0_0_9 = { workspace = true }
-bitvec = { workspace = true }
 bytes = { workspace = true }
 bytesize = { workspace = true }
 cmd_util = { workspace = true }

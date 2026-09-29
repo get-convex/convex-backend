@@ -9001,7 +9001,6 @@ dependencies = [
  "async-trait",
  "async_lru",
  "async_zip 0.0.9",
- "bitvec",
  "bytes",
  "bytesize",
  "cmd_util",

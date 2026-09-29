@@ -892,44 +892,6 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
         )
     }
 
-    fn iter_rec<'a>(
-        &'a self,
-        curr: SlabKey,
-        trail: &mut Vec<u8>,
-        output: &mut Vec<(Vec<u8>, &'a V)>,
-    ) {
-        let curr_node = self.get_validated_node(curr);
-
-        let prefix = curr_node.get_meta().prefix.as_ref();
-        trail.extend_from_slice(prefix);
-
-        if let Some(value) = curr_node.get_value() {
-            output.push((trail.clone(), value));
-        }
-
-        for (transition_byte, child_key) in curr_node.iter_children() {
-            trail.push(transition_byte);
-            self.iter_rec(child_key, trail, output);
-            trail.pop();
-        }
-        trail.truncate(trail.len().saturating_sub(prefix.len()));
-    }
-
-    #[allow(unused)]
-    pub fn iter(&self) -> Vec<(Vec<u8>, &V)> {
-        let Some(curr) = self.root else {
-            return vec![];
-        };
-        let mut res = vec![];
-        self.iter_rec(curr, &mut vec![], &mut res);
-        res
-    }
-
-    #[allow(unused)]
-    pub fn node_count(&self) -> usize {
-        self.nodes.len()
-    }
-
     pub fn len(&self) -> usize {
         self.iter_values().count()
     }

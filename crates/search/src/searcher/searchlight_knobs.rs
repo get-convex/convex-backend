@@ -13,15 +13,6 @@ use std::{
 };
 
 use cmd_util::env::env_config;
-// Knobs available in backend that are also available in searchlight.
-#[allow(unused)]
-pub use common::knobs::{
-    ARCHIVE_FETCH_TIMEOUT_SECONDS,
-    CODEL_QUEUE_CONGESTED_EXPIRATION_MILLIS,
-    CODEL_QUEUE_IDLE_EXPIRATION_MILLIS,
-};
-
-// Searchlight only knobs.
 
 /// The maximum number of compactions we can run concurrently on one
 /// searchlight instance. Each compaction takes 4 cores, so this should

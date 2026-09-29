@@ -14,9 +14,7 @@ mod incremental_index;
 mod memory_index;
 pub mod metrics;
 pub mod query;
-pub mod scoring;
 pub mod searcher;
-mod tantivy_query;
 mod text_index_manager;
 
 use std::{
@@ -98,7 +96,6 @@ use tantivy::{
     },
     Term,
 };
-pub use tantivy_query::SearchQueryResult;
 use value::{
     values_to_bytes,
     ConvexValue,
@@ -120,10 +117,7 @@ pub use self::{
         TextSegmentPaths,
         UpdatableTextSegment,
     },
-    memory_index::{
-        build_term_weights,
-        MemoryTextIndex,
-    },
+    memory_index::MemoryTextIndex,
     searcher::{
         Searcher,
         SegmentTermMetadataFetcher,
@@ -347,13 +341,6 @@ impl TantivySearchIndexSchema {
             ));
         };
         Ok(Self::new(spec))
-    }
-
-    pub fn to_index_config(&self) -> TextIndexSpec {
-        TextIndexSpec {
-            search_field: self.search_field_path.clone(),
-            filter_fields: self.filter_fields.keys().cloned().collect(),
-        }
     }
 
     fn filter_field_bytes(document: &ResolvedDocument, field_path: &FieldPath) -> Vec<u8> {

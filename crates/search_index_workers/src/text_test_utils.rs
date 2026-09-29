@@ -41,8 +41,6 @@ use database::{
         DbFixturesArgs,
     },
     Database,
-    IndexBackfillMetadata,
-    IndexBackfillModel,
     IndexModel,
     ResolvedQuery,
     TestFacingModel,
@@ -64,7 +62,6 @@ use sync_types::Timestamp;
 use usage_tracking::UsageCounter;
 use value::{
     assert_obj,
-    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -229,16 +226,6 @@ impl TextFixtures {
         self.backfill().await?;
 
         Ok(index_data)
-    }
-
-    pub async fn index_backfill_progress(
-        &self,
-        index_id: DeveloperDocumentId,
-    ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {
-        let mut tx = self.db.begin_system().await?;
-        IndexBackfillModel::new(&mut tx)
-            .existing_backfill_metadata(index_id)
-            .await
     }
 
     pub async fn backfill(&self) -> anyhow::Result<()> {

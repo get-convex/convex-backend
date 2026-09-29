@@ -1,9 +1,6 @@
 use std::{
     path::Path,
-    sync::{
-        Arc,
-        LazyLock,
-    },
+    sync::Arc,
     time::SystemTime,
 };
 
@@ -16,7 +13,6 @@ use async_zip_0_0_9::{
     ZipEntryBuilderExt,
 };
 use bytes::Bytes;
-use cmd_util::env::env_config;
 use common::{
     bootstrap_model::index::{
         text_index::FragmentedTextSegment,
@@ -38,7 +34,6 @@ use storage::{
 use tantivy::{
     Index,
     IndexReader,
-    IndexWriter,
     ReloadPolicy,
 };
 use tokio::{
@@ -67,12 +62,8 @@ use crate::{
     },
     NewTextSegment,
     SearchFileType,
-    TantivySearchIndexSchema,
     TextSegmentPaths,
 };
-
-static SEARCH_INDEXING_MEMORY_ARENA_BYTES: LazyLock<usize> =
-    LazyLock::new(|| env_config("SEARCH_INDEXING_MEMORY_ARENA_BYTES", 50_000_000));
 
 #[fastrace::trace]
 pub async fn index_reader_for_directory<P: AsRef<Path>>(
@@ -98,22 +89,6 @@ pub async fn index_reader_for_directory<P: AsRef<Path>>(
         .try_into()?;
     timer.finish();
     Ok(reader)
-}
-
-pub async fn index_writer_for_directory<P: AsRef<Path>>(
-    directory: P,
-    tantivy_schema: &TantivySearchIndexSchema,
-) -> anyhow::Result<IndexWriter> {
-    let directory = directory.as_ref().to_path_buf();
-    let schema = tantivy_schema.schema.clone();
-    let index = tokio_spawn_blocking("disk_index_create", move || {
-        Index::create_in_dir(&directory, schema)
-    })
-    .await??;
-    index
-        .tokenizers()
-        .register(CONVEX_EN_TOKENIZER, convex_en());
-    Ok(index.writer(*SEARCH_INDEXING_MEMORY_ARENA_BYTES)?)
 }
 
 pub async fn download_single_file_zip<P: AsRef<Path>>(

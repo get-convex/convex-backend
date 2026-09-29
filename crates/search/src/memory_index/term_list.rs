@@ -1,6 +1,4 @@
 use std::{
-    cmp,
-    collections::BTreeMap,
     iter,
     mem,
     ops::{
@@ -10,15 +8,8 @@ use std::{
     sync::Arc,
 };
 
-use bitvec::{
-    order::Lsb0,
-    vec::BitVec,
-};
 use sucds::{
-    int_vectors::{
-        Access,
-        DacsOpt,
-    },
+    int_vectors::DacsOpt,
     mii_sequences::{
         EliasFano,
         EliasFanoBuilder,
@@ -27,7 +18,6 @@ use sucds::{
 };
 use tantivy::{
     fieldnorm::FieldNormReader,
-    query::Bm25Weight,
     Score,
 };
 use xorf::{
@@ -40,9 +30,7 @@ use super::{
     PreparedMemoryPostingListQuery,
 };
 use crate::{
-    constants::MAX_POSITIONS_PER_MATCHED_TERM,
     memory_index::term_table::TermId,
-    query::TermListBitsetQuery,
     FieldPosition,
 };
 
@@ -231,35 +219,11 @@ impl TermList {
         self.iter_terms().zip(self.iter_freqs())
     }
 
-    pub fn matches(&self, query: &TermListBitsetQuery) -> bool {
+    pub fn matches(&self, query: &PreparedMemoryPostingListQuery) -> bool {
         let Some(ref inner) = self.inner else {
             return false;
         };
-
-        let sorted_terms = query.sorted_terms.as_slice();
-        let intersection_ids = &query.intersection_terms;
-        let union_ids = &query.union_terms;
-
-        if !inner.term_filter_matches(sorted_terms, intersection_ids, union_ids) {
-            return false;
-        }
-
-        // Build up a bitset of which terms match.
-        let mut matches = BitVec::<usize, Lsb0>::repeat(false, sorted_terms.len());
-        for (i, _) in inner.term_matches(sorted_terms) {
-            matches.set(i, true);
-        }
-
-        // Check that all of the intersection bits and any of the union bits are set.
-        intersection_ids.iter_ones().all(|i| matches[i])
-            && union_ids.iter_ones().any(|i| matches[i])
-    }
-
-    pub fn matches2(&self, query: &PreparedMemoryPostingListQuery) -> bool {
-        let Some(ref inner) = self.inner else {
-            return false;
-        };
-        if !inner.term_filter_matches2(query) {
+        if !inner.term_filter_matches(query) {
             return false;
         }
         // Build up a bitset of which terms match.
@@ -275,13 +239,13 @@ impl TermList {
         all_intersection && any_union
     }
 
-    pub fn matches2_with_score(
+    pub fn matches_with_score(
         &self,
         query: &PreparedMemoryPostingListQuery,
         num_search_tokens: u32,
     ) -> Option<Score> {
         let inner = self.inner.as_ref()?;
-        if !inner.term_filter_matches2(query) {
+        if !inner.term_filter_matches(query) {
             return None;
         }
 
@@ -309,77 +273,6 @@ impl TermList {
         (all_intersection && any_union).then_some(score)
     }
 
-    // Check if a query matches the given document, and compute its BM25 score if
-    // so.
-    //
-    // Arguments:
-    // * sorted_terms: Sorted list of all term IDs in the query.
-    // * term_weights: `Bm25Weight`s for each union query term.
-    //
-    // Bitsets of indexes into `sorted_terms`:
-    // * is_intersection: Which terms are part of the intersection query?
-    // * is_union: Which terms are part of the union query?
-    //
-    pub fn matches_with_score_and_positions(
-        &self,
-        query: &TermListBitsetQuery,
-        term_weights: &[Bm25Weight],
-        fieldnorm: u32,
-    ) -> Option<(Score, BTreeMap<TermId, Vec<u32>>)> {
-        let inner = self.inner.as_ref()?;
-
-        let sorted_terms = query.sorted_terms.as_slice();
-        let intersection_ids = &query.intersection_terms;
-        let union_ids = &query.union_terms;
-
-        if !inner.term_filter_matches(sorted_terms, intersection_ids, union_ids) {
-            return None;
-        }
-
-        let fieldnorm_id = FieldNormReader::fieldnorm_to_id(fieldnorm);
-        let mut matches = BitVec::<usize, Lsb0>::repeat(false, sorted_terms.len());
-        let mut score = 0.;
-        let mut union_idx = 0;
-        let mut positions = BTreeMap::new();
-
-        for (i, pos) in inner.term_matches(sorted_terms) {
-            matches.set(i, true);
-            if !union_ids[i] {
-                continue;
-            }
-            let term_freq = inner.cumulative_freqs.delta(pos).unwrap();
-            let positions_end = inner.cumulative_freqs.select(pos).unwrap();
-            let positions_start = positions_end - term_freq;
-
-            // Bound number of positions we consider.
-            let num_positions = cmp::min(term_freq, MAX_POSITIONS_PER_MATCHED_TERM);
-            let mut term_positions = Vec::with_capacity(num_positions);
-            for i in 0..num_positions {
-                term_positions.push(inner.positions.access(positions_start + i).unwrap() as u32);
-            }
-            positions.insert(sorted_terms[i], term_positions);
-
-            // Compute which index into `term_weights` we're at by counting the number of
-            // bits in `is_union` set before our current position.
-            let union_rank = union_ids.as_bitslice()[..i].count_ones();
-            let candidate_score = term_weights[union_rank].score(fieldnorm_id, term_freq as u32);
-
-            // Apply the scoring.
-            let boost = query.union_id_boosts[union_idx];
-            union_idx += 1;
-            score += candidate_score * boost;
-        }
-
-        // but they're still necessary, especially for very large documents with
-        // high false positive rate.
-        if intersection_ids.iter_ones().any(|i| !matches[i])
-            || !union_ids.iter_ones().any(|i| matches[i])
-        {
-            return None;
-        }
-        Some((score, positions))
-    }
-
     pub fn heap_allocations(&self) -> TermListBytes {
         let Some(ref inner) = self.inner else {
             return TermListBytes::ZERO;
@@ -396,26 +289,7 @@ impl TermList {
 impl NonemptyTermList {
     // Check if the query approximately matches the document set with the
     // possibility of false positives.
-    fn term_filter_matches(
-        &self,
-        sorted_terms: &[TermId],
-        is_intersection: &BitVec,
-        is_union: &BitVec,
-    ) -> bool {
-        let any_intersection_missing = is_intersection
-            .iter_ones()
-            .map(|i| sorted_terms[i] as u64)
-            .any(|term_id| !self.term_filter.contains(&term_id));
-        if any_intersection_missing {
-            return false;
-        }
-        is_union
-            .iter_ones()
-            .map(|i| sorted_terms[i] as u64)
-            .any(|term_id| self.term_filter.contains(&term_id))
-    }
-
-    fn term_filter_matches2(&self, query: &PreparedMemoryPostingListQuery) -> bool {
+    fn term_filter_matches(&self, query: &PreparedMemoryPostingListQuery) -> bool {
         let any_intersection_missing = query
             .intersection_terms()
             .map(|t| t as u64)

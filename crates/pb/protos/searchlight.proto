@@ -32,17 +32,6 @@ service Searchlight {
   rpc ExecuteTextCompaction(TextCompactionRequest) returns (TextCompactionResponse);
 }
 
-message QueryRequest {
-  SearchIndexConfig index_config = 2;
-  TextQuery query = 3;
-  Bm25StatisticsDiff memory_statistics_diff = 4;
-  TermShortlist memory_shortlisted_terms = 5;
-  uint32 limit = 6;
-  StorageKey disk_index = 7;
-  StorageType storage_type = 8;
-  reserved 9;
-}
-
 message TextQuery {
   repeated TextQueryTerm search_terms = 1;
   repeated bytes filter_conditions = 2;
@@ -65,51 +54,9 @@ message PrefixTextTerm {
   reserved 3;
 }
 
-message Bm25StatisticsDiff {
-  map<string, int64> term_statistics = 1;
-  int64 num_documents_diff = 2;
-  int64 num_search_tokens_diff = 3;
-}
-
-message TermShortlist {
-  repeated string shortlist = 1;
-  repeated QueryTermShortlistItems query_term_shortlist_items = 2;
-}
-
-message QueryTermShortlistItems {
-  TextQueryTerm query_term = 1;
-  repeated ShortlistItem items = 2;
-}
-
-message ShortlistItem {
-  uint32 shortlist_id = 1;
-  uint32 distance = 2;
-}
-
-message QueryResponse {
-  repeated CandidateRevisionPositions results = 1;
-  Bm25StatisticsDiff combined_statistics = 2;
-  TermShortlist combined_shortlisted_terms = 3;
-}
-
-message CandidateRevisionPositions {
-  CandidateRevision revision = 1;
-  repeated ShortlistPositions positions = 2;
-}
-
-message ShortlistPositions {
-  uint32 shortlist_id = 1;
-  repeated uint32 positions = 2;
-}
-
 message SearchIndexConfig {
   common.FieldPath search_field_path = 1;
   repeated common.FieldPath filter_fields = 2;
-}
-
-message FilterField {
-  common.FieldPath path = 1;
-  uint32 field = 2;
 }
 
 message CandidateRevision {
@@ -274,17 +221,6 @@ message FieldAndTermOrdinals {
   optional uint32 field = 1;
   // This must exactly match the count and order of the input from FieldAndTermValues
   repeated uint64 term_ordinals = 2;
-}
-
-message FieldTermMetadata {
-  optional uint32 field = 1;
-  repeated TermOrdDeleteCount term_ords_and_delete_counts = 2;
-  optional uint64 num_terms_deleted = 3;
-}
-
-message TermOrdDeleteCount {
-  optional uint64 term_ord = 1;
-  optional uint32 num_docs_deleted = 2;
 }
 
 message QueryTokensRequest {
