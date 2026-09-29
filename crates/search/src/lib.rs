@@ -90,10 +90,7 @@ use tantivy::{
         TextOptions,
         FAST,
     },
-    tokenizer::{
-        TextAnalyzer,
-        Token,
-    },
+    tokenizer::TextAnalyzer,
     Term,
 };
 use value::{
@@ -158,23 +155,15 @@ pub const CREATION_TIME_FIELD_NAME: &str = "creation_time";
 
 #[derive(Debug, Clone)]
 pub enum DocumentTerm {
-    Search { term: Term, pos: FieldPosition },
+    Search { term: Term },
     Filter { term: Term },
 }
 
 impl DocumentTerm {
     pub fn term(&self) -> &Term {
         match self {
-            Self::Search { term, .. } => term,
+            Self::Search { term } => term,
             Self::Filter { term } => term,
-        }
-    }
-
-    pub fn position(&self) -> FieldPosition {
-        match self {
-            Self::Search { pos, .. } => *pos,
-            // Filter fields are given a dummy position of 0
-            Self::Filter { .. } => FieldPosition(0),
         }
     }
 
@@ -186,35 +175,13 @@ impl DocumentTerm {
 impl From<DocumentTerm> for Term {
     fn from(doc_term: DocumentTerm) -> Self {
         match doc_term {
-            DocumentTerm::Search { term, .. } => term,
+            DocumentTerm::Search { term } => term,
             DocumentTerm::Filter { term } => term,
         }
     }
 }
 
 pub type EditDistance = u8;
-
-/// Used to represent the position of a term within a document. For now, this
-/// position is wrt the document token stream so should only be used internally.
-#[derive(Debug, Clone, Copy, Default, PartialOrd, Ord, Eq, PartialEq)]
-pub struct FieldPosition(u32);
-
-impl FieldPosition {
-}
-
-impl From<FieldPosition> for u32 {
-    fn from(value: FieldPosition) -> Self {
-        value.0
-    }
-}
-
-impl TryFrom<&Token> for FieldPosition {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &Token) -> Result<Self, Self::Error> {
-        Ok(Self(u32::try_from(value.position)?))
-    }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TextIndexWriteSize(pub u64);
@@ -383,7 +350,6 @@ impl TantivySearchIndexSchema {
 
                 doc_terms.push(DocumentTerm::Search {
                     term: Term::from_field_text(self.search_field, &token.text),
-                    pos: FieldPosition::try_from(token)?,
                 });
             }
         }

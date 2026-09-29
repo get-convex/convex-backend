@@ -9,7 +9,6 @@ use std::{
 };
 
 use sucds::{
-    int_vectors::DacsOpt,
     mii_sequences::{
         EliasFano,
         EliasFanoBuilder,
@@ -29,54 +28,34 @@ use super::{
     bitset64::Bitset64,
     PreparedMemoryPostingListQuery,
 };
-use crate::{
-    memory_index::term_table::TermId,
-    FieldPosition,
-};
+use crate::memory_index::term_table::TermId;
 
 /// Memory-efficient structure for storing the terms in a document, including
 /// terms within both search and filter fields. This structure is conceptually a
-/// `BTreeMap<TermId, Vec<Position>>`.
+/// `BTreeMap<TermId, Frequency>`.
 ///
-/// Provides efficient methods for accessing terms, their frequencies, and the
-/// positions at which they occur at within a field. This is useful for
-/// calculating BM25 statistics and other ranking statistics for search.
+/// Provides efficient methods for accessing terms and their frequencies within
+/// a field. This is useful for calculating BM25 statistics and other ranking
+/// statistics for search.
 ///
 /// # Construction
 /// In search, a `Document` is conceptually a `BTreeMap<FieldId, Vec<TermId>>`
 /// where each `FieldId` corresponds to either a filter field or search field.
-/// We can represent each `Vec<Term>` as a map of positional information, so
-/// this becomes a `BTreeMap<FieldId, BTreeMap<TermId, Vec<Positions>>`.
 /// Since `TermId`s are unique across `FieldId`s (due to uniqueness of how
 /// filter field terms are represented), we can flatten this into one
-/// `BTreeMap<TermId, Vec<Positions>>`.
+/// `BTreeMap<TermId, Frequency>`.
 ///
 /// To represent this `BTreeMap`, we start by splitting it into two parallel
 /// lists:
 ///
 /// terms: btree_map.keys().collect();   // sorted by term_id!
-/// freqs: btree_map.values().count();   // we store this as a sorted list of
+/// freqs: btree_map.values().collect(); // we store this as a sorted list of
 /// cumulative frequencies
 ///
 /// Then, we can compress these two lists, assuming that (1) the difference
 /// between adjacent term IDs in `terms` is small and (2) the frequencies are
 /// generally small themselves. Both of these arrays are monotonically
 /// increasing integer arrays, so we use `sucds`'s Elias Fano array datatype.
-///
-/// # Representing Positions
-/// To represent positions, we also store and compress a positions array which
-/// is just the positions of each term in the terms array concatenated together:
-///
-/// positions: btree_map.values().flatten().collect()
-///
-/// To fetch the positions for a given term, we need two pieces of information:
-/// (1) the length of the term's positions subarray
-/// (2) the starting offset of the term's positions subarray
-///
-/// (1) is just the frequency which we already can calculate. (2) is the
-/// cumulative frequency of that term, which is how we store frequencies in the
-/// first place. This info lets us efficiently skip through `positions` to read
-/// the term's subarray.
 ///
 /// # Queries
 /// The simplest queries `TermList::iter_*` iterate over the terms or
@@ -116,33 +95,29 @@ struct NonemptyTermList {
 
     terms: EliasFano,
     cumulative_freqs: EliasFano,
-    positions: DacsOpt,
 }
 
 impl TermList {
-    pub fn new(mut terms_and_positions: Vec<(TermId, FieldPosition)>) -> anyhow::Result<Self> {
-        // Step 1: Accumulate parallel lists of the unique sorted term IDs, their
-        // frequencies, and their positions.
-        terms_and_positions.sort_unstable();
+    pub fn new(mut term_ids: Vec<TermId>) -> anyhow::Result<Self> {
+        // Step 1: Accumulate parallel lists of the unique sorted term IDs and
+        // their frequencies.
+        term_ids.sort_unstable();
 
-        let Some((greatest_term_id, _)) = terms_and_positions.last() else {
+        let Some(greatest_term_id) = term_ids.last() else {
             return Ok(TermList { inner: None });
         };
         let mut terms_builder =
-            EliasFanoBuilder::new(*greatest_term_id as usize + 1, terms_and_positions.len())?;
+            EliasFanoBuilder::new(*greatest_term_id as usize + 1, term_ids.len())?;
 
         let mut cumulative_freqs_builder =
-            EliasFanoBuilder::new(terms_and_positions.len() + 1, terms_and_positions.len())?;
+            EliasFanoBuilder::new(term_ids.len() + 1, term_ids.len())?;
         let mut freqs_sum = 0;
 
-        let mut term_u64s = Vec::with_capacity(terms_and_positions.len());
+        let mut term_u64s = Vec::with_capacity(term_ids.len());
 
-        let mut position_u32s = Vec::with_capacity(terms_and_positions.len());
         let mut prev_term = None;
 
-        for (term_id, position) in terms_and_positions {
-            position_u32s.push(u32::from(position));
-
+        for term_id in term_ids {
             if let Some((prev_term, ref mut prev_freq)) = prev_term
                 && prev_term == term_id
             {
@@ -170,15 +145,10 @@ impl TermList {
         let terms = terms_builder.build().enable_rank();
         let cumulative_freqs = cumulative_freqs_builder.build();
 
-        // Taken from their docs as a reasonable, bounded compression level.
-        let max_levels = Some(2);
-        let positions = DacsOpt::from_slice(&position_u32s, max_levels)?;
-
         let inner = NonemptyTermList {
             term_filter,
             terms,
             cumulative_freqs,
-            positions,
         };
         Ok(Self {
             inner: Some(Arc::new(inner)),
@@ -281,7 +251,6 @@ impl TermList {
             fingerprints_bytes: inner.term_filter.fingerprints.len() * mem::size_of::<u16>(),
             terms_bytes: inner.terms.size_in_bytes(),
             freqs_bytes: inner.cumulative_freqs.size_in_bytes(),
-            positions_bytes: inner.positions.size_in_bytes(),
         }
     }
 }
@@ -340,7 +309,6 @@ pub struct TermListBytes {
     pub fingerprints_bytes: usize,
     pub terms_bytes: usize,
     pub freqs_bytes: usize,
-    pub positions_bytes: usize,
 }
 
 impl AddAssign for TermListBytes {
@@ -348,7 +316,6 @@ impl AddAssign for TermListBytes {
         self.fingerprints_bytes += rhs.fingerprints_bytes;
         self.terms_bytes += rhs.terms_bytes;
         self.freqs_bytes += rhs.freqs_bytes;
-        self.positions_bytes += rhs.freqs_bytes;
     }
 }
 
@@ -357,7 +324,6 @@ impl SubAssign for TermListBytes {
         self.fingerprints_bytes -= rhs.fingerprints_bytes;
         self.terms_bytes -= rhs.terms_bytes;
         self.freqs_bytes -= rhs.freqs_bytes;
-        self.positions_bytes -= rhs.freqs_bytes;
     }
 }
 
@@ -366,10 +332,9 @@ impl TermListBytes {
         fingerprints_bytes: 0,
         terms_bytes: 0,
         freqs_bytes: 0,
-        positions_bytes: 0,
     };
 
     pub fn bytes(&self) -> usize {
-        self.fingerprints_bytes + self.terms_bytes + self.freqs_bytes + self.positions_bytes
+        self.fingerprints_bytes + self.terms_bytes + self.freqs_bytes
     }
 }

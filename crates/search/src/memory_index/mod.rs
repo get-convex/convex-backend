@@ -305,7 +305,7 @@ impl MemoryTextIndex {
             }
             let term_ids = terms
                 .iter()
-                .map(|doc_term| (self.term_table.incref(doc_term.term()), doc_term.position()))
+                .map(|doc_term| self.term_table.incref(doc_term.term()))
                 .collect::<Vec<_>>();
             let term_list = TermList::new(term_ids)?;
             let tombstone = Tombstone { id, term_list };
@@ -334,7 +334,7 @@ impl MemoryTextIndex {
                 .try_into()?;
             let term_ids = terms
                 .iter()
-                .map(|doc_term| (self.term_table.incref(doc_term.term()), doc_term.position()))
+                .map(|doc_term| self.term_table.incref(doc_term.term()))
                 .collect::<Vec<_>>();
             let term_list = TermList::new(term_ids)?;
             let document = Document {
