@@ -19,6 +19,7 @@ import { setupRequest } from "udf-runtime/src/23_request";
 import { setupResponse } from "udf-runtime/src/23_response";
 import { setupPerformance } from "udf-runtime/src/27_performance";
 import { setupJsSyscall } from "udf-runtime/src/js_syscall";
+import { setupTextEncodingStreams } from "./text-encoding-streams";
 
 setupDate(globalThis);
 setupMisc(globalThis);
@@ -27,6 +28,7 @@ setupConsole(globalThis);
 setupStructuredClone(globalThis);
 setupEvent(globalThis);
 setupStreams(globalThis);
+setupTextEncodingStreams(globalThis);
 setupAbortSignal(globalThis);
 setupAsyncHooks(globalThis);
 setupBlob(globalThis);
