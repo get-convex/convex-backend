@@ -3,7 +3,7 @@ import type { RegionName } from "generatedApi";
 import { PRIMARY_REGION } from "lib/regions";
 
 /**
- * Warns that a region is billed differently from the primary one. Always
+ * Warns about the surcharge outside the primary region. Always
  * rendered so that picking a region doesn't shift the surrounding layout.
  */
 export function RegionPricingWarning({
@@ -24,7 +24,7 @@ export function RegionPricingWarning({
       inert={!show}
       aria-hidden={!show}
     >
-      No included limits (all usage billed on-demand) + 30% regional surcharge
+      Usage in this region has a 30% regional surcharge.
     </p>
   );
 }

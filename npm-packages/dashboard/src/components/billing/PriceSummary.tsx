@@ -89,11 +89,8 @@ export function PriceSummary({
       )}
       <Callout variant="instructions" className="text-xs">
         <p>
-          <span className="font-semibold">
-            Included limits apply to US region only.
-          </span>{" "}
-          All usage on non-US deployments is billed on-demand at plan rates,
-          plus a 30% regional surcharge.
+          Usage beyond the included limits is billed on-demand at plan rates.
+          Non-US regions have a 30% regional surcharge.
         </p>
       </Callout>
     </div>

@@ -4,10 +4,7 @@ import type { DeploymentRegionMetadata } from "@convex-dev/platform/managementAp
 import { useDeploymentRegions } from "api/deployments";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
-/**
- * The region whose usage counts against a self-serve plan's included limits.
- * Every other region is billed on-demand with a regional surcharge.
- */
+/** Default region for the globe and the base regional price. */
 export const PRIMARY_REGION: RegionName = "aws-us-east-1";
 
 type RegionAvailabilityFlag = "canadaAvailable" | "australiaAvailable";
