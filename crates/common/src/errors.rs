@@ -98,7 +98,7 @@ impl Debug for MainError {
 
 /// Redact PII from text that is about to be handed to a third party
 /// (sentry/datadog).
-fn redact_pii(s: &str) -> Cow<'_, str> {
+pub fn redact_pii(s: &str) -> Cow<'_, str> {
     if *SHOW_PII_IN_ERRORS {
         return Cow::Borrowed(s);
     }
