@@ -194,6 +194,9 @@ impl PersistenceWrite {
 
 pub const AFTER_PENDING_WRITE_SNAPSHOT: &str = "after_pending_write_snapshot";
 
+pub const AFTER_MAX_REPEATABLE_TIMESTAMP_PERSISTENCE: &str =
+    "after_max_repeatable_timestamp_persistence";
+
 /// Fires off the committer thread, once a batch's read sets have been checked
 /// against the write log snapshot and before the committer takes the result
 /// back.
@@ -358,6 +361,10 @@ impl<RT: Runtime> Committer<RT> {
         // None means a bump is ongoing. Avoid parallel bumps in case they
         // commit out of order and regress the repeatable timestamp.
         let mut next_bump_wait = Some(*MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY);
+        // A bump can intentionally stop before a pending commit. If that commit
+        // publishes before the bump does, it needs another short-delay bump rather
+        // than the normal idle-period bump.
+        let mut needs_follow_up_bump = false;
 
         // This span starts when a commit comes back from pre-validation and ends
         // with that same commit getting published.
@@ -430,6 +437,7 @@ impl<RT: Runtime> Committer<RT> {
                     // Advance the repeatable read timestamp so non-leaders can
                     // establish a recent repeatable snapshot.
                     next_bump_wait = None;
+                    needs_follow_up_bump = false;
                     let (tx, _rx) = oneshot::channel();
                     self.bump_max_repeatable_ts(tx, commit_id, committer_span);
                     commit_id += 1;
@@ -463,6 +471,8 @@ impl<RT: Runtime> Committer<RT> {
                             // bump max_repeatable_ts so followers can read this commit.
                             if next_bump_wait.is_some() {
                                 next_bump_wait = Some(*MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY);
+                            } else {
+                                needs_follow_up_bump = true;
                             }
                             commit_timer.finish();
                         },
@@ -480,12 +490,14 @@ impl<RT: Runtime> Committer<RT> {
                                 .unwrap_or_else(Span::noop);
                             let _guard = span.set_local_parent();
                             self.publish_max_repeatable_ts(new_max_repeatable)?;
-                            let base_period = *MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY;
-                            next_bump_wait = Some(
+                            next_bump_wait = Some(if needs_follow_up_bump {
+                                *MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY
+                            } else {
+                                let base_period = *MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY;
                                 self.runtime
                                     .rng()
-                                    .random_range(base_period..base_period * 2),
-                            );
+                                    .random_range(base_period..base_period * 2)
+                            });
                             let _ = result.send(new_max_repeatable);
                             drop(timer);
                         },
@@ -844,6 +856,10 @@ impl<RT: Runtime> Committer<RT> {
                     {
                         Ok(()) => {
                             backoff.reset();
+                            runtime
+                                .pause_client()
+                                .wait(AFTER_MAX_REPEATABLE_TIMESTAMP_PERSISTENCE)
+                                .await;
                             break;
                         },
                         Err(mut e) => {
