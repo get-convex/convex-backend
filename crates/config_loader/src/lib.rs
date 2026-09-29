@@ -176,8 +176,19 @@ impl<D: ConfigDecoder + Send + 'static, M: mode::ConfigLoaderMode<D::Output>> Co
             let mut invalid_config_gauge = None;
             loop {
                 let config = stream.select_next_some().await;
-                match config
-                    .and_then(|s| decoder.decode(s))
+                // The invalid-config gauge reflects the last decode result, so a
+                // fetch error (e.g. a Consul leader election) leaves it unchanged.
+                let config = match config
+                    .with_context(|| format!("Failed to reload config from {config_source}"))
+                {
+                    Ok(config) => config,
+                    Err(mut e) => {
+                        report_error(&mut e).await;
+                        continue;
+                    },
+                };
+                match decoder
+                    .decode(config)
                     .with_context(|| format!("Failed to reload config from {config_source}"))
                 {
                     Ok(config) => {
