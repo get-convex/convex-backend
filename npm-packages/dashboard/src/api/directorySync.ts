@@ -77,6 +77,8 @@ export function useDisableDirectorySync(teamId: number) {
       team_id: teamId.toString(),
     },
     successToast: "Directory Sync has been disabled for your team.",
+    // The disable confirmation dialog renders the failure inline.
+    toastOnError: false,
   });
   const mutate = useMutate();
   return useCallback(async () => {
@@ -98,6 +100,8 @@ export function useEnableDirectorySync(teamId: number) {
       team_id: teamId.toString(),
     },
     successToast: "Directory Sync has been enabled for your team.",
+    // The review step renders the failure inline.
+    toastOnError: false,
   });
   const mutate = useMutate();
   const mutateTeamMembers = useMutateTeamMembers(teamId);
