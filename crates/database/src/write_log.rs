@@ -1152,10 +1152,7 @@ impl PendingWrites {
         &self.by_ts[position].write_source
     }
 
-    pub fn pop_first(
-        &mut self,
-        handle: PendingWriteHandle,
-    ) -> (OrderedDocumentWrites, WriteSource, Snapshot) {
+    pub fn pop_first(&mut self, handle: PendingWriteHandle) -> (OrderedDocumentWrites, Snapshot) {
         let pending_write = self
             .by_ts
             .pop_front()
@@ -1178,11 +1175,7 @@ impl PendingWrites {
                 entry.remove();
             }
         }
-        (
-            pending_write.writes,
-            pending_write.write_source,
-            pending_write.snapshot,
-        )
+        (pending_write.writes, pending_write.snapshot)
     }
 
     pub fn min_ts(&self) -> Option<Timestamp> {

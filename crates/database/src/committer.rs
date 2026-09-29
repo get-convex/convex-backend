@@ -1099,7 +1099,7 @@ impl<RT: Runtime> Committer<RT> {
         let apply_timer = metrics::commit_apply_timer();
         let commit_ts = pending_write.must_commit_ts();
 
-        let (ordered_updates, _, new_snapshot) = self.pending_writes.pop_first(pending_write);
+        let (ordered_updates, new_snapshot) = self.pending_writes.pop_first(pending_write);
 
         // Write transaction state at the commit ts to the document store.
         metrics::commit_rows(ordered_updates.len() as u64);
