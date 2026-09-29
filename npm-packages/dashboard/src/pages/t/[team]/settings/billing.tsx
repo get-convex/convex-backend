@@ -51,10 +51,8 @@ function Billing({ team }: { team: TeamResponse }) {
   const canChangePlan = hasAdminPermissions || canChangePlanCustom === true;
   const myProfile = useProfile();
   const orbPlans = useListPlans(team.id);
-  const selectedPlan = orbPlans.plans?.find((p) =>
-    router.query.source === "chef"
-      ? p.planType === "CONVEX_STARTER_PLUS"
-      : p.id === router.query.upgradePlan,
+  const selectedPlan = orbPlans.plans?.find(
+    (p) => p.id === router.query.upgradePlan,
   );
 
   const newPlanName = selectedPlan?.planType
@@ -171,7 +169,6 @@ function Billing({ team }: { team: TeamResponse }) {
                       team={team}
                       numMembers={members?.length || 1}
                       plan={selectedPlan}
-                      isChef={router.query.source === "chef"}
                       onUpgradeComplete={() => {
                         void router.push(
                           {
