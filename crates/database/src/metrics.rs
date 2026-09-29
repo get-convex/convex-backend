@@ -479,8 +479,8 @@ pub fn committer_full_error() -> ErrorMetadata {
 
     ErrorMetadata::overloaded(
         "CommitterFullError",
-        "Too many concurrent commits in a short period of time. Spread your writes out over time \
-         or throttle them to avoid errors.",
+        "Too many writes in a short period of time. Reduce your writes, spread your writes out \
+         over time or remove unused indexes to reduce load and avoid errors.",
     )
 }
 
