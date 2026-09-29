@@ -917,9 +917,10 @@ impl<RT: Runtime> Committer<RT> {
         // The updates are ordered using table_dependency_sort_key,
         // which is the same order they should be applied to database metadata
         // and index data structures
+        let bootstrap_tables = BootstrapTableIds::new(&transaction.table_mapping);
         ordered_updates.sort_by_key(|update| {
             table_dependency_sort_key(
-                BootstrapTableIds::new(&transaction.table_mapping),
+                bootstrap_tables,
                 InternalDocumentId::from(update.id),
                 update.new_document.as_ref(),
             )
