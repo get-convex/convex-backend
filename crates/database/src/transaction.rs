@@ -219,6 +219,9 @@ pub struct SubtransactionToken {
     /// Parent's transaction limits, restored when the subtransaction
     /// commits or rolls back.
     limits: TransactionLimits,
+    /// Parent's table count deltas, restored when the subtransaction rolls
+    /// back.
+    table_count_deltas: BTreeMap<TabletId, i64>,
 }
 
 impl<RT: Runtime> Transaction<RT> {
@@ -411,6 +414,7 @@ impl<RT: Runtime> Transaction<RT> {
             schema_registry: self.schema_registry.begin_nested(),
             component_registry: self.component_registry.begin_nested(),
             limits: self.limits.clone(),
+            table_count_deltas: self.table_count_deltas.clone(),
         }
     }
 
@@ -434,6 +438,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.component_registry
             .rollback_nested(tokens.component_registry)?;
         self.limits = tokens.limits;
+        self.table_count_deltas = tokens.table_count_deltas;
         Ok(())
     }
 
