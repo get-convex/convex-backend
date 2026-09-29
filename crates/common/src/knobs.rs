@@ -827,15 +827,6 @@ pub static DELETE_TABLET_CHUNK_SIZE: LazyLock<u16> =
 pub static SEARCH_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("SEARCH_INDEX_SIZE_SOFT_LIMIT", 10 * (1 << 20))); // 10 MiB
 
-/// Configures the search index worker's rate limit on pages processed per
-/// second.
-pub static SEARCH_INDEX_WORKER_PAGES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
-    env_config(
-        "SEARCH_INDEX_WORKER_PAGES_PER_SECOND",
-        NonZeroU32::new(2).unwrap(),
-    )
-});
-
 /// Don't allow search index workers to have more than an hour of uncheckpointed
 /// data.
 ///
@@ -930,13 +921,6 @@ pub static MAX_EXPIRED_SNAPSHOT_AGE: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_days(days)
 });
 
-/// Number of chunks processed per second when calculating table summaries.
-pub static TABLE_SUMMARY_CHUNKS_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
-    env_config(
-        "TABLE_SUMMARY_CHUNKS_PER_SECOND",
-        NonZeroU32::new(1000).unwrap(),
-    )
-});
 /// Size at which a vector index will be queued for snapshotting vector indexes.
 pub static VECTOR_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("VECTOR_INDEX_SIZE_SOFT_LIMIT", 30 * (1 << 20))); // 30 MiB
@@ -1885,10 +1869,6 @@ pub static SYNC_WORKER_UPDATE_QUERIES_RETRY_MAX_BACKOFF_SECS: LazyLock<Duration>
             600,
         ))
     });
-
-/// Batch size for migration that rewrites virtual tables.
-pub static MIGRATION_REWRITE_BATCH_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("MIGRATION_REWRITE_BATCH_SIZE", 100));
 
 /// If an import is taking longer than a day, it's a problem (and our fault).
 /// But the customer is probably no longer waiting so we should fail the import.
