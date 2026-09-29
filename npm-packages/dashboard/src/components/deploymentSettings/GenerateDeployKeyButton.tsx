@@ -5,6 +5,7 @@ import { CopyButton } from "@common/elements/CopyButton";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Callout } from "@ui/Callout";
+import { Modal } from "@ui/Modal";
 import {
   Dialog,
   DialogPanel,
@@ -216,12 +217,6 @@ export type CreateDeployKeyFormProps = {
   showCustomPermissions?: boolean;
 };
 
-// Renders the create-deploy-key flow (form + post-creation key reveal). On
-// `md`+ viewports it's a right-hand slide-in side panel; on narrower viewports
-// it collapses to a centered modal (and the permissions grid drops to a single
-// column). The header and the Cancel/Create (or Done) footer are pinned while
-// the body scrolls. `onClose` is invoked after it animates out to dismiss it
-// from the deploy key list.
 export function CreateDeployKeyForm({
   disabledReason,
   getAdminKey,
@@ -237,71 +232,62 @@ export function CreateDeployKeyForm({
     () => new Set(),
   );
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [panelClosed, setPanelClosed] = useState(false);
   const [expiration, setExpiration] = useState<TokenExpirationValue>(null);
   const [error, setError] = useState<string | null>(null);
   const { capture } = usePostHog();
 
   return (
-    <Transition show={open} appear afterLeave={onClose}>
-      <Dialog
-        static
-        as="div"
-        className="fixed inset-0 z-50 overflow-hidden"
-        open // Real openness status is controlled by Transition above
-        onClose={closePanel}
+    <>
+      <Transition
+        show={open}
+        appear
+        afterLeave={() => {
+          if (createdKey === null) {
+            onClose();
+          } else {
+            setPanelClosed(true);
+          }
+        }}
       >
-        <div className="absolute inset-0 overflow-hidden">
-          <TransitionChild
-            enter="ease-in-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in-out duration-300"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="absolute inset-0 transition-opacity" />
-          </TransitionChild>
-
-          <div className="fixed inset-0 flex items-center justify-center p-4 md:inset-y-0 md:right-0 md:left-auto md:items-stretch md:justify-end md:p-0 md:pl-10">
+        <Dialog
+          static
+          as="div"
+          className="fixed inset-0 z-50 overflow-hidden"
+          open // Real openness status is controlled by Transition above
+          onClose={closePanel}
+        >
+          <div className="absolute inset-0 overflow-hidden">
             <TransitionChild
-              enter="transform transition ease-in-out duration-200 md:duration-300"
-              enterFrom="translate-y-2 opacity-0 md:translate-x-full md:translate-y-0"
-              enterTo="translate-y-0 opacity-100 md:translate-x-0"
-              leave="transform transition ease-in-out duration-200 md:duration-300"
-              leaveFrom="translate-y-0 opacity-100 md:translate-x-0"
-              leaveTo="translate-y-2 opacity-0 md:translate-x-full md:translate-y-0"
+              enter="ease-in-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in-out duration-300"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
             >
-              <DialogPanel className="w-full max-w-lg md:w-screen md:max-w-3xl">
-                <div
-                  data-testid="create-deploy-key-panel"
-                  className="flex max-h-[85vh] flex-col rounded-lg bg-background-secondary shadow-xl md:h-full md:max-h-none md:rounded-none dark:border"
-                >
-                  <div className="flex items-center justify-between px-6 pt-6 pb-4">
-                    <DialogTitle as="h4">
-                      {createdKey ? "Deploy Key Created" : "Create Deploy Key"}
-                    </DialogTitle>
-                    <ClosePanelButton onClose={closePanel} />
-                  </div>
+              <div className="absolute inset-0 transition-opacity" />
+            </TransitionChild>
 
-                  {createdKey ? (
-                    <>
-                      <div className="scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 pb-4">
-                        <p className="text-sm text-content-primary">
-                          Copy your new deploy key now. You won&apos;t be able
-                          to see it again.
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <code className="min-w-0 flex-1 truncate rounded-sm bg-background-tertiary px-2 py-1 text-sm">
-                            {createdKey}
-                          </code>
-                          <CopyButton text={createdKey} />
-                        </div>
-                      </div>
-                      <div className="flex justify-end px-6 py-4">
-                        <Button onClick={closePanel}>Done</Button>
-                      </div>
-                    </>
-                  ) : (
+            <div className="fixed inset-0 flex items-center justify-center p-4 md:inset-y-0 md:right-0 md:left-auto md:items-stretch md:justify-end md:p-0 md:pl-10">
+              <TransitionChild
+                enter="transform transition ease-in-out duration-200 md:duration-300"
+                enterFrom="translate-y-2 opacity-0 md:translate-x-full md:translate-y-0"
+                enterTo="translate-y-0 opacity-100 md:translate-x-0"
+                leave="transform transition ease-in-out duration-200 md:duration-300"
+                leaveFrom="translate-y-0 opacity-100 md:translate-x-0"
+                leaveTo="translate-y-2 opacity-0 md:translate-x-full md:translate-y-0"
+              >
+                <DialogPanel className="w-full max-w-lg md:w-screen md:max-w-3xl">
+                  <div
+                    data-testid="create-deploy-key-panel"
+                    className="flex max-h-[85vh] flex-col rounded-lg bg-background-secondary shadow-xl md:h-full md:max-h-none md:rounded-none dark:border"
+                  >
+                    <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                      <DialogTitle as="h4">Create Deploy Key</DialogTitle>
+                      <ClosePanelButton onClose={closePanel} />
+                    </div>
+
                     <form
                       className="flex min-h-0 flex-1 flex-col"
                       onSubmit={async (e) => {
@@ -323,6 +309,7 @@ export function CreateDeployKeyForm({
                             return;
                           }
                           setCreatedKey(result.adminKey);
+                          closePanel();
                           capture("generated_deploy_key", {
                             type: deploymentType,
                           });
@@ -479,14 +466,37 @@ export function CreateDeployKeyForm({
                         </Button>
                       </div>
                     </form>
-                  )}
-                </div>
-              </DialogPanel>
-            </TransitionChild>
+                  </div>
+                </DialogPanel>
+              </TransitionChild>
+            </div>
           </div>
-        </div>
-      </Dialog>
-    </Transition>
+        </Dialog>
+      </Transition>
+      {createdKey !== null && panelClosed && (
+        <Modal
+          title="Deploy Key Created"
+          onClose={onClose}
+          requireExplicitClose
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-content-primary">
+              Copy your new deploy key now. You won&apos;t be able to see it
+              again.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="min-w-0 flex-1 truncate rounded-sm bg-background-tertiary px-2 py-1 text-sm">
+                {createdKey}
+              </code>
+              <CopyButton text={createdKey} />
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={onClose}>Done</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
 
