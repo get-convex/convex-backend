@@ -125,7 +125,6 @@ impl TermTable {
     ) -> anyhow::Result<()> {
         if self.get(&query.term).is_some() {
             let m = TokenMatch {
-                distance: 0,
                 prefix: false,
                 term: query.term.clone(),
                 token_ord,
@@ -144,7 +143,6 @@ impl TermTable {
                     continue;
                 }
                 let m = TokenMatch {
-                    distance: 0,
                     prefix: true,
                     term: match_term,
                     token_ord,

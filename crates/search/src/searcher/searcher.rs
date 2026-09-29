@@ -659,7 +659,6 @@ impl<RT: Runtime> SearcherImpl<RT> {
             && deletion_tracker.doc_frequency(field, term_dict, term_ord)? > 0
         {
             let m = TokenMatch {
-                distance: 0,
                 prefix: false,
                 term: query.term.clone(),
                 token_ord,
@@ -689,7 +688,6 @@ impl<RT: Runtime> SearcherImpl<RT> {
             }
             let match_str = std::str::from_utf8(match_term_bytes)?;
             let m = TokenMatch {
-                distance: 0,
                 prefix: true,
                 term: Term::from_field_text(field, match_str),
                 token_ord,
@@ -917,7 +915,6 @@ impl TryFrom<TokenQuery> for pb::searchlight::TokenQuery {
 
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct TokenMatch {
-    pub distance: u32,
     pub prefix: bool,
     pub term: Term,
     pub token_ord: u32,
@@ -928,7 +925,6 @@ impl TryFrom<pb::searchlight::TokenMatch> for TokenMatch {
 
     fn try_from(value: pb::searchlight::TokenMatch) -> Result<Self, Self::Error> {
         Ok(TokenMatch {
-            distance: value.distance.context("Missing distance")?,
             prefix: value.prefix.context("Missing prefix")?,
             term: Term::wrap(value.tantivy_bytes.context("Missing term")?),
             token_ord: value.token_ord.context("Missing token_ord")?,
@@ -941,7 +937,8 @@ impl TryFrom<TokenMatch> for pb::searchlight::TokenMatch {
 
     fn try_from(value: TokenMatch) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::TokenMatch {
-            distance: Some(value.distance),
+            // Older backends reject matches without this field.
+            distance: Some(0),
             prefix: Some(value.prefix),
             tantivy_bytes: Some(value.term.as_slice().to_vec()),
             token_ord: Some(value.token_ord),

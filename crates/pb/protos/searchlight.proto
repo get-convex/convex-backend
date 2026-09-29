@@ -260,6 +260,8 @@ message QueryTokensResponse {
 }
 
 message TokenMatch {
+  // Always written as 0 and ignored on read. Older backends require it to be
+  // present; a follow-up stops writing it and reserves field 1.
   optional uint32 distance = 1;
   optional bool prefix = 2;
   optional bytes tantivy_bytes = 3;
