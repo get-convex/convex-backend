@@ -13,8 +13,14 @@ region.
 
 ## Available regions
 
-The current available regions are in US East (N. Virginia) and EU West
-(Ireland). More regions will be added in the future.
+| Region               | Location              |
+| -------------------- | --------------------- |
+| `aws-us-east-1`      | US East (N. Virginia) |
+| `aws-eu-west-1`      | Europe (Ireland)      |
+| `aws-ap-southeast-2` | Asia Pacific (Sydney) |
+| `aws-ca-central-1`   | Canada (Central)      |
+
+More regions will be added in the future.
 
 ## Selecting a region
 
@@ -25,7 +31,15 @@ team's deployments at this time.
 [Visit the team settings page](https://dashboard.convex.dev/team/settings) to
 change your team's default region.
 
-CLI support for selecting a region for new deployments is coming soon.
+You can also select a region from the CLI when creating a deployment:
+
+```sh
+npx convex deployment create my-deployment --type prod --region aws-ap-southeast-2
+```
+
+Omit `--region` to be prompted, or to use your team's default region if one is
+set. `us` and `eu` are accepted as shorthand for `aws-us-east-1` and
+`aws-eu-west-1`.
 
 ## Migrating between regions
 
