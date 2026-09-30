@@ -146,7 +146,7 @@ impl LogManagerClient {
         self.active_sinks_count.load(Ordering::Relaxed)
     }
 
-    fn is_entitlement_enabled(&self) -> bool {
+    pub fn is_entitlement_enabled(&self) -> bool {
         self.entitlement_enabled.load(Ordering::Relaxed)
     }
 
