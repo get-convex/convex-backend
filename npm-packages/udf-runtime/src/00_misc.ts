@@ -62,4 +62,7 @@ export function setupMisc(global) {
   // defined in browsers and required by the WinterCG Minimum Common Web Platform API draft
   // https://common-min-api.proposal.wintercg.org/
   global.self = global;
+
+  // Nonstandard and deprecated
+  delete global.Intl.v8BreakIterator;
 }
