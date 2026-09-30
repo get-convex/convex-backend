@@ -353,9 +353,9 @@ component.use(childComponent, { httpPrefix: "/child/" });
 export default component;
 ```
 
-Within all of a component’s functions, `process.env.CONVEX_SITE_URL` reflects
-the full URL where the component is mounted, including the `httpPrefix`. This
-allows the component to construct correct URLs for callbacks, redirects, or
+Within all of a component’s functions, `env.CONVEX_SITE_URL` reflects the full
+URL where the component is mounted, including the `httpPrefix`. This allows the
+component to construct correct URLs for callbacks, redirects, or
 self-referencing links without needing to know its mount path at build time.
 
 **Limitation:** Component HTTP actions do not have access to `ctx.auth` or the
@@ -513,6 +513,7 @@ import type {
   GenericDataModel,
   GenericMutationCtx,
 } from "convex/server";
+import { env } from "./_generated/server.js";
 import type { ComponentApi } from "../component/_generated/component.js";
 
 export async function callMyFunction(
@@ -523,7 +524,7 @@ export async function callMyFunction(
   // You can create function handles, add shared utilities,
   // or do any processing that needs to run in the app's environment.
   const functionHandle = await createFunctionHandle(args.someFn);
-  const someArg = process.env.SOME_ARG;
+  const someArg = env.SOME_ARG;
   await ctx.runMutation(component.call.fn, {
     ...args,
     someArg,
@@ -668,7 +669,7 @@ export class Foo {
       FOO_AUTH_KEY?: string;
     },
   ) {
-    this.apiKey = options?.FOO_AUTH_KEY ?? process.env.FOO_AUTH_KEY!;
+    this.apiKey = options?.FOO_AUTH_KEY ?? env.FOO_AUTH_KEY;
   }
 
   async count(ctx: GenericQueryCtx<GenericDataModel>) {

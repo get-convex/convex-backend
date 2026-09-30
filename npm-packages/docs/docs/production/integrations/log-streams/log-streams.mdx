@@ -112,6 +112,7 @@ log event body falls within an acceptable time range to prevent replay attacks.
 
 ```typescript
 import { Hono } from "hono";
+import { env } from "./_generated/server";
 
 const app = new Hono();
 
@@ -137,7 +138,7 @@ app.post("/webhook", async (c) => {
 
   const hmacSecret = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(process.env.WEBHOOK_SECRET!),
+    new TextEncoder().encode(env.WEBHOOK_SECRET),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["verify"],
