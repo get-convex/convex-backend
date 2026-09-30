@@ -2,12 +2,16 @@ import { useMemo } from "react";
 import type { RegionName } from "generatedApi";
 import type { DeploymentRegionMetadata } from "@convex-dev/platform/managementApi";
 import { useDeploymentRegions } from "api/deployments";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
+import { flagDefaults, useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 /** Default region for the globe and the base regional price. */
 export const PRIMARY_REGION: RegionName = "aws-us-east-1";
 
-type RegionAvailabilityFlag = "canadaAvailable" | "australiaAvailable";
+type RegionAvailabilityFlag = {
+  [K in keyof typeof flagDefaults]: (typeof flagDefaults)[K] extends boolean
+    ? K
+    : never;
+}[keyof typeof flagDefaults];
 
 type RegionPresentation = {
   flag: string;
@@ -28,16 +32,8 @@ type RegionPresentation = {
 export const REGION_PRESENTATION: Record<RegionName, RegionPresentation> = {
   "aws-us-east-1": { flag: "🇺🇸", coordinates: [38.9072, -77.0369] }, // Washington DC
   "aws-eu-west-1": { flag: "🇪🇺", coordinates: [53.3498, -6.2603] }, // Dublin
-  "aws-ca-central-1": {
-    flag: "🇨🇦",
-    coordinates: [45.5019, -73.5674], // Montréal
-    availabilityFlag: "canadaAvailable",
-  },
-  "aws-ap-southeast-2": {
-    flag: "🇦🇺",
-    coordinates: [-33.8688, 151.2093], // Sydney
-    availabilityFlag: "australiaAvailable",
-  },
+  "aws-ca-central-1": { flag: "🇨🇦", coordinates: [45.5019, -73.5674] }, // Montréal
+  "aws-ap-southeast-2": { flag: "🇦🇺", coordinates: [-33.8688, 151.2093] }, // Sydney
 };
 
 const REGION_ORDER = Object.keys(REGION_PRESENTATION);
@@ -77,17 +73,22 @@ export function sortRegions<T extends { name: string }>(regions: T[]): T[] {
  * launched yet are hidden until their flag is on.
  */
 export function useEnabledRegionNames(): RegionName[] {
-  // Destructured so the memo depends on the flag values rather than on the
-  // identity of the flag object.
-  const { canadaAvailable, australiaAvailable } = useLaunchDarkly();
+  // `useFlags` hands back the object straight out of context, so its identity
+  // is stable until a flag actually changes.
+  const flags = useLaunchDarkly();
 
-  return useMemo(() => {
-    const isOn = { canadaAvailable, australiaAvailable };
-    return (Object.keys(REGION_PRESENTATION) as RegionName[]).filter((name) => {
-      const { availabilityFlag } = REGION_PRESENTATION[name];
-      return availabilityFlag === undefined || isOn[availabilityFlag];
-    });
-  }, [canadaAvailable, australiaAvailable]);
+  return useMemo(
+    () =>
+      (Object.keys(REGION_PRESENTATION) as RegionName[]).filter((name) => {
+        const { availabilityFlag } = REGION_PRESENTATION[name];
+        // `flagDefaults` is hand-written, so LaunchDarkly can serve a
+        // non-boolean; `=== true` hides the region rather than showing it.
+        return (
+          availabilityFlag === undefined || flags[availabilityFlag] === true
+        );
+      }),
+    [flags],
+  );
 }
 
 /** Marker coordinates for every region this dashboard offers. */

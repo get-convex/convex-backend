@@ -11,8 +11,6 @@ export const flagDefaults: {
   promos: boolean;
   s3ExportIntegration: boolean;
   showFivetranSyncProgress: boolean;
-  canadaAvailable: boolean;
-  australiaAvailable: boolean;
   supportTicketForAllPlans: boolean;
 } = {
   commandPaletteDeleteProjects: false,
@@ -24,8 +22,6 @@ export const flagDefaults: {
   promos: false,
   s3ExportIntegration: false,
   showFivetranSyncProgress: false,
-  canadaAvailable: false,
-  australiaAvailable: false,
   supportTicketForAllPlans: false,
 };
 
