@@ -13,6 +13,7 @@ export const flagDefaults: {
   showFivetranSyncProgress: boolean;
   canadaAvailable: boolean;
   australiaAvailable: boolean;
+  supportTicketForAllPlans: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
@@ -25,6 +26,7 @@ export const flagDefaults: {
   showFivetranSyncProgress: false,
   canadaAvailable: false,
   australiaAvailable: false,
+  supportTicketForAllPlans: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(
