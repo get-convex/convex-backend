@@ -252,7 +252,7 @@ pub async fn download_package(
         let config = ModuleConfig {
             path: path.clone().into(),
             source: ModuleSource::new(&source),
-            source_map: source_maps.remove(&path),
+            source_map: source_maps.remove(&path).map(Into::into),
             environment,
         };
         out.insert(path, config);

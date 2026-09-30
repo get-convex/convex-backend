@@ -533,7 +533,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
                 .ok_or_else(|| SystemModuleNotFoundError::new(system_path))?;
             let result = V8ModuleSource::new(FullModuleSource {
                 source: source.into(),
-                source_map: source_map.as_ref().map(|s| s.to_string()),
+                source_map: source_map.map(Into::into),
             });
             timer.finish();
             // TODO: should we code-cache system UDFs?

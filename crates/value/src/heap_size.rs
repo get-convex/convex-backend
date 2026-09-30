@@ -350,7 +350,7 @@ impl<T: HeapSize, U: HeapSize, V: HeapSize> HeapSize for (T, U, V) {
     }
 }
 
-impl<T: HeapSize> HeapSize for Arc<T> {
+impl<T: HeapSize + ?Sized> HeapSize for Arc<T> {
     #[inline]
     fn heap_size(&self) -> usize {
         // this is not entirely correct in the presence of sharing
@@ -443,6 +443,13 @@ impl HeapSize for UserIdentityAttributes {
 }
 
 impl HeapSize for &str {
+    #[inline]
+    fn heap_size(&self) -> usize {
+        self.len()
+    }
+}
+
+impl HeapSize for str {
     #[inline]
     fn heap_size(&self) -> usize {
         self.len()
