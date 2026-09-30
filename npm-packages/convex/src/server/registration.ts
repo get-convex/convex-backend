@@ -1234,6 +1234,11 @@ export type HttpActionBuilder = (
 ) => PublicHttpAction;
 
 export interface AdvancedRunQueryOptions {
+  /**
+   * Custom limits for a nested transaction. Each field specifies the absolute
+   * maximum allowed for the nested function call. Values are capped at the
+   * global transaction limits, so they can only lower limits, never raise them.
+   */
   transactionLimits?: TransactionLimits;
   /**
    * Run a query on a recent snapshot of the database that is not guaranteed
@@ -1244,6 +1249,11 @@ export interface AdvancedRunQueryOptions {
    * database read conflicts are expected, e.g. reading from an append-only
    * table with immutable records where the only read conflicts are from
    * concurrent appends.
+   *
+   * To determine the snapshot of the nested query, you can call
+   * `ctx.meta.getSnapshotTs()` from within the stale snapshot query. To
+   * compare to the parent mutation's snapshot timestamp, you can return that
+   * value from the query and call `ctx.meta.getSnapshotTs()` from the parent.
    */
   useStaleSnapshot?: boolean;
 }
