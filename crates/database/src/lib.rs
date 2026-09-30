@@ -61,7 +61,8 @@ pub use database_index_workers::{
     IndexWorker,
 };
 pub use execution_size::{
-    FileStorageSize,
+    FileStorageReadSize,
+    FileStorageWriteSize,
     FunctionExecutionSize,
     TransactionLimits,
 };

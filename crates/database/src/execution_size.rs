@@ -24,7 +24,8 @@ pub struct FunctionExecutionSize {
     pub read_size: TransactionReadSize,
     pub write_size: TransactionWriteSize,
     pub scheduled_size: ScheduledFunctionsSize,
-    pub file_storage_size: FileStorageSize,
+    pub file_storage_write_size: FileStorageWriteSize,
+    pub file_storage_read_size: FileStorageReadSize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -37,17 +38,22 @@ pub struct ScheduledFunctionsSize {
     pub max_args_size: usize,
 }
 
-/// File storage accessed from within a transaction.
+/// Files written to file storage from within a transaction.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct FileStorageSize {
+pub struct FileStorageWriteSize {
     /// Number of files written to file storage
     pub num_writes: usize,
     /// Sum of the sizes of the files written to file storage
-    pub write_size: usize,
+    pub size: usize,
+}
+
+/// Files read from file storage from within a transaction.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct FileStorageReadSize {
     /// Number of files read from file storage
     pub num_reads: usize,
     /// Sum of the sizes of the files read from file storage
-    pub read_size: usize,
+    pub size: usize,
 }
 
 /// Transaction limits. All fields are resolved absolute values.
@@ -134,22 +140,22 @@ impl TransactionLimits {
                 ceiling.scheduled_function_args_bytes,
             ),
             files_written: combine(
-                usage.file_storage_size.num_writes,
+                usage.file_storage_write_size.num_writes,
                 budget.files_written,
                 ceiling.files_written,
             ),
             file_write_bytes: combine(
-                usage.file_storage_size.write_size,
+                usage.file_storage_write_size.size,
                 budget.file_write_bytes,
                 ceiling.file_write_bytes,
             ),
             files_read: combine(
-                usage.file_storage_size.num_reads,
+                usage.file_storage_read_size.num_reads,
                 budget.files_read,
                 ceiling.files_read,
             ),
             file_read_bytes: combine(
-                usage.file_storage_size.read_size,
+                usage.file_storage_read_size.size,
                 budget.file_read_bytes,
                 ceiling.file_read_bytes,
             ),

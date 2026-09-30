@@ -778,10 +778,10 @@ fn tx_metrics<RT: Runtime>(
             limits.scheduled_function_args_bytes,
             s.scheduled_size.size,
         ),
-        filesWritten: limit_value(limits.files_written, s.file_storage_size.num_writes),
-        fileWriteBytes: limit_value(limits.file_write_bytes, s.file_storage_size.write_size),
-        filesRead: limit_value(limits.files_read, s.file_storage_size.num_reads),
-        fileReadBytes: limit_value(limits.file_read_bytes, s.file_storage_size.read_size),
+        filesWritten: limit_value(limits.files_written, s.file_storage_write_size.num_writes),
+        fileWriteBytes: limit_value(limits.file_write_bytes, s.file_storage_write_size.size),
+        filesRead: limit_value(limits.files_read, s.file_storage_read_size.num_reads),
+        fileReadBytes: limit_value(limits.file_read_bytes, s.file_storage_read_size.size),
     })?)
 }
 

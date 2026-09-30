@@ -121,7 +121,8 @@ use crate::{
     },
     committer::table_dependency_sort_key,
     execution_size::{
-        FileStorageSize,
+        FileStorageReadSize,
+        FileStorageWriteSize,
         FunctionExecutionSize,
         ScheduledFunctionsSize,
         TransactionLimits,
@@ -176,7 +177,8 @@ pub struct Transaction<RT: Runtime> {
     pub scheduled_size: ScheduledFunctionsSize,
 
     // Size of the file storage accessed from this transaction.
-    pub file_storage_size: FileStorageSize,
+    pub file_storage_write_size: FileStorageWriteSize,
+    pub file_storage_read_size: FileStorageReadSize,
 
     // Transaction limits (reads, writes, scheduled). Defaults to global limits.
     pub(crate) limits: TransactionLimits,
@@ -245,7 +247,8 @@ impl<RT: Runtime> Transaction<RT> {
             id_generator,
             next_creation_time: creation_time,
             scheduled_size: ScheduledFunctionsSize::default(),
-            file_storage_size: FileStorageSize::default(),
+            file_storage_write_size: FileStorageWriteSize::default(),
+            file_storage_read_size: FileStorageReadSize::default(),
             limits: TransactionLimits::default(),
             index: NestedWrites::new(index),
             metadata: NestedWrites::new(metadata),
@@ -494,7 +497,8 @@ impl<RT: Runtime> Transaction<RT> {
             read_size: self.reads.user_tx_size().to_owned(),
             write_size: self.writes.user_size().to_owned(),
             scheduled_size: self.scheduled_size.clone(),
-            file_storage_size: self.file_storage_size.clone(),
+            file_storage_write_size: self.file_storage_write_size.clone(),
+            file_storage_read_size: self.file_storage_read_size.clone(),
         }
     }
 
@@ -1392,7 +1396,8 @@ impl<RT: Runtime> Transaction<RT> {
             id_generator: self.id_generator.clone_for_snapshot_query(),
             next_creation_time: self.next_creation_time,
             scheduled_size: self.scheduled_size.clone(),
-            file_storage_size: self.file_storage_size.clone(),
+            file_storage_write_size: self.file_storage_write_size.clone(),
+            file_storage_read_size: self.file_storage_read_size.clone(),
             limits: self.limits.clone(),
             // Don't clone the read set because it is expensive and doesn't matter in a snapshot
             // query
