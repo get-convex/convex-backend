@@ -64,5 +64,5 @@ export function setupMisc(global) {
   global.self = global;
 
   // Nonstandard and deprecated
-  delete global.Intl.v8BreakIterator;
+  delete global.Intl?.v8BreakIterator;
 }
