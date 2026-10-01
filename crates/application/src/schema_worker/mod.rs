@@ -288,8 +288,8 @@ impl<RT: Runtime> SchemaWorker<RT> {
             })?;
             let stream = self
                 .database
-                .table_iterator(ts, 1000)
-                .stream_latest_documents_in_table(tablet_id, by_id);
+                .latest_table_iterator(ts, 1000)
+                .stream_documents_in_table(tablet_id, by_id);
             pin_mut!(stream);
             // The walk observes *current* documents, so it must validate with
             // current table mappings (a snapshot import can replace a table

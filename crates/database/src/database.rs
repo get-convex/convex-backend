@@ -260,6 +260,7 @@ use crate::{
     ComponentRegistry,
     ComponentsTable,
     DataSyncIterator,
+    LatestTableIterator,
     MultiTableIterator,
     SchemasTable,
     TableIterator,
@@ -1333,6 +1334,24 @@ impl<RT: Runtime> Database<RT> {
             snapshot_ts,
             persistence,
             retention_validator,
+            page_size,
+        )
+    }
+
+    /// Walk tables at the latest repeatable timestamp instead of a snapshot,
+    /// so the walk never replays the document log. Every page is read at or
+    /// after `min_ts`; see [`LatestTableIterator`] for the consistency it
+    /// offers.
+    pub fn latest_table_iterator(
+        &self,
+        min_ts: RepeatableTimestamp,
+        page_size: usize,
+    ) -> LatestTableIterator<RT> {
+        LatestTableIterator::new(
+            self.runtime.clone(),
+            min_ts,
+            self.reader.clone(),
+            self.retention_validator(),
             page_size,
         )
     }

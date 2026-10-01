@@ -90,6 +90,7 @@ pub use table_iteration::{
         DataSyncIterator,
         DataSyncStatus,
     },
+    LatestTableIterator,
     MultiTableIterator,
     TableIterator,
     TableScanCursor,

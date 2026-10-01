@@ -4,6 +4,7 @@ pub mod data_sync;
 mod table_iterator;
 
 pub use crate::table_iterator::{
+    LatestTableIterator,
     MultiTableIterator,
     TableIterator,
     TableScanCursor,
