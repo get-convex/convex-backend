@@ -43,7 +43,11 @@ class URLSearchParams {
   // Reference back to the parent URL's `#updateUrl` method
   [_urlObjectUpdate]?: (update: { searchParams: [string, string][] }) => void;
   constructor(
-    init?: string[][] | Record<string, string> | string | URLSearchParams,
+    init?:
+      | Iterable<Iterable<string>>
+      | Record<string, string>
+      | string
+      | URLSearchParams,
   ) {
     this[_searchParamPairs] = [];
     if (init === undefined) {
@@ -54,8 +58,13 @@ class URLSearchParams {
         "url/getUrlSearchParamPairs",
         queryString,
       );
-    } else if (Array.isArray(init)) {
-      for (const pair of init) {
+    } else if (
+      init !== null &&
+      (typeof init === "object" || typeof init === "function") &&
+      typeof (init as any)[Symbol.iterator] === "function"
+    ) {
+      for (const rawPair of init as Iterable<Iterable<string>>) {
+        const pair = [...rawPair];
         if (pair.length !== 2) {
           throw new TypeError(
             "Failed to construct 'URLSearchParams': Failed to construct 'URLSearchParams': Sequence initializer must only contain pair elements",
@@ -63,10 +72,6 @@ class URLSearchParams {
         }
         this.append(pair[0]!, pair[1]!);
       }
-    } else if (init instanceof URLSearchParams) {
-      init.forEach((value, key) => {
-        this.append(key, value);
-      });
     } else {
       // WebIDL record conversion: keys become USVStrings, so keys that differ
       // only in lone surrogates collapse into one entry, keeping the first
