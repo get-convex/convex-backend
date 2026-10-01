@@ -1071,6 +1071,12 @@ pub static MAX_BYTES_WRITTEN_PER_SECOND: LazyLock<u64> =
 pub static PROPOSED_MAX_BYTES_WRITTEN_PER_SECOND: LazyLock<u64> =
     LazyLock::new(|| env_config("PROPOSED_MAX_BYTES_WRITTEN_PER_SECOND", 1024 * 1024));
 
+/// The maximum rate (per second) of document and index rows committed to
+/// persistence, enforced on mutations and imports. Each document write also
+/// writes one row per index on its table. 0 disables the limit.
+pub static MAX_ROWS_WRITTEN_PER_SECOND: LazyLock<Option<u64>> =
+    LazyLock::new(|| Some(env_config("MAX_ROWS_WRITTEN_PER_SECOND", 0)).filter(|&rows| rows > 0));
+
 /// The time window (in milliseconds) used to track write throughput.
 pub static WRITE_THROUGHPUT_WINDOW: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("WRITE_THROUGHPUT_WINDOW", 1000)));

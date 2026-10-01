@@ -159,6 +159,7 @@ use crate::{
         WriteLogSnapshot,
         WriteSource,
     },
+    write_throughput_limiter::WriteVolume,
     ComponentRegistry,
     Snapshot,
     Transaction,
@@ -172,7 +173,7 @@ enum PersistenceWrite {
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         parent_trace: Option<SpanContext>,
         commit_id: usize,
-        write_bytes: u64,
+        write_volume: WriteVolume,
         index_key_writes: IndexKeyWrites,
     },
     MaxRepeatableTimestamp {
@@ -453,7 +454,7 @@ impl<RT: Runtime> Committer<RT> {
                             commit_timer,
                             result,
                             parent_trace,
-                            write_bytes,
+                            write_volume,
                             index_key_writes,
                             ..
                         } => {
@@ -464,7 +465,7 @@ impl<RT: Runtime> Committer<RT> {
                             );
                             let _guard = publish_commit_span.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
-                            self.publish_commit(pending_write, write_bytes, index_key_writes);
+                            self.publish_commit(pending_write, write_volume, index_key_writes);
                             let _ = result.send(Ok(commit_ts));
 
                             // When we next get free cycles and there is no ongoing bump,
@@ -1056,7 +1057,7 @@ impl<RT: Runtime> Committer<RT> {
         component_registry: ComponentRegistry,
         virtual_system_mapping: VirtualSystemMapping,
         write_source: WriteSource,
-    ) -> anyhow::Result<(u64, IndexKeyWrites)> {
+    ) -> anyhow::Result<(WriteVolume, IndexKeyWrites)> {
         Self::track_commit(
             usage_tracking,
             &index_writes,
@@ -1096,11 +1097,15 @@ impl<RT: Runtime> Committer<RT> {
             })
             .collect_vec();
         metrics::commit_index_rows(index_writes.len() as u64);
+        let write_volume = WriteVolume {
+            bytes: write_bytes,
+            rows: (document_writes.len() + index_writes.len()) as u64,
+        };
         write_batcher
             .write(document_writes, index_writes, write_bytes)
             .await
             .with_context(|| format!("Commit ({write_source:?}) failed to write to persistence"))?;
-        Ok((write_bytes, index_key_writes))
+        Ok((write_volume, index_key_writes))
     }
 
     /// After writing the new rows to persistence, mark the commit as complete
@@ -1109,7 +1114,7 @@ impl<RT: Runtime> Committer<RT> {
     fn publish_commit(
         &mut self,
         pending_write: PendingWriteHandle,
-        write_bytes: u64,
+        write_volume: WriteVolume,
         writes: IndexKeyWrites,
     ) {
         let apply_timer = metrics::commit_apply_timer();
@@ -1121,7 +1126,7 @@ impl<RT: Runtime> Committer<RT> {
         metrics::commit_rows(ordered_updates.len() as u64);
         drop(ordered_updates);
 
-        metrics::write_log_commit_bytes(write_bytes as usize);
+        metrics::write_log_commit_bytes(write_volume.bytes as usize);
 
         let timer = metrics::write_log_append_timer();
         let index_registry = &new_snapshot.index_registry;
@@ -1150,7 +1155,7 @@ impl<RT: Runtime> Committer<RT> {
 
         // Publish the new version of our database metadata and the index.
         let mut snapshot_manager = self.snapshot_manager.write();
-        snapshot_manager.push(commit_ts, new_snapshot, write_bytes);
+        snapshot_manager.push(commit_ts, new_snapshot, write_volume);
 
         apply_timer.finish();
     }
@@ -1256,7 +1261,7 @@ impl<RT: Runtime> Committer<RT> {
                     )
                     .in_span(Span::enter_with_local_parent(name)),
                 ));
-                let (write_bytes, index_key_writes) = handle.await??;
+                let (write_volume, index_key_writes) = handle.await??;
                 pause_client.wait(AFTER_PENDING_WRITE_SNAPSHOT).await;
                 Ok(PersistenceWrite::Commit {
                     pending_write,
@@ -1264,7 +1269,7 @@ impl<RT: Runtime> Committer<RT> {
                     result,
                     parent_trace,
                     commit_id,
-                    write_bytes,
+                    write_volume,
                     index_key_writes,
                 })
             }
