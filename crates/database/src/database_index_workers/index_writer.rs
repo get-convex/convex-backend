@@ -14,7 +14,10 @@ use anyhow::Context;
 use common::{
     self,
     bootstrap_model::index::database_index::IndexedFields,
-    errors::is_transient_db_error,
+    errors::{
+        is_db_deadlock_error,
+        is_transient_db_error,
+    },
     fmt::format_read_write_balance,
     knobs::{
         INDEX_BACKFILL_CHUNK_RATE,
@@ -735,6 +738,15 @@ where
 {
     match retry_config {
         None => operation().await,
-        Some(retry) => retry_with_backoff(name, retry, is_transient_db_error, operation).await,
+        Some(retry) => {
+            retry_with_backoff(name, retry, is_retriable_persistence_error, operation).await
+        },
     }
+}
+
+/// A deadlock rolls back only the victim transaction, and backfill writes are
+/// idempotent upserts or conditional deletes, so rerunning an operation whose
+/// earlier transactions already committed is safe.
+fn is_retriable_persistence_error(e: &anyhow::Error) -> bool {
+    is_transient_db_error(e) || is_db_deadlock_error(e)
 }

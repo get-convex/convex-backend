@@ -9,6 +9,7 @@ use std::{
 use ::metrics::StaticMetricLabel;
 use common::{
     errors::{
+        database_deadlock_error,
         database_operational_error,
         database_timeout_error,
         DatabaseOperationalError,
@@ -114,9 +115,15 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
         {
             database_operational_error(e.into())
         },
+        mysql_async::Error::Server(mysql_async::ServerError {
+            code: ER_LOCK_DEADLOCK,
+            ..
+        }) => database_deadlock_error(e.into()),
         _ => e.into(),
     }
 }
+
+const ER_LOCK_DEADLOCK: u16 = 1213;
 
 /// Recognizes the Vitess error returned when a result exceeds its 64 MiB
 /// message limit, allowing callers to retry with a smaller page.
