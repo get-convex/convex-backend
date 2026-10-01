@@ -197,6 +197,9 @@ minimumReleaseAgeExclude:
   - adm-zip@0.6.1
   # First-party publish; the convex-test docs often reference new features
   - convex-test
+  # First-party publish; the CLI can't use workspace:* because copy.bara.sky
+  # mirrors it to convex-js.
+  - "@convex-dev/platform"
 
 # Keep react and react-dom out of pnpm's hoisted fallback layer. The workspace
 # has both React 18 (the demos) and React 19 (the dashboards), and

@@ -632,8 +632,8 @@ importers:
         specifier: ^14.0.0
         version: 14.0.0(commander@14.0.3)
       '@convex-dev/platform':
-        specifier: 0.1.10
-        version: 0.1.10
+        specifier: 0.1.11
+        version: 0.1.11
       '@eslint/compat':
         specifier: ~2.0.0
         version: 2.0.0(eslint@9.39.1(jiti@2.7.0)(supports-color@10.2.2))
@@ -7715,8 +7715,8 @@ packages:
     peerDependencies:
       typedoc: '>=0.24.0'
 
-  '@convex-dev/platform@0.1.10':
-    resolution: {integrity: sha512-NhidRteiazmNwg/0xG1mkQvdYz8uuVKZhf4MSEx/os34/1o5O3sSDKYKfidK+lyvsl+5xLp+oFM9smOI1MP7YA==}
+  '@convex-dev/platform@0.1.11':
+    resolution: {integrity: sha512-qdX+tYjNhNpEeLIiUhKDQQwdvUJDB529TrfJ9dAIclzLOW7DW1ozgIcyB2nl/MhlhBOUlHLY3wZ1xkjafrJO+Q==}
 
   '@convex-dev/rate-limiter@0.3.2':
     resolution: {integrity: sha512-+oBPsBfFbzdxiF/9XaaTQmVnvDlvEfg/c69/v8LxTbw4VLuiflIKlfnPQL8OS0azXQQ11hcPWHmU8ytFmHKDXA==}
@@ -31633,7 +31633,7 @@ snapshots:
     dependencies:
       typedoc: 0.24.8(typescript@5.0.4)
 
-  '@convex-dev/platform@0.1.10':
+  '@convex-dev/platform@0.1.11':
     dependencies:
       openapi-fetch: 0.17.0
 
