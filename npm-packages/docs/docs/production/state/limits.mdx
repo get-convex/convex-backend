@@ -47,22 +47,35 @@ in [other regions](/production/regions#pricing) is 1.3x.
 
 ## Documents
 
-Applied per document and to any nested `Object` unless stated otherwise.
-
-|                     |               | Notes                                                            |
-| ------------------- | ------------- | ---------------------------------------------------------------- |
-| Size                | 1 MiB         |                                                                  |
-| Fields              | 1024          | The number of fields/keys                                        |
-| Field name length   | 64 characters | Nested `Object` keys can have length up to 1024 characters.      |
-| Field nesting depth | 16            | How many times objects and arrays can be nested, e.g. `[[[[]]]]` |
-| Array elements      | 8192          |                                                                  |
+|                   |               | Notes                                                            |
+| ----------------- | ------------- | ---------------------------------------------------------------- |
+| Size              | 1 MiB         |                                                                  |
+| Top-level fields  | 1024          | Includes the system fields `_id` and `_creationTime`.            |
+| Field name length | 64 characters | Nested `Object` keys can have length up to 1024 characters.      |
+| Nesting depth     | 16            | How many times objects and arrays can be nested, e.g. `[[[[]]]]` |
 
 ### Restrictions
 
-- Field names must only contain non-control alphanumeric ASCII characters and
-  underscores and must start with an alphabetic character or underscore.
+- Document top-level field names must only contain non-control alphanumeric
+  ASCII characters and underscores and must start with an alphabetic character
+  or underscore.
 - Documents cannot contain top-level fields that start with an underscore, other
   than the system-provided `_id` and `_creationTime` fields.
+
+## Values
+
+Applied to every [Convex value](/database/types), including values in documents,
+function arguments, and return values.
+
+|                   |                 | Notes                                                                                       |
+| ----------------- | --------------- | ------------------------------------------------------------------------------------------- |
+| Array elements    | 8192            | Per array                                                                                   |
+| Object fields     | 1024            | Per object                                                                                  |
+| Field name length | 1024 characters |                                                                                             |
+| Nesting depth     | 64              | How many times objects and arrays can be nested. [Documents](#documents) are limited to 16. |
+
+### Restrictions
+
 - Strings must be valid Unicode sequences with no unpaired surrogates.
 
 ## Functions
