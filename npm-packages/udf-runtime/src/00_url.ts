@@ -38,6 +38,50 @@ type Update =
 const _searchParamPairs = Symbol("_searchParamPairs");
 const _urlObjectUpdate = Symbol("_urlObjectUpdate");
 
+class URLSearchParamsIterator<T> implements IterableIterator<T> {
+  #params: URLSearchParams;
+  #index = 0;
+  #select: (key: string, value: string) => T;
+
+  constructor(
+    params: URLSearchParams,
+    select: (key: string, value: string) => T,
+  ) {
+    this.#params = params;
+    this.#select = select;
+  }
+
+  next(): IteratorResult<T> {
+    if (this.#index >= this.#params[_searchParamPairs].length) {
+      return { value: undefined, done: true };
+    }
+    // Mutations and URL updates can replace the entire parameter list.
+    const [key, value] = this.#params[_searchParamPairs][this.#index++];
+    return { value: this.#select(key, value), done: false };
+  }
+
+  [Symbol.iterator](): IterableIterator<T> {
+    return this;
+  }
+}
+
+Object.setPrototypeOf(
+  URLSearchParamsIterator.prototype,
+  Object.getPrototypeOf(Object.getPrototypeOf([][Symbol.iterator]())),
+);
+Object.defineProperty(URLSearchParamsIterator.prototype, "next", {
+  value: URLSearchParamsIterator.prototype.next,
+  writable: true,
+  enumerable: true,
+  configurable: true,
+});
+Object.defineProperty(URLSearchParamsIterator.prototype, Symbol.toStringTag, {
+  value: "URLSearchParams Iterator",
+  enumerable: false,
+  writable: false,
+  configurable: true,
+});
+
 class URLSearchParams {
   [_searchParamPairs]: [string, string][];
   // Reference back to the parent URL's `#updateUrl` method
@@ -119,8 +163,14 @@ class URLSearchParams {
     this._updateUrl();
   }
 
+  #createIterator<T>(
+    select: (key: string, value: string) => T,
+  ): IterableIterator<T> {
+    return new URLSearchParamsIterator(this, select);
+  }
+
   entries(): IterableIterator<[string, string]> {
-    return this[_searchParamPairs][Symbol.iterator]();
+    return this.#createIterator((key, value) => [key, value]);
   }
 
   forEach(
@@ -152,7 +202,7 @@ class URLSearchParams {
   }
 
   keys(): IterableIterator<string> {
-    return this[_searchParamPairs].map(([key]) => key)[Symbol.iterator]();
+    return this.#createIterator((key) => key);
   }
 
   set(name: string, value: string) {
@@ -196,11 +246,11 @@ class URLSearchParams {
   }
 
   [Symbol.iterator](): IterableIterator<[string, string]> {
-    return this.entries();
+    return this.#createIterator((key, value) => [key, value]);
   }
 
   values(): IterableIterator<string> {
-    return this[_searchParamPairs].map(([, value]) => value)[Symbol.iterator]();
+    return this.#createIterator((_key, value) => value);
   }
 
   inspect() {
