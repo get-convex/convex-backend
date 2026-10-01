@@ -50,6 +50,7 @@ class URLSearchParams {
       | URLSearchParams,
   ) {
     this[_searchParamPairs] = [];
+    let iteratorMethod: any;
     if (init === undefined) {
       this[_searchParamPairs] = [];
     } else if (typeof init === "string") {
@@ -61,9 +62,16 @@ class URLSearchParams {
     } else if (
       init !== null &&
       (typeof init === "object" || typeof init === "function") &&
-      typeof (init as any)[Symbol.iterator] === "function"
+      typeof (iteratorMethod = (init as any)[Symbol.iterator]) === "function"
     ) {
-      for (const rawPair of init as Iterable<Iterable<string>>) {
+      // WebIDL sequence conversion reads @@iterator once; a getter may return
+      // a different value (or throw) on a second read.
+      const iterator: Iterator<Iterable<string>> = Reflect.apply(
+        iteratorMethod,
+        init,
+        [],
+      );
+      for (const rawPair of { [Symbol.iterator]: () => iterator }) {
         const pair = [...rawPair];
         if (pair.length !== 2) {
           throw new TypeError(
