@@ -310,6 +310,9 @@ useless_vec = "allow"
 collapsible_match = "allow"
 chunks_exact_to_as_chunks = "allow"
 
+[profile.release.build-override]
+opt-level = 3
+
 [profile.dev.package.proptest]
 opt-level = 3
 codegen-units = 16
