@@ -1686,8 +1686,8 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0
       convex-test:
-        specifier: ^0.0.58
-        version: 0.0.58(convex@convex)
+        specifier: ^0.0.60
+        version: 0.0.60(convex@convex)
       globals:
         specifier: ~17.4.0
         version: 17.4.0
@@ -17991,8 +17991,8 @@ packages:
     peerDependencies:
       convex: ^1.16.4
 
-  convex-test@0.0.58:
-    resolution: {integrity: sha512-VZ9VNrWZkdlWMmudnoOdiqTk8oc6r9pCcnxxPq1Kh/tt4dX9cyA7kJWFZ9LrAgEUxGcg2iPkiOb+bBvHfy3ihA==}
+  convex-test@0.0.60:
+    resolution: {integrity: sha512-qCAFx+CO6bmpXNc9s1jZvw8NJPS4yM074ib87PUY675FsiaRRW4ALotEB+RbVCYDRMYxh623KMnYZBlrMJIv1Q==}
     peerDependencies:
       convex: ^1.43.0
 
@@ -45155,7 +45155,7 @@ snapshots:
     dependencies:
       convex: link:convex
 
-  convex-test@0.0.58(convex@convex):
+  convex-test@0.0.60(convex@convex):
     dependencies:
       convex: link:convex
 

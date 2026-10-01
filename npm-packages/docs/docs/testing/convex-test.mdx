@@ -14,6 +14,7 @@ import GlobalsDemo from "!!raw-loader!@site/../demos/convex-test/convex/globals.
 import ErrorDemo from "!!raw-loader!@site/../demos/convex-test/convex/error.test.ts";
 import HttpDemo from "!!raw-loader!@site/../demos/convex-test/convex/http.test.ts";
 import RunDemo from "!!raw-loader!@site/../demos/convex-test/convex/run.test.ts";
+import RequestMetadataDemo from "!!raw-loader!@site/../demos/convex-test/convex/requestMetadata.test.ts";
 
 The [`convex-test`](https://www.npmjs.com/package/convex-test) library provides
 a mock implementation of the Convex backend in JavaScript. It enables fast
@@ -357,6 +358,19 @@ automatically:
   title="convex/tasks.test.ts"
   source={AuthDemo}
   highlightPatterns={["withIdentity"]}
+/>
+
+### Request metadata
+
+Mutations, actions, and HTTP actions can read details about the request that
+triggered them with `ctx.meta.getRequestMetadata()`. To test functions that
+depend on the client's IP address or user agent, create a version of the `t`
+accessor with `t.withRequestMetadata` (version `0.0.59` and later):
+
+<Snippet
+  title="convex/requestMetadata.test.ts"
+  source={RequestMetadataDemo}
+  highlightPatterns={["withRequestMetadata"]}
 />
 
 ## Vitest tips
