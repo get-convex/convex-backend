@@ -64,28 +64,8 @@ const unsupportedFunction = (name: string, length = 0) => {
   return fn;
 };
 
-const unsupportedClass = (name: string) => {
-  const cls = class {
-    constructor() {
-      throw unsupported(name);
-    }
-  };
-  Object.defineProperty(cls, "name", { value: name });
-  return cls;
-};
-
 globalThis.setTimeout = unsupportedFunction("setTimeout", 2) as any;
 globalThis.setInterval = unsupportedFunction("setInterval", 2) as any;
 // Nothing can be scheduled, so there is never a timer to clear.
 globalThis.clearTimeout = function clearTimeout(_id: unknown) {};
 globalThis.clearInterval = function clearInterval(_id: unknown) {};
-
-globalThis.WebAssembly = {
-  compile: unsupportedFunction("WebAssembly.compile"),
-  instantiate: unsupportedFunction("WebAssembly.instantiate"),
-  validate: unsupportedFunction("WebAssembly.validate"),
-  Module: unsupportedClass("WebAssembly.Module"),
-  Instance: unsupportedClass("WebAssembly.Instance"),
-  Memory: unsupportedClass("WebAssembly.Memory"),
-  Table: unsupportedClass("WebAssembly.Table"),
-} as unknown as typeof WebAssembly;
