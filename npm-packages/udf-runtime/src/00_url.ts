@@ -98,8 +98,8 @@ class URLSearchParams {
   }
 
   delete(name: string, value?: string) {
-    const n = String(name);
-    const v = value === undefined ? undefined : String(value);
+    const n = String(name).toWellFormed();
+    const v = value === undefined ? undefined : String(value).toWellFormed();
     this[_searchParamPairs] = this[_searchParamPairs].filter(
       ([key, val]) => key !== n || (v !== undefined && val !== v),
     );
@@ -119,13 +119,14 @@ class URLSearchParams {
   }
 
   get(name: string): string | null {
-    return this.getAll(String(name))[0] ?? null;
+    return this.getAll(name)[0] ?? null;
   }
 
   getAll(name: string): string[] {
+    const n = String(name).toWellFormed();
     const values: string[] = [];
     for (const [key, value] of this[_searchParamPairs]) {
-      if (key === name) {
+      if (key === n) {
         values.push(value);
       }
     }
@@ -133,10 +134,8 @@ class URLSearchParams {
   }
 
   has(name: string): boolean {
-    return (
-      this[_searchParamPairs].find(([key]) => key === String(name)) !==
-      undefined
-    );
+    const n = String(name).toWellFormed();
+    return this[_searchParamPairs].find(([key]) => key === n) !== undefined;
   }
 
   keys(): IterableIterator<string> {
@@ -144,8 +143,8 @@ class URLSearchParams {
   }
 
   set(name: string, value: string) {
-    name = String(name);
-    value = String(value);
+    name = String(name).toWellFormed();
+    value = String(value).toWellFormed();
     let found = false;
     this[_searchParamPairs] = this[_searchParamPairs].filter((pair) => {
       if (pair[0] !== name) {
