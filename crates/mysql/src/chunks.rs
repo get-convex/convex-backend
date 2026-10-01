@@ -4,9 +4,9 @@ use common::{
     document::ResolvedDocument,
     index::IndexEntry,
     knobs::{
-        MYSQL_CHUNK_SIZE,
         MYSQL_MAX_CHUNK_BYTES,
         MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE,
+        MYSQL_SMART_CHUNK_MAX_SIZE,
     },
     persistence::{
         DocumentLogEntry,
@@ -156,14 +156,14 @@ pub fn smart_chunks<T: ApproxSize>(items: &[T]) -> impl Iterator<Item = &[T]> {
     SmartChunkIter {
         items,
         max_dynamic_size: *MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE,
-        max_chunk_size: *MYSQL_CHUNK_SIZE,
+        max_chunk_size: *MYSQL_SMART_CHUNK_MAX_SIZE,
         max_bytes: *MYSQL_MAX_CHUNK_BYTES,
     }
 }
 
 /// Possible lengths of chunks returned by smart_chunks.
 pub fn smart_chunk_sizes() -> impl Iterator<Item = usize> {
-    (1..=*MYSQL_CHUNK_SIZE)
+    (1..=*MYSQL_SMART_CHUNK_MAX_SIZE)
         .filter(|len| *len <= *MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE || len.is_power_of_two())
 }
 

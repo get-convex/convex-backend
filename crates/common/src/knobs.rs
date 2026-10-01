@@ -1182,8 +1182,8 @@ pub static WASM_UDF_MEMORY_HEADROOM_FACTOR: LazyLock<f64> =
 /// keeping the number of distinct queries small (for query plan caching).
 pub static MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE", 8));
-/// More chunks sizes: 1, 2, 4, 8, 16, 32, ..., MYSQL_CHUNK_SIZE doubling.
-/// Max packet size is 16MiB.
+/// More chunks sizes: 1, 2, 4, 8, 16, 32, ..., MYSQL_SMART_CHUNK_MAX_SIZE
+/// doubling. Max packet size is 16MiB.
 pub static MYSQL_MAX_CHUNK_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_CHUNK_BYTES", 10 << 20));
 
@@ -1236,10 +1236,9 @@ pub static MYSQL_INACTIVE_CONNECTION_LIFETIME: LazyLock<Duration> = LazyLock::ne
 pub static MYSQL_MAX_CONNECTION_LIFETIME: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("MYSQL_MAX_CONNECTION_LIFETIME_SECS", 600)));
 
-/// How many rows we fetch for retention and prev rev fetches (used for
-/// TableIterator)
-pub static MYSQL_CHUNK_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("MYSQL_CHUNK_SIZE", 128));
+/// The largest chunk `smart_chunks` produces, in rows.
+pub static MYSQL_SMART_CHUNK_MAX_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MYSQL_SMART_CHUNK_MAX_SIZE", 128));
 
 /// Which encoding version to use for newly written documents
 pub static MYSQL_DOCUMENT_ENCODING: LazyLock<u8> =
