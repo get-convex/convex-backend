@@ -1,6 +1,6 @@
-import { throwNotImplementedMethodError } from "./helpers.js";
-import { Blob, isSupportedBlobPart } from "./09_file.js";
-import { parseFormData, FormData, formDataToBlob } from "./21_formdata.js";
+import { Blob } from "./09_file.js";
+import { parseFormData, FormData } from "./21_formdata.js";
+import { BodyInit, convertBodyInit, extractBody } from "./22_body.js";
 import inspect from "object-inspect";
 import {
   constructStreamId,
@@ -64,15 +64,7 @@ export class Response {
   }
 
   constructor(
-    body?:
-      | string
-      | ArrayBuffer
-      | null
-      | Blob
-      | ArrayBufferView
-      | URLSearchParams
-      | ReadableStream
-      | FormData,
+    body?: BodyInit | null,
     options?: {
       status?: number;
       statusText?: string;
@@ -80,6 +72,10 @@ export class Response {
       url?: string;
     },
   ) {
+    // WebIDL converts `body` before `init` or any constructor steps.
+    const convertedBody =
+      body === undefined || body === null ? null : convertBodyInit(body);
+
     let status = options?.status === undefined ? 200 : options.status;
     if (typeof status === "string") {
       // This coerces the string to a number (and is different from `parseInt` which allows trailing characters after a valid number)
@@ -108,38 +104,15 @@ export class Response {
       this[_contentLength] = Number(this._headers.get("content-length"));
     }
 
-    // Fill in a content type if none was provided and the body is a string
-    if (this._headers.get("content-type") === null) {
-      if (typeof body === "string") {
-        this._headers.set("content-type", "text/plain;charset=UTF-8");
-      } else if (body instanceof Blob && body.type !== "") {
-        this._headers.set("content-type", body.type);
+    if (convertedBody !== null) {
+      const { stream, contentType, contentLength } = extractBody(convertedBody);
+      if (this._headers.get("content-type") === null && contentType !== null) {
+        this._headers.set("content-type", contentType);
       }
-    }
-
-    if (body !== null && body !== undefined) {
-      if (body instanceof URLSearchParams) {
-        body = body.toString();
+      if (contentLength !== null) {
+        this[_contentLength] = contentLength;
       }
-      if (body instanceof FormData) {
-        const bodyBlob = formDataToBlob(body);
-        this._headers.set("content-type", bodyBlob.type);
-        this[_contentLength] = bodyBlob.size;
-        this._bodyStream = bodyBlob.stream();
-      } else if (body instanceof ReadableStream) {
-        this._bodyStream = body;
-      } else if (isSupportedBlobPart(body)) {
-        const bodyBlob = new Blob([body], {
-          type: this._headers.get("content-type") ?? undefined,
-        });
-        this[_contentLength] = bodyBlob.size;
-        this._bodyStream = bodyBlob.stream();
-      } else {
-        return throwNotImplementedMethodError(
-          "constructor with body type other than string | ArrayBuffer | Blob | ReadableStream | null",
-          "Response",
-        );
-      }
+      this._bodyStream = stream;
     } else {
       this._bodyStream = null;
     }
