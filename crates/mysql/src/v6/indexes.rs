@@ -45,6 +45,7 @@ use super::{
         IndexRow,
         LogBucket,
         LogRow,
+        RowUpdate,
         SqlKey,
     },
     PersistenceDeploymentId,
@@ -65,7 +66,7 @@ use crate::{
 pub(crate) struct IndexWriteBatch {
     log_rows: BTreeMap<LogBucket, Vec<LogRow>>,
     scan_complete_inserts: Vec<IndexRow>,
-    scan_complete_previous: Vec<IndexRow>,
+    scan_complete_updates: Vec<RowUpdate>,
     scan_complete_deletes: Vec<IndexRow>,
     scanning_ops: Vec<ScanningOp>,
 }
@@ -192,12 +193,12 @@ impl IndexEngine {
                     .scan_complete_inserts
                     .push(row(update.ts, document_id)),
                 (Some(document_id), Some(prev), IndexWriteMode::ScanComplete) => {
-                    batch
-                        .scan_complete_previous
-                        .push(row(prev.ts, prev.document_id));
-                    batch
-                        .scan_complete_inserts
-                        .push(row(update.ts, document_id));
+                    // Same key, so this advances one row in place rather than
+                    // removing and reinserting it.
+                    batch.scan_complete_updates.push(RowUpdate {
+                        row: row(update.ts, document_id),
+                        prev,
+                    });
                 },
                 (None, Some(prev), IndexWriteMode::ScanComplete) => batch
                     .scan_complete_deletes
@@ -214,7 +215,7 @@ impl IndexEngine {
             }
         }
         sort_by_latest_primary_key(&mut batch.scan_complete_inserts, |row| row);
-        sort_by_latest_primary_key(&mut batch.scan_complete_previous, |row| row);
+        sort_by_latest_primary_key(&mut batch.scan_complete_updates, |u| &u.row);
         sort_by_latest_primary_key(&mut batch.scan_complete_deletes, |row| row);
         // Stable sorting preserves the last operation for each key.
         sort_by_latest_primary_key(&mut batch.scanning_ops, ScanningOp::row);
@@ -312,14 +313,8 @@ impl IndexEngine {
         batch: &IndexWriteBatch,
         cluster_name: &str,
     ) -> anyhow::Result<()> {
-        self.delete_exact(
-            tx,
-            &batch.scan_complete_previous,
-            "MySQL V6 index write replaces an entry that is not there",
-            "previous_chunk_write",
-            cluster_name,
-        )
-        .await?;
+        self.update_exact(tx, &batch.scan_complete_updates, cluster_name)
+            .await?;
         let markers: Vec<&IndexRow> = batch
             .scanning_ops
             .iter()
@@ -471,6 +466,33 @@ impl IndexEngine {
         .in_span(chunk_span(span_kind, rows))
         .await?;
         timer.finish();
+        Ok(())
+    }
+
+    /// Advances each live entry to its next revision, refusing the batch if any
+    /// row's stored predecessor is not the one named.
+    async fn update_exact(
+        &self,
+        tx: &mut MySqlTransaction<'_>,
+        rows: &[RowUpdate],
+        cluster_name: &str,
+    ) -> anyhow::Result<()> {
+        for chunk in fill_chunks(rows) {
+            let timer = metrics::insert_index_chunk_timer(cluster_name);
+            let mut params: Vec<Value> = chunk.iter().flat_map(RowUpdate::params).collect();
+            params.push(self.deployment_id.into());
+            let affected = async {
+                tx.query_iter(&sql::update_latest_chunk(chunk.len()), params)
+                    .await
+            }
+            .in_span(chunk_span("update_chunk_write", chunk))
+            .await?;
+            anyhow::ensure!(
+                affected == chunk.len() as u64,
+                "MySQL V6 index write replaces an entry that is not there"
+            );
+            timer.finish();
+        }
         Ok(())
     }
 
