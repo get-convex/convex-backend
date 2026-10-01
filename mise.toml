@@ -9,7 +9,7 @@
 min_version = "2026.8.9"
 
 [tools]
-uv       = "0.11.5"
+uv       = "0.12.1"
 just     = "1.52.0"
 jq       = "1.8.1"
 cmake    = "3.31.12"   # 3.x line; 4.x drops compat with our older CMakeLists
