@@ -70,7 +70,10 @@ impl V8ExternalString {
     }
 
     fn new(s: &str) -> Self {
-        if s.chars().all(|c| (c as u32) < 256) {
+        if s.is_ascii() {
+            // common case
+            Self::OneByte(s.as_bytes().into())
+        } else if s.chars().all(|c| (c as u32) < 256) {
             // latin-1 (one-byte) case
             Self::OneByte(s.chars().map(|c| c as u32 as u8).collect::<Vec<_>>().into())
         } else {

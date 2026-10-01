@@ -354,5 +354,13 @@ codegen-units = 16
 opt-level = 3
 codegen-units = 16
 
+[profile.dev.package.sourcemap]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.serde_json]
+opt-level = 3
+codegen-units = 16
+
 [profile.release.package.segment]
 overflow-checks = false

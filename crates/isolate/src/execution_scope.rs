@@ -401,7 +401,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
                     ),
                     v8::script_compiler::CompileOptions::ConsumeCodeCache,
                 ),
-                ModuleCodeCacheResult::Uncached(_) => (
+                ModuleCodeCacheResult::Uncached(_) | ModuleCodeCacheResult::Disabled => (
                     v8::script_compiler::Source::new(source_str, Some(&origin)),
                     v8::script_compiler::CompileOptions::NoCompileOptions,
                 ),
@@ -436,6 +436,7 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
                         timer.finish();
                     }
                 },
+                ModuleCodeCacheResult::Disabled => {},
             }
 
             assert_eq!(module.get_status(), v8::ModuleStatus::Uninstantiated);
