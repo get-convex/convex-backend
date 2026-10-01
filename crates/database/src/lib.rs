@@ -171,7 +171,6 @@ pub use self::{
             SCHEMA_STATE_FIELD,
         },
         schema_validation_progress::{
-            legacy::LegacySchemaValidationProgressMetadata,
             types::SchemaValidationProgress,
             SchemaValidationProgressModel,
             SchemaValidationProgressTable,
