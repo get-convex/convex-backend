@@ -152,7 +152,9 @@ export const parseFormData = async (
         formData.append(
           formEntry.name,
           new Blob([formEntry.file.data], {
-            type: formEntry.file.contentType,
+            // A part without a Content-Type header arrives as `null`, which
+            // the Blob constructor would stringify to "null".
+            type: formEntry.file.contentType ?? undefined,
           }),
           formEntry.file.fileName,
         );
