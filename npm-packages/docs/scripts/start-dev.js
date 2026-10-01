@@ -13,7 +13,7 @@ async function startDev() {
   console.log("📚 Generating platform API documentation...");
   execSync("npm run generate-platform-api", { stdio: "inherit" });
 
-  const defaultPort = 3000;
+  const defaultPort = Number(process.env.PORT) || 3000;
   const port = await detect(defaultPort);
 
   if (port !== defaultPort) {
