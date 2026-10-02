@@ -5,7 +5,7 @@
     "npm": "11.11.0"
   },
   "devDependencies": {
-    "dprint": "0.52.0",
+    "dprint": "0.57.0",
     "pnpm": "11.15.1",
     "turbo": "2.10.5"
   },
