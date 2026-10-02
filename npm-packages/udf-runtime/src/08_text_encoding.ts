@@ -54,8 +54,8 @@ class TextDecoder {
     }
 
     this.#encoding = encoding;
-    this.#fatal = options.fatal || false;
-    this.#ignoreBOM = options.ignoreBOM || false;
+    this.#fatal = Boolean(options.fatal);
+    this.#ignoreBOM = Boolean(options.ignoreBOM);
     this.#decoder = null;
   }
   get encoding() {
