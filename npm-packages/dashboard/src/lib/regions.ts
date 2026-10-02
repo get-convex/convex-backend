@@ -91,15 +91,6 @@ export function useEnabledRegionNames(): RegionName[] {
   );
 }
 
-/** Marker coordinates for every region this dashboard offers. */
-export function useEnabledRegionCoordinates(): [number, number][] {
-  const names = useEnabledRegionNames();
-  return useMemo(
-    () => names.map((name) => REGION_PRESENTATION[name].coordinates),
-    [names],
-  );
-}
-
 /**
  * The regions a team may create a deployment in, sorted for display and with
  * unlaunched regions hidden.
