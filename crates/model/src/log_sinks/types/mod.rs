@@ -11,12 +11,12 @@ use serde::{
 };
 use value::codegen_convex_serialization;
 
-pub mod analytics_export;
 pub mod axiom;
 pub mod datadog;
 pub mod mock_sink;
 pub mod posthog_error_tracking;
 pub mod posthog_logs;
+pub mod s3_export;
 pub mod sentry;
 pub mod webhook;
 
@@ -206,7 +206,7 @@ pub enum SinkConfig {
     Sentry(sentry::SentryConfig),
     PostHogLogs(posthog_logs::PostHogLogsConfig),
     PostHogErrorTracking(posthog_error_tracking::PostHogErrorTrackingConfig),
-    S3Export(analytics_export::S3ExportConfig),
+    S3Export(s3_export::S3ExportConfig),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -222,7 +222,7 @@ pub enum SerializedSinkConfig {
     Sentry(sentry::SerializedSentryConfig),
     PostHogLogs(posthog_logs::SerializedPostHogLogsConfig),
     PostHogErrorTracking(posthog_error_tracking::SerializedPostHogErrorTrackingConfig),
-    S3Export(analytics_export::SerializedS3ExportConfig),
+    S3Export(s3_export::SerializedS3ExportConfig),
 }
 
 impl TryFrom<SerializedSinkConfig> for SinkConfig {

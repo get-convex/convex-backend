@@ -36,10 +36,6 @@ use errors::ErrorMetadata;
 use http::StatusCode;
 use keybroker::Identity;
 use model::log_sinks::types::{
-    analytics_export::{
-        S3ExportConfig,
-        SyncPeriod,
-    },
     axiom::{
         AxiomAttribute,
         AxiomConfig,
@@ -51,6 +47,10 @@ use model::log_sinks::types::{
     },
     posthog_error_tracking::PostHogErrorTrackingConfig,
     posthog_logs::PostHogLogsConfig,
+    s3_export::{
+        S3ExportConfig,
+        SyncPeriod,
+    },
     sentry::{
         ExceptionFormatVersion,
         SentryConfig,
