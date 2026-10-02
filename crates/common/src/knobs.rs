@@ -1193,6 +1193,12 @@ pub static MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE: LazyLock<usize> =
 pub static MYSQL_MAX_CHUNK_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_CHUNK_BYTES", 10 << 20));
 
+/// Most rows `fill_chunks` puts in one statement. Past ~2,200 `OR`ed primary
+/// keys MySQL full-scans and locks the table; far larger statements can
+/// outlast `MYSQL_TIMEOUT` on a cold cache.
+pub static MYSQL_MAX_FILL_CHUNK_ROWS: LazyLock<usize> =
+    LazyLock::new(|| env_config("MYSQL_MAX_FILL_CHUNK_ROWS", 1024));
+
 /// Page size to fall back to when Vitess rejects large result sets.
 /// Vitess limits query results to 64MiB. As documents can be up to 1MiB (plus
 /// some overhead) and system documents can be larger still, we may need to fall

@@ -6,6 +6,7 @@ use common::{
     knobs::{
         MYSQL_MAX_CHUNK_BYTES,
         MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE,
+        MYSQL_MAX_FILL_CHUNK_ROWS,
         MYSQL_SMART_CHUNK_MAX_SIZE,
     },
     persistence::{
@@ -170,6 +171,7 @@ pub fn smart_chunk_sizes() -> impl Iterator<Item = usize> {
 struct FillChunkIter<'a, T: ApproxSize> {
     items: &'a [T],
     max_bytes: usize,
+    max_rows: usize,
 }
 
 impl<'a, T: ApproxSize> Iterator for FillChunkIter<'a, T> {
@@ -183,7 +185,7 @@ impl<'a, T: ApproxSize> Iterator for FillChunkIter<'a, T> {
         let mut total_bytes = 0;
         for item in self.items {
             total_bytes += item.approx_size();
-            if len > 0 && total_bytes > self.max_bytes {
+            if len > 0 && (len >= self.max_rows || total_bytes > self.max_bytes) {
                 break;
             }
             len += 1;
@@ -194,11 +196,12 @@ impl<'a, T: ApproxSize> Iterator for FillChunkIter<'a, T> {
     }
 }
 
-/// Fills write chunks to the approximate byte budget, allowing arbitrary row
-/// counts. An oversized row gets a chunk of its own to ensure progress.
+/// Fills write chunks up to the approximate byte budget or the row cap. An
+/// oversized row gets a chunk of its own to ensure progress.
 pub fn fill_chunks<T: ApproxSize>(items: &[T]) -> impl Iterator<Item = &[T]> {
     FillChunkIter {
         items,
         max_bytes: *MYSQL_MAX_CHUNK_BYTES,
+        max_rows: *MYSQL_MAX_FILL_CHUNK_ROWS,
     }
 }
