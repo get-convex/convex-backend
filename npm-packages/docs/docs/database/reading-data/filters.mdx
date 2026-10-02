@@ -131,9 +131,8 @@ const usersNamedAlexOrEmma = await ctx.db
 
 ## Advanced filtering techniques
 
-Sometimes the filter syntax is is not expressive enough. For example you may
-want to collect all posts that have a tag. Your schema for the posts looks like
-this:
+Sometimes the filter syntax is not expressive enough. For example you may want
+to collect all posts that have a tag. Your schema for the posts looks like this:
 
 ```ts
 export default defineSchema({
@@ -144,7 +143,7 @@ export default defineSchema({
 });
 ```
 
-One way to solve is by applying the filter on the result of the `collect()`
+One way to solve this is by applying the filter on the result of the `collect()`
 call. This is just filtering a JavaScript array:
 
 ```ts

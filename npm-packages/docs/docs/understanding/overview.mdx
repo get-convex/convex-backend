@@ -139,7 +139,7 @@ management or state synchronization needed.
 When calling query functions, the client library subscribes to the results of
 the function. Convex tracks the dependencies of your query functions, including
 what data was read from the database. Whenever relevant data in the database
-changes, the Convex automatically reruns the query and sends the result to the
+changes, Convex automatically reruns the query and sends the result to the
 client.
 
 The client library also queues up mutations in memory to send to the server. As
@@ -253,7 +253,7 @@ sure you get bug-free AI generated code:
    functions with end-to-end type safety and IDE support. This means AI can
    generate database code using the large training set of TypeScript code
    without switching to SQL.
-1. **Less Code for the Same Work** Since so much infrastructure and boiler plate
+1. **Less Code for the Same Work** Since so much infrastructure and boilerplate
    is automatically managed by Convex there is less code to write, and thus less
    code to get wrong.
 1. **Automatic Reactivity** The reactive system automatically tracks data
@@ -286,5 +286,5 @@ If you are intrigued about the details of how Convex pulls this all off, you can
 read Convex co-founder Sujay's excellent
 [How Convex Works](https://stack.convex.dev/how-convex-works) blog post.
 
-Now that you have a good sense of how Convex fits in your app. Let's walk
+Now that you have a good sense of how Convex fits in your app, let's walk
 through the overall workflow of setting up and launching a Convex app.
