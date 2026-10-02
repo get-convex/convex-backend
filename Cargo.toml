@@ -182,7 +182,7 @@ reqwest-middleware = "0.5.1"
 roles = { path = "crates/roles" }
 rsa = "0.9.6"
 runtime = { path = "crates/runtime" }
-rusqlite = { version = "0.32", features = [ "bundled" ] }
+rusqlite = { version = "0.39", features = [ "bundled" ] }
 rustls = { version = "0.23", default-features = false }
 rustls-native-certs = "0.8"
 rustls-pki-types = "1"
