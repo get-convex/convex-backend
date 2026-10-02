@@ -3668,6 +3668,7 @@ dependencies = [
  "serde_json",
  "storage",
  "storage_zip_reader",
+ "streaming_export",
  "thousands",
  "tokio",
  "tokio-stream",

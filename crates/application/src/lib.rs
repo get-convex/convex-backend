@@ -419,6 +419,7 @@ use crate::{
         RedactedJsError,
         RedactedLogLines,
     },
+    s3_export_worker::S3ExportWorker,
     snapshot_import::{
         clear_tables,
         SnapshotImportWorker,
@@ -442,6 +443,7 @@ pub mod log_streaming;
 pub mod log_visibility;
 mod metrics;
 pub mod redaction;
+mod s3_export_worker;
 pub mod scheduled_jobs;
 mod schema_worker;
 pub mod snapshot_import;
@@ -910,6 +912,16 @@ impl<RT: Runtime> Application<RT> {
             runtime.spawn("cron_job_executor", cron_job_executor_fut),
         ));
 
+        let s3_export_worker = S3ExportWorker::new(
+            runtime.clone(),
+            database.clone(),
+            deployment_name.clone(),
+            export_provider.clone(),
+        );
+        let s3_export_worker = Arc::new(Mutex::new(Some(
+            runtime.spawn("s3_export_worker", s3_export_worker.run()),
+        )));
+
         let export_worker = ExportWorker::new(
             runtime.clone(),
             database.clone(),
@@ -964,6 +976,7 @@ impl<RT: Runtime> Application<RT> {
             schema_worker,
             snapshot_import_worker,
             export_worker,
+            s3_export_worker,
             system_table_cleanup_worker,
             migration_worker,
             usage_limit_worker,

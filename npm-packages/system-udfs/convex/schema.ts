@@ -298,6 +298,24 @@ export const s3ExportConfig = v.object({
   secretAccessKey: v.string(),
   selection: syncSelection,
   period: syncPeriod,
+  cursor: v.optional(v.string()),
+  progress: v.optional(
+    v.union(
+      v.object({
+        type: v.literal("snapshotting"),
+        numTablesSynced: v.int64(),
+        totalTables: v.int64(),
+        currentComponent: v.string(),
+        currentTable: v.string(),
+        numDocumentsInCurrentTable: v.int64(),
+        totalDocumentsInCurrentTable: v.union(v.int64(), v.null()),
+        numDocumentsSynced: v.int64(),
+        totalDocuments: v.union(v.int64(), v.null()),
+      }),
+      v.object({ type: v.literal("stale"), ts: v.int64() }),
+      v.object({ type: v.literal("upToDate"), ts: v.int64() }),
+    ),
+  ),
 });
 
 export const sinkConfig = v.union(

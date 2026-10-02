@@ -500,6 +500,8 @@ impl TryFrom<CreateS3ExportLogStreamArgs> for S3ExportConfig {
             secret_access_key: value.secret_access_key.into(),
             selection: value.selection.unwrap_or_default(),
             period: value.period,
+            cursor: None,
+            progress: None,
         })
     }
 }
@@ -1536,6 +1538,8 @@ pub async fn update_log_stream(
                     .unwrap_or(existing_config.secret_access_key),
                 selection: update_args.selection.unwrap_or(existing_config.selection),
                 period: update_args.period.unwrap_or(existing_config.period),
+                cursor: None,
+                progress: None,
             };
 
             st.application

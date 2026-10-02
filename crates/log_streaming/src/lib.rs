@@ -735,12 +735,8 @@ impl<RT: Runtime> LogManager<RT> {
                 .await
             },
             SinkConfig::S3Export(_) => {
-                tracing::info!(
-                    "Started {} without a sync worker",
-                    config.sink_type().as_str()
-                );
-                // Streaming export destinations are not yet implemented.
-                // Leaving stub implementation here instead.
+                // The application worker advances this export; the log manager
+                // owns the integration's lifecycle in `_log_sinks`.
                 let (events_sender, mut events_receiver) = mpsc::channel(1);
                 let handle = runtime.spawn("analytics_export_sink", async move {
                     while events_receiver.recv().await.is_some() {}
