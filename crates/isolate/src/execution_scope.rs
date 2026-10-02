@@ -626,7 +626,8 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
         match Self::_module_resolve_callback(scope, referrer, specifier) {
             Ok(m) => Some(m),
             Err(e) => {
-                helpers::throw_type_error(scope, format!("{e:?}"));
+                // Display keeps Rust backtraces out of the developer's error.
+                helpers::throw_type_error(scope, format!("{e}"));
                 None
             },
         }

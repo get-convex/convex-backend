@@ -85,22 +85,29 @@ export const fetchWithoutRedirect = async function (
   } catch (e: any) {
     // The backend builds this rejection outside any JS frame, so it arrives
     // with an empty stack. Rethrowing here captures the caller's.
-    if (e?.name === "AbortError") {
-      throw e; // AbortController contract.
-    }
-    // Strip the query string, which is the part likely to carry a token. Some
-    // backend messages already name the request and some say nothing about it,
-    // so only prepend the target when it's missing.
-    const { origin, pathname } = new URL(request.url);
-    const target = `${origin}${pathname}`;
-    const cause = String(e?.message ?? e);
-    throw new TypeError(
-      cause.includes(target)
-        ? cause.replaceAll(request.url, target)
-        : `fetch to ${target} failed: ${cause}`,
-    );
+    throw fetchFailure(request.url, e);
   }
-  return responseFromConvexObject(responseObject);
+  return responseFromConvexObject(responseObject, (e) =>
+    fetchFailure(request.url, e),
+  );
+};
+
+const fetchFailure = (url: string, e: any) => {
+  if (e?.name === "AbortError") {
+    return e; // AbortController contract.
+  }
+  // Strip the query string and credentials, the parts likely to carry a
+  // token. Some backend messages already name the request and some say nothing
+  // about it, so only prepend the target when it's missing. reqwest reports the
+  // URL without credentials, so replace that form too.
+  const { origin, pathname, search, hash } = new URL(url);
+  const target = `${origin}${pathname}`;
+  const cause = String(e?.message ?? e)
+    .replaceAll(url, () => target)
+    .replaceAll(`${target}${search}${hash}`, () => target);
+  return new TypeError(
+    cause.includes(target) ? cause : `fetch to ${target} failed: ${cause}`,
+  );
 };
 
 const REQUEST_BODY_HEADERS = [

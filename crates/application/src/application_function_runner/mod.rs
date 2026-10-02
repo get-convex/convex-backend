@@ -538,12 +538,17 @@ impl<RT: Runtime> Limiter<RT> {
             } => match x {},
             _ = rt.wait(self.semaphore_timeout) => {
                 log_function_wait_timeout(self.env, self.udf_type);
+                let functions = match self.udf_type {
+                    UdfType::Query => "queries",
+                    UdfType::Mutation => "mutations",
+                    UdfType::Action => "actions",
+                    UdfType::HttpAction => "HTTP actions",
+                };
                 anyhow::bail!(ErrorMetadata::rate_limited(
                     "TooManyConcurrentRequests",
                     format!(
-                        "Too many concurrent requests. Your backend is limited to {} concurrent {}s. {}",
+                        "Too many concurrent requests. Your backend is limited to {} concurrent {functions}. {}",
                         self.total_permits,
-                        self.udf_type.to_lowercase_string(),
                         if self.total_permits > DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY {
                             "If you need more resources, please contact support."
                         } else {

@@ -114,18 +114,24 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                     ComponentId::Child(id) => id,
                 };
                 let parent = (internal_id, child_component.clone());
-                let child_component = m.component_in_parent(Some(parent))?.ok_or_else(|| {
+                let child = m.component_in_parent(Some(parent))?.ok_or_else(|| {
                     ErrorMetadata::bad_request(
                         "InvalidReference",
-                        format!("Child component {child_component:?} not found"),
+                        format!("Child component '{}' not found", **child_component),
                     )
                 })?;
-                let child_id = ComponentId::Child(child_component.id().into());
+                let child_id = ComponentId::Child(child.id().into());
                 let Some(resource) = self.resolve_export(child_id, attributes).await? else {
+                    let export_path = attributes
+                        .iter()
+                        .map(|a| &**a)
+                        .collect::<Vec<_>>()
+                        .join(".");
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "InvalidReference",
                         format!(
-                            "Child component {child_component:?} does not export {attributes:?}"
+                            "Child component '{}' does not export '{export_path}'",
+                            **child_component
                         ),
                     ));
                 };

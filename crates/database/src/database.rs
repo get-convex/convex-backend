@@ -2820,16 +2820,42 @@ pub struct ConflictingRead {
 }
 
 fn occ_write_source_string(
-    source: &str,
+    source: &WriteSource,
     document_id: String,
     is_same_write_source: bool,
-) -> String {
+) -> Option<String> {
     let preamble = if is_same_write_source {
         "Another call to this mutation".to_string()
     } else {
-        format!("A call to \"{source}\"")
+        match source {
+            WriteSource::Udf(_) => format!("A call to \"{}\"", source.display_name()?),
+            WriteSource::SystemUdf(_) | WriteSource::System(_) => {
+                convex_writer_description(source).to_string()
+            },
+        }
     };
-    format!("{preamble} changed the document with ID \"{document_id}\"")
+    Some(format!(
+        "{preamble} changed the document with ID \"{document_id}\""
+    ))
+}
+
+/// Convex's own writers have internal names, so describe them by what the
+/// developer did.
+pub(crate) fn convex_writer_description(source: &WriteSource) -> &'static str {
+    match source {
+        WriteSource::SystemUdf(identifier) => {
+            let (_, udf_path) = (**identifier).clone().into_component_and_udf_path();
+            if udf_path.starts_with("_system/frontend/") {
+                "An edit in the Convex dashboard"
+            } else {
+                "A Convex system operation"
+            }
+        },
+        WriteSource::System(label) if label.contains("fivetran") => "A Fivetran sync",
+        WriteSource::System(label) if label.contains("airbyte") => "An Airbyte sync",
+        WriteSource::System(label) if label.starts_with("snapshot_import") => "A data import",
+        WriteSource::Udf(_) | WriteSource::System(_) => "A Convex system operation",
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -2871,13 +2897,11 @@ impl ConflictingReadWithWriteSource {
 
         // We want to show the document's ID only if we know which mutation changed it,
         // so use it only if we have a write source.
-        let occ_msg = self.write_source.display_name().map(|write_source| {
-            occ_write_source_string(
-                &write_source,
-                self.read.id.to_string(),
-                *current_writer == self.write_source,
-            )
-        });
+        let occ_msg = occ_write_source_string(
+            &self.write_source,
+            self.read.id.to_string(),
+            *current_writer == self.write_source,
+        );
 
         let write_source = self.write_source.display_name();
 
@@ -2930,10 +2954,10 @@ impl ConflictingReadWithWriteSource {
     }
 }
 
-/// `op` requires system identity, and the caller does not have it.
-pub fn unauthorized_error(op: &'static str) -> ErrorMetadata {
+/// `op` is an internal name, so it stays out of the message.
+pub fn unauthorized_error(_op: &'static str) -> ErrorMetadata {
     ErrorMetadata::forbidden(
         "SystemIdentityRequired",
-        format!("Operation {op} not permitted"),
+        "You don't have permission to perform this operation.",
     )
 }

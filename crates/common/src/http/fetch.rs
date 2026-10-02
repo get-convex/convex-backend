@@ -53,6 +53,7 @@ pub struct FetchAborted;
 pub struct ProxiedFetchClient {
     http_client:
         LazyLock<reqwest::Client, Box<dyn FnOnce() -> reqwest::Client + Send + Sync + 'static>>,
+    uses_proxy: bool,
 }
 
 // Share the underlying rustls::ClientConfig between ProxiedFetchClients
@@ -111,6 +112,7 @@ impl ProxiedFetchClient {
         redirect_policy: reqwest::redirect::Policy,
     ) -> Self {
         Self {
+            uses_proxy: proxy_url.is_some(),
             http_client: LazyLock::new(Box::new(move || {
                 build_proxied_reqwest_client(proxy_url, client_id, redirect_policy)
             })),
@@ -141,7 +143,15 @@ impl FetchClient for ProxiedFetchClient {
         let raw_request = request_builder.build()?;
         let raw_response = select! {
             response = self.http_client.execute(raw_request) => {
-                response?
+                // Through our egress proxy, the chain below reqwest's message
+                // names the proxy ("tunnel error"), so keep only that message.
+                response.map_err(|e| {
+                    if self.uses_proxy {
+                        anyhow::anyhow!("{e}")
+                    } else {
+                        e.into()
+                    }
+                })?
             },
             _ = &mut request.signal => {
                 anyhow::bail!(FetchAborted);

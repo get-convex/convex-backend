@@ -357,8 +357,8 @@ fn check_for_common_confusions(config_str: &str) -> anyhow::Result<()> {
                         format!(
                             "This auth configuration appears potentially insecure: Provider at \
                              index {index} has an issuer that is shared among many applications, \
-                             so must to specify an ApplicationID to check against an `aud` field \
-                             of a JWT.",
+                             so must specify an ApplicationID to check against an `aud` field of \
+                             a JWT.",
                         ),
                     ));
                 }

@@ -190,7 +190,7 @@ use crate::{
 
 pub const PAUSE_RECREATE_CLIENT: &str = "recreate_client";
 pub const PAUSE_REQUEST: &str = "pause_request";
-pub const NO_AVAILABLE_WORKERS: &str = "There are no available workers to process the request";
+pub const NO_AVAILABLE_WORKERS: &str = "There is no capacity available to run this function";
 
 #[derive(Clone)]
 pub struct IsolateConfig {

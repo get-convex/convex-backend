@@ -641,7 +641,7 @@ export class VRecord<
       throw new Error("Record validator cannot have optional values");
     }
     if (!key.isConvexValidator || !value.isConvexValidator) {
-      throw new Error("Key and value of v.record() but be validators");
+      throw new Error("Key and value of v.record() must be validators");
     }
     this.key = key;
     this.value = value;

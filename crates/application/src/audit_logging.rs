@@ -144,7 +144,7 @@ impl AuditLogFirehoseClient {
 
         anyhow::bail!(ErrorMetadata::bad_request(
             "AuditLogFailed",
-            "Failed to deliver audit logs to AWS Firehose"
+            "Failed to deliver audit logs"
         ))
     }
 }

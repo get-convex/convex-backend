@@ -287,9 +287,12 @@ export const convexJsonFromResponse = ({ response }: { response: any }) => {
   };
 };
 
-export const responseFromConvexObject = (convexObject: Record<string, any>) => {
+export const responseFromConvexObject = (
+  convexObject: Record<string, any>,
+  mapBodyError?: (e: unknown) => unknown,
+) => {
   const body = convexObject.streamId
-    ? extractStream(convexObject.streamId)
+    ? extractStream(convexObject.streamId, mapBodyError)
     : null;
   const response = new Response(body, {
     status: Number(convexObject.status),
