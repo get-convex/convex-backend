@@ -68,6 +68,7 @@ use usage_tracking::{
 };
 use value::{
     id_v6::DeveloperDocumentId,
+    ResolvedDocumentId,
     TableNamespace,
 };
 
@@ -183,20 +184,20 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
             .collect()
     }
 
+    /// Deletes a file's `_file_storage` entry, returning the id of its row.
     pub async fn delete(
         &self,
         tx: &mut Transaction<RT>,
         namespace: TableNamespace,
         storage_id: FileStorageId,
-    ) -> anyhow::Result<()> {
-        let success = self._delete(tx, namespace, storage_id.clone()).await?;
-        if !success {
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        let Some(id) = self._delete(tx, namespace, storage_id.clone()).await? else {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "StorageIdNotFound",
                 format!("storage id {storage_id} not found"),
             ));
-        }
-        Ok(())
+        };
+        Ok(id)
     }
 
     pub async fn get_file_entry(
@@ -365,12 +366,11 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         tx: &mut Transaction<RT>,
         namespace: TableNamespace,
         storage_id: FileStorageId,
-    ) -> anyhow::Result<bool> {
-        let did_delete = FileStorageModel::new(tx, namespace)
+    ) -> anyhow::Result<Option<ResolvedDocumentId>> {
+        let deleted = FileStorageModel::new(tx, namespace)
             .delete_file(storage_id, Identity::system())
-            .await?
-            .is_some();
-        Ok(did_delete)
+            .await?;
+        Ok(deleted.map(|entry| entry.id()))
     }
 
     /// `upload_file` just uploads a file to storage. It does not save the file
@@ -433,15 +433,15 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         tx: &mut Transaction<RT>,
         namespace: TableNamespace,
         entry: FileStorageEntry,
-    ) -> anyhow::Result<DeveloperDocumentId> {
-        let system_doc_id = FileStorageModel::new(tx, namespace)
+    ) -> anyhow::Result<(ResolvedDocumentId, DeveloperDocumentId)> {
+        let system_id = FileStorageModel::new(tx, namespace)
             .store_file(entry)
             .await?;
         let virtual_id = tx
             .virtual_system_mapping()
-            .system_resolved_id_to_virtual_developer_id(system_doc_id)?;
+            .system_resolved_id_to_virtual_developer_id(system_id)?;
 
-        Ok(virtual_id)
+        Ok((system_id, virtual_id))
     }
 }
 
@@ -482,7 +482,7 @@ impl<RT: Runtime> FileStorage<RT> {
         // Start/Complete transaction after the slow upload process
         // to avoid OCC risk.
         let mut tx = self.database.begin(Identity::system()).await?;
-        let virtual_id = self
+        let (_, virtual_id) = self
             .transactional_file_storage
             .store_file_entry(&mut tx, namespace, entry)
             .await?;

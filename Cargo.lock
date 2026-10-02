@@ -2989,6 +2989,7 @@ dependencies = [
  "async-recursion",
  "async-trait",
  "async_lru",
+ "bytes",
  "cmd_util",
  "common",
  "compact_str",

@@ -16,6 +16,7 @@ mod committer;
 mod database;
 mod database_index_workers;
 mod execution_size;
+mod file_uploads;
 mod metrics;
 pub mod patch;
 pub mod persistence_helpers;
@@ -65,6 +66,10 @@ pub use execution_size::{
     FileStorageWriteSize,
     FunctionExecutionSize,
     TransactionLimits,
+};
+pub use file_uploads::{
+    PendingFileUpload,
+    UploadedFileUpload,
 };
 pub use indexing::database_index_snapshot::{
     DatabaseIndexSnapshotCache,

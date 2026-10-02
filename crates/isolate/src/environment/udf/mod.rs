@@ -96,6 +96,8 @@ use common::{
         DATABASE_UDF_USER_TIMEOUT,
         FUNCTION_MAX_ARGS_SIZE,
         FUNCTION_MAX_RESULT_SIZE,
+        TRANSACTION_MAX_FILE_WRITE_SIZE_BYTES,
+        TRANSACTION_MAX_NUM_FILES_WRITTEN,
         TRANSACTION_MAX_NUM_SCHEDULED,
         TRANSACTION_MAX_NUM_USER_WRITES,
         TRANSACTION_MAX_READ_SET_INTERVALS,
@@ -1480,6 +1482,28 @@ pub fn add_warnings_to_log_lines(
     if let Some(warning) = scheduled_arg_size_warning(
         execution_size.scheduled_size.max_args_size,
         &system_udf_path,
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.file_storage_write_size.num_writes,
+        *TRANSACTION_MAX_NUM_FILES_WRITTEN,
+        "TooManyFilesWritten",
+        || "Many files stored by this mutation".to_string(),
+        None,
+        None,
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.file_storage_write_size.size,
+        *TRANSACTION_MAX_FILE_WRITE_SIZE_BYTES,
+        "FilesWrittenTooLarge",
+        || "Large total size of the files stored by this mutation".to_string(),
+        None,
+        Some(" bytes"),
+        system_udf_path.as_ref(),
     ) {
         trace_system_warning(warning);
     }

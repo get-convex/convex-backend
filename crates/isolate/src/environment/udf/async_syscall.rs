@@ -33,11 +33,14 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
+    sha256::Sha256,
     try_anyhow,
     types::{
         AllowedVisibility,
         DeploymentClass,
+        ObjectKey,
         RegionName,
+        StorageUuid,
         UdfType,
         WriteTimestamp,
     },
@@ -55,6 +58,7 @@ use database::{
     BootstrapComponentsModel,
     DeveloperQuery,
     PatchValue,
+    PendingFileUpload,
     Transaction,
     TransactionLimits,
     UserFacingModel,
@@ -414,11 +418,76 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
             .await
     }
 
+    /// Writes the `_file_storage` entry for a file stored by this function and
+    /// stages its contents for upload once the function finishes.
+    async fn file_storage_store(
+        &mut self,
+        blob: Vec<u8>,
+        content_type: Option<ContentType>,
+        expected_sha256: Option<Sha256Digest>,
+    ) -> anyhow::Result<DeveloperDocumentId> {
+        let sha256 = Sha256::hash(&blob);
+        if let Some(expected_sha256) = expected_sha256
+            && expected_sha256 != sha256
+        {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "Sha256Mismatch",
+                format!(
+                    "Sha256 mismatch. Expected: {} Actual: {}",
+                    expected_sha256.as_base64(),
+                    sha256.as_base64()
+                )
+            ));
+        }
+        let storage_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
+        let storage_id = StorageUuid::from(self.rt.new_uuid_v4());
+
+        let namespace: TableNamespace = self.phase.component()?.into();
+        let tx = self.phase.tx()?;
+        let max_files = tx.transaction_limits().files_written;
+        let max_bytes = tx.transaction_limits().file_write_bytes;
+        let written = tx.execution_size().file_storage_write_size;
+        anyhow::ensure!(
+            written.num_writes < max_files,
+            ErrorMetadata::bad_request(
+                "TooManyFilesWritten",
+                format!("Too many files stored by this mutation (limit: {max_files})")
+            )
+        );
+        anyhow::ensure!(
+            written.size + blob.len() <= max_bytes,
+            ErrorMetadata::bad_request(
+                "FilesWrittenTooLarge",
+                format!(
+                    "Too large total size of the files stored by this mutation (limit: \
+                     {max_bytes} bytes)"
+                )
+            )
+        );
+        let entry = FileStorageEntry {
+            storage_id,
+            storage_key,
+            sha256,
+            size: blob.len().try_into()?,
+            content_type: content_type.map(|ct| ct.to_string()),
+        };
+        let (id, virtual_id) = self
+            .file_storage
+            .store_file_entry(tx, namespace, entry)
+            .await?;
+        tx.add_pending_file_upload(id, PendingFileUpload { bytes: blob.into() })?;
+        Ok(virtual_id)
+    }
+
     async fn file_storage_delete(&mut self, storage_id: FileStorageId) -> anyhow::Result<()> {
         let component = self.phase.component()?;
-        self.file_storage
-            .delete(self.phase.tx()?, component.into(), storage_id)
-            .await
+        let tx = self.phase.tx()?;
+        let id = self
+            .file_storage
+            .delete(tx, component.into(), storage_id)
+            .await?;
+        tx.remove_pending_file_upload(&id)?;
+        Ok(())
     }
 
     async fn file_storage_get_entry(
@@ -1006,7 +1075,7 @@ async fn storage_delete<RT: Runtime>(
 
 #[convex_macro::instrument_future]
 async fn storage_store<RT: Runtime>(
-    _provider: &mut DatabaseUdfSyscallProvider<RT>,
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     args: JsonValue,
 ) -> anyhow::Result<Box<RawValue>> {
     #[derive(Deserialize)]
@@ -1018,7 +1087,7 @@ async fn storage_store<RT: Runtime>(
         /// Base64-encoded sha256 of the contents, to check them against.
         sha256: Option<String>,
     }
-    let (_blob, _content_type, _expected_sha256) = with_argument_error("storage.store", || {
+    let (blob, content_type, expected_sha256) = with_argument_error("storage.store", || {
         let StorageStoreArgs {
             blob,
             content_type,
@@ -1038,11 +1107,10 @@ async fn storage_store<RT: Runtime>(
         Ok((blob, content_type, expected_sha256))
     })?;
 
-    anyhow::bail!(ErrorMetadata::bad_request(
-        "StorageStoreNotImplemented",
-        "ctx.storage.store() is not supported in queries and mutations yet. Please use an action, \
-         or ctx.storage.generateUploadUrl() to upload from a client.",
-    ))
+    let storage_id = provider
+        .file_storage_store(blob, content_type, expected_sha256)
+        .await?;
+    Ok(serde_json::value::to_raw_value(&storage_id.encode())?)
 }
 
 #[convex_macro::instrument_future]

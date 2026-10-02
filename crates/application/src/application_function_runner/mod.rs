@@ -2259,7 +2259,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                         let component_path = tx
                             .get_component_path(component)
                             .context(format!("Component {component:?} not found"))?;
-                        let id = self
+                        let (_, id) = self
                             .file_storage
                             .store_file_entry(tx, component.into(), entry.clone())
                             .await?;
