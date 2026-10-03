@@ -47,14 +47,17 @@ const supportAgent = new Agent(components.agent, {
 
 ## Tracing LLM calls with OpenTelemetry
 
-When you pass
-[`experimental_telemetry`](https://ai-sdk.dev/docs/ai-sdk-core/telemetry) to a
-generate or stream call, the AI SDK emits OpenTelemetry spans with the model,
-token usage, prompt, and response.
+The AI SDK can emit OpenTelemetry spans with the model, token usage, prompt, and
+response for generate and stream calls. Install `@ai-sdk/otel`,
+`@opentelemetry/api`, `@opentelemetry/exporter-trace-otlp-http`,
+`@opentelemetry/resources`, and `@opentelemetry/sdk-trace-base`, then register
+the AI SDK's OpenTelemetry integration to enable them.
 
-To export them to an OTLP backend, register a tracer provider:
+To export them to an OTLP backend, register a tracer provider and the AI SDK
+integration:
 
 ```ts
+import { OpenTelemetry } from "@ai-sdk/otel";
 import { trace } from "@opentelemetry/api";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
@@ -62,6 +65,7 @@ import {
   BasicTracerProvider,
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
+import { registerTelemetry } from "ai";
 
 const tracerProvider = new BasicTracerProvider({
   resource: resourceFromAttributes({ "service.name": "convex-agent" }),
@@ -77,10 +81,11 @@ const tracerProvider = new BasicTracerProvider({
   ],
 });
 trace.setGlobalTracerProvider(tracerProvider);
+registerTelemetry(new OpenTelemetry());
 ```
 
-Then enable telemetry on the call, and flush the spans before the handler
-returns so their exports are
+Then add metadata for the call, and flush the spans before the handler returns
+so their exports are
 [awaited](https://docs.convex.dev/understanding/best-practices/#await-all-promises):
 
 ```ts
@@ -93,8 +98,7 @@ export const generateTextWithTelemetry = action({
       { threadId },
       {
         prompt,
-        experimental_telemetry: {
-          isEnabled: true,
+        telemetry: {
           functionId: "debugging/telemetry",
         },
       },
