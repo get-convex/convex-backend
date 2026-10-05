@@ -134,6 +134,7 @@ const config = [
     ignores: [
       "**/dont-publish-alpha-as-latest.mjs",
       "**/version-check.mjs",
+      "npm-packages-private/auth-emails/**",
       "npm-packages-private/data/**",
       "npm-packages-private/grafana-mcp/**",
       "npm-packages-private/postalservice/**",
