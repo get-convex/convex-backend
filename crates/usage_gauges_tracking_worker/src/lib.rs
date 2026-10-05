@@ -388,8 +388,9 @@ pub async fn get_gauge_metrics<RT: Runtime>(
     let text_index_storage = snapshot.get_text_index_storage(identity)?;
     let cloud_snapshot_total_size = fetch_cloud_snapshot_total_size(identity, snapshot).await?;
     let document_counts = snapshot.get_document_counts(identity)?;
-    let storage_total_size = file_storage_size.total_size(identity, snapshot).await?;
     let backend_state = fetch_backend_state(identity, snapshot).await?;
+    // Measure file storage last since it involves a table scan
+    let storage_total_size = file_storage_size.total_size(identity, snapshot).await?;
 
     Ok(GaugeMetrics {
         document_and_index_storage,
