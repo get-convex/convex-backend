@@ -387,9 +387,10 @@ impl<RT: Runtime> FileStorageSizeTracker<RT> {
     pub async fn total_size(
         &mut self,
         identity: &Identity,
-        snapshot: &DatabaseSnapshot<RT>,
+        snapshot: DatabaseSnapshot<RT>,
     ) -> anyhow::Result<u64> {
-        let target_tables = file_storage_target_tables(identity, snapshot).await?;
+        let target_tables = file_storage_target_tables(identity, &snapshot).await?;
+        drop(snapshot);
         // Only resume when every table counted in the totals is still a target:
         // a dropped table's documents are baked into them, and the iterator
         // will never emit them again for us to subtract back out. Added tables

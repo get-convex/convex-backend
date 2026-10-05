@@ -179,7 +179,7 @@ impl<RT: Runtime> UsageGaugesTrackingWorkerInner<RT> {
 
         let gauge_metrics = get_gauge_metrics(
             &Identity::system(),
-            &self.database.latest_database_snapshot()?,
+            self.database.latest_database_snapshot()?,
             &mut self.file_storage_size,
         )
         .await?;
@@ -380,15 +380,15 @@ pub struct AggregatedStorageUsage {
 #[fastrace::trace]
 pub async fn get_gauge_metrics<RT: Runtime>(
     identity: &Identity,
-    snapshot: &DatabaseSnapshot<RT>,
+    snapshot: DatabaseSnapshot<RT>,
     file_storage_size: &mut FileStorageSizeTracker<RT>,
 ) -> anyhow::Result<GaugeMetrics> {
     let document_and_index_storage = snapshot.get_document_and_index_storage(identity)?;
     let vector_index_storage = snapshot.get_vector_index_storage(identity)?;
     let text_index_storage = snapshot.get_text_index_storage(identity)?;
-    let cloud_snapshot_total_size = fetch_cloud_snapshot_total_size(identity, snapshot).await?;
+    let cloud_snapshot_total_size = fetch_cloud_snapshot_total_size(identity, &snapshot).await?;
     let document_counts = snapshot.get_document_counts(identity)?;
-    let backend_state = fetch_backend_state(identity, snapshot).await?;
+    let backend_state = fetch_backend_state(identity, &snapshot).await?;
     // Measure file storage last since it involves a table scan
     let storage_total_size = file_storage_size.total_size(identity, snapshot).await?;
 
