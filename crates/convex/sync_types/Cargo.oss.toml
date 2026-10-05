@@ -25,6 +25,7 @@ rand = { version = "0.9" }
 serde = { features = [ "derive" ], version = "1" }
 serde_json = { features = [ "float_roundtrip", "preserve_order", "raw_value" ], version = "1" }
 strum = { version = "0.28", features = [ "derive" ] }
+thiserror = { version = "2" }
 uuid = { features = [ "serde", "v4" ], version = "1.6" }
 
 [dev-dependencies]

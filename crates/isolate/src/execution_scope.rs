@@ -40,6 +40,7 @@ use model::modules::{
     },
 };
 use serde_json::Value as JsonValue;
+use sync_types::module_path::InvalidModulePathError;
 use value::heap_size::HeapSize;
 
 use crate::{
@@ -311,13 +312,11 @@ impl<'a, 's: 'a, 'i: 'a, RT: Runtime, E: V8IsolateEnvironment<RT>>
             Err(e) => {
                 // TODO: It's a bit awkward that we're calling these "JsError"s, since they
                 // don't originate from JavaScript.
-                if let Some(e) = e.downcast_ref::<ModuleNotFoundError>() {
-                    return Ok(Err(JsError::from_message(format!("{e}"))));
-                }
-                if let Some(e) = e.downcast_ref::<SystemModuleNotFoundError>() {
-                    return Ok(Err(JsError::from_message(format!("{e}"))));
-                }
-                if let Some(e) = e.downcast_ref::<ModuleResolutionError>() {
+                if e.is::<ModuleNotFoundError>()
+                    || e.is::<SystemModuleNotFoundError>()
+                    || e.is::<ModuleResolutionError>()
+                    || e.is::<InvalidModulePathError>()
+                {
                     return Ok(Err(JsError::from_message(format!("{e}"))));
                 }
                 match e.downcast::<JsError>() {

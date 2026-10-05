@@ -142,6 +142,7 @@ use serde::{
     Serialize,
 };
 use sync_types::{
+    module_path::InvalidModulePathError,
     CanonicalizedModulePath,
     ModulePath,
 };
@@ -1630,9 +1631,8 @@ pub fn parse_module_environment(
 }
 
 pub fn parse_module_path(path: &str) -> anyhow::Result<ModulePath> {
-    path.parse().map_err(|e: anyhow::Error| {
-        let msg = format!("{path} is not a valid path to a Convex module. {e}");
-        e.context(ErrorMetadata::bad_request("BadConvexModuleIdentifier", msg))
+    path.parse().map_err(|e: InvalidModulePathError| {
+        ErrorMetadata::bad_request("BadConvexModuleIdentifier", e.to_string()).into()
     })
 }
 

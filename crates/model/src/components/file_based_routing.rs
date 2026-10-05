@@ -30,13 +30,8 @@ pub fn file_based_exports<'a>(
 
         let identifiers = stripped
             .components()
-            .collect::<anyhow::Result<Vec<_>>>()
-            .or_else(|e| {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "InvalidModulePath",
-                    e.to_string()
-                ))
-            })?;
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| ErrorMetadata::bad_request("InvalidModulePath", e.to_string()))?;
         for function in &module.functions {
             if function.visibility != Some(Visibility::Public) {
                 continue;

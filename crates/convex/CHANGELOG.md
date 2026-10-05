@@ -1,3 +1,9 @@
+# Unreleased
+
+- Breaking change: Added the error types `InvalidPathComponentError`,
+  `InvalidModulePathError`, and `CanonicalModulePathError` replacing some uses
+  of `anyhow::Error`
+
 # 0.10.4
 
 - Optimizations to `check_valid_field_name` in `sync_types`
