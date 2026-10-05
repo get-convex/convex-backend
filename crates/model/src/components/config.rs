@@ -506,6 +506,16 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 },
                 // Update a node.
                 (Some(existing_node), Some(new_metadata)) => {
+                    // A concurrent push created this component with a different namespace
+                    // than our `start_push` allocated.
+                    if let Some(allocated_id) = schema_change.allocated_component_ids.get(&path)
+                        && *allocated_id != existing_node.developer_id()
+                    {
+                        anyhow::bail!(ErrorMetadata::conflict(
+                            "RaceDetected",
+                            format!("Component {path} was created by a concurrent push"),
+                        ));
+                    }
                     let schema_id = self.schema_id_from_schema_change(schema_change, &path)?;
                     self.modify_component(
                         existing_node,
