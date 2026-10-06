@@ -280,8 +280,8 @@ export function UpgradePlanContent({
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <p className="text-sm text-content-secondary">
-              We recommend setting spending limit warnings and hard limits to
-              avoid unexpected charges on your Convex usage.
+              We recommend setting a warning threshold and a disable threshold
+              to avoid unexpected charges on your Convex usage.
             </p>
             <SpendingLimits />
             {!requiresPaymentMethod && (
