@@ -27,7 +27,8 @@ type RegionPresentation = {
 /**
  * Presentation details for each region, keyed by the name Big Brain returns.
  * Iteration order is the order regions are offered in, so keep the generally
- * available ones first.
+ * available ones first, and update `REGION_ORDER` in the CLI's
+ * `npm-packages/convex/src/cli/lib/utils/utils.ts` to match.
  */
 export const REGION_PRESENTATION: Record<RegionName, RegionPresentation> = {
   "aws-us-east-1": { flag: "🇺🇸", coordinates: [38.9072, -77.0369] }, // Washington DC

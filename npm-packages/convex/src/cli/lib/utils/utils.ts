@@ -517,6 +517,23 @@ export async function selectRegionOrUseDefault(
   return selectedRegionName;
 }
 
+// Mirrors the order of `REGION_PRESENTATION` in
+// `npm-packages/dashboard/src/lib/regions.ts`, so both region pickers list
+// regions in the same order.
+const REGION_ORDER: string[] = [
+  "aws-us-east-1",
+  "aws-eu-west-1",
+  "aws-ca-central-1",
+  "aws-ap-southeast-2",
+];
+
+// Regions missing from `REGION_ORDER` (e.g. newly launched ones) go last, in
+// server order, since `Array.prototype.sort` is stable.
+function regionSortIndex(regionName: string): number {
+  const index = REGION_ORDER.indexOf(regionName);
+  return index === -1 ? REGION_ORDER.length : index;
+}
+
 export async function selectRegion(
   ctx: Context,
   teamId: number,
@@ -538,12 +555,7 @@ export async function selectRegion(
       name: item.displayName,
       value: item.name,
     }))
-    .sort((a, b) => {
-      // Show US region first if it exists
-      if (a.value === "aws-us-east-1") return -1;
-      if (b.value === "aws-us-east-1") return 1;
-      return 0;
-    });
+    .sort((a, b) => regionSortIndex(a.value) - regionSortIndex(b.value));
   return await promptOptions(ctx, {
     message: `Where should this ${deploymentType} deployment run?`,
     suffix: `\n${chalkStderr.gray(
