@@ -109,6 +109,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    cover,
     document::ResolvedDocument,
     index::IndexKey,
     persistence::{
@@ -143,13 +144,6 @@ use value::{
 };
 
 use crate::TableScanCursor;
-
-/// Bump a test-only [`coverage`] counter. Expands to nothing outside
-/// `test`/`testing` builds, so the instrumentation is zero-cost in production.
-macro_rules! cover {
-    ($counter:path) => {
-    };
-}
 
 /// Where a `DataSyncIterator` is in its traversal of the `by_id` (document ID)
 /// dimension across the target tables.

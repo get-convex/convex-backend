@@ -20,6 +20,7 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use common::{
+    cover,
     errors::lease_lost_error,
     index::{
         IndexKeyBytes,
@@ -533,6 +534,7 @@ impl<RT: Runtime> Reader<RT> {
                     .await?
                     .is_some();
                 if displaced_since_snapshot {
+                    cover!(super::coverage::OUT_OF_RETENTION);
                     return Err(out_of_retention_error(
                         read_timestamp,
                         format!(
@@ -625,6 +627,7 @@ impl<RT: Runtime> Reader<RT> {
 
                 let mut key = prefix;
                 if let Some(suffix) = column::maybe_bytes(&row, 3)? {
+                    cover!(super::coverage::LONG_KEY_SUFFIX);
                     key.extend_from_slice(suffix);
                 }
                 let key = IndexKeyBytes(key);
@@ -664,6 +667,7 @@ impl<RT: Runtime> Reader<RT> {
                 break;
             }
             let cursor = cursor.context("full V6 index page has no cursor")?;
+            cover!(super::coverage::SCAN_RESUMED);
             match order {
                 Order::Asc => lower = Bound::Excluded(cursor),
                 Order::Desc => upper = Bound::Excluded(cursor),

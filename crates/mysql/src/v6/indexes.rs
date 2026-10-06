@@ -17,6 +17,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    cover,
     knobs::INDEX_RETENTION_DELETE_CHUNK,
     persistence::{
         ConflictStrategy,
@@ -189,10 +190,14 @@ impl IndexEngine {
                     });
             }
             match (update.value, update.prev, update.mode) {
-                (Some(document_id), None, IndexWriteMode::ScanComplete) => batch
-                    .scan_complete_inserts
-                    .push(row(update.ts, document_id)),
+                (Some(document_id), None, IndexWriteMode::ScanComplete) => {
+                    cover!(super::coverage::PLAN_SCAN_COMPLETE_INSERT);
+                    batch
+                        .scan_complete_inserts
+                        .push(row(update.ts, document_id));
+                },
                 (Some(document_id), Some(prev), IndexWriteMode::ScanComplete) => {
+                    cover!(super::coverage::PLAN_SCAN_COMPLETE_UPDATE);
                     // Same key, so this advances one row in place rather than
                     // removing and reinserting it.
                     batch.scan_complete_updates.push(RowUpdate {
@@ -200,15 +205,24 @@ impl IndexEngine {
                         prev,
                     });
                 },
-                (None, Some(prev), IndexWriteMode::ScanComplete) => batch
-                    .scan_complete_deletes
-                    .push(row(prev.ts, prev.document_id)),
-                (Some(document_id), _, IndexWriteMode::Scanning) => batch
-                    .scanning_ops
-                    .push(ScanningOp::Live(row(update.ts, document_id))),
-                (None, Some(prev), IndexWriteMode::Scanning) => batch
-                    .scanning_ops
-                    .push(ScanningOp::Tombstone(row(update.ts, prev.document_id))),
+                (None, Some(prev), IndexWriteMode::ScanComplete) => {
+                    cover!(super::coverage::PLAN_SCAN_COMPLETE_DELETE);
+                    batch
+                        .scan_complete_deletes
+                        .push(row(prev.ts, prev.document_id));
+                },
+                (Some(document_id), _, IndexWriteMode::Scanning) => {
+                    cover!(super::coverage::PLAN_SCANNING_LIVE);
+                    batch
+                        .scanning_ops
+                        .push(ScanningOp::Live(row(update.ts, document_id)));
+                },
+                (None, Some(prev), IndexWriteMode::Scanning) => {
+                    cover!(super::coverage::PLAN_SCANNING_TOMBSTONE);
+                    batch
+                        .scanning_ops
+                        .push(ScanningOp::Tombstone(row(update.ts, prev.document_id)));
+                },
                 (None, None, _) => {
                     anyhow::bail!("MySQL V6 tombstone for an index key with no previous entry")
                 },
@@ -232,6 +246,7 @@ impl IndexEngine {
                 let index_id = persistence_index_id(entry.index)?;
                 let key = IndexKey::from_key(entry.key.to_vec());
                 Ok(if let Some(document_id) = entry.value {
+                    cover!(super::coverage::BACKFILL_LIVE);
                     BackfillOp::Live(IndexRow {
                         deployment_id: self.deployment_id,
                         index_id,
@@ -240,6 +255,7 @@ impl IndexEngine {
                         document_id,
                     })
                 } else {
+                    cover!(super::coverage::BACKFILL_MARKER);
                     BackfillOp::Tombstone(BackfillMarker {
                         deployment_id: self.deployment_id,
                         index_id,
@@ -255,9 +271,13 @@ impl IndexEngine {
                 .then_with(|| b.is_tombstone().cmp(&a.is_tombstone()))
                 .then_with(|| b.ts().cmp(&a.ts()))
         });
+        let planned = rows.len();
         rows.dedup_by(|a, b| {
             a.latest_primary_key() == b.latest_primary_key() && a.is_tombstone() == b.is_tombstone()
         });
+        if rows.len() < planned {
+            cover!(super::coverage::BACKFILL_DEDUP);
+        }
         Ok(rows)
     }
 
@@ -433,8 +453,8 @@ impl IndexEngine {
     ) -> anyhow::Result<()> {
         for chunk in fill_chunks(deletes) {
             let timer = metrics::insert_index_chunk_timer(cluster_name);
-            async {
-                tx.query_drop(
+            let deleted = async {
+                tx.query_iter(
                     &sql::delete_stale_chunk(chunk.len()),
                     chunk.iter().flat_map(BackfillDelete::params).collect(),
                 )
@@ -442,6 +462,9 @@ impl IndexEngine {
             }
             .in_span(chunk_span("reconcile_chunk_write", chunk))
             .await?;
+            if deleted > 0 {
+                cover!(super::coverage::RECONCILE_DELETED_STALE);
+            }
             timer.finish();
         }
         Ok(())

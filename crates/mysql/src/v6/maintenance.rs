@@ -18,6 +18,7 @@ use std::{
 
 use anyhow::Context as _;
 use common::{
+    cover,
     knobs::{
         INDEXES_LOG_LOOKAHEAD_BUCKETS,
         INDEX_RETENTION_DELAY,
@@ -232,6 +233,7 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
         // older floor can only be pointed at buckets that are still here.
         let dropped = bucket_to_drop(&existing, prev_oldest_kept_ts, now_bucket)?;
         if let Some(bucket) = dropped {
+            cover!(super::coverage::BUCKET_DROPPED);
             conn.execute_many(&drop_log_ddl(bucket)).await?;
             metrics::log_indexes_log_bucket_dropped(self.pool.cluster_name());
             existing.remove(&bucket);
