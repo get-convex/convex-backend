@@ -67,6 +67,10 @@
     "@types/react": ["^18", "^18.2.65", "^18.3.17", "^19.2.4"],
     "@types/react-dom": ["^18", "^18.2.21", "^18.3.1", "^19.2.3"],
     "typescript-eslint": ["^8.45.0", "~8.57.0"],
+    /**
+     * The ESLint plugin parses imported helpers with the same release as its types and utils.
+     */
+    "@typescript-eslint/parser": ["~8.58.0"],
 
     "zod": ["^3.25.0", "^4.3.6"]
   }

@@ -390,12 +390,18 @@ importers:
 
   '@convex-dev/eslint-plugin':
     dependencies:
+      '@typescript-eslint/parser':
+        specifier: ~8.58.0
+        version: 8.58.0(eslint@9.39.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3)
       '@typescript-eslint/types':
         specifier: ~8.58.0
         version: 8.58.0
       '@typescript-eslint/utils':
         specifier: ~8.58.0
         version: 8.58.0(eslint@9.39.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
     devDependencies:
       '@eslint/js':
         specifier: ~9.39.0
@@ -421,9 +427,6 @@ importers:
       tshy:
         specifier: ^3.0.0
         version: 3.0.3
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
       typescript-eslint:
         specifier: ^8.45.0
         version: 8.46.4(eslint@9.39.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.9.3)
