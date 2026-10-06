@@ -111,3 +111,38 @@ async fn open_rejects_tables_it_does_not_own() -> Result<()> {
     assert!(error.to_string().contains("ownership"), "{error:#}");
     Ok(())
 }
+
+#[tokio::test]
+#[ignore = "Requires PORTER_AWS_MOCK_ENDPOINT (a moto server) and PORTER_AWS_MOCK_BUCKET"]
+async fn glue_catalog_round_trip() -> Result<()> {
+    let endpoint = std::env::var("PORTER_AWS_MOCK_ENDPOINT")?;
+    let bucket = std::env::var("PORTER_AWS_MOCK_BUCKET")?;
+    let namespace = format!("porter_{}", uuid::Uuid::new_v4().simple());
+    let warehouse = format!("s3://{bucket}/tables");
+    let open = || {
+        IcebergChangeWriter::for_s3(
+            &namespace,
+            &warehouse,
+            S3Destination {
+                bucket: bucket.clone(),
+                region: "us-east-1".to_owned(),
+                endpoint_url: Some(endpoint.clone()),
+                access_key_id: "test".to_owned(),
+                secret_access_key: "test".to_owned(),
+            },
+        )
+    };
+    let mut writer = open().await?;
+    writer
+        .apply(
+            &[source("menu")],
+            vec![(source("menu"), change("burger", 10, Some("10")))],
+        )
+        .await?;
+    writer.retire_unselected(&[]).await?;
+    let reopened = open().await?;
+    let menu = &reopened.tables[&IcebergChangeWriter::table_name(&source("menu"))];
+    assert_eq!(read(menu).await?, vec![change("burger", 10, Some("10"))]);
+    assert_eq!(menu.metadata().properties()[RETIRED_PROPERTY], "true");
+    Ok(())
+}

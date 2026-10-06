@@ -1035,6 +1035,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-sdk-glue"
+version = "1.164.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75475530b93cd90504a000c76ab5f3b74776b07f2103ad2b8714dc394b951719"
+dependencies = [
+ "arc-swap",
+ "aws-credential-types",
+ "aws-runtime",
+ "aws-smithy-async",
+ "aws-smithy-http 0.64.0",
+ "aws-smithy-json",
+ "aws-smithy-observability",
+ "aws-smithy-runtime",
+ "aws-smithy-runtime-api",
+ "aws-smithy-schema",
+ "aws-smithy-types",
+ "aws-types",
+ "bytes",
+ "fastrand",
+ "http 0.2.12",
+ "http 1.5.0",
+ "regex-lite",
+ "tracing",
+]
+
+[[package]]
 name = "aws-sdk-s3"
 version = "1.143.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5541,23 +5567,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "iceberg-catalog-rest"
+name = "iceberg-catalog-glue"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1500a26a9b18f286a319e914ce7290dddb7e2eef810edf535afc4ce0c8a6f45"
+checksum = "3b790f90bd24604cc7b6e88c96d1ac81082ef2790f526735f183419fdff5ee03"
 dependencies = [
+ "anyhow",
  "async-trait",
- "chrono",
- "http 1.5.0",
+ "aws-config",
+ "aws-sdk-glue",
  "iceberg",
- "itertools 0.13.0",
- "reqwest 0.12.28",
- "serde",
- "serde_derive",
+ "iceberg-storage-opendal",
  "serde_json",
  "tokio",
- "typed-builder",
- "uuid",
 ]
 
 [[package]]
@@ -6959,12 +6981,9 @@ dependencies = [
  "arrow-array",
  "futures",
  "iceberg",
- "iceberg-catalog-rest",
+ "iceberg-catalog-glue",
  "iceberg-storage-opendal",
  "parquet",
- "reqwest 0.12.28",
- "rustls",
- "rustls-native-certs 0.8.1",
  "sha2 0.10.8",
  "tokio",
  "uuid",
@@ -7831,6 +7850,7 @@ dependencies = [
  "opendal-layer-logging",
  "opendal-layer-retry",
  "opendal-layer-timeout",
+ "opendal-service-fs",
  "opendal-service-s3",
 ]
 
@@ -7903,6 +7923,20 @@ checksum = "1e91f731724c213af81e9d03517859c8fc47b4578e64ad61ae4f099f10fe36e3"
 dependencies = [
  "opendal-core",
  "tokio",
+]
+
+[[package]]
+name = "opendal-service-fs"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22e89a665fef0e6bd249cf5ea47fc174b7ba892159bee4b9382528b1ca873a2c"
+dependencies = [
+ "bytes",
+ "log",
+ "opendal-core",
+ "serde",
+ "tokio",
+ "xattr",
 ]
 
 [[package]]
@@ -9530,20 +9564,16 @@ dependencies = [
  "http-body 1.0.1",
  "http-body-util",
  "hyper",
- "hyper-rustls",
  "hyper-util",
  "js-sys",
  "log",
  "percent-encoding",
  "pin-project-lite",
- "rustls",
- "rustls-pki-types",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "sync_wrapper",
  "tokio",
- "tokio-rustls",
  "tower",
  "tower-http",
  "tower-service",

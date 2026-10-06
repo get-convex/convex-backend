@@ -14,11 +14,8 @@ use anyhow::{
 };
 use iceberg::{
     io::{
-        S3_ACCESS_KEY_ID,
         S3_ENDPOINT,
         S3_PATH_STYLE_ACCESS,
-        S3_REGION,
-        S3_SECRET_ACCESS_KEY,
     },
     table::Table,
     transaction::{
@@ -31,11 +28,14 @@ use iceberg::{
     TableCreation,
     TableIdent,
 };
-use iceberg_catalog_rest::{
-    RestCatalogBuilder,
-    REST_CATALOG_PROP_URI,
+use iceberg_catalog_glue::{
+    GlueCatalogBuilder,
+    AWS_ACCESS_KEY_ID,
+    AWS_REGION_NAME,
+    AWS_SECRET_ACCESS_KEY,
+    GLUE_CATALOG_PROP_URI,
+    GLUE_CATALOG_PROP_WAREHOUSE,
 };
-use iceberg_storage_opendal::OpenDalStorageFactory;
 use sha2::{
     Digest,
     Sha256,
@@ -79,8 +79,9 @@ pub struct IcebergChangeWriter {
 }
 
 impl IcebergChangeWriter {
+    /// Writes to `destination` and registers the tables in the AWS Glue Data
+    /// Catalog of the same account and region, using the same credentials.
     pub async fn for_s3(
-        catalog_url: &str,
         namespace: &str,
         warehouse_uri: &str,
         destination: S3Destination,
@@ -89,47 +90,26 @@ impl IcebergChangeWriter {
             warehouse_uri.starts_with(&format!("s3://{}/", destination.bucket)),
             "Warehouse does not belong to destination bucket"
         );
-        let url = reqwest_iceberg::Url::parse(catalog_url)?;
-        ensure!(
-            matches!(url.scheme(), "http" | "https")
-                && url.query().is_none()
-                && url.fragment().is_none()
-                && url.username().is_empty()
-                && url.password().is_none(),
-            "Invalid prototype catalog URL"
-        );
-        let mut roots = rustls::RootCertStore::empty();
-        roots.add_parsable_certificates(rustls_native_certs::load_native_certs().certs);
-        // Naming the provider keeps this client independent of a process default.
-        let tls = rustls::ClientConfig::builder_with_provider(Arc::new(
-            rustls::crypto::aws_lc_rs::default_provider(),
-        ))
-        .with_safe_default_protocol_versions()?
-        .with_root_certificates(roots)
-        .with_no_client_auth();
-        let client = reqwest_iceberg::Client::builder()
-            .use_preconfigured_tls(tls)
-            .build()?;
         let mut props = HashMap::from([
-            (REST_CATALOG_PROP_URI.to_owned(), catalog_url.to_owned()),
-            (S3_REGION.to_owned(), destination.region),
-            (S3_ACCESS_KEY_ID.to_owned(), destination.access_key_id),
             (
-                S3_SECRET_ACCESS_KEY.to_owned(),
+                GLUE_CATALOG_PROP_WAREHOUSE.to_owned(),
+                warehouse_uri.to_owned(),
+            ),
+            (AWS_REGION_NAME.to_owned(), destination.region),
+            (AWS_ACCESS_KEY_ID.to_owned(), destination.access_key_id),
+            (
+                AWS_SECRET_ACCESS_KEY.to_owned(),
                 destination.secret_access_key,
             ),
         ]);
+        // Glue exists only in AWS, so a custom endpoint is a local mock serving
+        // both S3 and Glue.
         if let Some(endpoint) = destination.endpoint_url {
+            props.insert(GLUE_CATALOG_PROP_URI.to_owned(), endpoint.clone());
             props.insert(S3_ENDPOINT.to_owned(), endpoint);
             props.insert(S3_PATH_STYLE_ACCESS.to_owned(), "true".to_owned());
         }
-        let catalog = RestCatalogBuilder::default()
-            .with_client(client)
-            .with_storage_factory(Arc::new(OpenDalStorageFactory::S3 {
-                customized_credential_load: None,
-            }))
-            .load("porter", props)
-            .await?;
+        let catalog = GlueCatalogBuilder::default().load("porter", props).await?;
         Self::open(Arc::new(catalog), namespace, warehouse_uri).await
     }
 
