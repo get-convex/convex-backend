@@ -571,16 +571,18 @@ export async function hasProject(
   projectSlug: string,
 ) {
   try {
-    const projects: Project[] = (
-      await typedBigBrainClient(ctx).GET("/teams/{team_slug}/projects", {
+    await typedPlatformClient(ctx, { throw: true }).GET(
+      "/teams/{team_id_or_slug}/projects/{project_slug}",
+      {
         params: {
           path: {
-            team_slug: teamSlug,
+            team_id_or_slug: teamSlug,
+            project_slug: projectSlug,
           },
         },
-      })
-    ).data!;
-    return !!projects.find((project) => project.slug === projectSlug);
+      },
+    );
+    return true;
   } catch {
     return false;
   }
@@ -593,19 +595,27 @@ export async function hasProjects(ctx: Context) {
 export async function validateOrSelectProject(
   ctx: Context,
   projectSlug: string | undefined,
-  teamSlug: string,
+  teamId: number,
   singleProjectPrompt: string,
   multiProjectPrompt: string,
 ): Promise<string | null> {
-  const projects: Project[] = (
-    await typedBigBrainClient(ctx).GET("/teams/{team_slug}/projects", {
-      params: {
-        path: {
-          team_slug: teamSlug,
+  const projects: Project[] = [];
+  const client = typedPlatformClient(ctx);
+  let cursor: string | undefined;
+  do {
+    const { items, pagination } = (
+      await client.GET("/teams/{team_id}/projects", {
+        params: {
+          path: { team_id: teamId },
+          query: cursor === undefined ? {} : { cursor },
         },
-      },
-    })
-  ).data!;
+      })
+    ).data!;
+    projects.push(...items);
+    cursor = pagination.hasMore
+      ? (pagination.nextCursor ?? undefined)
+      : undefined;
+  } while (cursor !== undefined);
   if (projects.length === 0) {
     return await ctx.crash({
       exitCode: 1,

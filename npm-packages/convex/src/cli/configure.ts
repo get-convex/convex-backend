@@ -628,14 +628,14 @@ async function selectExistingProject(
   devDeployment: "cloud" | "local";
 }> {
   const {
-    team: { slug: teamSlug },
+    team: { id: teamId, slug: teamSlug },
     chosen,
   } = await validateOrSelectTeam(ctx, config.team, "Team:");
 
   const projectSlug = await validateOrSelectProject(
     ctx,
     config.project,
-    teamSlug,
+    teamId,
     "Configure project",
     "Project:",
   );
