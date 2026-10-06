@@ -21,9 +21,14 @@ use common::{
     schemas::{
         DatabaseSchema,
         SchemaValidationError,
+        TableValidationOutcome,
     },
 };
 use errors::ErrorMetadata;
+use shape_inference::{
+    CountedShape,
+    ProdConfig,
+};
 use value::{
     FieldPath,
     NamespacedTableMapping,
@@ -42,6 +47,7 @@ use crate::{
     SchemaValidationModel,
     SystemMetadataModel,
     TableModel,
+    TableShape,
     Transaction,
 };
 
@@ -208,6 +214,54 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         &mut self,
         schema: DatabaseSchema,
     ) -> anyhow::Result<(ResolvedDocumentId, SchemaState)> {
+        let active_schema = self.get_by_state(SchemaState::Active).await?;
+        if schema.has_staged_validators() {
+            // The enforced walk and a staged validation both record under the
+            // `(schema, table)` key, so a table cannot have both. Only tables
+            // that stage a validator are constrained, and only when their
+            // enforced change needs a walk: a change the active validator
+            // already proves goes through. Table shapes are not available
+            // here, so a change only the shape would prove counts as a walk.
+            let table_mapping = self.tx.table_mapping().namespace(self.namespace);
+            let shape_provider =
+                |table_name: &TableName| -> anyhow::Result<Option<CountedShape<ProdConfig>>> {
+                    // A table that does not exist yet has nothing to walk.
+                    Ok(table_mapping
+                        .id(table_name)
+                        .is_err()
+                        .then(|| TableShape::empty().inferred_type().clone()))
+                };
+            let walked_staged_tables = DatabaseSchema::table_validation_outcomes(
+                &schema,
+                active_schema.as_ref().map(|(_, active)| active.as_ref()),
+                &table_mapping,
+                self.tx.virtual_system_mapping(),
+                &shape_provider,
+            )?
+            .into_iter()
+            .filter(|(table_name, outcome)| {
+                matches!(outcome, TableValidationOutcome::MustWalk)
+                    && schema
+                        .tables
+                        .get(*table_name)
+                        .is_some_and(|table| table.staged_document_type.is_some())
+            })
+            .map(|(table_name, _)| table_name.to_string())
+            .collect::<Vec<_>>();
+            if !walked_staged_tables.is_empty() {
+                let walked_staged_tables = walked_staged_tables.join(", ");
+                return Err(ErrorMetadata::bad_request(
+                    "StagedSchemaWithEnforcedValidatorChanges",
+                    format!(
+                        "Cannot stage validators on tables whose enforced validator change needs \
+                         their documents walked: {walked_staged_tables}. Put the whole change in \
+                         the staged validator instead, so the table is walked once, in the \
+                         background."
+                    ),
+                )
+                .into());
+            }
+        }
         let mut table_model = TableModel::new(self.tx);
         for name in schema.tables.keys() {
             if !table_model.table_exists(self.namespace, name) {
@@ -216,9 +270,10 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                     .await?;
             }
         }
-        if let Some((id, active_schema)) = self.get_by_state(SchemaState::Active).await?
-            && *active_schema == schema
+        if let Some((id, active_schema)) = &active_schema
+            && **active_schema == schema
         {
+            let id = *id;
             if let Some((id, _pending_schema)) = self.get_by_state(SchemaState::Pending).await? {
                 self.mark_overwritten(id).await?;
             }
@@ -226,36 +281,70 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             {
                 self.mark_overwritten(id).await?;
             }
+            // Re-pushing the active schema retries any failed staged
+            // validation: fixing the offending documents and redeploying
+            // revalidates without an unstage/restage cycle.
+            SchemaValidationModel::new(self.tx, self.namespace)
+                .retry_failed_staged_validators(id, &schema)
+                .await?;
             return Ok((id, SchemaState::Active));
         }
-        match (
-            self.get_by_state(SchemaState::Pending).await?,
-            self.get_by_state(SchemaState::Validated).await?,
-        ) {
+        // Staged validation starts with the push rather than at activation, so
+        // it runs while indexes build. Unchanged staged validators inherit the
+        // state of the outgoing schemas' validations: the active schema's and,
+        // below, an overwritten in-progress schema's. Pushes without staged
+        // validators take no read dependency on the validations.
+        let mut carry_over = vec![];
+        if schema.has_staged_validators()
+            && let Some((active_id, _)) = &active_schema
+        {
+            carry_over = SchemaValidationModel::new(self.tx, self.namespace)
+                .validations_with_progress(*active_id)
+                .await?;
+        }
+        let pending_schema = self.get_by_state(SchemaState::Pending).await?;
+        let validated_schema = self.get_by_state(SchemaState::Validated).await?;
+        let in_progress = match (pending_schema, validated_schema) {
             (Some(_), Some(_)) => {
                 anyhow::bail!("Invalid schema state: both pending and validated schemas exist")
             },
             (Some((id, existing_schema)), None) => {
-                if *existing_schema == schema {
-                    return Ok((id, SchemaState::Pending));
-                } else {
-                    self.mark_overwritten(id).await?;
-                }
+                Some((id, existing_schema, SchemaState::Pending))
             },
             (None, Some((id, existing_schema))) => {
-                if *existing_schema == schema {
-                    return Ok((id, SchemaState::Validated));
-                } else {
-                    self.mark_overwritten(id).await?;
-                }
+                Some((id, existing_schema, SchemaState::Validated))
             },
-            (None, None) => {},
+            (None, None) => None,
+        };
+        if let Some((id, existing_schema, state)) = in_progress {
+            if *existing_schema == schema {
+                SchemaValidationModel::new(self.tx, self.namespace)
+                    .retry_failed_staged_validators(id, &schema)
+                    .await?;
+                return Ok((id, state));
+            }
+            if schema.has_staged_validators() {
+                carry_over.extend(
+                    SchemaValidationModel::new(self.tx, self.namespace)
+                        .validations_with_progress(id)
+                        .await?,
+                );
+            }
+            self.mark_overwritten(id).await?;
         }
 
+        // `SchemaMetadata::new` takes the schema; keep a copy only when there
+        // are staged validators to initialize against it.
+        let staged_schema = schema.has_staged_validators().then(|| schema.clone());
         let schema_metadata = SchemaMetadata::new(SchemaState::Pending, schema)?;
         let id = SystemMetadataModel::new(self.tx, self.namespace)
             .insert(&SCHEMAS_TABLE, schema_metadata.try_into()?)
             .await?;
+        if let Some(staged_schema) = staged_schema {
+            SchemaValidationModel::new(self.tx, self.namespace)
+                .initialize_staged_validators(id, &staged_schema, carry_over)
+                .await?;
+        }
         Ok((id, SchemaState::Pending))
     }
 
@@ -324,13 +413,17 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     pub async fn mark_active(&mut self, document_id: ResolvedDocumentId) -> anyhow::Result<()> {
         // Make sure it's already Validated or Active.
         let schema = self.get_validated_or_active(document_id).await?;
-        let mut model = SchemaValidationModel::new(self.tx, self.namespace);
-        model.delete_validations_for_schema(document_id).await?;
         match schema.state {
             // Already active: no-op
             SchemaState::Active => Ok(()),
             // If it's validated, mark as active.
             SchemaState::Validated => {
+                // The enforced walk is over; its validations go. Staged
+                // validations were created when the schema was submitted and
+                // keep running under the same schema id.
+                SchemaValidationModel::new(self.tx, self.namespace)
+                    .delete_enforced_validations_for_schema(document_id)
+                    .await?;
                 self.clear_active().await?;
                 SystemMetadataModel::new(self.tx, self.namespace)
                     .patch(

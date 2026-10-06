@@ -8,18 +8,20 @@ use value::{
     TableName,
 };
 
-/// One row per (schema, table) tracking the validation of that table's
-/// documents against a validator: the enforced validator while the schema is
-/// `Pending` (rows are deleted when the schema resolves), or a staged
-/// validator while the schema is `Active`.
+/// One document per (schema, table) tracking the validation of that table's
+/// documents against a validator. Two kinds share the table, told apart by
+/// `validator_hash`: the enforced walk's validation (no hash), created while
+/// the schema is `Pending` and deleted when it activates, and a staged
+/// validator's (hash set), created when the schema is submitted and kept for
+/// as long as the schema stays in progress or active.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchemaValidationMetadata {
     /// The schema whose validator this row tracks.
     pub schema_id: DeveloperDocumentId,
     /// The table being validated.
     pub table_name: TableName,
-    /// Staged validator hash. Matching validators carry nonfailed state into a
-    /// fresh attempt on activation; failed validators restart.
+    /// Set only for staged validators. Matching hashes carry nonfailed state
+    /// into the next schema's validation; failed validators restart.
     pub validator_hash: Option<String>,
     pub state: ValidationState,
 }

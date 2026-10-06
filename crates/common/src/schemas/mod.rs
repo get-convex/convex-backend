@@ -352,6 +352,18 @@ impl DatabaseSchema {
             .and_then(|table_definition| table_definition.document_type.as_ref())
     }
 
+    pub fn staged_schema_for_table(&self, table_name: &TableName) -> Option<&DocumentSchema> {
+        self.tables
+            .get(table_name)
+            .and_then(|table_definition| table_definition.staged_document_type.as_ref())
+    }
+
+    pub fn has_staged_validators(&self) -> bool {
+        self.tables
+            .values()
+            .any(|table| table.staged_document_type.is_some())
+    }
+
     fn check_value(
         &self,
         doc: &ResolvedDocument,

@@ -13,6 +13,7 @@ use common::{
         CREATION_TIME_FIELD_PATH,
     },
     runtime::Runtime,
+    schemas::DatabaseSchema,
 };
 use value::{
     FieldPath,
@@ -196,17 +197,46 @@ impl<'a, RT: Runtime> SchemaValidationModel<'a, RT> {
         {
             self.delete_attempt(existing.id()).await?;
         }
+        self.insert_validation(
+            schema_id,
+            table_name,
+            validator_hash,
+            ValidationState::Pending,
+            0,
+            total_docs,
+        )
+        .await
+    }
+
+    /// Every `_schema_validations` insert goes through here. A schema has at
+    /// most one validation per table: readers look the pair up with
+    /// `.unique()`, and a duplicate would leave one of them unreachable.
+    async fn insert_validation(
+        &mut self,
+        schema_id: ResolvedDocumentId,
+        table_name: TableName,
+        validator_hash: Option<String>,
+        state: ValidationState,
+        num_docs_validated: u64,
+        total_docs: Option<u64>,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        anyhow::ensure!(
+            self.validation_metadata_for_table(schema_id, &table_name)
+                .await?
+                .is_none(),
+            "Schema {schema_id} already has a validation for table {table_name}"
+        );
         let metadata = SchemaValidationMetadata {
             schema_id: schema_id.developer_id,
             table_name,
             validator_hash,
-            state: ValidationState::Pending,
+            state,
         };
         let id = SystemMetadataModel::new(self.tx, self.namespace)
             .insert(&SCHEMA_VALIDATIONS_TABLE, metadata.try_into()?)
             .await?;
         SchemaValidationProgressModel::new(self.tx, self.namespace)
-            .create(id, 0, total_docs)
+            .create(id, num_docs_validated, total_docs)
             .await?;
         Ok(id)
     }
@@ -292,6 +322,94 @@ impl<'a, RT: Runtime> SchemaValidationModel<'a, RT> {
         Ok(())
     }
 
+    /// Create the staged validations for a schema that was just submitted.
+    /// `carry_over` holds the outgoing schemas' validations: a nonfailed one
+    /// for the same table and validator hash hands its state and counters to
+    /// the new validation, preferring a finished proof, then the most
+    /// progress. Failed or changed validators start over as `Pending`.
+    pub async fn initialize_staged_validators(
+        &mut self,
+        schema_id: ResolvedDocumentId,
+        schema: &DatabaseSchema,
+        carry_over: Vec<SchemaValidationWithProgress>,
+    ) -> anyhow::Result<()> {
+        for (table_name, table_def) in &schema.tables {
+            let Some(staged_validator) = &table_def.staged_document_type else {
+                continue;
+            };
+            let validator_hash = staged_validator.content_hash()?;
+            let previous = carry_over
+                .iter()
+                .filter(|candidate| {
+                    candidate.validation.table_name == *table_name
+                        && candidate.validation.validator_hash.as_deref() == Some(&validator_hash)
+                        && !matches!(candidate.validation.state, ValidationState::Failed { .. })
+                })
+                .max_by_key(|candidate| {
+                    (
+                        matches!(candidate.validation.state, ValidationState::Valid),
+                        candidate.progress.num_docs_validated,
+                    )
+                });
+            let (state, num_docs_validated, total_docs) = match previous {
+                Some(previous) => (
+                    previous.validation.state.clone(),
+                    previous.progress.num_docs_validated,
+                    previous.progress.total_docs,
+                ),
+                None => (ValidationState::Pending, 0, None),
+            };
+            self.insert_validation(
+                schema_id,
+                table_name.clone(),
+                Some(validator_hash),
+                state,
+                num_docs_validated,
+                total_docs,
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Reset `Failed` staged validations for `schema_id` back to `Pending`
+    /// where `schema` still declares an identical staged validator. Called
+    /// when a push re-submits an unchanged schema (which never reaches
+    /// `initialize_staged_validators`), so that deploy also retries failed
+    /// staged validation.
+    pub async fn retry_failed_staged_validators(
+        &mut self,
+        schema_id: ResolvedDocumentId,
+        schema: &DatabaseSchema,
+    ) -> anyhow::Result<()> {
+        // Check the schema first so pushes without staged validators take no
+        // read dependency on the validations.
+        if !schema.has_staged_validators() {
+            return Ok(());
+        }
+        for validation in self.validations_for_schema(schema_id).await? {
+            if !matches!(validation.state, ValidationState::Failed { .. }) {
+                continue;
+            }
+            let Some(staged_validator) = schema.staged_schema_for_table(&validation.table_name)
+            else {
+                continue;
+            };
+            if validation.validator_hash.as_deref() != Some(&staged_validator.content_hash()?) {
+                continue;
+            }
+            self.start_table_validation(
+                schema_id,
+                validation.table_name.clone(),
+                validation.validator_hash.clone(),
+                None,
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
     /// Write-time invalidation applies to both pending and valid attempts.
     /// An already-failed validation keeps its first error; a missing validation
     /// is canceled.
@@ -326,6 +444,20 @@ impl<'a, RT: Runtime> SchemaValidationModel<'a, RT> {
     ) -> anyhow::Result<()> {
         for validation in self.validations_for_schema(schema_id).await? {
             self.delete_attempt(validation.id()).await?;
+        }
+        Ok(())
+    }
+
+    /// Delete the enforced walk's validations (those without a validator
+    /// hash), leaving staged ones in place.
+    pub async fn delete_enforced_validations_for_schema(
+        &mut self,
+        schema_id: ResolvedDocumentId,
+    ) -> anyhow::Result<()> {
+        for validation in self.validations_for_schema(schema_id).await? {
+            if validation.validator_hash.is_none() {
+                self.delete_attempt(validation.id()).await?;
+            }
         }
         Ok(())
     }
