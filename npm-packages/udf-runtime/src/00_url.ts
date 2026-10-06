@@ -199,9 +199,12 @@ class URLSearchParams {
     return values;
   }
 
-  has(name: string): boolean {
+  has(name: string, value?: string): boolean {
     const n = String(name).toWellFormed();
-    return this[_searchParamPairs].find(([key]) => key === n) !== undefined;
+    const v = value === undefined ? undefined : String(value).toWellFormed();
+    return this[_searchParamPairs].some(
+      ([key, val]) => key === n && (v === undefined || val === v),
+    );
   }
 
   keys(): IterableIterator<string> {
