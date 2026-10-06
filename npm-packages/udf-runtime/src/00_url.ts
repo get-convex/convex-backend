@@ -2,12 +2,15 @@ import { throwNotImplementedMethodError } from "./helpers.js";
 import { performOp } from "udf-syscall-ffi";
 import inspect from "object-inspect";
 
+// Each variant holds a setter's value unmodified: Ada's setters, behind the op,
+// apply the spec's preprocessing (such as stripping tabs and newlines) and leave
+// the URL unchanged when the value is invalid.
 type Update =
   | {
-      hash: string | null;
+      hash: string;
     }
   | {
-      hostname: string | null;
+      hostname: string;
     }
   | {
       href: string;
@@ -16,7 +19,7 @@ type Update =
       password: string;
     }
   | {
-      port: string | null;
+      port: string;
     }
   | {
       protocol: string;
@@ -25,7 +28,7 @@ type Update =
       pathname: string;
     }
   | {
-      search: string | null;
+      search: string;
     }
   | {
       searchParams: [string, string][];
@@ -275,7 +278,7 @@ Object.defineProperty(URLSearchParams.prototype, Symbol.toStringTag, {
 });
 
 type UrlInfo = {
-  scheme: string;
+  protocol: string;
   hash: string;
   host: string;
   hostname: string;
@@ -318,19 +321,19 @@ class URL {
     }
     const href = url instanceof URL ? url.href : String(url);
     this.#urlInfo = performOp("url/getUrlInfo", href, baseHref);
-    this.#searchParams = new URLSearchParams(this.#urlInfo.search ?? "");
+    // `search` keeps its `?`, and the string constructor strips exactly one,
+    // so a query that itself begins with `?` keeps it.
+    this.#searchParams = new URLSearchParams(this.#urlInfo.search);
     this.#searchParams[_urlObjectUpdate] = this.#updateUrl.bind(this);
   }
 
   get hash() {
-    return this.#urlInfo.hash !== "" ? `#${this.#urlInfo.hash}` : "";
+    return this.#urlInfo.hash;
   }
 
   set hash(_hash: string) {
-    let newHash: string | null = _hash.startsWith("#") ? _hash.slice(1) : _hash;
-    newHash = newHash === "" ? null : newHash;
     this.#updateUrl({
-      hash: newHash,
+      hash: _hash,
     });
   }
 
@@ -348,7 +351,7 @@ class URL {
 
   set hostname(_hostname: string) {
     this.#updateUrl({
-      hostname: _hostname === "" ? null : _hostname,
+      hostname: _hostname,
     });
   }
 
@@ -397,7 +400,7 @@ class URL {
   }
 
   get protocol() {
-    return this.#urlInfo.scheme.toString() + ":";
+    return this.#urlInfo.protocol;
   }
 
   set protocol(_protocol: string) {
@@ -407,16 +410,12 @@ class URL {
   }
 
   get search() {
-    return this.#urlInfo.search === "" ? "" : `?${this.#urlInfo.search}`;
+    return this.#urlInfo.search;
   }
 
   set search(_search: string) {
-    let newSearch: string | null = _search.startsWith("?")
-      ? _search.slice(1)
-      : _search;
-    newSearch = newSearch === "" ? null : newSearch;
     this.#updateUrl({
-      search: newSearch,
+      search: _search,
     });
   }
 
@@ -447,7 +446,7 @@ class URL {
     // Mutate the existing searchParams object
     const searchPairs = performOp(
       "url/getUrlSearchParamPairs",
-      this.#urlInfo.search,
+      this.#urlInfo.search.slice(1),
     );
     this.#searchParams[_searchParamPairs] = searchPairs;
   }

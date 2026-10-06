@@ -29,10 +29,10 @@ runs:
         # captures them at spawn. Role MaxSessionDuration is raised to match.
         role-duration-seconds: 14400
 
-    - name: Install libsodium and libssl
+    - name: Install libsodium, libssl, and g++-12
       shell: bash
       if: runner.os == 'Linux'
-      run: sudo apt-get install pkg-config libsodium-dev libssl-dev
+      run: sudo apt-get install pkg-config libsodium-dev libssl-dev g++-12
 
     # The runner AMI ships a prebuilt librocksdb but no pkg-config .pc, so mise's
     # ROCKSDB_COMPILE check fails and librocksdb-sys rebuilds it from source every
@@ -75,6 +75,7 @@ runs:
           echo "SNAPPY_LIB_DIR=/usr/lib/$(uname -m)-linux-gnu" >> $GITHUB_ENV
           echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
           echo "ROCKSDB_LIB_DIR=/usr/lib" >> $GITHUB_ENV
+          echo "CXX=g++-12" >> $GITHUB_ENV
           if command -v ld.mold >/dev/null; then
             # Link with mold: faster and lighter than rust-lld/bfd, which
             # matters for the giant test-binary link tail. -fuse-ld=mold makes

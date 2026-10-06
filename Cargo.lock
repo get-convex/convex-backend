@@ -150,6 +150,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ada-url"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c153db7a5a9f8a92a313dff0fecbbb28198542fc98bf024b961baf9896408347"
+dependencies = [
+ "cc",
+ "link_args",
+ "regex",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5387,6 +5398,7 @@ checksum = "f8478577c03552c21db0e2724ffb8986a5ce7af88107e6be5d2ee6e158c12800"
 name = "isolate"
 version = "0.1.0"
 dependencies = [
+ "ada-url",
  "ai_gateway_jwt",
  "anyhow",
  "async-broadcast",
@@ -5913,6 +5925,12 @@ checksum = "ecd207c9c713c34f95a097a5b029ac2ce6010530c7b49d7fea24d977dede04f5"
 dependencies = [
  "cc",
 ]
+
+[[package]]
+name = "link_args"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c7721e472624c9aaad27a5eb6b7c9c6045c7a396f2efb6dabaec1b640d5e89b"
 
 [[package]]
 name = "linux-raw-sys"

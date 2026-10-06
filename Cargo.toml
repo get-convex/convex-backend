@@ -4,6 +4,7 @@ resolver = "2"
 exclude = [ "crates/py_client", "crates/python_client_tests" ]
 
 [workspace.dependencies]
+ada-url = "4.0.0"
 aes = "0.8.4"
 ahash = "0.8"
 ai_gateway_jwt = { path = "crates/ai_gateway_jwt" }
