@@ -9,19 +9,19 @@ instructions together.
 
 You can view the ready to deploy template here
 
-- [Convex + SQLite](https://railway.com/deploy/OKpPqB)
-- [Convex + Postgres](https://railway.com/deploy/convex-postgres)
+- [Convex + SQLite](https://railway.com/deploy/convex-1)
+- [Convex + Postgres](https://railway.com/deploy/convex-and-postgres-official)
 - [Convex + Mysql](https://railway.com/deploy/convex-mysql)
 
 or use one click deploy buttons below:
 
 Convex + SQLite
 
-[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/OKpPqB)
+[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/convex-1)
 
 Convex + Postgres
 
-[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/convex-postgres)
+[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/deploy/convex-and-postgres-official)
 
 Convex + Mysql
 
