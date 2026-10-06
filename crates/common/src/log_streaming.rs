@@ -252,6 +252,8 @@ pub enum AiGatewayEndpoint {
     Images,
     Messages,
     Responses,
+    Speech,
+    Transcriptions,
     Videos,
 }
 

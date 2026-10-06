@@ -25,6 +25,8 @@
           "images",
           "messages",
           "responses",
+          "speech",
+          "transcriptions",
           "videos"
         ]
       },

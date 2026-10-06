@@ -8,7 +8,7 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** @enum {string} */
-        AiGatewayEndpoint: "chat_completions" | "decisions" | "embeddings" | "images" | "messages" | "responses" | "videos";
+        AiGatewayEndpoint: "chat_completions" | "decisions" | "embeddings" | "images" | "messages" | "responses" | "speech" | "transcriptions" | "videos";
         /** @enum {string} */
         AiGatewayEnvironment: "production" | "staging";
         /**
