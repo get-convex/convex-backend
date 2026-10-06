@@ -134,12 +134,15 @@ class URLSearchParams {
         this.append(pair[0]!, pair[1]!);
       }
     } else {
-      // WebIDL record conversion: keys become USVStrings, so keys that differ
+      // WebIDL record conversion: only enumerable own properties are read,
+      // and keys become USVStrings (Symbol keys throw), so keys that differ
       // only in lone surrogates collapse into one entry, keeping the first
       // key's position and the last key's value.
       const record = new Map<string, string>();
-      for (const key in init) {
-        record.set(key.toWellFormed(), String(init[key]));
+      for (const key of Reflect.ownKeys(init)) {
+        if (Object.getOwnPropertyDescriptor(init, key)?.enumerable) {
+          record.set(toUSVString(key), toUSVString((init as any)[key]));
+        }
       }
       for (const [key, value] of record) {
         this.append(key, value);
@@ -156,16 +159,13 @@ class URLSearchParams {
   }
 
   append(name: string, value: string): void {
-    this[_searchParamPairs].push([
-      String(name).toWellFormed(),
-      String(value).toWellFormed(),
-    ]);
+    this[_searchParamPairs].push([toUSVString(name), toUSVString(value)]);
     this._updateUrl();
   }
 
   delete(name: string, value?: string) {
-    const n = String(name).toWellFormed();
-    const v = value === undefined ? undefined : String(value).toWellFormed();
+    const n = toUSVString(name);
+    const v = value === undefined ? undefined : toUSVString(value);
     this[_searchParamPairs] = this[_searchParamPairs].filter(
       ([key, val]) => key !== n || (v !== undefined && val !== v),
     );
@@ -195,7 +195,7 @@ class URLSearchParams {
   }
 
   getAll(name: string): string[] {
-    const n = String(name).toWellFormed();
+    const n = toUSVString(name);
     const values: string[] = [];
     for (const [key, value] of this[_searchParamPairs]) {
       if (key === n) {
@@ -206,8 +206,8 @@ class URLSearchParams {
   }
 
   has(name: string, value?: string): boolean {
-    const n = String(name).toWellFormed();
-    const v = value === undefined ? undefined : String(value).toWellFormed();
+    const n = toUSVString(name);
+    const v = value === undefined ? undefined : toUSVString(value);
     return this[_searchParamPairs].some(
       ([key, val]) => key === n && (v === undefined || val === v),
     );
@@ -218,8 +218,8 @@ class URLSearchParams {
   }
 
   set(name: string, value: string) {
-    name = String(name).toWellFormed();
-    value = String(value).toWellFormed();
+    name = toUSVString(name);
+    value = toUSVString(value);
     let found = false;
     this[_searchParamPairs] = this[_searchParamPairs].filter((pair) => {
       if (pair[0] !== name) {
