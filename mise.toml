@@ -21,6 +21,7 @@ cargo-binstall = "1.20.0"
 "cargo:cargo-machete" = "0.9.2"
 "cargo:cargo-sort" = "2.1.4"
 "github:WebAssembly/binaryen" = { version = "132", version_prefix = "version_" }
+"github:WebAssembly/wasi-sdk" = { version = "34", version_prefix = "wasi-sdk-", strip_components = 1, bin_path = "share/wasi-sysroot" }
 [env]
 # Build hints for the native -sys crates, primarily for LOCAL dev -- CI Linux gets
 # these (plus SNAPPY_LIB_DIR) from .github/actions/setup-rust, which also covers the
@@ -35,6 +36,7 @@ ROCKSDB_LIB_DIR = "{% if os() == 'macos' %}/opt/homebrew/lib{% elif os() == 'lin
 # wins; empty is ignored. (Unsetting ROCKSDB_LIB_DIR isn't an option: a Tera-empty value
 # is "", which librocksdb-sys still reads as "use system".)
 ROCKSDB_COMPILE = "{% if os() == 'linux' and exec(command='pkg-config --atleast-version=8 rocksdb && ! pkg-config --atleast-version=9 rocksdb && echo y || echo n') == 'n' %}1{% endif %}"
+WASI_SDK = { value = "{% if 'github:WebAssembly/wasi-sdk' in tools %}{{ tools['github:WebAssembly/wasi-sdk'].path }}{% endif %}", tools = true }
 
 [settings]
 # Read Node's version from the existing .nvmrc.

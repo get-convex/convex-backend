@@ -135,6 +135,48 @@ checksum = "sha256:2089428ec98c899b45ee5d00636ddd6e2da8636cc473ef50b165cc25793ef
 url = "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-windows.tar.gz"
 url_api = "https://api.github.com/repos/WebAssembly/binaryen/releases/assets/512142865"
 
+[[tools."github:WebAssembly/wasi-sdk"]]
+version = "34"
+backend = "github:WebAssembly/wasi-sdk"
+
+[tools."github:WebAssembly/wasi-sdk".options]
+version_prefix = "wasi-sdk-"
+
+[tools."github:WebAssembly/wasi-sdk"."platforms.linux-arm64"]
+checksum = "sha256:f7e243dff54d60bcc576e94d6166b69f410f2500ae4a9ceef34315be10e77971"
+url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-arm64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/wasi-sdk/releases/assets/528366381"
+
+[tools."github:WebAssembly/wasi-sdk"."platforms.linux-arm64-musl"]
+checksum = "sha256:f7e243dff54d60bcc576e94d6166b69f410f2500ae4a9ceef34315be10e77971"
+url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-arm64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/wasi-sdk/releases/assets/528366381"
+
+[tools."github:WebAssembly/wasi-sdk"."platforms.linux-x64"]
+checksum = "sha256:b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4"
+url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/wasi-sdk/releases/assets/528366474"
+
+[tools."github:WebAssembly/wasi-sdk"."platforms.linux-x64-musl"]
+checksum = "sha256:b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4"
+url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-linux.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/wasi-sdk/releases/assets/528366474"
+
+[tools."github:WebAssembly/wasi-sdk"."platforms.macos-arm64"]
+checksum = "sha256:9c59398106b417f8f14913380fdf0097a8cc0ff4af9eb3ce0065a859e88d49e9"
+url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-arm64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/wasi-sdk/releases/assets/528366387"
+
+[tools."github:WebAssembly/wasi-sdk"."platforms.macos-x64"]
+checksum = "sha256:87d27fa8adc68dee59bfbf2e22a6d34ef717c34d6bf1d8af2a56fc929d9ce0eb"
+url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-macos.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/wasi-sdk/releases/assets/528366482"
+
+[tools."github:WebAssembly/wasi-sdk"."platforms.windows-x64"]
+checksum = "sha256:cccb5c323a9b34f0349a9b09e8804a0a7632c68c3310f4b5f437ed57d7e71d8f"
+url = "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/wasi-sdk-34.0-x86_64-windows.tar.gz"
+url_api = "https://api.github.com/repos/WebAssembly/wasi-sdk/releases/assets/528366541"
+
 [[tools.jq]]
 version = "1.8.1"
 backend = "aqua:jqlang/jq"
