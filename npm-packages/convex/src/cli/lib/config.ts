@@ -672,7 +672,7 @@ export async function configFromProjectConfig(
   }
   const modules = convexResult.modules;
   modules.push(...nodeResult.modules);
-  modules.push(...(await bundleAuthConfig(ctx, baseDir)));
+  modules.push(...(await bundleAuthConfig(ctx, baseDir)).modules);
 
   const nodeDependencies: NodeDependency[] = [];
   for (const [moduleName, moduleVersion] of nodeResult.externalDependencies) {
