@@ -1,0 +1,23 @@
+[package]
+name = "managed_export"
+version = "0.1.0"
+edition = "2024"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+arrow_iceberg = { package = "arrow-array", version = "58" }
+iceberg = "=0.10.1"
+parquet_iceberg = { package = "parquet", version = "58", default-features = false }
+uuid = { workspace = true }
+
+[dev-dependencies]
+futures = { workspace = true }
+iceberg-storage-opendal = { version = "=0.10.1", default-features = false, features = ["opendal-memory"] }
+tokio = { workspace = true }
+
+[lints]
+workspace = true
