@@ -73,6 +73,11 @@ jobs:
           image="${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
           docker pull "$image"
           docker run --rm --entrypoint /convex/convex-local-backend "$image" --help
+          expected="v$(tr -d '\r\n' < .nvmrc)"
+          actual="$(docker run --rm --entrypoint node "$image" --version)"
+          test "$actual" = "$expected"
+          docker run --rm --entrypoint node "$image" -e \
+            "const assert = require('node:assert/strict'); const crypto = require('node:crypto'); assert.equal(crypto.createHash('sha256').update('bulk-node-runtime').digest('hex').length, 64); assert.equal(typeof fetch, 'function'); console.log(JSON.stringify(process.versions))"
 
       - name: Publish immutable image reference
         run: |

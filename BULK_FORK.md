@@ -97,6 +97,14 @@ on the Linux image build plus its published-binary smoke test before deployment.
 
 ## Build and publish
 
+Bulk's build toolchain and self-hosted Node action executor use Node.js 24.21.0,
+pinned in `.nvmrc`. The backend Dockerfile installs that exact NodeSource version
+and copies the binary into the final runtime image. The release smoke test checks
+the final image's Node version against `.nvmrc`, exercises crypto, and verifies
+the fetch API before reporting an immutable digest. Upstream's Node executor
+already accepts Node 24; this change does not upgrade the Rust/V8 query runtime
+or change application schema and function contracts.
+
 For an isolated dev-slot test before merging, run the GitHub Actions workflow
 from a `codex/upgrade-convex-*` branch:
 
