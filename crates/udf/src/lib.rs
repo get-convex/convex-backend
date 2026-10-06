@@ -33,7 +33,7 @@ pub use crate::{
         HttpActionResponseHead,
         HttpActionResponsePart,
         HttpActionResponseStreamer,
-        HTTP_ACTION_BODY_LIMIT,
+        HTTP_ACTION_RESPONSE_BODY_LIMIT,
     },
     syscall_stats::SyscallStats,
     syscall_trace::SyscallTrace,

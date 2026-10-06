@@ -27,7 +27,7 @@ use value::sha256::{
     Sha256Digest,
 };
 
-pub const HTTP_ACTION_BODY_LIMIT: usize = 20 << 20;
+pub const HTTP_ACTION_RESPONSE_BODY_LIMIT: usize = 100 << 20;
 
 pub struct HttpActionRequest {
     pub head: HttpActionRequestHead,

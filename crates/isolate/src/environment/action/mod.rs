@@ -113,7 +113,7 @@ use udf::{
     HttpActionResponseStreamer,
     HttpActionResult,
     SyscallTrace,
-    HTTP_ACTION_BODY_LIMIT,
+    HTTP_ACTION_RESPONSE_BODY_LIMIT,
 };
 use value::{
     heap_size::HeapSize,
@@ -227,6 +227,10 @@ pub struct ActionEnvironment<RT: Runtime> {
     total_log_lines: usize,
     log_line_sender: mpsc::UnboundedSender<LogLine>,
     http_response_streamer: Option<HttpActionResponseStreamer>,
+    /// Set once a body chunk would push the response past
+    /// `HTTP_ACTION_RESPONSE_BODY_LIMIT`. Chunks over the limit are dropped,
+    /// so `total_bytes_sent` alone never exceeds the limit.
+    http_response_too_large: bool,
 
     rt: RT,
 
@@ -309,6 +313,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             total_log_lines: 0,
             log_line_sender,
             http_response_streamer,
+            http_response_too_large: false,
 
             next_task_id: TaskId(0),
             pending_task_sender,
@@ -630,14 +635,14 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 streamer.send_part(HttpActionResponsePart::Head(h))??;
             },
             Ok(HttpActionResponsePart::BodyChunk(b)) => {
-                if streamer.total_bytes_sent() > HTTP_ACTION_BODY_LIMIT {
-                    // We've already hit the body size limit so should not continue sending more
+                if environment.http_response_too_large {
                     return Ok(());
                 }
-                if streamer.total_bytes_sent() + b.len() > HTTP_ACTION_BODY_LIMIT {
+                if streamer.total_bytes_sent() + b.len() > HTTP_ACTION_RESPONSE_BODY_LIMIT {
+                    environment.http_response_too_large = true;
                     let e = JsError::from_message(format!(
                         "HttpResponseTooLarge: HTTP actions support responses up to {}",
-                        HTTP_ACTION_BODY_LIMIT.format_size(BINARY)
+                        HTTP_ACTION_RESPONSE_BODY_LIMIT.format_size(BINARY)
                     ));
                     environment.trace_system(SystemWarning {
                         level: LogLevel::Error,
@@ -1265,15 +1270,17 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         execution_time: FunctionExecutionTime,
         total_bytes_sent: usize,
     ) -> anyhow::Result<()> {
-        if let Some(warning) = approaching_limit_warning(
-            total_bytes_sent,
-            HTTP_ACTION_BODY_LIMIT,
-            "HttpResponseTooLarge",
-            || "Large response returned from an HTTP action".to_string(),
-            None,
-            Some(" bytes"),
-            None,
-        ) {
+        if !self.http_response_too_large
+            && let Some(warning) = approaching_limit_warning(
+                total_bytes_sent,
+                HTTP_ACTION_RESPONSE_BODY_LIMIT,
+                "HttpResponseTooLarge",
+                || "Large response returned from an HTTP action".to_string(),
+                None,
+                Some(" bytes"),
+                None,
+            )
+        {
             self.trace_system(warning)?;
         }
         self.add_warnings_to_log_lines(execution_time)?;
