@@ -39,6 +39,14 @@ use iceberg::{
 };
 use parquet_iceberg::file::properties::WriterProperties;
 
+#[path = "iceberg_writer.rs"]
+mod writer;
+pub use writer::{
+    IcebergChangeWriter,
+    S3Destination,
+    SourceTable,
+};
+
 /// One document revision in a table's change log. A `None` payload records a
 /// deletion.
 #[derive(Clone, Debug, PartialEq)]

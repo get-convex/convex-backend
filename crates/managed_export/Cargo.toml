@@ -11,7 +11,13 @@ doctest = false
 anyhow = { workspace = true }
 arrow_iceberg = { package = "arrow-array", version = "58" }
 iceberg = "=0.10.1"
+iceberg-catalog-rest = "=0.10.1"
+iceberg-storage-opendal = { version = "=0.10.1", default-features = false, features = ["opendal-s3"] }
 parquet_iceberg = { package = "parquet", version = "58", default-features = false }
+reqwest_iceberg = { package = "reqwest", version = "0.12", default-features = false, features = ["rustls-tls-manual-roots-no-provider"] }
+rustls = { workspace = true, features = ["aws_lc_rs", "std"] }
+rustls-native-certs = { workspace = true }
+sha2 = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
