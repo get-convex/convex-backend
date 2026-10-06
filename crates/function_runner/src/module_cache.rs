@@ -18,14 +18,10 @@ use common::{
 use isolate::module_cache::V8ModuleSource;
 use model::{
     modules::{
-        hash_module_source,
         module_versions::FullModuleSource,
         types::ModuleMetadata,
     },
-    source_packages::{
-        types::SourcePackage,
-        upload_download::download_package,
-    },
+    source_packages::types::SourcePackage,
 };
 use moka::sync::Cache;
 use storage::Storage;
@@ -38,10 +34,20 @@ use value::{
 use crate::{
     metrics::module_load_timer,
     record_module_sizes,
+    server::StorageForDeployment,
 };
 
+/// Identifies a module by the source package it was loaded from, so filling
+/// the cache from a downloaded package doesn't need to hash every module in it.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct ModuleCacheKey {
+    deployment_name: String,
+    source_package_sha256: Sha256Digest,
+    module_path: CanonicalizedModulePath,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct CodeCacheKey {
     deployment_name: String,
     module_path: CanonicalizedModulePath,
     sha256: Sha256Digest,
@@ -65,7 +71,7 @@ impl<RT: Runtime> ModuleCache<RT> {
 }
 
 #[derive(Clone)]
-pub(crate) struct CodeCache(Arc<Cache<ModuleCacheKey, Arc<[u8]>>>);
+pub(crate) struct CodeCache(Arc<Cache<CodeCacheKey, Arc<[u8]>>>);
 impl CodeCache {
     pub(crate) fn new() -> Self {
         Self(Arc::new(
@@ -77,16 +83,17 @@ impl CodeCache {
     }
 }
 
-pub(crate) struct FunctionRunnerModuleLoader<RT: Runtime> {
+pub(crate) struct FunctionRunnerModuleLoader<RT: Runtime, S: StorageForDeployment<RT>> {
     pub cache: ModuleCache<RT>,
     pub code_cache: CodeCache,
     pub deployment_name: String,
     pub modules_storage: Arc<dyn Storage>,
+    pub storage: S,
 }
 
-impl<RT: Runtime> FunctionRunnerModuleLoader<RT> {
-    fn cache_key(&self, module_metadata: &ModuleMetadata) -> ModuleCacheKey {
-        ModuleCacheKey {
+impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerModuleLoader<RT, S> {
+    fn code_cache_key(&self, module_metadata: &ModuleMetadata) -> CodeCacheKey {
+        CodeCacheKey {
             deployment_name: self.deployment_name.clone(),
             module_path: module_metadata.path.clone(),
             sha256: module_metadata.sha256.clone(),
@@ -95,38 +102,45 @@ impl<RT: Runtime> FunctionRunnerModuleLoader<RT> {
 }
 
 #[async_trait]
-impl<RT: Runtime> isolate::module_cache::ModuleCache<RT> for FunctionRunnerModuleLoader<RT> {
+impl<RT: Runtime, S: StorageForDeployment<RT>> isolate::module_cache::ModuleCache<RT>
+    for FunctionRunnerModuleLoader<RT, S>
+{
     #[fastrace::trace]
     async fn get_module_with_metadata(
         &self,
         module_metadata: &ParsedDocument<ModuleMetadata>,
         source_package: &ParsedDocument<SourcePackage>,
     ) -> anyhow::Result<Arc<V8ModuleSource>> {
-        let key = self.cache_key(module_metadata);
+        let key = ModuleCacheKey {
+            deployment_name: self.deployment_name.clone(),
+            source_package_sha256: source_package.sha256.clone(),
+            module_path: module_metadata.path.clone(),
+        };
         let result = self
             .cache
             .0
             .get_and_prepopulate(&key, || {
                 let deployment_name = self.deployment_name.clone();
                 let modules_storage = self.modules_storage.clone();
+                let storage = self.storage.clone();
                 let source_package = source_package.clone();
+                let source_package_sha256 = source_package.sha256.clone();
                 let fetch_key = (self.deployment_name.clone(), source_package.sha256.clone());
                 (
                     fetch_key,
                     try_join("get_modules_and_prefetch", async move {
                         let _timer = module_load_timer("package");
-                        let package = download_package(modules_storage, &source_package).await?;
+                        let package = storage
+                            .download_package(modules_storage, &source_package)
+                            .await?;
                         Ok(package
                             .into_iter()
                             .map(move |(module_path, module_config)| {
                                 (
                                     ModuleCacheKey {
                                         deployment_name: deployment_name.clone(),
+                                        source_package_sha256: source_package_sha256.clone(),
                                         module_path,
-                                        sha256: hash_module_source(
-                                            &module_config.source,
-                                            module_config.source_map.as_ref(),
-                                        ),
                                     },
                                     Arc::new(V8ModuleSource::new(FullModuleSource {
                                         source: module_config.source,
@@ -149,11 +163,11 @@ impl<RT: Runtime> isolate::module_cache::ModuleCache<RT> for FunctionRunnerModul
     fn put_cached_code(&self, module_metadata: &ModuleMetadata, cached_data: Arc<[u8]>) {
         self.code_cache
             .0
-            .insert(self.cache_key(module_metadata), cached_data);
+            .insert(self.code_cache_key(module_metadata), cached_data);
         crate::metrics::record_code_cache_size(self.code_cache.0.weighted_size());
     }
 
     fn get_cached_code(&self, module_metadata: &ModuleMetadata) -> Option<Arc<[u8]>> {
-        self.code_cache.0.get(&self.cache_key(module_metadata))
+        self.code_cache.0.get(&self.code_cache_key(module_metadata))
     }
 }
