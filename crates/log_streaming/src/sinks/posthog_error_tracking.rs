@@ -255,20 +255,24 @@ impl<RT: Runtime> PostHogErrorTrackingSink<RT> {
                 .map(|v| v.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
 
+            let mut exception = json!({
+                "type": "Error",
+                "value": error.message,
+                "mechanism": { "handled": false, "type": "generic" },
+            });
+            if !frames.is_empty() {
+                exception["stacktrace"] = json!({
+                    "type": "raw",
+                    "frames": frames,
+                });
+            }
+
             let capture_event = json!({
                 "event": "$exception",
                 "distinct_id": distinct_id,
                 "timestamp": timestamp_str,
                 "properties": {
-                    "$exception_list": [{
-                        "type": "Error",
-                        "value": error.message,
-                        "mechanism": { "handled": false, "type": "generic" },
-                        "stacktrace": {
-                            "type": "raw",
-                            "frames": frames,
-                        }
-                    }],
+                    "$exception_list": [exception],
                     "$exception_level": "error",
                     "$exception_types": ["Error"],
                     "$exception_values": [error.message],
