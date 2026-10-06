@@ -434,22 +434,28 @@ impl<RT: Runtime> DatabaseUdfInnerProvider<RT> for DatabaseUdfSyscallProvider<RT
         let user_execution_time = execution_time.elapsed;
 
         let success_result_value = result.as_ref().ok();
-        let parsed_args =
-            parse_pending_udf_args(&self.path.udf_path, args.udf_args.clone().into_args()?)?;
         let mut log_lines = self.log_lines;
-        add_warnings_to_log_lines(
-            &self.path.clone().for_logging(),
-            &parsed_args,
-            execution_time,
-            self.phase.execution_size()?,
-            self.phase.biggest_document_writes()?,
-            success_result_value,
-            |warning| {
-                // Note: accessing the current time here is still deterministic since
-                // we don't externalize the time to the function.
-                log_lines.push(warning.into_log_line(self.rt.unix_timestamp()));
-            },
-        )?;
+        // System functions receive their arguments unparsed and check them in
+        // JS, so arguments that don't parse (e.g. an array over the length
+        // limit) have already failed the function before it did any work, and
+        // there's nothing to warn about.
+        if let Ok(parsed_args) =
+            parse_pending_udf_args(&self.path.udf_path, args.udf_args.clone().into_args()?)
+        {
+            add_warnings_to_log_lines(
+                &self.path.clone().for_logging(),
+                &parsed_args,
+                execution_time,
+                self.phase.execution_size()?,
+                self.phase.biggest_document_writes()?,
+                success_result_value,
+                |warning| {
+                    // Note: accessing the current time here is still deterministic since
+                    // we don't externalize the time to the function.
+                    log_lines.push(warning.into_log_line(self.rt.unix_timestamp()));
+                },
+            )?;
+        }
         let memory_in_mb = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
             .try_into()
             .unwrap();

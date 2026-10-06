@@ -1,4 +1,5 @@
 use common::json::JsonForm as _;
+use errors::ErrorMetadata;
 use model::{
     modules::function_validators::ArgsValidator,
     virtual_system_mapping,
@@ -37,7 +38,14 @@ pub fn op_validate_args<P: OpProvider>(
         .into_iter()
         .map(PendingValue::from_uncommitted_json)
         .collect::<anyhow::Result<Vec<_>>>()
-        .map_err(|err| anyhow::anyhow!(format!("{}", err)))?;
+        // Arguments come from the caller, so a conversion failure (e.g. an array
+        // over the length limit) is a user error.
+        .map_err(|err| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidArguments",
+                format!("Invalid arguments: {err}"),
+            ))
+        })?;
 
     let table_mapping = provider.get_all_table_mappings()?;
     match args_validator.check_pending_args(args_vec, &table_mapping, virtual_system_mapping())? {

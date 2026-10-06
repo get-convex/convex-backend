@@ -741,12 +741,15 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let execution_time = timeout.into_function_execution_time(UdfType::Action);
         let user_execution_time = execution_time.elapsed;
         let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
-        let udf_args = parse_udf_args(&path.udf_path, arguments.clone().into_args()?)?;
-        self.add_warnings_to_log_lines_action(
-            execution_time,
-            &udf_args,
-            result.as_ref().ok().and_then(|r| r.as_ref().ok()),
-        )?;
+        // Arguments that don't parse have already failed the action before it did
+        // any work, so there's nothing to warn about.
+        if let Ok(udf_args) = parse_udf_args(&path.udf_path, arguments.clone().into_args()?) {
+            self.add_warnings_to_log_lines_action(
+                execution_time,
+                &udf_args,
+                result.as_ref().ok().and_then(|r| r.as_ref().ok()),
+            )?;
+        }
         let outcome = ActionOutcome {
             path: path.for_logging(),
             arguments,
