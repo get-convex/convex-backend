@@ -5,11 +5,16 @@ import type {
   ActiveDataSyncSnapshotting,
 } from "@convex-dev/platform/deploymentApi";
 import { mocked, screen, userEvent, waitFor, within } from "storybook/test";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  ConnectedDeploymentContext,
+  DeploymentInfoContext,
+} from "@common/lib/deploymentContext";
+import { AnalyticsIntegration } from "@common/lib/integrationHelpers";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { useActiveDataSyncs } from "@common/features/settings/lib/api";
 import { Sheet } from "@ui/Sheet";
 import { PanelCard } from "./PanelCard";
+import { S3ExportConfigurationForm } from "./S3ExportConfigurationForm";
 
 const minutesAgo = (minutes: number) => Date.now() - minutes * 60 * 1000;
 // The API reports database timestamps in nanoseconds since the epoch.
@@ -331,4 +336,156 @@ export const FivetranSyncProgressFlagOff: Story = {
       throw new Error("listed active syncs while the flag is off");
     }
   },
+};
+
+type S3Integration = Extract<AnalyticsIntegration, { kind: "s3Export" }>;
+type S3Progress = NonNullable<
+  NonNullable<S3Integration["existing"]>["config"]["progress"]
+>;
+
+const connectedDeployment = {
+  deployment: {
+    deploymentName: "wandering-fish-513",
+    deploymentUrl: "https://wandering-fish-513.convex.cloud",
+    adminKey: "",
+  },
+  isDisconnected: false,
+} as unknown as ContextType<typeof ConnectedDeploymentContext>;
+
+function s3Export(progress: S3Progress | undefined): S3Integration {
+  return {
+    kind: "s3Export",
+    existing: {
+      _id: "s3export" as never,
+      _creationTime: minutesAgo(60 * 24),
+      status: { type: "active" },
+      config: {
+        type: "s3Export",
+        bucket: "acme-analytics",
+        region: "us-west-2",
+        prefix: "convex",
+        accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+        selection: {},
+        period: "daily",
+        progress,
+      },
+    },
+  };
+}
+
+// The S3 card and form read the deployment's name and its API helpers.
+function S3Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <DeploymentInfoContext.Provider
+      value={mockDeploymentInfo as ContextType<typeof DeploymentInfoContext>}
+    >
+      <ConnectedDeploymentContext.Provider value={connectedDeployment}>
+        {children}
+      </ConnectedDeploymentContext.Provider>
+    </DeploymentInfoContext.Provider>
+  );
+}
+
+const s3Render: Story["render"] = (args) => (
+  <S3Providers>
+    <PanelCard {...args} />
+  </S3Providers>
+);
+
+export const S3ExportStarting: Story = {
+  name: "S3 Export Starting",
+  args: { integration: s3Export(undefined) },
+  render: s3Render,
+  play: async ({ canvasElement }) => {
+    await within(canvasElement).findByText("Starting first sync");
+  },
+};
+
+export const S3ExportSnapshotting: Story = {
+  name: "S3 Export Snapshotting",
+  args: {
+    integration: s3Export({
+      type: "snapshotting",
+      numTablesSynced: BigInt(2),
+      totalTables: BigInt(11),
+      currentComponent: "",
+      currentTable: "games",
+      numDocumentsInCurrentTable: BigInt(12_000),
+      totalDocumentsInCurrentTable: BigInt(40_000),
+      numDocumentsSynced: BigInt(32_400),
+      totalDocuments: BigInt(60_584),
+    }),
+  },
+  render: s3Render,
+};
+
+export const S3ExportUpToDate: Story = {
+  name: "S3 Export Up To Date",
+  args: {
+    integration: s3Export({
+      type: "upToDate",
+      ts: BigInt(nanos(minutesAgo(4 * 60))),
+    }),
+  },
+  render: s3Render,
+};
+
+export const S3ExportDetailModal: Story = {
+  ...S3ExportUpToDate,
+  name: "S3 Export Detail Modal",
+  play: async ({ canvasElement }) => {
+    await userEvent.click(
+      await within(canvasElement).findByRole("button", {
+        name: "Show S3 export details",
+      }),
+    );
+    const dialog = within(await screen.findByTestId("modal"));
+    await dialog.findByText(
+      "s3://acme-analytics/convex/wandering-fish-513/tables/",
+    );
+    await dialog.findByText("wandering_fish_513");
+  },
+};
+
+// A failed export reads as failed, even though its last progress was a
+// successful sync.
+export const S3ExportFailed: Story = {
+  name: "S3 Export Failed",
+  args: {
+    integration: {
+      kind: "s3Export",
+      existing: {
+        ...s3Export({ type: "upToDate", ts: BigInt(nanos(minutesAgo(60))) })
+          .existing!,
+        status: { type: "failed", reason: "AccessDenied on glue:GetDatabase" },
+      },
+    },
+  },
+  render: s3Render,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByText("Failed");
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Show S3 export details" }),
+    );
+    const dialog = within(await screen.findByTestId("modal"));
+    await dialog.findByText("AccessDenied on glue:GetDatabase");
+    if (dialog.queryByText("Up to date")) {
+      throw new Error("labelled a failed export as up to date");
+    }
+  },
+};
+
+export const S3ExportSetupForm: Story = {
+  name: "S3 Export Setup Form",
+  render: () => (
+    <S3Providers>
+      <div className="flex h-192 w-2xl flex-col">
+        <S3ExportConfigurationForm
+          integration={{ kind: "s3Export", existing: null }}
+          onClose={() => {}}
+        />
+      </div>
+    </S3Providers>
+  ),
 };

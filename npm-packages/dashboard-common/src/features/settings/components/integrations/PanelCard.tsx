@@ -34,6 +34,7 @@ import { FivetranSyncStatus } from "./FivetranSyncProgress";
 import { IntegrationTitle } from "./IntegrationTitle";
 import { IntegrationOverflowMenu } from "./IntegrationOverflowMenu";
 import { IntegrationStatus } from "./IntegrationStatus";
+import { S3ExportStatus } from "./S3ExportStatus";
 import { AxiomConfigurationForm } from "./AxiomConfigurationForm";
 import { DatadogConfigurationForm } from "./DatadogConfigurationForm";
 import { SentryConfigurationForm } from "./SentryConfigurationForm";
@@ -191,7 +192,11 @@ export function PanelCard({
             }
           />
           <div className="flex items-center gap-4">
-            <IntegrationStatus integration={integration} />
+            {integration.kind === "s3Export" && integration.existing ? (
+              <S3ExportStatus existing={integration.existing} />
+            ) : (
+              <IntegrationStatus integration={integration} />
+            )}
             {unavailableReason === "MissingEntitlement" ? (
               <ProBadge teamSlug={teamSlug} />
             ) : (
@@ -352,7 +357,7 @@ function renderForm(
         <LogIntegrationSidePanel
           closeModal={closeModal}
           title="Configure Streaming Export to AWS S3"
-          description="Mirror this deployment's data into an S3 bucket you own, in Apache Iceberg format, so it can be queried by your analytics engine."
+          description="Export this deployment's change log to an S3 bucket you own."
         >
           {(closePanel) => (
             <S3ExportConfigurationForm

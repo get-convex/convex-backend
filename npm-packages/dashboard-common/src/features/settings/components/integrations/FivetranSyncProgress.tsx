@@ -29,6 +29,17 @@ import { HealthLabel } from "./HealthIndicator";
 // deployment-wide active sync listing down to this integration.
 const FIVETRAN_SYNC_ID_PREFIX = "fivetran-";
 
+// Counts are optional after the snapshot because an S3 export stores only a
+// timestamp by then.
+export type SyncStatus =
+  | ActiveDataSyncSnapshotting
+  | {
+      type: "stale" | "upToDate";
+      syncedTs: number;
+      totalTables?: number;
+      numDocumentsSynced?: number;
+    };
+
 // The backend drops a sync 3 days after its most recent page. Past the halfway
 // mark, a sync is idle enough that its presence in the list needs explaining.
 const IDLE_SYNC_MS = 1.5 * 24 * 60 * 60 * 1000;
@@ -81,7 +92,7 @@ function ActiveFivetranSyncsButton({ syncs }: { syncs: ActiveDataSync[] }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   // Several syncs have no single status between them, so the card counts them
   // and leaves the per-sync detail to the modal.
-  const summary = syncs.length === 1 ? summarize(syncs[0]) : undefined;
+  const summary = syncs.length === 1 ? summarize(syncs[0].status) : undefined;
   return (
     <>
       <Button
@@ -119,18 +130,26 @@ export function FivetranSyncProgress({ syncs }: { syncs: ActiveDataSync[] }) {
   return (
     <div className="flex flex-col gap-4 py-3">
       {syncs.map((sync) => (
-        <SyncProgress key={sync.syncId} sync={sync} />
+        <SyncProgress
+          key={sync.syncId}
+          status={sync.status}
+          isIdle={Date.now() - sync.lastUpdated > IDLE_SYNC_MS}
+        />
       ))}
     </div>
   );
 }
 
-function SyncProgress({ sync }: { sync: ActiveDataSync }) {
-  const { status } = sync;
+export function SyncProgress({
+  status,
+  isIdle = false,
+}: {
+  status: SyncStatus;
+  isIdle?: boolean;
+}) {
   // Traversing tables for the first time and streaming later changes are both
   // "the data isn't current yet", so they read as one state.
   const isSyncing = status.type !== "upToDate";
-  const isIdle = Date.now() - sync.lastUpdated > IDLE_SYNC_MS;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -171,11 +190,18 @@ function SyncProgress({ sync }: { sync: ActiveDataSync }) {
       {status.type === "snapshotting" && (
         <SnapshotProgressBar status={status} />
       )}
-      <p className="text-xs text-content-secondary">
-        {status.type === "snapshotting"
-          ? snapshotDetail(status)
-          : `${formatNumber(status.totalTables)} ${status.totalTables === 1 ? "table" : "tables"} · ${formatNumber(status.numDocumentsSynced)} documents synced`}
-      </p>
+      {status.type === "snapshotting" ? (
+        <p className="text-xs text-content-secondary">
+          {snapshotDetail(status)}
+        </p>
+      ) : (
+        status.totalTables !== undefined &&
+        status.numDocumentsSynced !== undefined && (
+          <p className="text-xs text-content-secondary">
+            {`${formatNumber(status.totalTables)} ${status.totalTables === 1 ? "table" : "tables"} · ${formatNumber(status.numDocumentsSynced)} documents synced`}
+          </p>
+        )
+      )}
     </div>
   );
 }
@@ -226,21 +252,21 @@ function snapshotDetail(status: ActiveDataSyncSnapshotting): string {
  * card shows. Only a sync that has caught up counts as "Active": until then
  * the data a consumer can read is behind the deployment.
  */
-function summarize(sync: ActiveDataSync): {
+export function summarize(status: SyncStatus): {
   type: "active" | "pending";
   label: string;
   detail: string;
 } {
-  if (sync.status.type === "snapshotting") {
+  if (status.type === "snapshotting") {
     return {
       type: "pending",
       label: "Syncing",
-      detail: snapshotProgressLabel(sync.status),
+      detail: snapshotProgressLabel(status),
     };
   }
   // `syncedTs` is nanoseconds since the epoch.
-  const syncedAt = distanceToNow(sync.status.syncedTs / 1e6);
-  return sync.status.type === "stale"
+  const syncedAt = distanceToNow(status.syncedTs / 1e6);
+  return status.type === "stale"
     ? {
         type: "pending",
         label: "Syncing",
