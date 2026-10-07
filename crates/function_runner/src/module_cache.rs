@@ -11,6 +11,7 @@ use common::{
         FUNRUN_MODULE_QUEUE_SIZE,
     },
     runtime::{
+        propagate_tracing,
         try_join,
         Runtime,
     },
@@ -128,28 +129,36 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> isolate::module_cache::ModuleCach
                 let fetch_key = (self.deployment_name.clone(), source_package.sha256.clone());
                 (
                     fetch_key,
-                    try_join("get_modules_and_prefetch", async move {
-                        let _timer = module_load_timer("package");
-                        let package = storage
-                            .download_package(modules_storage, &source_package)
-                            .await?;
-                        Ok(package
-                            .into_iter()
-                            .map(move |(module_path, module_config)| {
-                                (
-                                    ModuleCacheKey {
-                                        deployment_name: deployment_name.clone(),
-                                        source_package_sha256: source_package_sha256.clone(),
-                                        module_path,
-                                    },
-                                    Arc::new(V8ModuleSource::new(FullModuleSource {
-                                        source: module_config.source,
-                                        source_map: module_config.source_map,
-                                    })),
-                                )
-                            })
-                            .collect())
-                    }),
+                    // async_lru polls this future from its own task, which only
+                    // inherits the fastrace span. Reattaching the caller's
+                    // tracing span (the isolate worker's, which records
+                    // `instance_name`) puts the deployment's name on the logs
+                    // emitted while downloading the package.
+                    try_join(
+                        "get_modules_and_prefetch",
+                        propagate_tracing(async move {
+                            let _timer = module_load_timer("package");
+                            let package = storage
+                                .download_package(modules_storage, &source_package)
+                                .await?;
+                            Ok(package
+                                .into_iter()
+                                .map(move |(module_path, module_config)| {
+                                    (
+                                        ModuleCacheKey {
+                                            deployment_name: deployment_name.clone(),
+                                            source_package_sha256: source_package_sha256.clone(),
+                                            module_path,
+                                        },
+                                        Arc::new(V8ModuleSource::new(FullModuleSource {
+                                            source: module_config.source,
+                                            source_map: module_config.source_map,
+                                        })),
+                                    )
+                                })
+                                .collect())
+                        }),
+                    ),
                 )
             })
             .await?;
