@@ -6984,7 +6984,6 @@ dependencies = [
  "iceberg-catalog-glue",
  "iceberg-storage-opendal",
  "parquet",
- "sha2 0.10.8",
  "tokio",
  "uuid",
 ]

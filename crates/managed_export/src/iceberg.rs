@@ -58,7 +58,7 @@ pub struct Change {
 
 /// Every revision is a row; readers take the latest `ts` per `_id` and skip
 /// deleted rows.
-pub fn change_log_schema() -> Result<Schema> {
+pub(crate) fn change_log_schema() -> Result<Schema> {
     Ok(Schema::builder()
         .with_fields(vec![
             NestedField::required(1, "_id", Type::Primitive(PrimitiveType::String)).into(),
@@ -72,7 +72,11 @@ pub fn change_log_schema() -> Result<Schema> {
 /// Appends `changes` to `table` as one snapshot. On a conflict the commit
 /// reloads the table and reapplies the append, so concurrent writers both land
 /// and a retried page can repeat rows; readers deduplicate on (`_id`, `ts`).
-pub async fn append(catalog: &dyn Catalog, table: &Table, changes: &[Change]) -> Result<Table> {
+pub(crate) async fn append(
+    catalog: &dyn Catalog,
+    table: &Table,
+    changes: &[Change],
+) -> Result<Table> {
     let schema = table.metadata().current_schema().clone();
     let batch = RecordBatch::try_new(
         Arc::new(schema_to_arrow_schema(&schema)?),

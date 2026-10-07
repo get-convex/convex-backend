@@ -13,7 +13,6 @@ arrow_iceberg = { package = "arrow-array", version = "58" }
 iceberg = "=0.10.1"
 iceberg-catalog-glue = "=0.10.1"
 parquet_iceberg = { package = "parquet", version = "58", default-features = false }
-sha2 = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]

@@ -433,6 +433,22 @@ fn resolve_name(
     Ok((component_path, table_name))
 }
 
+pub fn selected_tables<RT: Runtime>(
+    db_snapshot: &DatabaseSnapshot<RT>,
+    filter: &StreamingExportFilter,
+) -> anyhow::Result<Vec<(ComponentPath, TableName)>> {
+    let snapshot = &db_snapshot.snapshot;
+    let table_mapping = snapshot.table_mapping();
+    let component_paths = snapshot.component_ids_to_paths();
+    let mut tables = vec![];
+    for (tablet_id, ..) in table_mapping.iter() {
+        if table_included(filter, tablet_id, table_mapping, &component_paths)? {
+            tables.push(resolve_name(snapshot, &component_paths, tablet_id)?);
+        }
+    }
+    Ok(tables)
+}
+
 /// Mint a fresh sync id for a cold start, tagged with the integration that
 /// issued it so `/data/list_active_syncs` can tell syncs apart.
 fn new_sync_id<RT: Runtime>(runtime: &RT, sync_client: DataSyncClient) -> String {
