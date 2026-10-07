@@ -35,6 +35,12 @@ Practically speaking, a component is defined in a folder containing a
  └-- …folders/files.ts  # Queries, mutations, and actions for the component.
 ```
 
+Module paths are the component's API: apps call a `send` mutation defined in
+`component/messages.ts` as `components.myComponent.messages.send`. A component
+with a single module often names it `lib.ts`. If your component has more than
+one module, name each after the object it deals with, such as `messages.ts` or
+`jobs.ts`.
+
 The component's `convex.config.ts` file configures the component's default name
 and child components.
 
