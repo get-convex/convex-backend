@@ -21,6 +21,8 @@ export function IntegrationOverflowMenu({
   onConfigure,
   disabled = false,
   disabledTip,
+  configureDisabled = false,
+  configureDisabledTip,
 }: {
   integration:
     | LogIntegration
@@ -29,12 +31,16 @@ export function IntegrationOverflowMenu({
   onConfigure: () => void;
   disabled?: boolean;
   disabledTip?: ReactNode;
+  configureDisabled?: boolean;
+  configureDisabledTip?: ReactNode;
 }) {
   const deleteLogStream = useDeleteLogStream();
   const updateLogStream = useUpdateLogStream();
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const logStreamId = integration.existing?._id;
   const existingIntegration = integration.existing;
+  const cannotConfigure = disabled || configureDisabled;
+  const cannotConfigureTip = disabled ? disabledTip : configureDisabledTip;
   const webhookConfig =
     integration.kind === "webhook"
       ? (integration.existing?.config ?? null)
@@ -71,8 +77,8 @@ export function IntegrationOverflowMenu({
       >
         <MenuItem
           action={onConfigure}
-          disabled={disabled}
-          tip={disabled ? disabledTip : undefined}
+          disabled={cannotConfigure}
+          tip={cannotConfigure ? cannotConfigureTip : undefined}
           tipSide="left"
         >
           Configure
@@ -115,10 +121,10 @@ export function IntegrationOverflowMenu({
       size="xs"
       icon={<PlusIcon />}
       variant="neutral"
-      tip={disabled ? disabledTip : "Configure Integration"}
+      tip={cannotConfigure ? cannotConfigureTip : "Configure Integration"}
       tipSide="right"
       onClick={onConfigure}
-      disabled={disabled}
+      disabled={cannotConfigure}
       data-testid="configure-integration"
     />
   );

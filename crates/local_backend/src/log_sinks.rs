@@ -603,6 +603,9 @@ pub async fn create_log_stream(
     Json(args): Json<CreateLogStreamArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     identity.require_operation(keybroker::DeploymentOp::WriteIntegrations)?;
+    if matches!(&args, CreateLogStreamArgs::S3Export(_)) {
+        identity.require_operation(keybroker::DeploymentOp::ViewData)?;
+    }
     ensure_integration_allowed(&st.application, &identity, &args.sink_type()).await?;
 
     match args {
@@ -1278,6 +1281,9 @@ pub async fn update_log_stream(
         config: sink_config,
         ..
     } = st.application.must_get_log_sink_by_id(&id).await?;
+    if matches!(&sink_config, SinkConfig::S3Export(_)) {
+        identity.require_operation(keybroker::DeploymentOp::ViewData)?;
+    }
     ensure_integration_allowed(&st.application, &identity, &sink_config.sink_type()).await?;
 
     match sink_config {

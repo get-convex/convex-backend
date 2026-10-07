@@ -62,6 +62,8 @@ export type PanelCardProps = {
    *  members without write access can see what's available. */
   writeDisabled?: boolean;
   writeDisabledTip?: React.ReactNode;
+  configureDisabled?: boolean;
+  configureDisabledTip?: React.ReactNode;
 };
 
 function ProBadge({ teamSlug }: { teamSlug?: string }) {
@@ -90,6 +92,8 @@ export function PanelCard({
   onAddedIntegration,
   writeDisabled = false,
   writeDisabledTip,
+  configureDisabled,
+  configureDisabledTip,
 }: PanelCardProps) {
   const classes = classNames(
     "py-3 px-4",
@@ -196,6 +200,8 @@ export function PanelCard({
                 onConfigure={() => setIsModalOpen(true)}
                 disabled={writeDisabled}
                 disabledTip={writeDisabledTip}
+                configureDisabled={configureDisabled}
+                configureDisabledTip={configureDisabledTip}
               />
             )}
           </div>
