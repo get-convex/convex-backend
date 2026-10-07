@@ -356,7 +356,7 @@ function renderForm(
       return (
         <LogIntegrationSidePanel
           closeModal={closeModal}
-          title="Configure Streaming Export to AWS S3"
+          title="Configure AWS S3"
           description="Export this deployment's change log to an S3 bucket you own."
         >
           {(closePanel) => (

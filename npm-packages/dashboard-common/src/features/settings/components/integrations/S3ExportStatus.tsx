@@ -137,11 +137,7 @@ export function S3ExportStatus({ existing }: { existing: S3Export }) {
         <ChevronRightIcon className="text-content-secondary" />
       </Button>
       {isModalOpen && (
-        <Modal
-          onClose={() => setIsModalOpen(false)}
-          title="Streaming export to AWS S3"
-          size="md"
-        >
+        <Modal onClose={() => setIsModalOpen(false)} title="AWS S3" size="md">
           <S3ExportDetails existing={existing} />
         </Modal>
       )}

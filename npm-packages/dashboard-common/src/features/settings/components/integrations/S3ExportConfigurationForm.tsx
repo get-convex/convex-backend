@@ -2,6 +2,7 @@ import { Button } from "@ui/Button";
 import { Link } from "@ui/Link";
 import { TextInput } from "@ui/TextInput";
 import { Combobox, Option } from "@ui/Combobox";
+import { Stepper } from "@ui/Stepper";
 import {
   Disclosure,
   DisclosureButton,
@@ -54,6 +55,13 @@ const bucketSchema = Yup.string()
       !["xn--", "sthree-"].some((p) => value?.startsWith(p)) &&
       !["-s3alias", "--ol-s3"].some((suffix) => value?.endsWith(suffix)),
   );
+
+// The fields each step collects, in step order.
+const STEP_FIELDS = [
+  ["bucket", "region", "prefix"],
+  ["accessKeyId", "secretAccessKey"],
+  ["period"],
+] as const;
 
 export function S3ExportConfigurationForm({
   onClose,
@@ -165,18 +173,46 @@ export function S3ExportConfigurationForm({
       : undefined;
   const { bucket, region, prefix } = formState.values;
   const policy = iamPolicy({ bucket, region, prefix, deploymentName });
-  // The first invalid destination field, which the policy can't be built
-  // without.
-  const destinationError = (["bucket", "region", "prefix"] as const)
-    .map((field) => {
-      try {
-        validationSchema.validateSyncAt(field, formState.values);
-        return undefined;
-      } catch (e) {
-        return e instanceof Yup.ValidationError ? e.message : String(e);
-      }
-    })
-    .find((error) => error !== undefined);
+  // The first invalid field in a step, if any.
+  const stepError = (step: number) =>
+    STEP_FIELDS[step]
+      .map((field) => {
+        try {
+          validationSchema.validateSyncAt(field, formState.values);
+          return undefined;
+        } catch (e) {
+          return e instanceof Yup.ValidationError ? e.message : String(e);
+        }
+      })
+      .find((error) => error !== undefined);
+  // The policy can't be built without a valid destination.
+  const destinationError = stepError(0);
+  // A new export walks through the steps in order. A saved one opens on the
+  // last step, so every earlier step is a click away.
+  const [activeStep, setActiveStep] = useState(
+    isNewIntegration ? 0 : STEP_FIELDS.length - 1,
+  );
+  const continueButton = (step: number) => (
+    <Button
+      variant="neutral"
+      size="sm"
+      className="self-start"
+      onClick={async () => {
+        await formState.setTouched(
+          {
+            ...formState.touched,
+            ...Object.fromEntries(STEP_FIELDS[step].map((f) => [f, true])),
+          },
+          true,
+        );
+        if (stepError(step) === undefined) {
+          setActiveStep(step + 1);
+        }
+      }}
+    >
+      Continue
+    </Button>
+  );
   // The policy the user's IAM user has now, as far as the form knows: the one
   // they last copied, or the one for the saved destination.
   const [copiedPolicy, setCopiedPolicy] = useState<string>();
@@ -196,68 +232,69 @@ export function S3ExportConfigurationForm({
       onSubmit={formState.handleSubmit}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <div className="scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 pb-4">
-        <Section number={1} title="Destination">
-          <TextInput
-            value={bucket}
-            onChange={formState.handleChange}
-            label="Bucket name"
-            placeholder="my-analytics-bucket"
-            id="bucket"
-            error={fieldError("bucket")}
-            onBlur={formState.handleBlur}
-            description="An existing S3 bucket. Convex doesn't create it."
-          />
-          <div className="flex flex-col gap-1">
-            <Combobox
-              label="Region"
-              labelHidden={false}
-              options={AWS_REGIONS}
-              selectedOption={region || null}
-              setSelectedOption={async (value) => {
-                await formState.setFieldValue("region", value ?? "");
-                await formState.setFieldTouched("region", true, false);
-              }}
-              placeholder="Select the bucket's region"
-              allowCustomValue
-              unknownLabel={(value) => value}
-              buttonClasses="w-full bg-inherit"
+      <div className="scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-4">
+        <Stepper activeStep={activeStep} onSelectStep={setActiveStep}>
+          <Stepper.Step label="Destination">
+            <TextInput
+              value={bucket}
+              onChange={formState.handleChange}
+              label="Bucket name"
+              placeholder="my-analytics-bucket"
+              id="bucket"
+              error={fieldError("bucket")}
+              onBlur={formState.handleBlur}
+              description="An existing S3 bucket. Convex doesn't create it."
             />
-            {fieldError("region") && (
-              <p className="text-xs text-content-errorSecondary" role="alert">
-                {fieldError("region")}
+            <div className="flex flex-col gap-1">
+              <Combobox
+                label="Region"
+                labelHidden={false}
+                options={AWS_REGIONS}
+                selectedOption={region || null}
+                setSelectedOption={async (value) => {
+                  await formState.setFieldValue("region", value ?? "");
+                  await formState.setFieldTouched("region", true, false);
+                }}
+                placeholder="Select the bucket's region"
+                allowCustomValue
+                unknownLabel={(value) => value}
+                buttonClasses="w-full bg-inherit"
+              />
+              {fieldError("region") && (
+                <p className="text-xs text-content-errorSecondary" role="alert">
+                  {fieldError("region")}
+                </p>
+              )}
+            </div>
+            <TextInput
+              value={prefix}
+              onChange={formState.handleChange}
+              label="Prefix (optional)"
+              placeholder="convex/"
+              id="prefix"
+              error={fieldError("prefix")}
+              onBlur={formState.handleBlur}
+            />
+            {!destinationError && (
+              <p className="text-xs text-content-secondary">
+                Convex writes Apache Iceberg tables to{" "}
+                <code>
+                  s3://{bucket}/{exportRoot(prefix, deploymentName)}/tables/
+                </code>{" "}
+                and registers them in the AWS Glue database{" "}
+                <code>{glueDatabaseName(deploymentName)}</code>, which Convex
+                creates.
               </p>
             )}
-          </div>
-          <TextInput
-            value={prefix}
-            onChange={formState.handleChange}
-            label="Prefix (optional)"
-            placeholder="convex/"
-            id="prefix"
-            error={fieldError("prefix")}
-            onBlur={formState.handleBlur}
-          />
-          {!destinationError && (
-            <p className="text-xs text-content-secondary">
-              Convex writes Apache Iceberg tables to{" "}
-              <code>
-                s3://{bucket}/{exportRoot(prefix, deploymentName)}/tables/
-              </code>{" "}
-              and registers them in the AWS Glue database{" "}
-              <code>{glueDatabaseName(deploymentName)}</code>, which Convex
-              creates.
-            </p>
-          )}
-        </Section>
-        <Section number={2} title="AWS access">
-          <PolicyActions
-            policy={policy}
-            disabledReason={destinationError}
-            destinationChanged={destinationChanged}
-            onCopied={() => setCopiedPolicy(policy)}
-          >
-            {isNewIntegration && (
+            {continueButton(0)}
+          </Stepper.Step>
+          <Stepper.Step label="AWS access">
+            <PolicyActions
+              policy={policy}
+              disabledReason={destinationError}
+              destinationChanged={destinationChanged}
+              onCopied={() => setCopiedPolicy(policy)}
+            >
               <ol className="flex list-[lower-alpha] flex-col gap-1 pl-4 text-xs text-content-secondary">
                 <li>
                   In the bucket's AWS account,{" "}
@@ -279,54 +316,55 @@ export function S3ExportConfigurationForm({
                   the secret only once.
                 </li>
               </ol>
-            )}
-          </PolicyActions>
-          <TextInput
-            value={formState.values.accessKeyId}
-            onChange={formState.handleChange}
-            label="Access Key ID"
-            placeholder="AKIAIOSFODNN7EXAMPLE"
-            id="accessKeyId"
-            error={fieldError("accessKeyId")}
-            onBlur={formState.handleBlur}
-            description={
-              isNewIntegration
-                ? undefined
-                : "To use a new key, create one under the IAM user's Security credentials and enter both values."
-            }
-          />
-          <TextInput
-            value={formState.values.secretAccessKey}
-            onChange={formState.handleChange}
-            type={showSecretAccessKey ? "text" : "password"}
-            label={
-              isNewIntegration
-                ? "Secret Access Key"
-                : "Secret Access Key (stored)"
-            }
-            id="secretAccessKey"
-            className="max-w-full"
-            placeholder={isNewIntegration ? undefined : "Leave blank to keep"}
-            action={() => setShowSecretAccessKey(!showSecretAccessKey)}
-            Icon={showSecretAccessKey ? EyeNoneIcon : EyeOpenIcon}
-            iconTooltip={
-              showSecretAccessKey
-                ? "Hide secret access key"
-                : "Show secret access key"
-            }
-            error={fieldError("secretAccessKey")}
-            onBlur={formState.handleBlur}
-            description="Permissions can take a minute to apply. Convex retries automatically."
-          />
-        </Section>
-        <Section number={3} title="Frequency">
-          <SyncPeriodSelector
-            value={formState.values.period}
-            onChange={async (period) => {
-              await formState.setFieldValue("period", period);
-            }}
-          />
-        </Section>
+            </PolicyActions>
+            <TextInput
+              value={formState.values.accessKeyId}
+              onChange={formState.handleChange}
+              label="Access Key ID"
+              placeholder="AKIAIOSFODNN7EXAMPLE"
+              id="accessKeyId"
+              error={fieldError("accessKeyId")}
+              onBlur={formState.handleBlur}
+              description={
+                isNewIntegration
+                  ? undefined
+                  : "To use a new key, create one under the IAM user's Security credentials and enter both values."
+              }
+            />
+            <TextInput
+              value={formState.values.secretAccessKey}
+              onChange={formState.handleChange}
+              type={showSecretAccessKey ? "text" : "password"}
+              label={
+                isNewIntegration
+                  ? "Secret Access Key"
+                  : "Secret Access Key (stored)"
+              }
+              id="secretAccessKey"
+              className="max-w-full"
+              placeholder={isNewIntegration ? undefined : "Leave blank to keep"}
+              action={() => setShowSecretAccessKey(!showSecretAccessKey)}
+              Icon={showSecretAccessKey ? EyeNoneIcon : EyeOpenIcon}
+              iconTooltip={
+                showSecretAccessKey
+                  ? "Hide secret access key"
+                  : "Show secret access key"
+              }
+              error={fieldError("secretAccessKey")}
+              onBlur={formState.handleBlur}
+              description="Permissions can take a minute to apply. Convex retries automatically."
+            />
+            {continueButton(1)}
+          </Stepper.Step>
+          <Stepper.Step label="Frequency">
+            <SyncPeriodSelector
+              value={formState.values.period}
+              onChange={async (period) => {
+                await formState.setFieldValue("period", period);
+              }}
+            />
+          </Stepper.Step>
+        </Stepper>
       </div>
       <div className="flex items-center justify-end gap-2 px-6 py-4">
         {formState.status?.error && (
@@ -345,6 +383,17 @@ export function S3ExportConfigurationForm({
           variant="primary"
           type="submit"
           aria-label="save"
+          onClick={async () => {
+            // Open the first step with an error, since the others are
+            // collapsed.
+            const errors = await formState.validateForm();
+            const step = STEP_FIELDS.findIndex((fields) =>
+              fields.some((field) => errors[field]),
+            );
+            if (step !== -1) {
+              setActiveStep(step);
+            }
+          }}
           disabled={!formState.dirty || formState.isSubmitting}
           loading={formState.isSubmitting}
         >
@@ -352,28 +401,6 @@ export function S3ExportConfigurationForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-function Section({
-  number,
-  title,
-  children,
-}: {
-  number: number;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h5 className="flex items-center gap-2">
-        <span className="flex size-5 items-center justify-center rounded-full border text-xs">
-          {number}
-        </span>
-        {title}
-      </h5>
-      {children}
-    </section>
   );
 }
 

@@ -160,7 +160,7 @@ export const ConfigureDatadog: Story = {
 export const ConfigureS3Export: Story = {
   render: () => renderIntegrations({ s3ExportIntegrationEnabled: true }),
   play: async ({ canvasElement }) => {
-    await openConfigure(canvasElement, "Streaming Export to AWS S3");
+    await openConfigure(canvasElement, "AWS S3");
   },
 };
 

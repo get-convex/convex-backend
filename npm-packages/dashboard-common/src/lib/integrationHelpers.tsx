@@ -401,7 +401,7 @@ export const integrationName = (kind: IntegrationType) => {
     case "postHogErrorTracking":
       return "PostHog Error Tracking";
     case "s3Export":
-      return "Streaming Export to AWS S3";
+      return "AWS S3";
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
