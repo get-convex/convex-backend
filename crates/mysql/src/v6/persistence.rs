@@ -512,39 +512,6 @@ impl<RT: Runtime> Reader<RT> {
                 .acquire("v6_index_scan", &self.inner.db_name)
                 .await?;
             let bounds = self.log_bucket_bounds(&mut connection).await?;
-            // Buckets below the floor may be dropped and are not unioned. That
-            // is exact unless a commit between the snapshot and the floor
-            // displaced a revision the snapshot needs; then the snapshot is out
-            // of retention however stale the validator's floor is. Commits are
-            // found through the documents table, which `write` requires of
-            // every supersession. Any commit of the deployment counts: the
-            // displaced rows are in buckets no longer unioned, so the commit is
-            // the only trace left.
-            if snapshot_bucket < bounds.floor {
-                stats.sql_statements += 1;
-                let displaced_since_snapshot = connection
-                    .query_optional(
-                        sql::HAS_COMMIT_BETWEEN,
-                        vec![
-                            self.inner.deployment_id.into(),
-                            Value::Int(i64::from(read_timestamp)),
-                            Value::Int(i64::from(bounds.floor.start_ts()?)),
-                        ],
-                    )
-                    .await?
-                    .is_some();
-                if displaced_since_snapshot {
-                    cover!(super::coverage::OUT_OF_RETENTION);
-                    return Err(out_of_retention_error(
-                        read_timestamp,
-                        format!(
-                            "a later commit displaced revisions into a log bucket below the \
-                             maintenance floor {}",
-                            bounds.floor.value()
-                        ),
-                    ));
-                }
-            }
             stats.sql_statements += 1;
             let buckets = bounds.covering(snapshot_bucket);
             let prepare_timer =
@@ -593,6 +560,36 @@ impl<RT: Runtime> Reader<RT> {
                 Err(error) => return Err(error),
             };
             execute_timer.finish();
+            // Check after reading the page to include concurrent displacements.
+            // Below the floor, any later commit may have displaced a revision
+            // into an omitted bucket. `write` requires a document revision for
+            // every displacement, so the documents table provides this check
+            // even after the bucket is dropped.
+            if snapshot_bucket < bounds.floor {
+                stats.sql_statements += 1;
+                let displaced_since_snapshot = connection
+                    .query_optional(
+                        sql::HAS_COMMIT_BETWEEN,
+                        vec![
+                            self.inner.deployment_id.into(),
+                            Value::Int(i64::from(read_timestamp)),
+                            Value::Int(i64::from(bounds.floor.start_ts()?)),
+                        ],
+                    )
+                    .await?
+                    .is_some();
+                if displaced_since_snapshot {
+                    cover!(super::coverage::OUT_OF_RETENTION);
+                    return Err(out_of_retention_error(
+                        read_timestamp,
+                        format!(
+                            "a later commit displaced revisions into a log bucket below the \
+                             maintenance floor {}",
+                            bounds.floor.value()
+                        ),
+                    ));
+                }
+            }
             drop(connection);
             let retention_validate_timer =
                 metrics::retention_validate_timer(self.inner.pool.cluster_name());
