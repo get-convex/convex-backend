@@ -19,9 +19,6 @@ pub enum SyncDestination {
         endpoint_url: Option<String>,
         access_key_id: String,
         secret_access_key: String,
-        /// Names the Glue database together with the instance; `None` uses the
-        /// instance alone.
-        project_name: Option<String>,
     },
     /// A Convex-owned bucket, whose location the writer derives itself.
     Managed,

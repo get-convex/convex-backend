@@ -11,19 +11,16 @@ use common::{
 use database::Database;
 use exports::interface::ExportProvider;
 use keybroker::Identity;
-use model::{
-    backend_info::BackendInfoModel,
-    log_sinks::{
-        types::{
-            s3_export::{
-                S3ExportProgress,
-                SyncPeriod,
-            },
-            SinkConfig,
-            SinkType,
+use model::log_sinks::{
+    types::{
+        s3_export::{
+            S3ExportProgress,
+            SyncPeriod,
         },
-        LogSinksModel,
+        SinkConfig,
+        SinkType,
     },
+    LogSinksModel,
 };
 use streaming_export::{
     managed::{
@@ -78,10 +75,6 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         let export = LogSinksModel::new(&mut tx)
             .get_by_provider(SinkType::S3Export)
             .await?;
-        let project_name = BackendInfoModel::new(&mut tx)
-            .get()
-            .await?
-            .and_then(|info| info.project_name.clone());
         let token = tx.into_token()?;
         let Some(export) = export else {
             self.database
@@ -105,7 +98,6 @@ impl<RT: Runtime> S3ExportWorker<RT> {
                     endpoint_url: None,
                     access_key_id: config.access_key_id.0.clone(),
                     secret_access_key: config.secret_access_key.0.clone(),
-                    project_name,
                 },
                 SyncFormat::Iceberg,
                 &config.selection,
