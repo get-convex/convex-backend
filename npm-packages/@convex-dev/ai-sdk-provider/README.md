@@ -114,6 +114,32 @@ Image request costs are available in
 `result.calls[i].providerMetadata.convexGateway.cost`, in US dollars. Each call
 may generate multiple images; the cost is for the call, not each image.
 
+## Transcribe and generate speech
+
+Speech-to-text and text-to-speech are in alpha.
+
+```ts
+import {
+  experimental_generateSpeech as generateSpeech,
+  experimental_transcribe as transcribe,
+} from "ai";
+import { convexGateway } from "@convex-dev/ai-sdk-provider";
+
+const { text, providerMetadata } = await transcribe({
+  model: convexGateway.transcriptionModel("openai/whisper-large-v3-turbo"),
+  audio: recordingBytes,
+});
+const cost = providerMetadata.convexGateway?.cost;
+
+const { audio } = await generateSpeech({
+  model: convexGateway.speechModel("openai/gpt-4o-mini-tts"),
+  text: "Your order has shipped.",
+  voice: "alloy",
+});
+```
+
+Speech results carry no cost. The gateway records it after the call.
+
 ## Generate videos
 
 Video generation is in alpha. APIs may change, and completion callbacks are best

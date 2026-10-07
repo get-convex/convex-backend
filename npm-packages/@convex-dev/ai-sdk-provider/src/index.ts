@@ -11,6 +11,7 @@ import {
 } from "ai";
 import { getServiceToken } from "convex/server";
 import { createEvaluationModel } from "./evaluation-model.js";
+import { createTranscriptionModel } from "./transcription-model.js";
 import { createVideoModel } from "./video-model.js";
 
 type Provider = ReturnType<typeof createOpenAICompatible>;
@@ -224,6 +225,30 @@ convexGateway.imageModel = function (modelId: string): ImageModel {
       };
     },
   };
+};
+
+/** Speech-to-text for the AI SDK's `experimental_transcribe`. */
+convexGateway.transcriptionModel = function (modelId: string) {
+  return createTranscriptionModel(
+    modelId,
+    gatewayBaseURL(),
+    gatewayFetch,
+    convexGatewayUsageMetadata,
+  );
+};
+
+/**
+ * Text-to-speech for the AI SDK's `experimental_generateSpeech`. The gateway
+ * reports speech cost after the call, so results carry no cost metadata.
+ */
+convexGateway.speechModel = function (modelId: string) {
+  const provider = createOpenAI({
+    name: "convexGateway.speech",
+    baseURL: gatewayBaseURL(),
+    apiKey: placeholderCredential,
+    fetch: (input, init) => gatewayModelFetch(modelId, input, init),
+  });
+  return provider.speech(modelId);
 };
 
 /** Video generation for the AI SDK's `experimental_generateVideo`. */
