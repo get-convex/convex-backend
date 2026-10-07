@@ -198,6 +198,10 @@ impl<RT: Runtime> IndexWorker<RT> {
             .query_system(TableNamespace::Global, &SystemIndex::<IndexTable>::by_id())?
             .all()
             .await?;
+        let existing_index_ids: HashSet<IndexId, ahash::RandomState> = index_documents
+            .iter()
+            .map(|index_metadata| index_metadata.id().internal_id().into())
+            .collect();
         let mut num_to_backfill = 0;
         let mut model = IndexBackfillModel::new(&mut tx);
         for index_metadata in &index_documents {
@@ -228,6 +232,26 @@ impl<RT: Runtime> IndexWorker<RT> {
             tx.begin_timestamp()
         );
 
+        // Cancel backfills for indexes that no longer exist
+        self.pending.retain(|(index_id, tablet_id, _)| {
+            let exists = existing_index_ids.contains(index_id);
+            if !exists {
+                tracing::info!(
+                    "Dropping pending backfill of dropped index {index_id} on tablet {tablet_id}"
+                );
+            }
+            exists
+        });
+        self.in_progress.abort_matching(|index_ids| {
+            let abort = !index_ids
+                .iter()
+                .any(|index_id| existing_index_ids.contains(index_id));
+            if abort {
+                tracing::info!("Cancelling backfill of dropped indexes {index_ids:?}");
+            }
+            abort
+        });
+
         let token = tx.into_token()?;
 
         // Start new work if allowed by the concurrency limit
@@ -249,9 +273,16 @@ impl<RT: Runtime> IndexWorker<RT> {
                 for &index_id in &index_ids {
                     self.in_progress_index_ids.remove(&index_id);
                 }
-                // If backfill tasks are failing, return an error here so that we back off
-                docs_indexed += res??;
-                tracing::info!("Finished backfilling {index_ids:?}");
+                match res {
+                    Err(e) if e.is_cancelled() => {
+                        tracing::info!("Cancelled backfilling {index_ids:?}");
+                    },
+                    res => {
+                        // If backfill tasks are failing, return an error here so that we back off
+                        docs_indexed += res??;
+                        tracing::info!("Finished backfilling {index_ids:?}");
+                    },
+                }
                 // Return so that we possibly queue up more work
             }
             maybe_progress = self.progress_rx.recv() => {
@@ -286,9 +317,16 @@ impl<RT: Runtime> IndexWorker<RT> {
                     cursor.developer_id,
                 );
                 for index_id in index_ids {
+                    let Some(existing_backfill_metadata) =
+                        model.existing_backfill_metadata_for_index(index_id).await?
+                    else {
+                        // The index was dropped while its backfill was running.
+                        tracing::info!("Skipping backfill progress for dropped index {index_id}");
+                        continue;
+                    };
                     model
                         .update_database_index_backfill_progress(
-                            index_id,
+                            &existing_backfill_metadata,
                             tablet_id,
                             num_docs_indexed,
                             cursor
