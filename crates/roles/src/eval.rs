@@ -8,9 +8,14 @@ use keybroker::{
     DeploymentOp,
     Identity,
 };
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 use super::types::{
-    ActionPattern,
+    ComponentSelector,
+    ConcreteComponent,
     ConcreteDeployment,
     ConcreteProject,
     ConcreteResource,
@@ -19,9 +24,11 @@ use super::types::{
     CustomRole,
     DeploymentSelector,
     ProjectSelector,
+    ResourceKind,
     ResourceSegment,
     ResourceSpecifier,
     RolePolicyAction,
+    RoleStatement,
     RoleStatementAction,
     RoleStatementEffect,
     TokenSelector,
@@ -60,6 +67,23 @@ impl TokenSelector {
         match self {
             TokenSelector::Any => true,
             TokenSelector::Creator(c) => token.creator == Some(c.resolve(actor)),
+        }
+    }
+}
+
+impl ComponentSelector {
+    /// Matches against the canonical component path (root app = `""`).
+    pub fn matches(&self, component: &ConcreteComponent) -> bool {
+        match self {
+            ComponentSelector::Any => true,
+            ComponentSelector::Path(p) => component.path == *p,
+            // A prefix written with a trailing `/` (`path=foo/*`) also selects
+            // the component at the prefix itself, so `foo/` covers `foo` and
+            // its whole subtree while still excluding `foobar`.
+            ComponentSelector::PathStartsWith(prefix) => {
+                component.path.starts_with(prefix.as_str())
+                    || prefix.strip_suffix('/') == Some(component.path.as_str())
+            },
         }
     }
 }
@@ -106,6 +130,9 @@ impl ResourceSegment {
                 DeploymentSelector::Type(t) => *t == DeploymentType::Dev,
                 DeploymentSelector::Creator(c) => *owner == c.resolve(actor),
             }),
+            (ResourceSegment::Component(selectors), ConcreteSegment::Component(component)) => {
+                selectors.iter().any(|s| s.matches(component))
+            },
             (ResourceSegment::Member, ConcreteSegment::Member) => true,
             (ResourceSegment::Token(selectors), ConcreteSegment::Token(token)) => {
                 selectors.iter().any(|s| s.matches(token, actor))
@@ -127,17 +154,31 @@ impl ResourceSegment {
 }
 
 impl ResourceSpecifier {
+    fn leaf_kind(&self) -> Option<ResourceKind> {
+        self.segments.last().map(|s| s.kind())
+    }
+
     /// Returns true if this specifier matches the given concrete resource.
-    /// Requires exact segment count match (no parent-matches-child).
+    ///
+    /// Requires an exact segment count match, with one parent-matches-child
+    /// exception: a specifier ending at a deployment also matches a component
+    /// of that deployment, so a `project:*:deployment:*` grant
+    /// covers every component.
     fn matches(&self, resource: &ConcreteResource, actor: MemberId) -> bool {
-        if self.segments.len() != resource.segments.len() {
+        let deployment_covers_component = self.segments.len() + 1 == resource.segments.len()
+            && self.leaf_kind() == Some(ResourceKind::Deployment)
+            && resource.segments.last().map(|s| s.kind()) == Some(ResourceKind::Component);
+        if self.segments.len() != resource.segments.len() && !deployment_covers_component {
             return false;
         }
-        self.segments
-            .iter()
-            .zip(resource.segments.iter())
-            .all(|(spec_seg, concrete_seg)| spec_seg.matches(concrete_seg, actor))
+        segments_match(&self.segments, &resource.segments, actor)
     }
+}
+
+fn segments_match(spec: &[ResourceSegment], concrete: &[ConcreteSegment], actor: MemberId) -> bool {
+    spec.iter()
+        .zip(concrete.iter())
+        .all(|(spec_seg, concrete_seg)| spec_seg.matches(concrete_seg, actor))
 }
 
 impl CustomRole {
@@ -172,24 +213,27 @@ impl CustomRole {
 /// by a [`RoleStatementAction`] so it can be applied to actions that have no
 /// [`RolePolicyAction`] counterpart yet, and by an iterator so it can flatten
 /// statements across multiple roles.
-fn evaluate_statements<'a>(
-    statements: impl IntoIterator<Item = &'a super::types::RoleStatement>,
+pub(crate) fn evaluate_statements<'a>(
+    statements: impl IntoIterator<Item = &'a RoleStatement>,
     action: RoleStatementAction,
     resource: &ConcreteResource,
     actor: MemberId,
 ) -> AccessDecision {
     let leaf_kind = resource.segments.last().map(|s| s.kind());
-    if leaf_kind != Some(action.resource_kind()) {
+    let leaf_matches_action = match leaf_kind {
+        Some(kind) if kind == action.resource_kind() => true,
+        // A component resource is only meaningful for the deployment actions
+        // that can be narrowed to a component.
+        Some(ResourceKind::Component) => action.is_component_scopable(),
+        _ => false,
+    };
+    if !leaf_matches_action {
         return AccessDecision::Denied;
     }
 
     let mut any_allow = false;
     for rule in statements {
-        let action_match = match &rule.actions {
-            ActionPattern::Wildcard => true,
-            ActionPattern::Specific(actions) => actions.contains(&action),
-        };
-        if action_match && rule.resource.matches(resource, actor) {
+        if rule.covers_action(action) && rule.resource.matches(resource, actor) {
             match rule.effect {
                 RoleStatementEffect::Deny => return AccessDecision::Denied,
                 RoleStatementEffect::Allow => any_allow = true,
@@ -302,11 +346,18 @@ impl RequireDeploymentOp for Identity {
     }
 }
 
-/// Returns the [`DeploymentOp`]s that `roles` collectively allow on
-/// `deployment` (which lives under `project`). Roles are additive: an op is
-/// allowed if *any* role evaluates to `Allowed` for it. Within a single role,
-/// `Deny` still overrides `Allow` (per [`CustomRole::evaluate`]), but a `Deny`
-/// in one role does not override an `Allow` in another.
+/// Returns the [`DeploymentOp`]s that `roles` collectively allow
+/// deployment-wide on `deployment` (which lives under `project`). Roles are
+/// additive: an op is allowed if *any* role evaluates to `Allowed` for it.
+/// Within a single role, `Deny` still overrides `Allow` (per
+/// [`CustomRole::evaluate`]), but a `Deny` in one role does not override an
+/// `Allow` in another.
+///
+/// An op a role denies on any component of the deployment is left out of this
+/// list for that role, even though the role allows it elsewhere in the
+/// deployment: callers treat the list as "allowed everywhere", so a partially
+/// denied op must not appear. Component-level access is instead described by
+/// [`component_op_rules`].
 pub fn allowed_deployment_ops(
     roles: &[CustomRole],
     project: &ConcreteProject,
@@ -341,7 +392,151 @@ pub fn allowed_deployment_ops_for_resource(
             roles.iter().any(|role| {
                 evaluate_statements(role.statements.iter(), action, resource, actor)
                     == AccessDecision::Allowed
+                    && !has_component_scoped_deny(role, action, resource, actor)
             })
         })
         .collect()
+}
+
+/// Whether `role` has a `Deny` statement for `action` on some component of
+/// `resource` (a `[Project, Deployment]`-shaped resource). The component
+/// selectors are irrelevant here: any such statement means the op is not
+/// allowed deployment-wide.
+fn has_component_scoped_deny(
+    role: &CustomRole,
+    action: RoleStatementAction,
+    resource: &ConcreteResource,
+    actor: MemberId,
+) -> bool {
+    role.statements.iter().any(|stmt| {
+        stmt.effect == RoleStatementEffect::Deny
+            && stmt.leaf_kind() == Some(ResourceKind::Component)
+            && stmt.resource.segments.len() == resource.segments.len() + 1
+            && stmt.covers_action(action)
+            && segments_match(&stmt.resource.segments, &resource.segments, actor)
+    })
+}
+
+/// The [`DeploymentOp`]s whose actions are component-scopable, in
+/// [`ALL_DEPLOYMENT_OPS`] order.
+fn component_scopable_ops() -> impl Iterator<Item = DeploymentOp> {
+    ALL_DEPLOYMENT_OPS
+        .iter()
+        .copied()
+        .filter(|op| deployment_op_action(*op).is_some_and(|action| action.is_component_scopable()))
+}
+
+/// One statement of a custom role, reduced to what matters for a component of
+/// a particular deployment: which component-scopable ops it covers and which
+/// components it selects. The project and deployment segments have already
+/// been matched away by [`component_op_rules`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComponentOpRule {
+    pub effect: RoleStatementEffect,
+    /// Never empty; a statement that covers no component-scopable op produces
+    /// no rule.
+    pub ops: Vec<DeploymentOp>,
+    /// OR'd, like the selectors of a resource segment. A statement whose leaf
+    /// is the deployment itself becomes `[ComponentSelector::Any]`.
+    pub selectors: Vec<ComponentSelector>,
+}
+
+/// The residual component-level rules of a single custom role for a single
+/// deployment. Kept per role so that [`evaluate_component_op_rules`] can apply
+/// deny-overrides-allow within the role without letting a deny in one role
+/// override an allow in another.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComponentOpRoleRules {
+    pub rules: Vec<ComponentOpRule>,
+}
+
+impl ComponentOpRule {
+    fn matches(&self, op: DeploymentOp, component: &ConcreteComponent) -> bool {
+        self.ops.contains(&op) && self.selectors.iter().any(|s| s.matches(component))
+    }
+}
+
+impl ComponentOpRoleRules {
+    fn evaluate(&self, op: DeploymentOp, component: &ConcreteComponent) -> AccessDecision {
+        let mut any_allow = false;
+        for rule in &self.rules {
+            if rule.matches(op, component) {
+                match rule.effect {
+                    RoleStatementEffect::Deny => return AccessDecision::Denied,
+                    RoleStatementEffect::Allow => any_allow = true,
+                }
+            }
+        }
+        if any_allow {
+            AccessDecision::Allowed
+        } else {
+            AccessDecision::Denied
+        }
+    }
+}
+
+pub fn component_op_rules(
+    roles: &[CustomRole],
+    project: &ConcreteProject,
+    deployment: &ConcreteDeployment,
+    actor: MemberId,
+) -> Vec<ComponentOpRoleRules> {
+    let parent_segments = [
+        ConcreteSegment::Project(project.clone()),
+        ConcreteSegment::Deployment(deployment.clone()),
+    ];
+    roles
+        .iter()
+        .filter_map(|role| {
+            let rules: Vec<ComponentOpRule> = role
+                .statements
+                .iter()
+                .filter_map(|stmt| component_op_rule(stmt, &parent_segments, actor))
+                .collect();
+            (!rules.is_empty()).then_some(ComponentOpRoleRules { rules })
+        })
+        .collect()
+}
+
+fn component_op_rule(
+    stmt: &RoleStatement,
+    parent_segments: &[ConcreteSegment; 2],
+    actor: MemberId,
+) -> Option<ComponentOpRule> {
+    let selectors = match stmt.resource.segments.as_slice() {
+        [_, _] if stmt.leaf_kind() == Some(ResourceKind::Deployment) => {
+            vec![ComponentSelector::Any]
+        },
+        [_, _, ResourceSegment::Component(selectors)] => selectors.clone(),
+        _ => return None,
+    };
+    if !segments_match(&stmt.resource.segments, parent_segments, actor) {
+        return None;
+    }
+    let ops: Vec<DeploymentOp> = component_scopable_ops()
+        .filter(|op| deployment_op_action(*op).is_some_and(|action| stmt.covers_action(action)))
+        .collect();
+    (!ops.is_empty()).then_some(ComponentOpRule {
+        effect: stmt.effect,
+        ops,
+        selectors,
+    })
+}
+
+pub fn evaluate_component_op_rules(
+    roles: &[ComponentOpRoleRules],
+    op: DeploymentOp,
+    component_path: &str,
+) -> AccessDecision {
+    let component = ConcreteComponent {
+        path: component_path.to_string(),
+    };
+    if roles
+        .iter()
+        .any(|role| role.evaluate(op, &component) == AccessDecision::Allowed)
+    {
+        AccessDecision::Allowed
+    } else {
+        AccessDecision::Denied
+    }
 }

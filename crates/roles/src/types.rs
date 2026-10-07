@@ -48,7 +48,7 @@ pub(crate) enum TokenSelector {
 /// matched as a string (the canonical slash-joined path; the root app component
 /// is `""`). A leading `/` on the written path is optional and ignored.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) enum ComponentSelector {
+pub enum ComponentSelector {
     /// `*` — every component in the deployment.
     Any,
     /// `path=foo/bar` — exactly this component (`path=/` selects the root app
@@ -1186,6 +1186,18 @@ impl RoleStatementAction {
             _ => None,
         }
     }
+
+    pub fn is_component_scopable(&self) -> bool {
+        use RoleStatementAction as A;
+        matches!(
+            self,
+            A::ViewData
+                | A::WriteData
+                | A::RunInternalQueries
+                | A::RunInternalMutations
+                | A::RunInternalActions
+        )
+    }
 }
 
 /// A parsed resource specifier describing which resources a rule applies to.
@@ -1290,10 +1302,28 @@ pub struct RoleStatement {
 }
 
 impl RoleStatement {
+    pub(crate) fn leaf_kind(&self) -> Option<ResourceKind> {
+        self.resource.segments.last().map(|s| s.kind())
+    }
+
+    /// Whether this statement's action pattern applies to `action`, taking
+    /// into account that on a `component` leaf the wildcard spans only the
+    /// component-scopable actions.
+    pub(crate) fn covers_action(&self, action: RoleStatementAction) -> bool {
+        let pattern_match = match &self.actions {
+            ActionPattern::Wildcard => true,
+            ActionPattern::Specific(actions) => actions.contains(&action),
+        };
+        pattern_match
+            && (self.leaf_kind() != Some(ResourceKind::Component) || action.is_component_scopable())
+    }
+
     /// Validates that every action in this rule targets the same resource kind
     /// as the leaf segment of the resource specifier. For token actions, also
     /// requires the parent segment kind to match the action's token scope so
-    /// e.g. `team:*:token:*` rejects `createProjectAccessToken`.
+    /// e.g. `team:*:token:*` rejects `createProjectAccessToken`. A `component`
+    /// leaf is the one place an action may target a *parent* kind: it accepts
+    /// exactly the component-scopable deployment actions.
     pub fn validate(&self) -> anyhow::Result<()> {
         let leaf_kind = self
             .resource
@@ -1324,7 +1354,14 @@ impl RoleStatement {
                     anyhow::bail!("Duplicate action {action} in statement");
                 }
                 let action_kind = action.resource_kind();
-                if action_kind != leaf_kind {
+                if leaf_kind == ResourceKind::Component {
+                    if !action.is_component_scopable() {
+                        anyhow::bail!(
+                            "Action {action} cannot be scoped to a component; a statement \
+                             granting it must target a deployment"
+                        );
+                    }
+                } else if action_kind != leaf_kind {
                     anyhow::bail!(
                         "Action {action} targets {action_kind} resources, but statement resource \
                          specifier targets {leaf_kind}"
@@ -1368,6 +1405,11 @@ pub struct ConcreteDeployment {
     pub creator: Option<MemberId>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConcreteComponent {
+    pub path: String,
+}
+
 /// Minimal representation of an access token needed for custom role
 /// enforcement. Carries only the fields token selectors read so callers
 /// don't have to materialize a full access token just to evaluate a rule.
@@ -1406,6 +1448,7 @@ pub enum ConcreteSegment {
     LocalDeployment {
         owner: MemberId,
     },
+    Component(ConcreteComponent),
     Member,
     Token(ConcreteToken),
     CustomRole,
@@ -1427,6 +1470,7 @@ impl ConcreteSegment {
             ConcreteSegment::Deployment(_)
             | ConcreteSegment::ProposedDeployment { .. }
             | ConcreteSegment::LocalDeployment { .. } => ResourceKind::Deployment,
+            ConcreteSegment::Component(_) => ResourceKind::Component,
             ConcreteSegment::Member => ResourceKind::Member,
             ConcreteSegment::Token(_) => ResourceKind::Token,
             ConcreteSegment::CustomRole => ResourceKind::CustomRole,
@@ -1474,6 +1518,10 @@ impl ConcreteSegment {
             ConcreteSegment::LocalDeployment { owner } => {
                 Some(format!("type=dev, creator={owner}"))
             },
+            // Render the root app component as `/`, matching how it is
+            // written in a selector (`path=/`).
+            ConcreteSegment::Component(c) if c.path.is_empty() => Some("path=/".to_string()),
+            ConcreteSegment::Component(c) => Some(format!("path={}", c.path)),
             ConcreteSegment::Token(t) => {
                 let creator = match t.creator {
                     Some(m) => m.to_string(),
