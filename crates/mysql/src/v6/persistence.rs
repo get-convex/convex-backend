@@ -7,6 +7,7 @@ use std::{
     sync::{
         atomic::{
             AtomicBool,
+            AtomicI64,
             Ordering,
         },
         Arc,
@@ -21,7 +22,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     cover,
-    errors::lease_lost_error,
+    errors::{
+        database_operational_error,
+        lease_lost_error,
+    },
     index::{
         IndexKeyBytes,
         MAX_INDEX_KEY_PREFIX_LEN,
@@ -137,6 +141,7 @@ struct Inner<RT: Runtime> {
     db_name: String,
     deployment_id: PersistenceDeploymentId,
     fresh: AtomicBool,
+    published_ceiling: AtomicI64,
     engine: IndexEngine,
 }
 
@@ -202,6 +207,7 @@ impl<RT: Runtime> Persistence<RT> {
                 db_name,
                 deployment_id,
                 fresh: AtomicBool::new(fresh),
+                published_ceiling: AtomicI64::new(0),
                 engine: IndexEngine::new(deployment_id),
             }),
             lease,
@@ -290,6 +296,7 @@ impl<RT: Runtime> Persistence<RT> {
                 db_name,
                 deployment_id,
                 fresh: AtomicBool::new(false),
+                published_ceiling: AtomicI64::new(0),
                 engine: IndexEngine::new(deployment_id),
             }),
         })
@@ -332,6 +339,34 @@ impl<RT: Runtime> Persistence<RT> {
             .query_optional(sql::HAS_LATEST_ROW, vec![self.inner.deployment_id.into()])
             .await?
             .is_some())
+    }
+
+    /// Publication precedes every displacement into a bucket. The ceiling only
+    /// advances, so a cached ceiling remains safe across maintenance rounds.
+    async fn ensure_published_bucket(&self, ts: Timestamp) -> anyhow::Result<()> {
+        let ts = i64::from(ts);
+        if ts < self.inner.published_ceiling.load(Ordering::Relaxed) {
+            return Ok(());
+        }
+        let mut connection = self
+            .inner
+            .pool
+            .acquire("v6_write_ceiling", &self.inner.db_name)
+            .await?;
+        let row = connection
+            .query_optional(sql::READ_LOG_BUCKET_BOUNDS, vec![])
+            .await?
+            .context("MySQL V6 log bucket maintenance state is missing")?;
+        let ceiling: i64 = row.get_opt(0).context("created_through_ts")??;
+        self.inner
+            .published_ceiling
+            .fetch_max(ceiling, Ordering::Relaxed);
+        if ts >= self.inner.published_ceiling.load(Ordering::Relaxed) {
+            return Err(database_operational_error(anyhow::anyhow!(
+                "MySQL V6 index displacement at {ts} awaits log bucket publication"
+            )));
+        }
+        Ok(())
     }
 
     fn document_params(&self, update: &DocumentLogEntry) -> anyhow::Result<Vec<Value>> {
@@ -733,6 +768,9 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
                 "MySQL V6 index write replaces an entry of document {document_id} at {ts} without \
                  that document revision"
             );
+        }
+        if let Some(ts) = batch.replacement_commits().map(|(ts, _)| ts).max() {
+            self.ensure_published_bucket(ts).await?;
         }
         let cluster_name = self.inner.pool.cluster_name();
         self.lease

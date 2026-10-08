@@ -84,9 +84,10 @@ SET lease_owner = ?, lease_expires_ts = ?
 WHERE id = 1 AND (lease_expires_ts <= ? OR lease_owner = ?)
 "#;
 
+// Writers cache the published ceiling, so it must remain monotonic.
 const PUBLISH_STATE: &str = r#"
 UPDATE @db_name.indexes_maintenance_state
-SET created_through_ts = ?,
+SET created_through_ts = GREATEST(created_through_ts, ?),
     oldest_kept_ts = GREATEST(oldest_kept_ts, ?),
     last_run_ts = ?,
     last_run_status = 'ok'
