@@ -364,6 +364,28 @@ impl DatabaseSchema {
             .any(|table| table.staged_document_type.is_some())
     }
 
+    /// Check a new document against the staged validator for its table, if
+    /// any. Unlike `check_new_document`, this ignores the `schema_validation`
+    /// flag: staged validation asks whether documents satisfy the *proposed*
+    /// validator, independent of whether the current schema is enforced.
+    pub fn check_new_document_against_staged(
+        &self,
+        doc: &ResolvedDocument,
+        table_name: TableName,
+        table_mapping: &NamespacedTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
+    ) -> Result<(), SchemaEnforcementError> {
+        let Some(staged_schema) = self.staged_schema_for_table(&table_name) else {
+            return Ok(());
+        };
+        staged_schema
+            .check_value(&doc.value().0, table_mapping, virtual_system_mapping)
+            .map_err(|validation_error| SchemaEnforcementError::Document {
+                validation_error,
+                table_name,
+            })
+    }
+
     fn check_value(
         &self,
         doc: &ResolvedDocument,

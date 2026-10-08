@@ -49,6 +49,7 @@ use crate::{
     TableModel,
     TableShape,
     Transaction,
+    ValidationState,
 };
 
 pub const SCHEMAS_TABLE: TableName = TableName::const_new("_schemas");
@@ -165,15 +166,23 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         table_mapping_for_schema: &NamespacedTableMapping,
     ) -> anyhow::Result<()> {
         let table_name = table_mapping_for_schema.tablet_name(document.id().tablet_id)?;
-        if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await?
-            && let Err(schema_error) = active_schema.check_new_document(
+        if let Some((active_id, active_schema)) = self.get_by_state(SchemaState::Active).await? {
+            if let Err(schema_error) = active_schema.check_new_document(
                 document,
                 table_name.clone(),
                 table_mapping_for_schema,
                 self.tx.virtual_system_mapping(),
+            ) {
+                anyhow::bail!(schema_error.to_error_metadata());
+            }
+            self.check_write_against_staged(
+                active_id,
+                &active_schema,
+                document,
+                &table_name,
+                table_mapping_for_schema,
             )
-        {
-            anyhow::bail!(schema_error.to_error_metadata());
+            .await?;
         }
         let pending_schema = self.get_by_state(SchemaState::Pending).await?;
         let validated_schema = self.get_by_state(SchemaState::Validated).await?;
@@ -182,18 +191,71 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             (Some((id, in_progress_schema)), None) | (None, Some((id, in_progress_schema))) => {
                 if let Err(enforcement_error) = in_progress_schema.check_new_document(
                     document,
-                    table_name,
+                    table_name.clone(),
                     table_mapping_for_schema,
                     self.tx.virtual_system_mapping(),
                 ) {
                     self.mark_failed(id, enforcement_error.into()).await?;
                 }
+                // Staged validation runs from the moment a schema is
+                // submitted, so its validations need the same write checks
+                // as the active schema's.
+                self.check_write_against_staged(
+                    id,
+                    &in_progress_schema,
+                    document,
+                    &table_name,
+                    table_mapping_for_schema,
+                )
+                .await?;
             },
             (Some(_), Some(_)) => {
                 anyhow::bail!("Invalid schema state: both pending and validated schemas exist")
             },
         }
 
+        Ok(())
+    }
+
+    /// A staged violation fails `schema_id`'s validation for the table in the
+    /// document transaction. Conforming writes avoid validation reads.
+    /// Failures touch only the validation, so worker counter flushes cannot
+    /// invalidate the document transaction.
+    #[async_recursion]
+    async fn check_write_against_staged(
+        &mut self,
+        schema_id: ResolvedDocumentId,
+        schema: &DatabaseSchema,
+        document: &ResolvedDocument,
+        table_name: &TableName,
+        table_mapping_for_schema: &NamespacedTableMapping,
+    ) -> anyhow::Result<()> {
+        let Err(enforcement_error) = schema.check_new_document_against_staged(
+            document,
+            table_name.clone(),
+            table_mapping_for_schema,
+            self.tx.virtual_system_mapping(),
+        ) else {
+            return Ok(());
+        };
+        let mut validations = SchemaValidationModel::new(self.tx, self.namespace);
+        let Some(validation) = validations
+            .validation_metadata_for_table(schema_id, table_name)
+            .await?
+        else {
+            return Ok(());
+        };
+        if matches!(validation.state, ValidationState::Failed { .. }) {
+            return Ok(());
+        }
+        let error: SchemaValidationError = enforcement_error.into();
+        tracing::info!(
+            "Write to table {table_name} violates its staged validator; marking its validation \
+             failed: {error}"
+        );
+        validations
+            .mark_failed(schema_id, table_name, error.to_string())
+            .await?;
         Ok(())
     }
 

@@ -6,7 +6,6 @@ use std::sync::{
 };
 
 use common::{
-    bootstrap_model::schema::SchemaState,
     document::{
         ParseDocument,
         ParsedDocument,
@@ -28,7 +27,6 @@ use crate::{
         SystemIndex,
         SystemTable,
     },
-    SchemaModel,
     SchemaValidationMetadata,
     SchemaValidationProgress,
     SchemaValidationProgressModel,
@@ -100,46 +98,6 @@ pub struct SchemaValidationModel<'a, RT: Runtime> {
 impl<'a, RT: Runtime> SchemaValidationModel<'a, RT> {
     pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
         Self { tx, namespace }
-    }
-
-    /// Runs at startup. This version of the backend does not check writes
-    /// against staged validators, so it cannot keep a `Valid` staged attempt
-    /// truthful while it serves writes. Every attempt is deleted: enforced ones
-    /// are recreated by the schema worker when it resumes the pending schema,
-    /// and staged ones for the active schema restart as `Pending` so a later
-    /// upgrade re-proves them instead of trusting stale results.
-    pub async fn reset_for_compatibility(tx: &mut Transaction<RT>) -> anyhow::Result<()> {
-        for namespace in tx
-            .table_mapping()
-            .namespaces_for_name(&SCHEMA_VALIDATIONS_TABLE)
-        {
-            let active = SchemaModel::new(tx, namespace)
-                .get_by_state(SchemaState::Active)
-                .await?
-                .map(|(id, _)| id);
-            let validations = tx
-                .query_system(namespace, &SystemIndex::<SchemaValidationTable>::by_id())?
-                .all()
-                .await?;
-            let mut model = SchemaValidationModel::new(tx, namespace);
-            for validation in validations {
-                model.delete_attempt(validation.id()).await?;
-                if let Some(schema_id) = active
-                    && schema_id.developer_id == validation.schema_id
-                    && validation.validator_hash.is_some()
-                {
-                    model
-                        .start_table_validation(
-                            schema_id,
-                            validation.table_name.clone(),
-                            validation.validator_hash.clone(),
-                            None,
-                        )
-                        .await?;
-                }
-            }
-        }
-        Ok(())
     }
 
     pub async fn validations_for_schema(
