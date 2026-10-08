@@ -147,7 +147,7 @@ export function encodeId(tableNumber: number, internalId: Uint8Array): string {
   }
   if (
     !Number.isInteger(tableNumber) ||
-    tableNumber < 0 ||
+    tableNumber <= 0 ||
     tableNumber > 0xffffffff
   ) {
     throw new InvalidIdError(`Invalid table number ${tableNumber}`);

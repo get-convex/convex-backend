@@ -338,6 +338,8 @@ export type DeploymentInfo = (
   deploymentsURI: string;
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
+  /** Shows schema validation and index backfill progress on the health page. */
+  healthDeployProgressEnabled: boolean;
   s3ExportIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
   /** Whether the Fivetran integration card reports the progress of active

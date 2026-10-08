@@ -66,6 +66,7 @@ export function HealthView({
                     lastBackupTime={lastBackupTime}
                     teamMembers={teamMembers}
                     regions={regions}
+                    showDeployProgress
                   />
                 </DisclosureSection>
               )}

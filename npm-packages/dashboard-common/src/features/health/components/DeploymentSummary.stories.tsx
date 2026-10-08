@@ -6,6 +6,7 @@ import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 import { DeploymentSummary } from "./DeploymentSummary";
+import { BackfillingIndexes, SchemaValidationByTable } from "./DeployProgress";
 
 const mockLastPushEvent = {
   _id: "123" as any,
@@ -25,13 +26,79 @@ const mockClient = mockConvexReactClient()
   )
   .registerQueryFake(udfs.convexCloudUrl.default, () => mockConvexCloudUrl)
   .registerQueryFake(udfs.convexSiteUrl.default, () => mockConvexSiteUrl)
-  .registerQueryFake(udfs.getVersion.default, () => "1.18.0");
+  .registerQueryFake(udfs.getVersion.default, () => "1.18.0")
+  .registerQueryFake(
+    udfs.getSchemas.schemaValidationProgressByTable,
+    () => null,
+  )
+  .registerQueryFake(udfs.indexes.backfilling, () => []);
 
 const mockClientNeverDeployed = mockConvexReactClient()
   .registerQueryFake(udfs.deploymentEvents.lastPushEvent, () => null)
   .registerQueryFake(udfs.convexCloudUrl.default, () => mockConvexCloudUrl)
   .registerQueryFake(udfs.convexSiteUrl.default, () => mockConvexSiteUrl)
-  .registerQueryFake(udfs.getVersion.default, () => "1.18.0");
+  .registerQueryFake(udfs.getVersion.default, () => "1.18.0")
+  .registerQueryFake(
+    udfs.getSchemas.schemaValidationProgressByTable,
+    () => null,
+  )
+  .registerQueryFake(udfs.indexes.backfilling, () => []);
+
+// A deploy still validating a schema and backfilling indexes.
+const mockClientDeploying = mockConvexReactClient()
+  .registerQueryFake(
+    udfs.deploymentEvents.lastPushEvent,
+    () => mockLastPushEvent,
+  )
+  .registerQueryFake(udfs.convexCloudUrl.default, () => mockConvexCloudUrl)
+  .registerQueryFake(udfs.convexSiteUrl.default, () => mockConvexSiteUrl)
+  .registerQueryFake(udfs.getVersion.default, () => "1.18.0")
+  .registerQueryFake(
+    udfs.getSchemas.schemaValidationProgressByTable,
+    (): SchemaValidationByTable => ({
+      numDocsValidated: 432_400,
+      totalDocs: 1_200_000,
+      tables: [
+        {
+          tableName: "books",
+          state: "pending",
+          numDocsValidated: 428_000,
+          totalDocs: 1_190_000,
+        },
+        {
+          tableName: "pages",
+          state: "valid",
+          numDocsValidated: 400,
+          totalDocs: 400,
+        },
+        {
+          tableName: "reviews",
+          state: "pending",
+          numDocsValidated: 4_000,
+          totalDocs: 9_600,
+        },
+      ],
+    }),
+  )
+  .registerQueryFake(
+    udfs.indexes.backfilling,
+    (): BackfillingIndexes => [
+      {
+        tableName: "books",
+        name: "by_author",
+        kind: "database",
+        staged: false,
+        stats: { numDocsIndexed: 380_000, totalDocs: 1_190_000 },
+      },
+      {
+        tableName: "pages",
+        name: "search_body",
+        kind: "search",
+        staged: true,
+        stats: { numDocsIndexed: 12_000, totalDocs: 88_000 },
+      },
+    ],
+  );
 
 const prodDeployment: PlatformDeploymentResponse = {
   id: 1,
@@ -199,6 +266,18 @@ export const ProductionNeverDeployed: Story = {
   ),
 };
 
+export const ProductionDeploying: Story = {
+  render: (args) => (
+    <ConvexProvider client={mockClientDeploying}>
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <div className="max-w-4xl">
+          <DeploymentSummary {...args} showDeployProgress />
+        </div>
+      </DeploymentInfoContext.Provider>
+    </ConvexProvider>
+  ),
+};
+
 export const DevelopmentCloud: Story = {
   args: {
     deployment: devCloudDeployment,
@@ -255,7 +334,12 @@ export const Loading: Story = {
         )
         .registerQueryFake(udfs.convexCloudUrl.default, () => undefined as any)
         .registerQueryFake(udfs.convexSiteUrl.default, () => undefined as any)
-        .registerQueryFake(udfs.getVersion.default, () => undefined as any)}
+        .registerQueryFake(udfs.getVersion.default, () => undefined as any)
+        .registerQueryFake(
+          udfs.getSchemas.schemaValidationProgressByTable,
+          () => undefined as any,
+        )
+        .registerQueryFake(udfs.indexes.backfilling, () => undefined as any)}
     >
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <div className="max-w-4xl">

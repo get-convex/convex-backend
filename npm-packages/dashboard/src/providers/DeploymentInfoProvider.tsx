@@ -157,6 +157,7 @@ export function DeploymentInfoProvider({
     connectionStateCheckIntervalMs,
     s3ExportIntegration,
     showFivetranSyncProgress,
+    healthDeployProgress,
   } = useLaunchDarkly();
   const [, openFeedbackForm] = useFeedbackFormOpen();
   const posthog = usePostHogLib();
@@ -337,6 +338,7 @@ export function DeploymentInfoProvider({
         deploymentsURI,
         isSelfHosted: false,
         workosIntegrationEnabled: true,
+        healthDeployProgressEnabled: healthDeployProgress,
         s3ExportIntegrationEnabled: s3ExportIntegration,
         connectionStateCheckIntervalMs,
         showFivetranSyncProgress,
@@ -359,6 +361,7 @@ export function DeploymentInfoProvider({
     canProveDeploymentMissing,
     cloudDeploymentUrl,
     authRefreshKey,
+    healthDeployProgress,
     s3ExportIntegration,
   ]);
 

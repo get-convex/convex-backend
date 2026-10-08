@@ -38,6 +38,11 @@ import {
   deploymentTypeColorClasses,
   deploymentTypeLabel,
 } from "@common/lib/deploymentTypeColorClasses";
+import {
+  IndexCreationStatus,
+  SchemaValidationStatus,
+  useDeployProgress,
+} from "@common/features/health/components/DeployProgress";
 
 function useLatestConvexVersion(currentVersion: string | undefined) {
   const [hasUpdate, setHasUpdate] = useState(false);
@@ -124,6 +129,7 @@ export function DeploymentSummary({
   lastBackupTime,
   teamMembers,
   regions,
+  showDeployProgress = false,
 }: {
   deployment: PlatformDeploymentResponse;
   teamSlug: string;
@@ -131,11 +137,17 @@ export function DeploymentSummary({
   lastBackupTime?: number | null;
   teamMembers?: Array<{ id: number; name?: string | null; email: string }>;
   regions?: Array<{ name: string; displayName: string }>;
+  showDeployProgress?: boolean;
 }) {
-  const { TeamMemberLink } = useContext(DeploymentInfoContext);
+  const { TeamMemberLink, healthDeployProgressEnabled } = useContext(
+    DeploymentInfoContext,
+  );
   const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canViewData = useIsOperationAllowed("ViewData");
   const canViewBackups = useIsOperationAllowed("ViewBackups");
+  const deployProgress = useDeployProgress(
+    showDeployProgress && healthDeployProgressEnabled,
+  );
 
   const lastPushEvent = useQuery(
     udfs.deploymentEvents.lastPushEvent,
@@ -430,7 +442,16 @@ export function DeploymentSummary({
             )}
           </div>
 
-          {/* Row 4: Expiry warning (ephemeral deployments) */}
+          {/* Row 4: Work the last deploy is still doing. Each line unfolds
+              its progress inline on hover rather than in a popover. */}
+          {deployProgress.schema && (
+            <SchemaValidationStatus schema={deployProgress.schema} />
+          )}
+          {deployProgress.indexes.length > 0 && (
+            <IndexCreationStatus indexes={deployProgress.indexes} />
+          )}
+
+          {/* Row 5: Expiry warning (ephemeral deployments) */}
           {deployment.kind === "cloud" && deployment.expiresAt && (
             <div className="flex items-center gap-2">
               <Tooltip tip="This deployment will be automatically deleted">
@@ -464,7 +485,7 @@ export function DeploymentSummary({
         {/* Deployment URLs (cloud only, hidden when the member lacks
             `deployment:data:view` since the URL queries are gated). */}
         {showUrlPanel && (
-          <div className="flex flex-col justify-center gap-4 rounded-b-lg border-t bg-background-secondary/70 p-2 py-4 lg:rounded-r-lg lg:rounded-bl-none lg:border-t-0 lg:border-l lg:py-3 lg:pl-4">
+          <div className="flex flex-col justify-start gap-4 rounded-b-lg border-t bg-background-secondary/70 p-2 py-4 lg:rounded-r-lg lg:rounded-bl-none lg:border-t-0 lg:border-l lg:py-3 lg:pl-4">
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-content-secondary">
                 Cloud URL

@@ -200,11 +200,12 @@ export type BackfillingIndex = {
   stats: { numDocsIndexed: number; totalDocs: number | null } | null;
 };
 
-/// Every database index still backfilling on a root-component table, sorted
-/// by table then index name. It walks `_index_backfills`, which only holds
-/// in-flight backfills, and fetches each index and table by ID, so it stays
-/// cheap on deployments with thousands of tables and indexes. Search and
-/// vector backfills have no `_index_backfills` document and are not listed.
+/// Every index still backfilling on a root-component table, sorted by table
+/// then index name. It walks `_index_backfills`, which only holds in-flight
+/// backfills, and fetches each index and table by ID, so it stays cheap on
+/// deployments with thousands of tables and indexes. The database index
+/// workers and the search flusher both record progress there, so database,
+/// search and vector backfills are all listed; `kind` tells them apart.
 /// `_index` and `_index_backfills` live only in the root namespace, so this
 /// query takes no component argument.
 export const backfilling = queryPrivateSystem("ViewData")({
