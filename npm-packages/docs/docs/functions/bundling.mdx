@@ -49,9 +49,16 @@ The nature of bundling comes with a few limitations.
 
 ### Code size limits
 
-The total size of your bundled function code in your `convex/` folder is
-**limited to 32MiB (~33.55MB)**. Other platform limits can be found
-[here](/production/state/limits.mdx).
+The total size of your source code and
+[external packages](/functions/bundling.mdx#external-packages) cannot exceed the
+following:
+
+- 90MB (after compression)
+- 230MB (before compression)
+
+Your code bundle is automatically compressed as part of the code push process.
+
+Other platform limits can be found [here](/production/state/limits.mdx).
 
 While this limit in itself is quite high for just source code, certain
 dependencies can quickly make your bundle size cross over this limit,
@@ -91,8 +98,11 @@ You can follow these steps to debug bundle size:
 Code bundled for the Convex runtime will be in the `isolate` directory while
 code bundled for node actions will be in the `node` directory.
 
-Large node dependencies can be eliminated from the bundle by marking them as
-[external packages](/functions/bundling.mdx#external-packages).
+[External packages](/functions/bundling.mdx#external-packages) count towards the
+size limit, but will not be uploaded when pushing code to your deployment.
+Marking large node dependencies as external can make pushing code faster.
+However, external packages are installed in full rather than tree-shaken, so
+marking a dependency as external can increase your total code size.
 
 <Admonition type="tip" title="Upgrade to optimize your bundle">
 
@@ -214,12 +224,6 @@ const { Foo } = SomeModule;
 ```
 
 ### Limitations
-
-The total size of your source code bundle and external packages cannot exceed
-the following:
-
-- 45MB zipped
-- 240MB unzipped
 
 Packages that are known not to work at this time:
 
