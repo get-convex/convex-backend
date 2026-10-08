@@ -1,5 +1,6 @@
 use std::{
     collections::{
+        btree_map::Entry,
         BTreeMap,
         BTreeSet,
     },
@@ -39,7 +40,9 @@ use common::{
         Runtime,
     },
     schemas::{
+        validator::Validator,
         DatabaseSchema,
+        DocumentSchema,
         TableValidationOutcome,
     },
     types::{
@@ -58,11 +61,15 @@ use database::{
     BootstrapComponentsModel,
     IndexModel,
     OccRetryStats,
+    SchemaModel,
     SchemaValidationModel,
+    SchemaValidationWithProgress,
     Snapshot,
+    StagedValidationWithProgress,
     TableShapes,
     Token,
     Transaction,
+    ValidationState,
     WriteSource,
     MAX_OCC_FAILURES,
     SCHEMAS_TABLE,
@@ -1281,6 +1288,19 @@ pub struct ComponentSchemaPrediction {
     pub schema_validation: bool,
     pub tables: Vec<TablePrediction>,
     pub indexes: Vec<IndexPrediction>,
+    /// Staged validators with a pending or valid validation that this push
+    /// throws away. Staging one again later restarts its validation from the
+    /// beginning.
+    pub discarded_staged_validators: Vec<DiscardedStagedValidator>,
+}
+
+#[derive(Debug)]
+pub struct DiscardedStagedValidator {
+    pub table_name: TableName,
+    pub state: StagedValidatorState,
+    /// True when the new schema stages a different validator for the table;
+    /// false when it stages nothing for it at all.
+    pub replaced: bool,
 }
 
 #[derive(Debug)]
@@ -1289,6 +1309,42 @@ pub struct TablePrediction {
     pub outcome: TableValidationOutcome,
     pub num_docs: u64,
     pub size_bytes: u64,
+    /// The table's staged validator under the active schema or an in-progress
+    /// one, whichever validation is further along.
+    pub staged: Option<StagedValidatorState>,
+    /// The active schema's staged validator is still validating, and once it
+    /// finishes, this push's enforced validator could skip the table's walk.
+    pub can_skip_after_staged_validation: bool,
+}
+
+/// How far validation of a staged validator has gotten.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum StagedValidatorState {
+    #[serde(rename_all = "camelCase")]
+    Pending {
+        num_docs_validated: u64,
+        total_docs: Option<u64>,
+    },
+    Valid,
+    Failed {
+        error: String,
+    },
+}
+
+impl From<&SchemaValidationWithProgress> for StagedValidatorState {
+    fn from(staged: &SchemaValidationWithProgress) -> Self {
+        match &staged.validation.state {
+            ValidationState::Pending => Self::Pending {
+                num_docs_validated: staged.progress.num_docs_validated,
+                total_docs: staged.progress.total_docs,
+            },
+            ValidationState::Valid => Self::Valid,
+            ValidationState::Failed { error } => Self::Failed {
+                error: error.clone(),
+            },
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1332,6 +1388,7 @@ async fn predict_component_schema<RT: Runtime>(
             schema_validation: false,
             tables: Vec::new(),
             indexes: Vec::new(),
+            discarded_staged_validators: Vec::new(),
         });
     };
 
@@ -1399,12 +1456,50 @@ async fn predict_component_schema<RT: Runtime>(
         });
     }
 
+    let active = SchemaModel::new(tx, namespace)
+        .get_by_state(SchemaState::Active)
+        .await?;
+    let valid_staged_validators = match &active {
+        Some((active_id, active_schema)) => {
+            SchemaValidationModel::new(tx, namespace)
+                .valid_staged_validators(*active_id, active_schema)
+                .await?
+        },
+        None => BTreeMap::new(),
+    };
+    let staged_validations = staged_validations(tx, namespace, active.as_ref()).await?;
+    let carried_over: BTreeSet<_> = staged_validations
+        .iter()
+        .filter_map(|staged| {
+            let validation = &staged.attempt.validation;
+            let next = new_schema
+                .as_ref()?
+                .staged_schema_for_table(&validation.table_name)?;
+            staged.can_reuse_for(next).then_some((
+                validation.table_name.clone(),
+                validation.validator_hash.clone()?,
+            ))
+        })
+        .collect();
+    let staged_validations: Vec<_> = staged_validations
+        .into_iter()
+        .map(|staged| staged.attempt)
+        .collect();
+    let mut staged_states: BTreeMap<TableName, StagedValidatorState> =
+        most_advanced(&staged_validations, |validation| {
+            Some(validation.validation.table_name.clone())
+        })
+        .into_iter()
+        .map(|(table, validation)| (table, validation.into()))
+        .collect();
+    let still_validating = active_staged_validators_still_validating(
+        active.as_ref().map(|(_, schema)| &**schema),
+        &staged_validations,
+    )?;
+
+    let active_schema = active.map(|(_id, schema)| schema);
     let (schema_validation, tables) = match new_schema {
         Some(schema) => {
-            let (active_schema, valid_staged_validators) =
-                SchemaValidationModel::new(tx, namespace)
-                    .active_schema_with_valid_staged_validators()
-                    .await?;
             let table_mapping = tx.table_mapping().namespace(namespace);
             let virtual_system_mapping = tx.virtual_system_mapping().clone();
             let outcomes = DatabaseSchema::table_validation_outcomes(
@@ -1424,6 +1519,12 @@ async fn predict_component_schema<RT: Runtime>(
                         outcome,
                         num_docs: count.num_values(),
                         size_bytes: count.total_size(),
+                        staged: staged_states.remove(name),
+                        can_skip_after_staged_validation: schema.schema_validation
+                            && still_validating.get(name).is_some_and(|staged| {
+                                Validator::from(Some(staged.clone()))
+                                    .is_subset(&schema.tables[name].document_type.clone().into())
+                            }),
                     })
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
@@ -1431,12 +1532,159 @@ async fn predict_component_schema<RT: Runtime>(
         },
         None => (false, Vec::new()),
     };
+    let mut retained = promoted_staged_validators(&tables, active_schema.as_deref())?;
+    retained.extend(carried_over);
+    let discarded_staged_validators =
+        discarded_staged_validators(&staged_validations, new_schema.as_ref(), &retained);
     Ok(ComponentSchemaPrediction {
         definition_path,
         schema_validation,
         tables,
         indexes,
+        discarded_staged_validators,
     })
+}
+
+/// Validations of staged validators that this push can discard: those under
+/// the active schema, and those under a pending or validated schema, which a
+/// push of any different schema overwrites.
+async fn staged_validations<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+    namespace: TableNamespace,
+    active: Option<&(ResolvedDocumentId, Arc<DatabaseSchema>)>,
+) -> anyhow::Result<Vec<StagedValidationWithProgress>> {
+    let mut schemas: Vec<_> = active.cloned().into_iter().collect();
+    for state in [SchemaState::Pending, SchemaState::Validated] {
+        if let Some(schema) = SchemaModel::new(tx, namespace).get_by_state(state).await? {
+            schemas.push(schema);
+        }
+    }
+    let mut staged = Vec::new();
+    for (schema_id, schema) in schemas {
+        staged.extend(
+            SchemaValidationModel::new(tx, namespace)
+                .staged_validations_with_progress(schema_id, &schema)
+                .await?,
+        );
+    }
+    Ok(staged)
+}
+
+/// Groups `validations` by `key`, keeping the most advanced validation per
+/// key: a valid one, else the one that has checked the most documents. A
+/// table can have a validation under both the active schema and an in-progress
+/// one.
+fn most_advanced<K: Ord>(
+    validations: &[SchemaValidationWithProgress],
+    key: impl Fn(&SchemaValidationWithProgress) -> Option<K>,
+) -> BTreeMap<K, &SchemaValidationWithProgress> {
+    let advancement = |validation: &SchemaValidationWithProgress| {
+        (
+            matches!(validation.validation.state, ValidationState::Valid),
+            validation.progress.num_docs_validated,
+        )
+    };
+    let mut result: BTreeMap<K, &SchemaValidationWithProgress> = BTreeMap::new();
+    for validation in validations {
+        let Some(key) = key(validation) else {
+            continue;
+        };
+        match result.entry(key) {
+            Entry::Vacant(entry) => {
+                entry.insert(validation);
+            },
+            Entry::Occupied(mut entry) => {
+                if advancement(validation) > advancement(entry.get()) {
+                    entry.insert(validation);
+                }
+            },
+        }
+    }
+    result
+}
+
+/// The active schema's staged validators that are still validating, by table.
+/// Once one finishes, a push enforcing a superset of it can skip the table's
+/// walk.
+fn active_staged_validators_still_validating(
+    active_schema: Option<&DatabaseSchema>,
+    staged_validations: &[SchemaValidationWithProgress],
+) -> anyhow::Result<BTreeMap<TableName, DocumentSchema>> {
+    let mut result = BTreeMap::new();
+    let Some(active_schema) = active_schema else {
+        return Ok(result);
+    };
+    for staged in staged_validations {
+        let validation = &staged.validation;
+        if !matches!(validation.state, ValidationState::Pending) {
+            continue;
+        }
+        if let Some(validator) = active_schema.staged_schema_for_table(&validation.table_name)
+            && Some(validator.content_hash()?) == validation.validator_hash
+        {
+            result.insert(validation.table_name.clone(), validator.clone());
+        }
+    }
+    Ok(result)
+}
+
+/// The active schema's validated staged validators that this push promotes,
+/// keyed by table and validator hash. Only the active schema's validator is
+/// promoted; a different one staged for the same table by an in-progress
+/// schema is still discarded.
+fn promoted_staged_validators(
+    tables: &[TablePrediction],
+    active_schema: Option<&DatabaseSchema>,
+) -> anyhow::Result<BTreeSet<(TableName, String)>> {
+    let mut promoted = BTreeSet::new();
+    for table in tables {
+        if matches!(
+            table.outcome,
+            TableValidationOutcome::SupersetOfStagedValidated
+        ) && let Some(validator) =
+            active_schema.and_then(|schema| schema.staged_schema_for_table(&table.name))
+        {
+            promoted.insert((table.name.clone(), validator.content_hash()?));
+        }
+    }
+    Ok(promoted)
+}
+
+/// Staged validators whose pending or valid validation this push throws away,
+/// because `new_schema` neither reuses their validation nor promotes
+/// them. Failed validations are left out: a redeploy retries them from scratch
+/// anyway, so discarding one loses nothing.
+fn discarded_staged_validators(
+    staged_validations: &[SchemaValidationWithProgress],
+    new_schema: Option<&DatabaseSchema>,
+    retained: &BTreeSet<(TableName, String)>,
+) -> Vec<DiscardedStagedValidator> {
+    let by_validator = most_advanced(staged_validations, |staged| {
+        let validation = &staged.validation;
+        if matches!(validation.state, ValidationState::Failed { .. }) {
+            return None;
+        }
+        Some((
+            validation.table_name.clone(),
+            validation.validator_hash.clone()?,
+        ))
+    });
+    let mut discarded = Vec::new();
+    for (key, validation) in by_validator {
+        if retained.contains(&key) {
+            continue;
+        }
+        let (table_name, _) = key;
+        let replaced = new_schema
+            .and_then(|schema| schema.staged_schema_for_table(&table_name))
+            .is_some();
+        discarded.push(DiscardedStagedValidator {
+            table_name,
+            state: validation.into(),
+            replaced,
+        });
+    }
+    discarded
 }
 
 impl From<NodeDependencyJson> for NodeDependency {

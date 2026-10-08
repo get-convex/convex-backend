@@ -11,6 +11,7 @@ use application::deploy_config::{
     IndexChangePrediction,
     IndexPrediction,
     SchemaStatusJson,
+    StagedValidatorState,
     StartPushRequest,
     StartPushResponse,
     TablePrediction,
@@ -217,6 +218,15 @@ pub struct SerializedComponentSchemaPrediction {
     schema_validation: bool,
     tables: Vec<SerializedTablePrediction>,
     indexes: Vec<SerializedIndexPrediction>,
+    discarded_staged_validators: Vec<SerializedDiscardedStagedValidator>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedDiscardedStagedValidator {
+    table_name: String,
+    state: StagedValidatorState,
+    replaced: bool,
 }
 
 #[derive(Serialize)]
@@ -226,6 +236,9 @@ pub struct SerializedTablePrediction {
     outcome: TableValidationOutcome,
     num_docs: u64,
     size_bytes: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    staged: Option<StagedValidatorState>,
+    can_skip_after_staged_validation: bool,
 }
 
 #[derive(Serialize)]
@@ -266,6 +279,15 @@ impl TryFrom<ComponentSchemaPrediction> for SerializedComponentSchemaPrediction 
             schema_validation: value.schema_validation,
             tables: value.tables.into_iter().map(Into::into).collect(),
             indexes: value.indexes.into_iter().map(Into::into).collect(),
+            discarded_staged_validators: value
+                .discarded_staged_validators
+                .into_iter()
+                .map(|discarded| SerializedDiscardedStagedValidator {
+                    table_name: discarded.table_name.to_string(),
+                    state: discarded.state,
+                    replaced: discarded.replaced,
+                })
+                .collect(),
         })
     }
 }
@@ -277,6 +299,8 @@ impl From<TablePrediction> for SerializedTablePrediction {
             outcome: value.outcome,
             num_docs: value.num_docs,
             size_bytes: value.size_bytes,
+            staged: value.staged,
+            can_skip_after_staged_validation: value.can_skip_after_staged_validation,
         }
     }
 }

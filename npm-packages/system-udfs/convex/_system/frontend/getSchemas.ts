@@ -114,6 +114,32 @@ export const schemaValidationProgressByTable = queryPrivateSystem("ViewData")({
   },
 });
 
+export const stagedSchemaValidationProgress = queryPrivateSystem("ViewData")({
+  args: { componentId: v.optional(v.union(v.string(), v.null())) },
+  handler: async function ({ db }) {
+    const active = await getSchemaByState(db, "active");
+    if (!active) return [];
+    const attempts = await db
+      .query("_schema_validations")
+      .withIndex("by_schema_id_and_table_name", (q) =>
+        q.eq("schemaId", active._id),
+      )
+      .collect();
+    const docs = await Promise.all(
+      attempts.map((attempt) => validationProgress(db, attempt)),
+    );
+    return docs
+      .filter((doc) => doc.validatorHash !== undefined)
+      .map((doc) => ({
+        tableName: doc.tableName,
+        state: doc.state,
+        numDocsValidated: Number(doc.numDocsValidated),
+        totalDocs: doc.totalDocs === null ? null : Number(doc.totalDocs),
+      }))
+      .sort((a, b) => a.tableName.localeCompare(b.tableName));
+  },
+});
+
 async function validationProgress(
   db: DatabaseReader,
   attempt: Doc<"_schema_validations">,

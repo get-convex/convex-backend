@@ -189,6 +189,8 @@ pub use self::{
             },
             SchemaValidationModel,
             SchemaValidationTable,
+            SchemaValidationWithProgress,
+            StagedValidationWithProgress,
             ValidationAttemptUpdate,
             SCHEMA_VALIDATIONS_BY_SCHEMA_ID_AND_TABLE_NAME,
             SCHEMA_VALIDATIONS_TABLE,
