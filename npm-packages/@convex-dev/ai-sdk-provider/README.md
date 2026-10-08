@@ -91,10 +91,11 @@ gateway response, including provider-specific fields such as `confidence`, is
 available in `decision.response.body`.
 
 `getServiceToken("ai-gateway")` supplies a short-lived deployment JWT. The
-action runtime caches and refreshes the credential as needed, so
-`convexGateway(...)` is recommended to call it repeatedly.
+action runtime caches and refreshes the credential as needed, so `convexGateway`
+calls it on every request.
 
-Requires Convex 1.45 or later, AI SDK 7.0.105 or later, and Node.js 22 or later.
+Requires Convex 1.45 or later and AI SDK 7.0.105 or later. The provider works in
+the default runtime and in Node.js actions, which need Node.js 22 or later.
 
 ## Generate images
 
@@ -110,9 +111,9 @@ const { images } = await generateImage({
 });
 ```
 
-Image request costs are available in
-`result.calls[i].providerMetadata.convexGateway.cost`, in US dollars. Each call
-may generate multiple images; the cost is for the call, not each image.
+Image request costs are available in each entry of `result.calls`, at
+`providerMetadata?.convexGateway?.cost`, in US dollars. Each call may generate
+multiple images; the cost is for the call, not each image.
 
 ## Transcribe and generate speech
 
@@ -132,13 +133,15 @@ const { text, providerMetadata } = await transcribe({
 const cost = providerMetadata.convexGateway?.cost;
 
 const { audio } = await generateSpeech({
-  model: convexGateway.speechModel("openai/gpt-4o-mini-tts"),
+  model: convexGateway.speechModel("hexgrad/kokoro-82m"),
   text: "Your order has shipped.",
-  voice: "alloy",
+  voice: "af_heart",
 });
 ```
 
-Speech results carry no cost. The gateway records it after the call.
+Speech results have no `cost` in `providerMetadata`, because the cost is known
+only after the audio is sent. Convex still bills for speech. The charge appears
+on the Convex usage page.
 
 ## Generate videos
 
@@ -161,10 +164,11 @@ const bytes = video.uint8Array;
 const cost = providerMetadata?.convexGateway?.cost;
 ```
 
-The call waits for generation and download, with a ten-minute default timeout
-and a 64 MiB limit per video. Store the returned bytes in Convex file storage.
-The AI SDK splits `n > 1` into separate requests. Cancelling a request does not
-cancel the upstream job and can still incur a charge.
+The call waits for generation and download, with a 64 MiB limit per video. It
+fails if generation takes longer than about five minutes; use async videos for
+longer jobs. Store the returned bytes in Convex file storage. The AI SDK splits
+`n > 1` into separate requests. Cancelling a request does not cancel the
+upstream job and can still incur a charge.
 
 An image in the prompt becomes the first frame. Use `frameImages` for explicit
 frames, `inputReferences` for image/audio/video references, and `generateAudio`
@@ -177,8 +181,8 @@ take precedence. Supported values depend on the
 
 ## Async videos
 
-With AI SDK 7.0.83, use `experimental_startVideo` to submit a job without
-waiting for the video. See the
+With AI SDK 7.0.105 or later, use `experimental_startVideo` to submit a job
+without waiting for the video. See the
 [async availability requirements](https://docs.convex.dev/ai-gateway/images-and-videos#async-videos)
 before using these routes.
 

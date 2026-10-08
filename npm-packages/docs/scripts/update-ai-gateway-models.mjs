@@ -107,7 +107,9 @@ async function fetchModelIds() {
   return body.value;
 }
 
-const modelIds = await fetchModelIds();
+// `:batch` variants run only through OpenRouter's Batch API, which the gateway
+// does not expose.
+const modelIds = (await fetchModelIds()).filter((id) => !id.endsWith(":batch"));
 
 const byPrefix = new Map();
 for (const id of modelIds) {

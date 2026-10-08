@@ -29,6 +29,9 @@ const { images } = await generateImage({
 });
 ```
 
+The gateway generates images from a text prompt. It does not support image
+editing with input images or a mask.
+
 ## Generate videos
 
 <Admonition type="caution" title="Video generation is in alpha">
@@ -53,8 +56,9 @@ const bytes = video.uint8Array;
 const cost = providerMetadata?.convexGateway?.cost;
 ```
 
-The call waits for the video, then downloads it. The default timeout is ten
-minutes; the download limit is 64 MiB. Save `video.uint8Array` in
+The call waits for the video, then downloads it. It fails if generation takes
+longer than about five minutes, and the download limit is 64 MiB. Use
+[async videos](#async-videos) for longer jobs. Save `video.uint8Array` in
 [file storage](/file-storage/store-files.mdx).
 
 The AI SDK splits `n > 1` into separate requests. Cancelling a request does not
@@ -139,7 +143,9 @@ so repeated callbacks update the job once. For `completed`, schedule an action
 to download the video. `failed`, `cancelled`, and `expired` are terminal errors.
 
 Return 204 after saving the event. If the job's secret has not been saved yet,
-return a non-2xx response.
+return a non-2xx response. Respond within 8 seconds, or the delivery fails. A
+failed delivery may not be retried, so check unfinished jobs with
+[status](#retrieve-the-video) periodically.
 
 ### Retrieve the video
 

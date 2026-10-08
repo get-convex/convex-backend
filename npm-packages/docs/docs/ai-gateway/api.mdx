@@ -48,7 +48,9 @@ No query parameters or body.
 }
 ```
 
-`owned_by` is the provider prefix of `id`.
+`owned_by` is the provider prefix of `id`. The list includes text, embedding,
+image, video, speech, transcription, and Decisions models. It also includes
+rerank models, which the gateway does not serve.
 
 ## POST `/v1/chat/completions`
 
@@ -139,10 +141,9 @@ The request and response format may change during alpha.
 </Admonition>
 
 Send a JSON body with `model` and `prompt`, plus model-supported image options
-such as `size` and `n`. The response contains `data` entries with image URLs or
-`b64_json`, depending on the model and requested format. Streaming is rejected.
-The same routing controls as `/v1/chat/completions` are rejected. The body limit
-is 16 MiB.
+such as `size` and `n`. Each `data` entry in the response contains `b64_json`
+and, when known, `media_type`. Streaming is rejected. The same routing controls
+as `/v1/chat/completions` are rejected. The body limit is 16 MiB.
 
 ## POST `/v1/videos/generations`
 
@@ -158,10 +159,52 @@ Supported values depend on the model. Each request generates one video; `n`,
 `stream`, and `callback_url` are rejected, along with gateway routing controls.
 The body limit is 16 MiB.
 
-This request waits for completion and downloads the video, with a default
-ten-minute timeout and a 64 MiB video limit. The JSON response contains a
-Convex-assigned `id`, `data: [{ b64_json, media_type }]`, and `usage` when
-available. Cancelling the HTTP request does not cancel generation or its cost.
+This request waits for completion and downloads the video, with a 64 MiB video
+limit. It fails if generation takes longer than about five minutes. Use the
+[async video routes](#async-video-routes) for longer jobs. The JSON response
+contains a Convex-assigned `id`, `data: [{ b64_json, media_type }]`, and `usage`
+when available. Cancelling the HTTP request does not cancel generation or its
+cost.
+
+## POST `/v1/audio/transcriptions`
+
+<Admonition type="caution" title="Voice is in alpha">
+
+The request and response format may change during alpha.
+
+</Admonition>
+
+Send a JSON body with `model` and `input_audio: { data, format }`. `data` is
+base64 audio with no `data:` prefix. `format` names the encoding, such as `wav`,
+`mp3`, `flac`, `m4a`, `ogg`, `webm`, or `aac`. Supported formats vary by
+provider. Optional fields are `language`, `temperature`, `response_format`, and
+`timestamp_granularities`. The gateway rejects multipart uploads with
+`unsupported_media_type`. It also rejects `stream: true` and the routing
+controls it rejects on `/v1/chat/completions`. The body limit is 16 MiB.
+
+The response contains `text` and `usage` with `seconds`, token counts when the
+model reports them, and `cost`. Set `response_format: "verbose_json"` to request
+structured fields such as `task`, `language`, `duration`, and `segments`.
+Supported fields depend on the provider and model. Add
+`timestamp_granularities: ["word"]` to request `words`. Models that do not
+support `verbose_json` return a 400 error.
+
+## POST `/v1/audio/speech`
+
+<Admonition type="caution" title="Voice is in alpha">
+
+The request and response format may change during alpha.
+
+</Admonition>
+
+[OpenAI Speech](https://platform.openai.com/docs/api-reference/audio/createSpeech)
+body. `model` and `input` are required. Set `voice` unless the selected provider
+documents a default voice. `response_format` (`mp3` or `pcm`) and `speed` are
+optional. `response_format` defaults to `pcm`. The gateway rejects the routing
+controls it rejects on `/v1/chat/completions`.
+
+A successful response is the raw audio. Its `Content-Type` is `audio/pcm` for
+`pcm` (16-bit little-endian) and `audio/mpeg` for `mp3`. Errors are JSON.
 
 ## Async video routes
 
@@ -211,7 +254,8 @@ Verify the raw body and `x-convex-video-signature` header with
 `verifyVideoWebhook` before changing application state. Match the event's `id`
 to the saved inference ID, and deduplicate by `(id, status)` when saving it. See
 [receiving a callback](/ai-gateway/images-and-videos#receive-a-callback).
-Callbacks can repeat; check unfinished jobs periodically as a fallback.
+Respond within 8 seconds, or the delivery fails. Callbacks can repeat, and a
+failed delivery may not be retried, so check unfinished jobs periodically.
 
 ## POST `/alpha/decisions`
 
@@ -231,8 +275,7 @@ Each question is evaluated independently and has a name that identifies its
 answer in the response.
 
 `model`, `state`, and `questions` are required. Use `typesafe/jev-1.13` as the
-model ID; Decisions models are not listed by `GET /v1/models`. Streaming is not
-supported.
+model ID. Streaming is not supported.
 
 With the [AI SDK provider](/ai-gateway/setup.mdx), use
 `evaluate({ model: convexGateway.evaluationModel("typesafe/jev-1.13"), ... })`.
@@ -370,14 +413,16 @@ Caller-supplied `metadata` on a response is preserved.
 
 ## Errors
 
-| Status    | code                    | When                               |
-| --------- | ----------------------- | ---------------------------------- |
-| 401       | `invalid_api_key`       | Missing or invalid `Authorization` |
-| 400       | `unsupported_endpoint`  | Unknown path                       |
-| 400       | `unsupported_parameter` | Rejected routing field             |
-| 400       | `too_many_inputs`       | Over 512 embedding inputs          |
-| 413       | `request_too_large`     | Body over 16 MiB                   |
-| 502 / 503 | `upstream_error`        | Provider temporarily unavailable   |
+| Status    | code                      | When                                             |
+| --------- | ------------------------- | ------------------------------------------------ |
+| 401       | `invalid_api_key`         | Missing or invalid `Authorization`               |
+| 400       | `unsupported_endpoint`    | Unknown path, with a valid token                 |
+| 400       | `unsupported_parameter`   | Rejected routing field                           |
+| 400       | `too_many_inputs`         | Over 512 embedding inputs                        |
+| 413       | `request_too_large`       | Body over 16 MiB                                 |
+| 415       | `unsupported_media_type`  | Multipart transcription upload                   |
+| 502 / 503 | `upstream_error`          | Provider temporarily unavailable                 |
+| 502 / 504 | `video_generation_failed` | Synchronous video generation failed or timed out |
 
 Provider validation errors (unknown model, bad args) keep the provider status.
 The error object has `message`, `type`, `code`, and `param` when present.

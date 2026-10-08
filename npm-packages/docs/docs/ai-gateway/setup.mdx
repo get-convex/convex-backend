@@ -46,7 +46,9 @@ export const chat = action({
 ## Agent component
 
 Pass `convexGateway` as `languageModel` on
-[`@convex-dev/agent`](/agents/getting-started). It obtains the token for you:
+[`@convex-dev/agent`](/agents/getting-started). It obtains the token for you.
+
+The Agent and RAG components need `convex` 1.46 or later.
 
 ```sh
 npm install @convex-dev/agent @convex-dev/ai-sdk-provider
@@ -192,6 +194,14 @@ Use `convexGateway.imageModel()` with `generateImage`, or
 `experimental_startVideo`. Image and video generation are in alpha. See
 [Images and videos](/ai-gateway/images-and-videos) for examples and callback
 handling.
+
+### Voice
+
+Use `convexGateway.transcriptionModel()` with `experimental_transcribe`, or
+`convexGateway.speechModel()` with `experimental_generateSpeech`. Voice is in
+alpha and needs `@convex-dev/ai-sdk-provider` 0.3.0-alpha.0 or later, installed
+with `npm install @convex-dev/ai-sdk-provider@alpha`. See
+[Voice](/ai-gateway/voice) for examples and for audio chat models.
 
 ## Manual fetch
 
