@@ -10,6 +10,7 @@ import { looseObject } from "./utils.js";
 export const tableValidationOutcome = z.enum([
   "notValidated",
   "supersetOfEnforced",
+  "supersetOfStagedValidated",
   "supersetOfShape",
   "mustWalk",
 ]);

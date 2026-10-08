@@ -1,6 +1,7 @@
 pub mod types;
 
 use std::{
+    collections::BTreeMap,
     sync::{
         Arc,
         LazyLock,
@@ -293,12 +294,23 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                         .is_err()
                         .then(|| TableShape::empty().inferred_type().clone()))
                 };
+            // A staged validator the active schema has already proven can
+            // stand in for a walk here, exactly as it does for the worker.
+            let valid_staged_validators = match &active_schema {
+                Some((active_id, active)) => {
+                    SchemaValidationModel::new(self.tx, self.namespace)
+                        .valid_staged_validators(*active_id, active)
+                        .await?
+                },
+                None => BTreeMap::new(),
+            };
             let walked_staged_tables = DatabaseSchema::table_validation_outcomes(
                 &schema,
                 active_schema.as_ref().map(|(_, active)| active.as_ref()),
                 &table_mapping,
                 self.tx.virtual_system_mapping(),
                 &shape_provider,
+                &valid_staged_validators,
             )?
             .into_iter()
             .filter(|(table_name, outcome)| {
@@ -352,16 +364,16 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             return Ok((id, SchemaState::Active));
         }
         // Staged validation starts with the push rather than at activation, so
-        // it runs while indexes build. Unchanged staged validators inherit the
+        // it runs while indexes build. Compatible staged validators inherit the
         // state of the outgoing schemas' validations: the active schema's and,
         // below, an overwritten in-progress schema's. Pushes without staged
         // validators take no read dependency on the validations.
         let mut carry_over = vec![];
         if schema.has_staged_validators()
-            && let Some((active_id, _)) = &active_schema
+            && let Some((active_id, active)) = &active_schema
         {
             carry_over = SchemaValidationModel::new(self.tx, self.namespace)
-                .validations_with_progress(*active_id)
+                .staged_validations_with_progress(*active_id, active)
                 .await?;
         }
         let pending_schema = self.get_by_state(SchemaState::Pending).await?;
@@ -388,7 +400,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             if schema.has_staged_validators() {
                 carry_over.extend(
                     SchemaValidationModel::new(self.tx, self.namespace)
-                        .validations_with_progress(id)
+                        .staged_validations_with_progress(id, &existing_schema)
                         .await?,
                 );
             }

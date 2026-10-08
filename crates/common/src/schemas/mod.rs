@@ -230,6 +230,10 @@ pub enum TableValidationOutcome {
     /// The new validator is a superset of the enforced (active, validating)
     /// schema for this table, so all existing documents already conform.
     SupersetOfEnforced,
+    /// The new validator is a superset of a staged validator the
+    /// schema-validation rows have proven valid (and kept valid by checking
+    /// every write since), so all existing documents already conform.
+    SupersetOfStagedValidated,
     /// The new validator is a superset of the table's inferred shape.
     SupersetOfShape,
     /// Documents must be walked.
@@ -243,6 +247,7 @@ impl DatabaseSchema {
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         shape_provider: &F,
+        valid_staged_validators: &BTreeMap<TableName, DocumentSchema>,
     ) -> anyhow::Result<BTreeSet<&'a TableName>>
     where
         F: Fn(&TableName) -> anyhow::Result<Option<Shape<C, S>>>,
@@ -253,6 +258,7 @@ impl DatabaseSchema {
             table_mapping,
             virtual_system_mapping,
             shape_provider,
+            valid_staged_validators,
         )?
         .into_iter()
         .filter_map(|(table_name, outcome)| {
@@ -267,6 +273,9 @@ impl DatabaseSchema {
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         shape_provider: &F,
+        // Must come from the active schema's `Valid` validation rows; see
+        // `validation_outcome_for_validator`.
+        valid_staged_validators: &BTreeMap<TableName, DocumentSchema>,
     ) -> anyhow::Result<Vec<(&'a TableName, TableValidationOutcome)>>
     where
         F: Fn(&TableName) -> anyhow::Result<Option<Shape<C, S>>>,
@@ -285,40 +294,30 @@ impl DatabaseSchema {
             .iter()
             .map(|(table_name, table_definition)| {
                 let table_shape = shape_provider(table_name)?;
-                Self::must_revalidate_table(
+                Self::validation_outcome_for_validator(
                     table_name,
-                    table_definition,
+                    table_definition.document_type.clone(),
                     active_schema,
                     table_mapping,
                     virtual_system_mapping,
                     &table_shape,
+                    valid_staged_validators.get(table_name),
                 )
                 .map(|outcome| (table_name, outcome))
             })
             .try_collect()
     }
 
-    fn must_revalidate_table<C: ShapeConfig, S: ShapeCounter>(
-        table_name: &TableName,
-        table_definition: &TableDefinition,
-        active_schema: Option<&DatabaseSchema>,
-        table_mapping: &NamespacedTableMapping,
-        virtual_system_mapping: &VirtualSystemMapping,
-        table_shape: &Option<Shape<C, S>>,
-    ) -> anyhow::Result<TableValidationOutcome> {
-        Self::validation_outcome_for_validator(
-            table_name,
-            table_definition.document_type.clone(),
-            active_schema,
-            table_mapping,
-            virtual_system_mapping,
-            table_shape,
-        )
-    }
-
     /// Whether existing documents must be walked to check they conform to
     /// `next_schema` for this table, or whether a subset relation (against the
     /// enforced validator or the table's shape) proves they already do.
+    ///
+    /// `valid_staged_validator` must be the table's staged validator from the
+    /// active schema whose validation row is `Valid` (i.e. from
+    /// `SchemaValidationModel::valid_staged_validators`): treating it
+    /// as a superset proof is only sound because every document was checked
+    /// against it, and every write since is checked on the commit path.
+    #[allow(clippy::too_many_arguments)]
     pub fn validation_outcome_for_validator<C: ShapeConfig, S: ShapeCounter>(
         table_name: &TableName,
         next_schema: Option<DocumentSchema>,
@@ -326,6 +325,7 @@ impl DatabaseSchema {
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         table_shape: &Option<Shape<C, S>>,
+        valid_staged_validator: Option<&DocumentSchema>,
     ) -> anyhow::Result<TableValidationOutcome> {
         let next_schema_validator: Validator = next_schema.into();
 
@@ -344,6 +344,19 @@ impl DatabaseSchema {
                 table_name
             );
             return Ok(TableValidationOutcome::SupersetOfEnforced);
+        }
+
+        // Can skip validation thanks to a staged validator already proven valid?
+        if let Some(staged_validator) = valid_staged_validator {
+            let staged_validator = Validator::from(staged_validator.clone());
+            if staged_validator.is_subset(&next_schema_validator) {
+                tracing::debug!(
+                    "Skipping validation for table {} because its schema is a superset of a \
+                     validated staged validator",
+                    table_name
+                );
+                return Ok(TableValidationOutcome::SupersetOfStagedValidated);
+            }
         }
 
         if let Some(table_shape) = table_shape {

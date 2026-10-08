@@ -58,7 +58,7 @@ use database::{
     BootstrapComponentsModel,
     IndexModel,
     OccRetryStats,
-    SchemaModel,
+    SchemaValidationModel,
     Snapshot,
     TableShapes,
     Token,
@@ -1401,10 +1401,10 @@ async fn predict_component_schema<RT: Runtime>(
 
     let (schema_validation, tables) = match new_schema {
         Some(schema) => {
-            let active_schema = SchemaModel::new(tx, namespace)
-                .get_by_state(SchemaState::Active)
-                .await?
-                .map(|(_id, schema)| schema);
+            let (active_schema, valid_staged_validators) =
+                SchemaValidationModel::new(tx, namespace)
+                    .active_schema_with_valid_staged_validators()
+                    .await?;
             let table_mapping = tx.table_mapping().namespace(namespace);
             let virtual_system_mapping = tx.virtual_system_mapping().clone();
             let outcomes = DatabaseSchema::table_validation_outcomes(
@@ -1413,6 +1413,7 @@ async fn predict_component_schema<RT: Runtime>(
                 &table_mapping,
                 &virtual_system_mapping,
                 &table_shape_provider(table_shapes, &table_mapping, ts),
+                &valid_staged_validators,
             )?;
             let tables = outcomes
                 .into_iter()

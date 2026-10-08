@@ -19,6 +19,7 @@ use common::{
     runtime::Runtime,
     schemas::{
         DatabaseSchema,
+        DocumentSchema,
         SchemaValidationError,
         TableValidationOutcome,
     },
@@ -90,6 +91,10 @@ pub struct PendingSchemaValidation {
     virtual_system_mapping: VirtualSystemMapping,
     db_schema: Arc<DatabaseSchema>,
     active_schema: Option<Arc<DatabaseSchema>>,
+    /// Staged validators of the active schema with `Valid` validation
+    /// documents, usable as a fast path when validating this pending
+    /// schema.
+    valid_staged_validators: BTreeMap<TableName, DocumentSchema>,
     by_id_indexes: BTreeMap<TabletId, IndexRef>,
 }
 
@@ -183,10 +188,10 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 let table_mapping = tx.table_mapping().namespace(namespace);
                 let virtual_system_mapping = tx.virtual_system_mapping().clone();
 
-                let active_schema = SchemaModel::new(tx, namespace)
-                    .get_by_state(SchemaState::Active)
-                    .await?
-                    .map(|(_id, active_schema)| active_schema);
+                let (active_schema, valid_staged_validators) =
+                    SchemaValidationModel::new(tx, namespace)
+                        .active_schema_with_valid_staged_validators()
+                        .await?;
                 let by_id_indexes = IndexModel::new(tx).by_id_indexes().await?;
                 pending_schema_work.push(PendingSchemaValidation {
                     namespace,
@@ -196,6 +201,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                     virtual_system_mapping,
                     db_schema,
                     active_schema,
+                    valid_staged_validators,
                     by_id_indexes,
                 });
             }
@@ -294,6 +300,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 &pending_validation.table_mapping,
                 &pending_validation.virtual_system_mapping,
                 &table_shape_provider(&table_shapes, &pending_validation.table_mapping, ts),
+                &pending_validation.valid_staged_validators,
             )?;
             tracing::info!(
                 "SchemaWorker: table validation outcomes for {:?}: {:?}",
@@ -351,6 +358,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             virtual_system_mapping,
             db_schema,
             active_schema: _,
+            valid_staged_validators: _,
             by_id_indexes,
         } = pending_validation;
 
@@ -479,6 +487,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 &table_mapping,
                 &virtual_system_mapping,
                 &table_shape,
+                None,
             )?;
             tracing::info!(
                 "SchemaWorker: staged validator outcome for {table_name} in {namespace:?}: \
