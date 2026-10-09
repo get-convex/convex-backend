@@ -1579,6 +1579,13 @@ pub static AUDIT_LOG_FIREHOSE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(||
     (!result.is_empty()).then(|| PathBuf::from(result))
 });
 
+/// Maximum buffered usage-aggregation keys across the process, shared by
+/// every aggregated event kind. Key strings are bounded function and component
+/// paths, so this bounds aggregation memory. At capacity, existing keys
+/// accumulate and new keys lose their usage.
+pub static USAGE_AGGREGATION_MAX_KEYS: LazyLock<usize> =
+    LazyLock::new(|| env_config("USAGE_AGGREGATION_MAX_KEYS", 100_000));
+
 /// Firehose stream for AI gateway usage rows, landing at
 /// `s3://cvx-data-lake-prod/ai_usage/`. Its own stream, not the backend usage
 /// one, so AI ingest lag can't stall usage metering. Empty turns emit off.
