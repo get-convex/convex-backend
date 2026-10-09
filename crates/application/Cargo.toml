@@ -51,7 +51,6 @@ async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
 authentication = { workspace = true }
-aws-sdk-firehose = { workspace = true }
 aws_s3 = { workspace = true }
 aws_utils = { workspace = true }
 bytes = { workspace = true }

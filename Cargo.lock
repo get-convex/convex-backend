@@ -410,7 +410,6 @@ dependencies = [
  "async_lru",
  "async_zip 0.0.18",
  "authentication",
- "aws-sdk-firehose",
  "aws_s3",
  "aws_utils",
  "bytes",
@@ -1505,6 +1504,7 @@ name = "aws_utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "aws-config",
  "aws-credential-types",
  "aws-sdk-firehose",
@@ -1513,6 +1513,8 @@ dependencies = [
  "aws-types",
  "cmd_util",
  "futures",
+ "parking_lot",
+ "tempfile",
  "tokio",
  "tracing",
 ]

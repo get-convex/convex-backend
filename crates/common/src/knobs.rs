@@ -21,6 +21,7 @@ use std::{
         NonZeroU32,
         NonZeroUsize,
     },
+    path::PathBuf,
     sync::LazyLock,
     time::Duration,
 };
@@ -1558,6 +1559,24 @@ pub static BACKEND_USAGE_FIREHOSE_NAME: LazyLock<Option<String>> = LazyLock::new
     } else {
         None
     }
+});
+
+/// Local usage Firehose output as JSONL; ignored in production.
+pub static USAGE_FIREHOSE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+    if *IS_PROD {
+        return None;
+    }
+    let result: String = env_config("USAGE_FIREHOSE_FILE", String::new());
+    (!result.is_empty()).then(|| PathBuf::from(result))
+});
+
+/// Local audit Firehose output with egress accounting; ignored in production.
+pub static AUDIT_LOG_FIREHOSE_FILE: LazyLock<Option<PathBuf>> = LazyLock::new(|| {
+    if *IS_PROD {
+        return None;
+    }
+    let result: String = env_config("AUDIT_LOG_FIREHOSE_FILE", String::new());
+    (!result.is_empty()).then(|| PathBuf::from(result))
 });
 
 /// Firehose stream for AI gateway usage rows, landing at
