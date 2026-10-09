@@ -1,6 +1,7 @@
-import type {
-  experimental_transcribe as transcribe,
-  ProviderMetadata,
+import {
+  APICallError,
+  type experimental_transcribe as transcribe,
+  type ProviderMetadata,
 } from "ai";
 
 type TranscriptionModel = Extract<
@@ -72,15 +73,17 @@ export function createTranscriptionModel(
       }
       headers.set("Content-Type", "application/json");
       const timestamp = new Date();
-      const response = await fetch(`${baseURL}/audio/transcriptions`, {
+      const url = `${baseURL}/audio/transcriptions`;
+      const requestBody = {
+        ...extra,
+        model: modelId,
+        input_audio: { data: base64(options.audio), format },
+      };
+      const response = await fetch(url, {
         method: "POST",
         headers,
         signal: options.abortSignal,
-        body: JSON.stringify({
-          ...extra,
-          model: modelId,
-          input_audio: { data: base64(options.audio), format },
-        }),
+        body: JSON.stringify(requestBody),
       });
       // A proxy error page is not JSON; the status message covers it.
       const body = (await response.json().catch(() => ({}))) as {
@@ -92,9 +95,15 @@ export function createTranscriptionModel(
         error?: { message?: string };
       };
       if (!response.ok || typeof body.text !== "string") {
-        throw new Error(
-          body.error?.message ?? `Transcription failed (${response.status})`,
-        );
+        throw new APICallError({
+          message:
+            body.error?.message ?? `Transcription failed (${response.status})`,
+          url,
+          requestBodyValues: requestBody,
+          statusCode: response.status,
+          responseHeaders: Object.fromEntries(response.headers),
+          responseBody: JSON.stringify(body),
+        });
       }
       const duration = body.duration ?? body.usage?.seconds;
       return {
