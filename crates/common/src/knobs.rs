@@ -1231,6 +1231,26 @@ pub static MYSQL_MAX_QUERY_BATCH_SIZE: LazyLock<usize> =
 pub static MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE", 8));
 
+/// Target number of rows deleted per second from each logical table during
+/// deployment cleanup. Lower values reduce database load at the cost of slower
+/// cleanup; the value must be nonzero.
+pub static DEPLOYMENT_DELETION_TARGET_ROWS_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
+    env_config(
+        "DEPLOYMENT_DELETION_TARGET_ROWS_PER_SECOND",
+        NonZeroU32::new(5000).unwrap(),
+    )
+});
+
+/// Maximum number of rows deleted in one MySQL deployment cleanup query. Lower
+/// values reduce the size and lock duration of each transaction at the cost of
+/// more queries; the value must be nonzero.
+pub static DEPLOYMENT_DELETION_BATCH_SIZE: LazyLock<NonZeroU32> = LazyLock::new(|| {
+    env_config(
+        "DEPLOYMENT_DELETION_BATCH_SIZE",
+        NonZeroU32::new(2500).unwrap(),
+    )
+});
+
 /// Close a connection after it has been idle for some time. RDS proxy closes
 /// connections after idle_client_timeout in mysql.tf, which should be
 /// configured to be higher than this.

@@ -44,6 +44,7 @@ pub use deployment_deletion::{
     DeploymentDeletionBatch,
     DeploymentDeletionCursor,
     DeploymentDeletionPool,
+    DeploymentDeletionTable,
     DeploymentDeletionTarget,
 };
 
