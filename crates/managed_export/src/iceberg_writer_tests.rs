@@ -38,7 +38,11 @@ async fn open_selecting(
 }
 
 async fn changes(writer: &IcebergChangeWriter, table: &str) -> Result<Vec<Change>> {
-    read(&writer.tables[&source(table)]).await
+    let ident = TableIdent::new(
+        writer.namespace.clone(),
+        IcebergChangeWriter::table_name(&source(table))?,
+    );
+    read(&writer.catalog.load_table(&ident).await?).await
 }
 
 #[tokio::test]
@@ -74,11 +78,23 @@ async fn truncates_recreate_tables_and_changes_append() -> Result<()> {
         vec![change("soup", 5, Some("6"))]
     );
 
-    let reopened = open(catalog.clone(), false).await?;
-    assert_eq!(reopened.tables.len(), 2);
+    let mut reopened = open(catalog.clone(), false).await?;
+    reopened
+        .apply(
+            &[],
+            vec![(source("menu"), change("burger", 20, Some("12")))],
+        )
+        .await?;
+    assert_eq!(
+        changes(&reopened, "menu").await?,
+        vec![
+            change("burger", 20, Some("12")),
+            change("soup", 5, Some("6"))
+        ]
+    );
     let restarted = open(catalog.clone(), true).await?;
     assert!(restarted.tables.is_empty());
-    assert!(open(catalog, false).await?.tables.is_empty());
+    assert!(catalog.list_tables(&restarted.namespace).await?.is_empty());
     Ok(())
 }
 
@@ -128,7 +144,10 @@ async fn colliding_sources_fail_before_any_write() -> Result<()> {
     .err()
     .expect("a colliding selection must be rejected");
     assert!(error.to_string().contains("both map to"), "{error:#}");
-    assert_eq!(open(writer.catalog.clone(), false).await?.tables.len(), 1);
+    assert_eq!(
+        writer.catalog.list_tables(&writer.namespace).await?.len(),
+        1
+    );
     let deep = "s3://b/".to_owned() + &"p/".repeat(450);
     let error = IcebergChangeWriter::check_names(&deep, &[source("users")])
         .expect_err("an overlong location must be rejected");
@@ -146,6 +165,18 @@ async fn a_new_table_replaces_a_leftover_with_the_same_name() -> Result<()> {
         )
         .await?;
     for replacement in [source("users"), component_source("app", "users")] {
+        writer = open(writer.catalog.clone(), false).await?;
+        let error = writer
+            .apply(
+                &[],
+                vec![(replacement.clone(), change("grace", 2, Some("{}")))],
+            )
+            .await
+            .expect_err("a different source must truncate before reusing a Glue name");
+        assert!(
+            error.to_string().contains("belongs to another source"),
+            "{error:#}"
+        );
         writer
             .apply(
                 std::slice::from_ref(&replacement),
@@ -175,6 +206,7 @@ async fn retirement_follows_the_selection() -> Result<()> {
             .get(RETIRED_PROPERTY)
             .cloned()
     };
+    writer = open(writer.catalog.clone(), false).await?;
     writer.retire_unselected(&[source("menu")]).await?;
     assert_eq!(retired(&writer, "menu"), None);
     assert_eq!(retired(&writer, "orders").as_deref(), Some("true"));
@@ -186,22 +218,41 @@ async fn retirement_follows_the_selection() -> Result<()> {
 }
 
 #[tokio::test]
-async fn open_rejects_tables_it_did_not_write() -> Result<()> {
+async fn foreign_tables_are_checked_when_used_or_reconciled() -> Result<()> {
     let catalog = memory_catalog().await?;
     open(catalog.clone(), false).await?;
     catalog
         .create_table(
             &NamespaceIdent::new("convex_chess_wandering_fish_513".to_owned()),
             TableCreation::builder()
-                .name("menu".to_owned())
+                .name("app__menu".to_owned())
                 .schema(change_log_schema()?)
                 .build(),
         )
         .await?;
-    let error = open(catalog, false)
+    let mut writer = open(catalog, false).await?;
+    writer
+        .apply(
+            &[],
+            vec![(source("orders"), change("order", 1, Some("{}")))],
+        )
+        .await?;
+    assert_eq!(changes(&writer, "orders").await?.len(), 1);
+
+    let error = writer
+        .apply(&[], vec![(source("menu"), change("burger", 1, Some("{}")))])
         .await
-        .err()
-        .expect("a table without Convex properties must be rejected");
+        .expect_err("appending to a foreign table must fail");
+    assert!(error.to_string().contains("not written by"), "{error:#}");
+    let error = writer
+        .apply(&[source("menu")], vec![])
+        .await
+        .expect_err("truncating a foreign table must fail");
+    assert!(error.to_string().contains("not written by"), "{error:#}");
+    let error = writer
+        .retire_unselected(&[])
+        .await
+        .expect_err("retirement must validate the full catalog");
     assert!(error.to_string().contains("not written by"), "{error:#}");
     Ok(())
 }
@@ -236,7 +287,8 @@ async fn glue_catalog_round_trip() -> Result<()> {
         )
         .await?;
     writer.retire_unselected(&[]).await?;
-    let reopened = open().await?;
+    let mut reopened = open().await?;
+    reopened.retire_unselected(&[]).await?;
     let menu = &reopened.tables[&source("menu")];
     assert_eq!(read(menu).await?, vec![change("burger", 10, Some("10"))]);
     assert_eq!(menu.metadata().properties()[RETIRED_PROPERTY], "true");

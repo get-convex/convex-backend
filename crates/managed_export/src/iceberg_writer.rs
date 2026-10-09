@@ -23,6 +23,7 @@ use iceberg::{
     },
     Catalog,
     CatalogBuilder,
+    ErrorKind,
     NamespaceIdent,
     TableCreation,
     TableIdent,
@@ -140,22 +141,17 @@ impl IcebergChangeWriter {
                 "Cannot create Glue database: {error}"
             );
         }
-        let mut writer = Self {
+        let writer = Self {
             catalog,
             namespace,
             warehouse_uri: warehouse_uri.trim_end_matches('/').to_owned(),
             selected,
             tables: BTreeMap::new(),
         };
-        for ident in writer.catalog.list_tables(&writer.namespace).await? {
-            if fresh {
+        if fresh {
+            for ident in writer.catalog.list_tables(&writer.namespace).await? {
                 writer.catalog.drop_table(&ident).await?;
-                continue;
             }
-            let table = writer.catalog.load_table(&ident).await?;
-            let source = source_of(&table)?;
-            writer.validate(&source, &table)?;
-            writer.tables.insert(source, table);
         }
         Ok(writer)
     }
@@ -235,6 +231,16 @@ impl IcebergChangeWriter {
         Ok(())
     }
 
+    async fn load_existing(&self, ident: &TableIdent) -> Result<Option<Table>> {
+        let table = match self.catalog.load_table(ident).await {
+            Ok(table) => table,
+            Err(error) if error.kind() == ErrorKind::TableNotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        self.validate(&source_of(&table)?, &table)?;
+        Ok(Some(table))
+    }
+
     async fn create(&mut self, source: &SourceTable) -> Result<()> {
         let name = Self::table_name(source)?;
         let creation = TableCreation::builder()
@@ -285,16 +291,10 @@ impl IcebergChangeWriter {
             // No two selected tables share a name, so any other table holding
             // this name is no longer selected, such as `Users` after the
             // deployment replaced it with `users`.
-            if let Some(held) = self
-                .tables
-                .keys()
-                .find(|held| Self::table_name(held).is_ok_and(|held| held == name))
-                .cloned()
-            {
-                self.catalog
-                    .drop_table(&TableIdent::new(self.namespace.clone(), name))
-                    .await?;
-                self.tables.remove(&held);
+            let ident = TableIdent::new(self.namespace.clone(), name);
+            if let Some(table) = self.load_existing(&ident).await? {
+                self.catalog.drop_table(&ident).await?;
+                self.tables.remove(&source_of(&table)?);
             }
             self.create(source).await?;
         }
@@ -304,7 +304,17 @@ impl IcebergChangeWriter {
         }
         for (source, changes) in by_table {
             if !self.tables.contains_key(&source) {
-                self.create(&source).await?;
+                let ident = TableIdent::new(self.namespace.clone(), Self::table_name(&source)?);
+                if let Some(table) = self.load_existing(&ident).await? {
+                    ensure!(
+                        source_of(&table)? == source,
+                        "Glue table {} belongs to another source table",
+                        ident.name()
+                    );
+                    self.tables.insert(source.clone(), table);
+                } else {
+                    self.create(&source).await?;
+                }
             }
             let table = append(&*self.catalog, &self.tables[&source], &changes).await?;
             self.tables.insert(source, table);
@@ -316,6 +326,12 @@ impl IcebergChangeWriter {
     /// clears it on the rest. Call this only at a consistent snapshot, when
     /// `selected` lists every source table.
     pub async fn retire_unselected(&mut self, selected: &[SourceTable]) -> Result<()> {
+        // Retirement needs the full catalog, including tables untouched by this page.
+        for ident in self.catalog.list_tables(&self.namespace).await? {
+            if let Some(table) = self.load_existing(&ident).await? {
+                self.tables.insert(source_of(&table)?, table);
+            }
+        }
         for (source, table) in &mut self.tables {
             let retired = !selected.contains(source);
             let marked = table
