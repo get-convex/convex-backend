@@ -23,7 +23,6 @@ use iceberg::{
     },
     Catalog,
     CatalogBuilder,
-    ErrorKind,
     NamespaceIdent,
     TableCreation,
     TableIdent,
@@ -232,11 +231,12 @@ impl IcebergChangeWriter {
     }
 
     async fn load_existing(&self, ident: &TableIdent) -> Result<Option<Table>> {
-        let table = match self.catalog.load_table(ident).await {
-            Ok(table) => table,
-            Err(error) if error.kind() == ErrorKind::TableNotFound => return Ok(None),
-            Err(error) => return Err(error.into()),
-        };
+        // Glue's `load_table` reports a missing table as `Unexpected`, but its
+        // `table_exists` recognizes one.
+        if !self.catalog.table_exists(ident).await? {
+            return Ok(None);
+        }
+        let table = self.catalog.load_table(ident).await?;
         self.validate(&source_of(&table)?, &table)?;
         Ok(Some(table))
     }

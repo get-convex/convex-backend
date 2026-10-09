@@ -16,6 +16,7 @@ parquet_iceberg = { package = "parquet", version = "58", default-features = fals
 uuid = { workspace = true }
 
 [dev-dependencies]
+async-trait = { workspace = true }
 futures = { workspace = true }
 iceberg-storage-opendal = { version = "=0.10.1", default-features = false, features = ["opendal-memory"] }
 tokio = { workspace = true }

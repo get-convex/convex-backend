@@ -1,3 +1,10 @@
+use std::collections::HashMap;
+
+use iceberg::{
+    Namespace,
+    TableCommit,
+};
+
 use super::{
     super::tests::{
         change,
@@ -43,6 +50,119 @@ async fn changes(writer: &IcebergChangeWriter, table: &str) -> Result<Vec<Change
         IcebergChangeWriter::table_name(&source(table))?,
     );
     read(&writer.catalog.load_table(&ident).await?).await
+}
+
+/// Glue's `load_table` reports a missing table as `Unexpected`, not
+/// `TableNotFound`.
+#[derive(Debug)]
+struct GlueLikeCatalog(Arc<dyn Catalog>);
+
+#[async_trait::async_trait]
+impl Catalog for GlueLikeCatalog {
+    async fn list_namespaces(
+        &self,
+        parent: Option<&NamespaceIdent>,
+    ) -> iceberg::Result<Vec<NamespaceIdent>> {
+        self.0.list_namespaces(parent).await
+    }
+
+    async fn create_namespace(
+        &self,
+        namespace: &NamespaceIdent,
+        properties: HashMap<String, String>,
+    ) -> iceberg::Result<Namespace> {
+        self.0.create_namespace(namespace, properties).await
+    }
+
+    async fn get_namespace(&self, namespace: &NamespaceIdent) -> iceberg::Result<Namespace> {
+        self.0.get_namespace(namespace).await
+    }
+
+    async fn namespace_exists(&self, namespace: &NamespaceIdent) -> iceberg::Result<bool> {
+        self.0.namespace_exists(namespace).await
+    }
+
+    async fn update_namespace(
+        &self,
+        namespace: &NamespaceIdent,
+        properties: HashMap<String, String>,
+    ) -> iceberg::Result<()> {
+        self.0.update_namespace(namespace, properties).await
+    }
+
+    async fn drop_namespace(&self, namespace: &NamespaceIdent) -> iceberg::Result<()> {
+        self.0.drop_namespace(namespace).await
+    }
+
+    async fn list_tables(&self, namespace: &NamespaceIdent) -> iceberg::Result<Vec<TableIdent>> {
+        self.0.list_tables(namespace).await
+    }
+
+    async fn create_table(
+        &self,
+        namespace: &NamespaceIdent,
+        creation: TableCreation,
+    ) -> iceberg::Result<Table> {
+        self.0.create_table(namespace, creation).await
+    }
+
+    async fn load_table(&self, table: &TableIdent) -> iceberg::Result<Table> {
+        self.0.load_table(table).await.map_err(|error| {
+            if error.kind() == iceberg::ErrorKind::TableNotFound {
+                iceberg::Error::new(iceberg::ErrorKind::Unexpected, "Entity Not Found")
+            } else {
+                error
+            }
+        })
+    }
+
+    async fn drop_table(&self, table: &TableIdent) -> iceberg::Result<()> {
+        self.0.drop_table(table).await
+    }
+
+    async fn purge_table(&self, table: &TableIdent) -> iceberg::Result<()> {
+        self.0.purge_table(table).await
+    }
+
+    async fn table_exists(&self, table: &TableIdent) -> iceberg::Result<bool> {
+        self.0.table_exists(table).await
+    }
+
+    async fn rename_table(&self, src: &TableIdent, dest: &TableIdent) -> iceberg::Result<()> {
+        self.0.rename_table(src, dest).await
+    }
+
+    async fn register_table(
+        &self,
+        table: &TableIdent,
+        metadata_location: String,
+    ) -> iceberg::Result<Table> {
+        self.0.register_table(table, metadata_location).await
+    }
+
+    async fn update_table(&self, commit: TableCommit) -> iceberg::Result<Table> {
+        self.0.update_table(commit).await
+    }
+}
+
+#[tokio::test]
+async fn tables_missing_from_glue_are_created() -> Result<()> {
+    let catalog: Arc<dyn Catalog> = Arc::new(GlueLikeCatalog(memory_catalog().await?));
+    let mut writer = open(catalog, false).await?;
+    writer
+        .apply(
+            &[source("menu")],
+            vec![
+                (source("menu"), change("burger", 10, Some("10"))),
+                (source("orders"), change("o1", 11, Some("1"))),
+            ],
+        )
+        .await?;
+    assert_eq!(
+        changes(&writer, "orders").await?,
+        vec![change("o1", 11, Some("1"))]
+    );
+    Ok(())
 }
 
 #[tokio::test]
