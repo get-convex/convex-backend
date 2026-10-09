@@ -70,8 +70,7 @@ frames, `inputReferences` to pass image, audio, or video references, and
 
 `providerOptions.convexGateway` accepts `resolution` (such as `720p`),
 `generate_audio`, `frame_images`, and `input_references`. Standard SDK options
-take precedence. Supported values depend on the
-[OpenRouter model](https://openrouter.ai/docs/guides/overview/multimodal/video-generation).
+take precedence. Supported values depend on the model.
 
 ## Async videos
 
@@ -166,8 +165,3 @@ if (status.status === "completed") {
 `error`, the `error` field contains the error message. Save the downloaded video
 in file storage; each `download` call fetches it again. Operations expire after
 seven days. The provider may retain the video for less time.
-
-Omit `webhookUrl` to use status checks alone. If a completion callback is
-missed, use the saved operation to check the job and retrieve its result.
-Applications that need automatic recovery can periodically check unfinished
-jobs.

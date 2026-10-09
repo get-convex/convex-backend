@@ -62,14 +62,18 @@ provider prices, not total request cost; see
 [usage limits](/ai-gateway/usage-and-billing.mdx#usage-limits).
 
 Convex rejects other `provider` fields and `data_collection` values other than
-`"deny"` with HTTP 400. OpenRouter validates the remaining values. Omitting
-`provider` or sending `{}` uses the default policy. Image, video, and audio
-routes reject `provider` entirely.
+`"deny"` with HTTP 400. The upstream service validates the remaining values.
+Omitting `provider` or sending `{}` uses the default policy. Image, video, and
+audio routes reject `provider` entirely.
 
-OpenRouter enforces these preferences. `zdr: false` cannot disable ZDR enforced
-by the gateway's upstream account or key. ZDR applies to inference routing;
-logging, caching, and hosted tools have separate retention policies. See
-[OpenRouter's ZDR policy](https://openrouter.ai/docs/guides/features/zdr).
+`zdr: true` restricts inference routing to endpoints with a zero-data-retention
+policy. See [Models](/ai-gateway/models.mdx#zero-data-retention-routing) for
+catalog availability. If no eligible endpoint matches your request, the request
+fails. `zdr: false` cannot disable a stricter gateway policy.
+
+ZDR routing does not govern your application's logging or third-party tools. It
+may allow provider-side in-memory prompt caching. Usage and billing metadata are
+still retained.
 
 ## GET `/v1/models`
 
@@ -308,8 +312,8 @@ The request and response format may change during alpha.
 </Admonition>
 
 [Jev](https://docs.typesafe.ai/introduction) is TypeSafe's model for making
-structured decisions. It returns values your code can use to choose an option,
-rank results, or decide what to do next.
+structured decisions: choosing an option, scoring data, or evaluating a
+statement.
 
 Provide the context to evaluate in `state` and the questions to answer in
 `questions`. You can ask several questions about the same state in one request.
@@ -410,9 +414,9 @@ required. Set `stream: true` for Anthropic-compatible server-sent events.
 ```
 
 Other Anthropic fields are forwarded. The body must be JSON and no larger than
-16 MiB. These OpenRouter routing controls are rejected because Convex chooses
-how the request is served: `route`, `models`, `plugins`, `fallbacks`,
-`session_id`, and `speed`.
+16 MiB. These routing controls are rejected because Convex chooses how the
+request is served: `route`, `models`, `plugins`, `fallbacks`, `session_id`, and
+`speed`.
 
 The response uses the Anthropic Messages shape. Convex replaces upstream `id`
 and `request_id` values with Convex-generated IDs and removes fields that
@@ -444,12 +448,12 @@ Set `stream: true` for server-sent events.
 ```
 
 Other OpenAI Responses fields are forwarded. The body must be JSON and no larger
-than 16 MiB. These OpenRouter routing controls are rejected because Convex
-chooses how the request is served: `route`, `models`, `transforms`, `plugins`,
-`preset`, and `session_id`.
+than 16 MiB. These routing controls are rejected because Convex chooses how the
+request is served: `route`, `models`, `transforms`, `plugins`, `preset`, and
+`session_id`.
 
-The endpoint is stateless. OpenRouter rejects `store: true` and a non-null
-`previous_response_id`. Convex replaces upstream response IDs with
+The endpoint is stateless. The upstream service rejects `store: true` and a
+non-null `previous_response_id`. Convex replaces upstream response IDs with
 Convex-generated IDs and removes fields that identify the serving provider.
 Caller-supplied `metadata` on a response is preserved.
 

@@ -18,8 +18,16 @@ and updates automatically. For examples by kind of model, see
 [Voice](/ai-gateway/voice.mdx#models), and
 [Decisions](/ai-gateway/setup.mdx#decisions-with-jev).
 
+## Zero-data-retention routing
+
+**ZDR** marks models with an endpoint in the zero-data-retention catalog at the
+last update. Unmarked models have no catalog match. Availability can change.
+
+Enable [ZDR routing](/ai-gateway/api.mdx#provider-preferences) on each request
+that requires it. The marker alone does not enable it or guarantee that an
+endpoint supports your request. If no eligible endpoint is available, the
+request fails. Image, video, and audio routes do not accept this option.
+
 <ModelsList />
 
-See [Getting started](/ai-gateway/setup) for how to send a request, and
-[HTTP API](/ai-gateway/api.mdx#get-v1models) for the list-endpoint response
-shape.
+See [Getting started](/ai-gateway/setup) to send a request.
