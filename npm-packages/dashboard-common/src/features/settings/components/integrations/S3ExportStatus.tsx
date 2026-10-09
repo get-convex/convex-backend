@@ -1,3 +1,4 @@
+import { componentTablesIncluded } from "./s3ExportSelection";
 import { useContext, useState } from "react";
 import { ChevronRightIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
@@ -151,6 +152,7 @@ function S3ExportDetails({ existing }: { existing: S3Export }) {
   const tablesPath = `${exportRoot(prefix, deploymentName)}/tables/`;
   const database = glueDatabaseName(deploymentName);
   const status = syncStatus(existing);
+  const components = componentTablesIncluded(existing.config.selection);
   return (
     <div className="flex flex-col gap-4 py-3 text-xs">
       {status ? (
@@ -172,6 +174,14 @@ function S3ExportDetails({ existing }: { existing: S3Export }) {
         </div>
       )}
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+        <dt className="text-content-secondary">Component tables</dt>
+        <dd>
+          {components === "indeterminate"
+            ? "Custom selection"
+            : components
+              ? "Included"
+              : "Excluded"}
+        </dd>
         <dt className="text-content-secondary">S3 location</dt>
         <dd className="min-w-0 break-all">
           <Link

@@ -1,3 +1,12 @@
+import { Callout } from "@ui/Callout";
+import { Checkbox } from "@ui/Checkbox";
+import isEqual from "lodash/isEqual";
+import { S3ExportTableSelector } from "./S3ExportTableSelector";
+import { Selection } from "@convex-dev/platform/deploymentApi";
+import {
+  componentTablesIncluded,
+  selectionWithComponents,
+} from "./s3ExportSelection";
 import { Button } from "@ui/Button";
 import { Link } from "@ui/Link";
 import { TextInput } from "@ui/TextInput";
@@ -8,11 +17,19 @@ import {
   DisclosureButton,
   DisclosurePanel,
 } from "@headlessui/react";
-import { EyeNoneIcon, EyeOpenIcon } from "@radix-ui/react-icons";
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  EyeNoneIcon,
+  EyeOpenIcon,
+} from "@radix-ui/react-icons";
 import { useFormik } from "formik";
 import { useMemo, useState } from "react";
 import * as Yup from "yup";
-import { SyncPeriod } from "system-udfs/convex/_system/frontend/common";
+import {
+  SyncPeriod,
+  SyncSelection,
+} from "system-udfs/convex/_system/frontend/common";
 import { AnalyticsIntegration } from "@common/lib/integrationHelpers";
 import {
   useCreateLogStream,
@@ -77,6 +94,17 @@ export function S3ExportConfigurationForm({
   const existingConfig = integration.existing?.config ?? null;
   const logStreamId = integration.existing?._id;
 
+  const initialSelection: SyncSelection = {
+    _other: "included",
+    ...existingConfig?.selection,
+    "": existingConfig?.selection[""] ?? {
+      _other:
+        existingConfig?.selection._other === "excluded"
+          ? "excluded"
+          : "included",
+    },
+  };
+
   const isNewIntegration = existingConfig === null || !logStreamId;
 
   const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
@@ -116,6 +144,7 @@ export function S3ExportConfigurationForm({
     accessKeyId: string;
     secretAccessKey: string;
     period: SyncPeriod;
+    selection: SyncSelection;
   }>({
     initialValues: {
       bucket: existingConfig?.bucket ?? "",
@@ -124,16 +153,22 @@ export function S3ExportConfigurationForm({
       accessKeyId: existingConfig?.accessKeyId ?? "",
       secretAccessKey: "",
       period: existingConfig?.period ?? "daily",
+      selection: initialSelection,
     },
     onSubmit: async (values, helpers) => {
       helpers.setStatus(undefined);
       try {
+        const selection = isEqual(values.selection, initialSelection)
+          ? undefined
+          : values.selection;
         const config = {
           bucket: values.bucket,
           region: values.region,
           prefix: values.prefix || null,
           accessKeyId: values.accessKeyId,
           period: values.period,
+          // OpenAPI's flattened map type cannot represent the `_other` default.
+          ...(selection ? { selection: selection as Selection } : {}),
         };
 
         if (isNewIntegration) {
@@ -167,7 +202,9 @@ export function S3ExportConfigurationForm({
 
   // Formik validates every field on each change; show a field's error only
   // once the user has left it or tried to save.
-  const fieldError = (field: keyof typeof formState.values) =>
+  const fieldError = (
+    field: Exclude<keyof typeof formState.values, "selection">,
+  ) =>
     formState.touched[field] || formState.submitCount > 0
       ? formState.errors[field]
       : undefined;
@@ -356,7 +393,68 @@ export function S3ExportConfigurationForm({
             />
             {continueButton(1)}
           </Stepper.Step>
-          <Stepper.Step label="Frequency">
+          <Stepper.Step label="Sync settings">
+            <div className="overflow-hidden rounded-sm border">
+              <div className="flex flex-col gap-1 p-3">
+                <label
+                  htmlFor="includeComponentTables"
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <Checkbox
+                    id="includeComponentTables"
+                    aria-label="Include component tables"
+                    checked={componentTablesIncluded(
+                      formState.values.selection,
+                    )}
+                    disabled={formState.isSubmitting}
+                    onChange={() =>
+                      void formState.setFieldValue(
+                        "selection",
+                        selectionWithComponents(
+                          formState.values.selection,
+                          componentTablesIncluded(
+                            formState.values.selection,
+                          ) !== true,
+                        ),
+                      )
+                    }
+                  />
+                  Include component tables
+                </label>
+                <p className="pl-6 text-xs text-content-secondary">
+                  Include data from components like aggregates and workpools.
+                </p>
+              </div>
+              <Disclosure>
+                <DisclosureButton className="flex w-full items-center justify-between gap-2 border-t px-3 py-2 text-left text-xs font-medium">
+                  {({ open }) => (
+                    <>
+                      <span>Choose specific tables</span>
+                      <span className="flex items-center gap-2 text-content-secondary">
+                        Advanced
+                        {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                      </span>
+                    </>
+                  )}
+                </DisclosureButton>
+                <DisclosurePanel className="border-t p-3">
+                  <S3ExportTableSelector
+                    selection={formState.values.selection}
+                    onChange={(selection) =>
+                      void formState.setFieldValue("selection", selection)
+                    }
+                    disabled={formState.isSubmitting}
+                  />
+                </DisclosurePanel>
+              </Disclosure>
+            </div>
+            {!isNewIntegration &&
+              !isEqual(formState.values.selection, initialSelection) && (
+                <Callout>
+                  Saving this change restarts the export from the beginning.
+                  Existing Glue tables are recreated for the new selection.
+                </Callout>
+              )}
             <SyncPeriodSelector
               value={formState.values.period}
               onChange={async (period) => {

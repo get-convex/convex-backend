@@ -1,3 +1,4 @@
+import { SWRConfig, unstable_serialize } from "swr";
 import { Meta, StoryObj } from "@storybook/nextjs";
 import { type ContextType } from "react";
 import type {
@@ -380,7 +381,26 @@ function S3Providers({ children }: { children: React.ReactNode }) {
       value={mockDeploymentInfo as ContextType<typeof DeploymentInfoContext>}
     >
       <ConnectedDeploymentContext.Provider value={connectedDeployment}>
-        {children}
+        <SWRConfig
+          value={{
+            provider: () => new Map(),
+            revalidateOnMount: false,
+            isPaused: () => true,
+            fallback: {
+              [unstable_serialize([
+                connectedDeployment.deployment.deploymentUrl,
+                "/api/json_schemas?byComponent=true",
+                "Convex ",
+              ])]: {
+                "": ["customers", "invoices", "orders", "products"],
+                aggregate: ["items", "namespaces"],
+                workpool: ["config", "pendingWork", "work", "workers"],
+              },
+            },
+          }}
+        >
+          {children}
+        </SWRConfig>
       </ConnectedDeploymentContext.Provider>
     </DeploymentInfoContext.Provider>
   );
@@ -488,4 +508,29 @@ export const S3ExportSetupForm: Story = {
       </div>
     </S3Providers>
   ),
+};
+
+export const S3ExportComponentSelection: Story = {
+  name: "S3 Export Component Selection",
+  render: () => (
+    <S3Providers>
+      <div className="flex h-192 w-full max-w-2xl flex-col">
+        <S3ExportConfigurationForm
+          integration={s3Export(undefined)}
+          onClose={() => {}}
+        />
+      </div>
+    </S3Providers>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("checkbox", { name: "Include component tables" }),
+    );
+    await canvas.findByText(/Saving this change restarts the export/);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Choose specific tables Advanced" }),
+    );
+    await canvas.findByText("Exporting 4 of 10 tables");
+  },
 };
