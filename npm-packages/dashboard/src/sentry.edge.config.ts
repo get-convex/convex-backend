@@ -13,7 +13,6 @@ const environment =
 Sentry.init({
   dsn: SENTRY_DSN,
   tracesSampleRate: 0.01,
-  tunnel: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/sentry`,
   environment,
   integrations: [
     Sentry.requestDataIntegration({
