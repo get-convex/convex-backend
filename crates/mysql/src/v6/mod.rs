@@ -2,10 +2,12 @@
 //!
 //! The V6 logical database is tenant-scoped by `deployment_id`.
 
+pub(crate) mod backfill;
 pub(crate) mod documents;
 pub(crate) mod indexes;
 pub mod maintenance;
 mod persistence;
+pub(crate) mod reader;
 pub(crate) mod sql;
 use std::sync::Arc;
 

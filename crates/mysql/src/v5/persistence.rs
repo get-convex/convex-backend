@@ -280,33 +280,8 @@ impl<RT: Runtime> Persistence<RT> {
             .is_none())
     }
 
-}
-
-#[async_trait]
-impl<RT: Runtime> IndexRowPersistence for Persistence<RT> {
-    async fn delete_index_rows(&self, expired_entries: Vec<IndexEntry>) -> anyhow::Result<usize> {
-        super::indexes::delete_index_rows(self, expired_entries).await
-    }
-}
-
-#[async_trait]
-impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
-    fn is_fresh(&self) -> bool {
-        self.newly_created.load(SeqCst)
-    }
-
-    fn reader(&self) -> Arc<dyn PersistenceReader> {
-        Arc::new(Reader {
-            db_name: self.db_name.clone(),
-            read_pool: self.read_pool.clone(),
-            db_should_be_leader: true,
-            instance_name: self.instance_name.clone(),
-            multitenant: self.multitenant,
-        })
-    }
-
     #[fastrace::trace]
-    async fn write<'a>(
+    pub(crate) async fn write_impl<'a>(
         &self,
         documents: &'a [DocumentLogEntry],
         indexes: &'a [PersistenceIndexEntry],
@@ -430,6 +405,39 @@ impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
                 Ok(())
             })
             .await
+    }
+}
+
+#[async_trait]
+impl<RT: Runtime> IndexRowPersistence for Persistence<RT> {
+    async fn delete_index_rows(&self, expired_entries: Vec<IndexEntry>) -> anyhow::Result<usize> {
+        super::indexes::delete_index_rows(self, expired_entries).await
+    }
+}
+
+#[async_trait]
+impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
+    fn is_fresh(&self) -> bool {
+        self.newly_created.load(SeqCst)
+    }
+
+    fn reader(&self) -> Arc<dyn PersistenceReader> {
+        Arc::new(Reader {
+            db_name: self.db_name.clone(),
+            read_pool: self.read_pool.clone(),
+            db_should_be_leader: true,
+            instance_name: self.instance_name.clone(),
+            multitenant: self.multitenant,
+        })
+    }
+
+    async fn write<'a>(
+        &self,
+        documents: &'a [DocumentLogEntry],
+        indexes: &'a [PersistenceIndexEntry],
+        conflict_strategy: ConflictStrategy,
+    ) -> anyhow::Result<()> {
+        self.write_impl(documents, indexes, conflict_strategy).await
     }
 
     async fn write_persistence_global(

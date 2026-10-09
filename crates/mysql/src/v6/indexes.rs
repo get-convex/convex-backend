@@ -21,6 +21,7 @@ use common::{
     knobs::INDEX_RETENTION_DELETE_CHUNK,
     persistence::{
         ConflictStrategy,
+        DocumentLogEntry,
         IndexBackfillEntry,
         PersistenceIndexEntry,
     },
@@ -127,6 +128,24 @@ impl ScanningOp {
 }
 
 impl IndexWriteBatch {
+    pub(crate) fn validate_documents(&self, documents: &[DocumentLogEntry]) -> anyhow::Result<()> {
+        // The scan's history check finds displaced revisions through the
+        // commits that made them, so every replaced entry needs the document
+        // revision that replaced it. Only a backfill writes entries alone.
+        let revisions: BTreeSet<_> = documents
+            .iter()
+            .map(|update| (update.ts, update.id))
+            .collect();
+        for (ts, document_id) in self.replacement_commits() {
+            anyhow::ensure!(
+                revisions.contains(&(ts, document_id)),
+                "MySQL V6 index write replaces an entry of document {document_id} at {ts} without \
+                 that document revision"
+            );
+        }
+        Ok(())
+    }
+
     /// The commits that moved entries into the log, each as the document
     /// revision it wrote.
     pub(crate) fn replacement_commits(
