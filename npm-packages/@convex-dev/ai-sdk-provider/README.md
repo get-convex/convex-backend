@@ -36,6 +36,26 @@ export const embed = action({
 Embedding batches larger than the gateway's 512-input limit are split into
 multiple requests by the AI SDK.
 
+## Optional ZDR routing
+
+Pass `{ zdr: true }` to use inference endpoints with a zero-data-retention
+policy:
+
+```ts
+const { text } = await generateText({
+  model: convexGateway("openai/gpt-4o-mini", { zdr: true }),
+  prompt: "Summarize this document",
+});
+```
+
+Also supported by `messages`, `responses`, `embeddingModel`, and
+`evaluationModel`. The setting applies to that model instance and overrides
+`provider.zdr` from other SDK options. Omit it to use the default policy;
+`false` cannot disable a stricter gateway policy.
+
+Not every model has a ZDR endpoint. See
+[routing requirements and retention limits](https://docs.convex.dev/ai-gateway/api#provider-preferences).
+
 ## Choose a model interface
 
 For text generation, start with `convexGateway(model)`. It works across model
