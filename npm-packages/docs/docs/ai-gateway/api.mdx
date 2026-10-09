@@ -30,6 +30,47 @@ Missing or invalid token:
 }
 ```
 
+## Provider preferences
+
+Chat Completions, Embeddings, Messages, Responses, and Decisions accept these
+optional fields inside `provider`:
+
+| Field                | Accepted values | Purpose                                                           |
+| -------------------- | --------------- | ----------------------------------------------------------------- |
+| `zdr`                | Boolean         | Require zero-data-retention inference endpoints when `true`.      |
+| `data_collection`    | `"deny"`        | Exclude providers that collect data.                              |
+| `require_parameters` | Boolean         | Require providers to support all supplied parameters when `true`. |
+| `max_price`          | Object          | Limit acceptable provider rates.                                  |
+
+```json
+{
+  "model": "openai/gpt-4o-mini",
+  "messages": [{ "role": "user", "content": "Hello!" }],
+  "provider": {
+    "zdr": true,
+    "data_collection": "deny",
+    "require_parameters": true,
+    "max_price": { "prompt": "1", "completion": "2" }
+  }
+}
+```
+
+`max_price` accepts `prompt` and `completion` (USD per million tokens),
+`request` (USD per request), `image` (USD per image), and `audio` (USD per audio
+unit). Values must be finite, nonnegative numbers or numeric strings. These cap
+provider prices, not total request cost; see
+[usage limits](/ai-gateway/usage-and-billing.mdx#usage-limits).
+
+Convex rejects other `provider` fields and `data_collection` values other than
+`"deny"` with HTTP 400. OpenRouter validates the remaining values. Omitting
+`provider` or sending `{}` uses the default policy. Image, video, and audio
+routes reject `provider` entirely.
+
+OpenRouter enforces these preferences. `zdr: false` cannot disable ZDR enforced
+by the gateway's upstream account or key. ZDR applies to inference routing;
+logging, caching, and hosted tools have separate retention policies. See
+[OpenRouter's ZDR policy](https://openrouter.ai/docs/guides/features/zdr).
+
 ## GET `/v1/models`
 
 No query parameters or body.
@@ -67,16 +108,16 @@ body. Set `stream: true` for
 Other OpenAI fields (`temperature`, `max_tokens`, `tools`, `response_format`, …)
 are forwarded. Body must be JSON, max 16 MiB.
 
-These fields are rejected. Convex chooses how the request is served: `provider`,
-`route`, `models`, `transforms`, `plugins`, `preset`.
+The [provider preferences](#provider-preferences) above are supported. These
+fields are rejected: `route`, `models`, `transforms`, `plugins`, `preset`.
 
 ```json
 {
   "error": {
-    "message": "The `provider` parameter is not supported. Convex selects how a request is served.",
+    "message": "The `provider.only` parameter is invalid or unsupported for this request.",
     "type": "invalid_request_error",
     "code": "unsupported_parameter",
-    "param": "provider"
+    "param": "provider.only"
   }
 }
 ```
@@ -143,7 +184,8 @@ The request and response format may change during alpha.
 Send a JSON body with `model` and `prompt`, plus model-supported image options
 such as `size` and `n`. Each `data` entry in the response contains `b64_json`
 and, when known, `media_type`. Streaming is rejected. The same routing controls
-as `/v1/chat/completions` are rejected. The body limit is 16 MiB.
+as `/v1/chat/completions`, plus `provider`, are rejected. The body limit is 16
+MiB.
 
 ## POST `/v1/videos/generations`
 
@@ -156,8 +198,8 @@ The request and response format may change during alpha.
 Send `model` and `prompt`, with optional `duration`, `aspect_ratio`, `size`,
 `resolution`, `seed`, `generate_audio`, `frame_images`, or `input_references`.
 Supported values depend on the model. Each request generates one video; `n`,
-`stream`, and `callback_url` are rejected, along with gateway routing controls.
-The body limit is 16 MiB.
+`stream`, `callback_url`, and `provider` are rejected, along with gateway
+routing controls. The body limit is 16 MiB.
 
 This request waits for completion and downloads the video, with a 64 MiB video
 limit. It fails if generation takes longer than about five minutes. Use the
@@ -320,8 +362,8 @@ Choice criteria values may be strings, objects, arrays, or `null`. Score
 criteria are an ordered array of strings, objects, or arrays.
 
 The body must be JSON and no larger than 16 MiB. These fields are not supported:
-`provider`, `route`, `models`, `transforms`, `plugins`, `preset`, `fallbacks`,
-`speed`, `trace`, `session_id`, `user`, and `stream`.
+`route`, `models`, `transforms`, `plugins`, `preset`, `fallbacks`, `speed`,
+`trace`, `session_id`, `user`, and `stream`.
 
 ### Response
 
@@ -369,8 +411,8 @@ required. Set `stream: true` for Anthropic-compatible server-sent events.
 
 Other Anthropic fields are forwarded. The body must be JSON and no larger than
 16 MiB. These OpenRouter routing controls are rejected because Convex chooses
-how the request is served: `provider`, `route`, `models`, `plugins`,
-`fallbacks`, `session_id`, and `speed`.
+how the request is served: `route`, `models`, `plugins`, `fallbacks`,
+`session_id`, and `speed`.
 
 The response uses the Anthropic Messages shape. Convex replaces upstream `id`
 and `request_id` values with Convex-generated IDs and removes fields that
@@ -403,8 +445,8 @@ Set `stream: true` for server-sent events.
 
 Other OpenAI Responses fields are forwarded. The body must be JSON and no larger
 than 16 MiB. These OpenRouter routing controls are rejected because Convex
-chooses how the request is served: `provider`, `route`, `models`, `transforms`,
-`plugins`, `preset`, and `session_id`.
+chooses how the request is served: `route`, `models`, `transforms`, `plugins`,
+`preset`, and `session_id`.
 
 The endpoint is stateless. OpenRouter rejects `store: true` and a non-null
 `previous_response_id`. Convex replaces upstream response IDs with
