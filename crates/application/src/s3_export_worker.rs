@@ -30,6 +30,11 @@ use streaming_export::{
     SyncStatus,
 };
 
+use crate::metrics::{
+    log_s3_export_worker_failed,
+    s3_export_sync_timer,
+};
+
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 const CONTINUOUS_POLL_INTERVAL: Duration = Duration::from_secs(5);
@@ -62,6 +67,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             match self.run_once().await {
                 Ok(()) => backoff.reset(),
                 Err(error) => {
+                    log_s3_export_worker_failed(&error);
                     report_error(&mut error.context("S3ExportWorker failed")).await;
                     let delay = backoff.fail(&mut self.runtime.rng());
                     self.runtime.wait(delay).await;
@@ -86,24 +92,30 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             anyhow::bail!("S3 export document has a different configuration type");
         };
         let previous_cursor = config.cursor.as_deref();
-        let page = self
-            .export_provider
-            .sync(
-                &self.instance_name,
-                &self.database.latest_database_snapshot()?,
-                SyncDestination::ByoAwsBucket {
-                    bucket: config.bucket.clone(),
-                    region: config.region.clone(),
-                    prefix: config.prefix.clone(),
-                    endpoint_url: None,
-                    access_key_id: config.access_key_id.0.clone(),
-                    secret_access_key: config.secret_access_key.0.clone(),
-                },
-                SyncFormat::Iceberg,
-                &config.selection,
-                config.cursor.clone(),
-            )
-            .await?;
+        let page = {
+            let database_snapshot = self.database.latest_database_snapshot()?;
+            let timer = s3_export_sync_timer();
+            let page = self
+                .export_provider
+                .sync(
+                    &self.instance_name,
+                    &database_snapshot,
+                    SyncDestination::ByoAwsBucket {
+                        bucket: config.bucket.clone(),
+                        region: config.region.clone(),
+                        prefix: config.prefix.clone(),
+                        endpoint_url: None,
+                        access_key_id: config.access_key_id.0.clone(),
+                        secret_access_key: config.secret_access_key.0.clone(),
+                    },
+                    SyncFormat::Iceberg,
+                    &config.selection,
+                    config.cursor.clone(),
+                )
+                .await?;
+            timer.finish();
+            page
+        };
         anyhow::ensure!(
             !page.cursor.is_empty(),
             "Export provider returned an empty S3 export cursor"
