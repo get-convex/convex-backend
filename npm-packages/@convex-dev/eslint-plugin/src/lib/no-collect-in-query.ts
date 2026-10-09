@@ -25,10 +25,37 @@ function isCollectCall(
   return node.callee.property.name === "collect";
 }
 
-function findOrderedQueryType(
+// `OrderedQuery` is an interface, so `getTypeOfSymbolAtLocation` returns an
+// error type that every receiver is assignable to, and its declared type is the
+// uninstantiated generic, which `OrderedQuery<SomeTable>` is not assignable to.
+// Match the interface itself instead: the receiver's type, or the generic
+// behind it, is `OrderedQuery` or extends it (as `Query` does).
+function isOrderedQuery(
+  type: ts.Type,
+  orderedQuerySymbol: ts.Symbol,
+  checker: ts.TypeChecker,
+): boolean {
+  const seen = new Set<ts.Type>();
+  const visit = (t: ts.Type): boolean => {
+    if (seen.has(t)) return false;
+    seen.add(t);
+    const target = (t as ts.TypeReference).target ?? t;
+    if (target.getSymbol() === orderedQuerySymbol) return true;
+    if (!target.isClassOrInterface()) {
+      // A type parameter such as `T extends OrderedQuery<...>` is judged by
+      // its constraint.
+      const constraint = checker.getBaseConstraintOfType(target);
+      return constraint ? visit(constraint) : false;
+    }
+    return (checker.getBaseTypes(target) ?? []).some(visit);
+  };
+  return visit(type);
+}
+
+function findOrderedQuerySymbol(
   program: ts.Program,
   checker: ts.TypeChecker,
-): ts.Type | null {
+): ts.Symbol | null {
   try {
     for (const sf of program.getSourceFiles()) {
       // Prefer the source file from the convex package.
@@ -47,7 +74,7 @@ function findOrderedQueryType(
       const exports = checker.getExportsOfModule(sourceFileSymbol);
       const orderedQuerySymbol = exports.find((e) => e.name === "OrderedQuery");
       if (!orderedQuerySymbol) continue;
-      return checker.getTypeOfSymbolAtLocation(orderedQuerySymbol, sf);
+      return orderedQuerySymbol;
     }
   } catch {
     // ignore and fall back
@@ -97,9 +124,9 @@ export const noCollectInQuery = createRule<Options, MessageIds>({
 
     // Resolve the `OrderedQuery` type from the convex package once (only
     // possible when type info is available).
-    const orderedQueryType =
+    const orderedQuerySymbol =
       hasTypeInfo && services?.program
-        ? findOrderedQueryType(services.program, checker)
+        ? findOrderedQuerySymbol(services.program, checker)
         : null;
 
     return {
@@ -115,7 +142,7 @@ export const noCollectInQuery = createRule<Options, MessageIds>({
         if (hasTypeInfo) {
           // If we couldn't resolve `OrderedQuery`, skip to avoid false
           // positives (the file likely doesn't use Convex at all).
-          if (!orderedQueryType) {
+          if (!orderedQuerySymbol) {
             return;
           }
 
@@ -126,7 +153,7 @@ export const noCollectInQuery = createRule<Options, MessageIds>({
             return;
           }
 
-          if (!checker.isTypeAssignableTo(objectType, orderedQueryType)) {
+          if (!isOrderedQuery(objectType, orderedQuerySymbol, checker)) {
             return;
           }
 
