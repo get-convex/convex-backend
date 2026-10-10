@@ -136,7 +136,10 @@ use deno_core::{
     },
 };
 use errors::ErrorMetadata;
-use file_storage::TransactionalFileStorage;
+use file_storage::{
+    FileDownloads,
+    TransactionalFileStorage,
+};
 use keybroker::FunctionRunnerKeyBroker;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
@@ -223,6 +226,7 @@ pub struct DatabaseUdfSyscallProvider<RT: Runtime> {
 
     phase: UdfPhase<RT>,
     file_storage: TransactionalFileStorage<RT>,
+    file_downloads: FileDownloads,
 
     query_manager: QueryManager<RT>,
 
@@ -650,6 +654,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             journal,
             context,
             environment_data,
+            file_downloads,
         }: UdfRequest<RT>,
         reactor_depth: usize,
         client_id: String,
@@ -682,6 +687,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                         component,
                     ),
                     file_storage,
+                    file_downloads,
 
                     query_manager: QueryManager::new(),
 

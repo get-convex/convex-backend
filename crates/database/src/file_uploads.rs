@@ -112,6 +112,18 @@ impl FileUploads {
         }
     }
 
+    pub(crate) fn pending_file(
+        &self,
+        id: &ResolvedDocumentId,
+    ) -> anyhow::Result<Option<&PendingFileUpload>> {
+        match self {
+            Self::Pending(uploads) => Ok(uploads.get(id).map(Arc::as_ref)),
+            Self::Uploaded(_) => {
+                anyhow::bail!("The transaction's stored files were already uploaded")
+            },
+        }
+    }
+
     pub(crate) fn mark_uploaded(&mut self) {
         if let Self::Pending(uploads) = self {
             let uploaded = uploads

@@ -100,7 +100,10 @@ use fastrace::{
     local::LocalSpan,
     Event,
 };
-use file_storage::TransactionalFileStorage;
+use file_storage::{
+    FileDownloads,
+    TransactionalFileStorage,
+};
 use futures::{
     future::{
         self,
@@ -223,6 +226,7 @@ pub struct UdfRequest<RT: Runtime> {
     pub journal: QueryJournal,
     pub context: ExecutionContext,
     pub environment_data: EnvironmentData<RT>,
+    pub file_downloads: FileDownloads,
 }
 
 pub struct HttpActionRequest<RT: Runtime> {
@@ -648,6 +652,7 @@ impl<RT: Runtime> IsolateClient<RT> {
                 journal,
                 context,
                 environment_data,
+                file_downloads: FileDownloads::default(),
             },
             response: tx,
             queue_timer: queue_timer(),

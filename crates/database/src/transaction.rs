@@ -534,6 +534,20 @@ impl<RT: Runtime> Transaction<RT> {
         self.file_uploads.pending_files()
     }
 
+    /// The contents of the file whose `_file_storage` document `id` this
+    /// transaction stored, if it stored one.
+    pub fn get_pending_file_upload(
+        &self,
+        id: &ResolvedDocumentId,
+    ) -> anyhow::Result<Option<PendingFileUpload>> {
+        Ok(self.file_uploads.pending_file(id)?.cloned())
+    }
+
+    pub fn add_file_storage_read(&mut self, size: usize) {
+        self.file_storage_read_size.num_reads += 1;
+        self.file_storage_read_size.size += size;
+    }
+
     pub fn mark_files_uploaded(&mut self) -> anyhow::Result<()> {
         self.file_uploads.require_not_nested()?;
         self.file_uploads.mark_uploaded();

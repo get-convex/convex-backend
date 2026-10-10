@@ -96,6 +96,7 @@ use errors::{
 };
 use file_storage::{
     TransactionalFileStorage,
+    FILE_DOWNLOAD_FAILED_SHORT_MSG,
     FILE_UPLOAD_FAILED_SHORT_MSG,
 };
 use function_runner::{
@@ -1000,14 +1001,16 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         self.runtime.wait(sleep).await;
                         continue;
                     }
-                    if e.short_msg() == FILE_UPLOAD_FAILED_SHORT_MSG
-                        && (file_storage_backoff.failures() as usize)
-                            < *UDF_FILE_STORAGE_MAX_RETRIES
+                    if matches!(
+                        e.short_msg(),
+                        FILE_UPLOAD_FAILED_SHORT_MSG | FILE_DOWNLOAD_FAILED_SHORT_MSG
+                    ) && (file_storage_backoff.failures() as usize)
+                        < *UDF_FILE_STORAGE_MAX_RETRIES
                     {
                         let sleep = file_storage_backoff.fail(&mut self.runtime.rng());
                         tracing::warn!(
-                            "Failed to upload stored files ({e:#}), retrying {write_source:?} \
-                             after {sleep:?}",
+                            "File storage failed ({e:#}), retrying {write_source:?} after \
+                             {sleep:?}",
                         );
                         self.runtime.wait(sleep).await;
                         continue;

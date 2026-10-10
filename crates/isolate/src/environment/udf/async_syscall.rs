@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::Context;
+use bytes::Bytes;
 use common::{
     audit_log_lines::AuditLogLine,
     bootstrap_model::components::handles::FunctionHandle,
@@ -84,6 +85,7 @@ use model::{
         types::FileStorageEntry,
         BatchKey,
         FileStorageId,
+        FileStorageModel,
     },
     scheduled_jobs::{
         VirtualSchedulerModel,
@@ -517,6 +519,92 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
             .await
     }
 
+    async fn file_storage_get_batch(
+        &mut self,
+        storage_ids: BTreeMap<BatchKey, FileStorageId>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<(Bytes, Option<String>)>>> {
+        match self.try_file_storage_get_batch(&storage_ids).await {
+            Ok(results) => results,
+            Err(e) => storage_ids
+                .into_keys()
+                .map(|batch_key| (batch_key, Err(e.clone_error())))
+                .collect(),
+        }
+    }
+
+    async fn try_file_storage_get_batch(
+        &mut self,
+        storage_ids: &BTreeMap<BatchKey, FileStorageId>,
+    ) -> anyhow::Result<BTreeMap<BatchKey, anyhow::Result<Option<(Bytes, Option<String>)>>>> {
+        if self.udf_type != UdfType::Mutation {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "StorageGetNotSupported",
+                "Getting files from storage is only supported in mutations and actions",
+            ));
+        }
+        let component = self.phase.component()?;
+        let tx = self.phase.tx()?;
+        let component_path = tx.must_component_path(component)?;
+        let entries = FileStorageModel::new(tx, component.into())
+            .get_file_batch(storage_ids.clone())
+            .await;
+
+        let mut results = BTreeMap::new();
+        let mut from_downloads = BTreeMap::new();
+        let mut to_download = BTreeMap::new();
+        for (batch_key, entry) in entries {
+            let entry = match entry {
+                Ok(Some(entry)) => entry,
+                Ok(None) => {
+                    results.insert(batch_key, Ok(None));
+                    continue;
+                },
+                Err(e) => {
+                    results.insert(batch_key, Err(e));
+                    continue;
+                },
+            };
+            let content_type = entry.content_type.clone();
+            if let Some(upload) = tx.get_pending_file_upload(&entry.id())? {
+                results.insert(batch_key, Ok(Some((upload.bytes, content_type))));
+                continue;
+            }
+            let storage_key = entry.storage_key.clone();
+            if self.file_downloads.get(&storage_key).is_none()
+                && !to_download.contains_key(&storage_key)
+            {
+                if let Err(e) = check_file_read_limits(tx, entry.size.try_into()?) {
+                    results.insert(batch_key, Err(e));
+                    continue;
+                }
+                tx.add_file_storage_read(entry.size.try_into()?);
+                to_download.insert(
+                    storage_key.clone(),
+                    (component_path.clone(), entry.into_value()),
+                );
+            }
+            from_downloads.insert(batch_key, (storage_key, content_type));
+        }
+        if !to_download.is_empty() {
+            let usage_tracker = tx.usage_tracker.clone();
+            self.file_storage
+                .download_files(
+                    &self.file_downloads,
+                    to_download.into_values().collect(),
+                    usage_tracker,
+                )
+                .await?;
+        }
+        for (batch_key, (storage_key, content_type)) in from_downloads {
+            let bytes = self
+                .file_downloads
+                .get(&storage_key)
+                .context("Downloaded file missing from file_downloads")?;
+            results.insert(batch_key, Ok(Some((bytes, content_type))));
+        }
+        Ok(results)
+    }
+
     #[fastrace::trace]
     async fn run_udf(
         &mut self,
@@ -619,6 +707,7 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
                         module_loader: self.phase.module_loader().clone(),
                         deployment: self.deployment.clone(),
                     },
+                    file_downloads: self.file_downloads.clone(),
                 },
                 rng_seed,
                 new_reactor_depth,
@@ -761,7 +850,7 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
         AsyncSyscallBatch::StorageGetUrls(batch_args) => {
             storage_get_url_batch(provider, batch_args).await
         },
-        AsyncSyscallBatch::StorageGets(batch_args) => storage_get_batch(provider, batch_args),
+        AsyncSyscallBatch::StorageGets(batch_args) => storage_get_batch(provider, batch_args).await,
         AsyncSyscallBatch::Unbatched { name, args } => {
             let result = match &name[..] {
                 // Database
@@ -1131,19 +1220,77 @@ async fn storage_store<RT: Runtime>(
     Ok(serde_json::value::to_raw_value(&storage_id.encode())?)
 }
 
-fn storage_get_batch<RT: Runtime>(
-    _provider: &mut DatabaseUdfSyscallProvider<RT>,
+fn check_file_read_limits<RT: Runtime>(tx: &Transaction<RT>, size: usize) -> anyhow::Result<()> {
+    let max_files = tx.transaction_limits().files_read;
+    let max_bytes = tx.transaction_limits().file_read_bytes;
+    let read = &tx.file_storage_read_size;
+    anyhow::ensure!(
+        read.num_reads < max_files,
+        ErrorMetadata::bad_request(
+            "TooManyFilesRead",
+            format!("Too many files read by this mutation (limit: {max_files})")
+        )
+    );
+    anyhow::ensure!(
+        read.size + size <= max_bytes,
+        ErrorMetadata::bad_request(
+            "FilesReadTooLarge",
+            format!(
+                "Too large total size of the files read by this mutation (limit: {max_bytes} \
+                 bytes)"
+            )
+        )
+    );
+    Ok(())
+}
+
+#[convex_macro::instrument_future]
+async fn storage_get_batch<RT: Runtime>(
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
     batch_args: Vec<JsonValue>,
 ) -> Vec<anyhow::Result<Box<RawValue>>> {
-    batch_args
-        .into_iter()
-        .map(|_| {
-            Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-                "StorageGetNotSupported",
-                "ctx.storage.get() is not yet supported in mutations",
-            )))
-        })
-        .collect()
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct GetArgs {
+        storage_id: String,
+    }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct GetResult {
+        /// Base64-encoded file contents.
+        blob: String,
+        content_type: Option<String>,
+    }
+    let batch_size = batch_args.len();
+    let mut results = BTreeMap::new();
+    let mut storage_ids = BTreeMap::new();
+    for (idx, args) in batch_args.into_iter().enumerate() {
+        let storage_id_result = with_argument_error("storage.get", || {
+            let GetArgs { storage_id } = serde_json::from_value(args)?;
+            storage_id.parse().context(ArgName("storageId"))
+        });
+        match storage_id_result {
+            Ok(storage_id) => {
+                storage_ids.insert(idx, storage_id);
+            },
+            Err(e) => {
+                assert!(results.insert(idx, Err(e)).is_none());
+            },
+        }
+    }
+    let files = provider.file_storage_get_batch(storage_ids).await;
+    for (batch_key, file) in files {
+        let result = file.and_then(|file| {
+            let result = file.map(|(contents, content_type)| GetResult {
+                blob: base64::encode(&contents),
+                content_type,
+            });
+            Ok(serde_json::value::to_raw_value(&result)?)
+        });
+        assert!(results.insert(batch_key, result).is_none());
+    }
+    assert_eq!(results.len(), batch_size);
+    results.into_values().collect()
 }
 
 #[convex_macro::instrument_future]

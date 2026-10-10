@@ -1641,6 +1641,12 @@ pub static FILE_STORAGE_SIZE_MIN_DOCUMENTS_TO_RESUME: LazyLock<i64> =
 pub static UDF_FILE_STORAGE_UPLOAD_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("UDF_FILE_STORAGE_UPLOAD_TIMEOUT_SECONDS", 5)));
 
+/// Maximum amount of time a mutation can spend downloading files before
+/// failing.
+pub static UDF_FILE_STORAGE_DOWNLOAD_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("UDF_FILE_STORAGE_DOWNLOAD_TIMEOUT_SECONDS", 5))
+});
+
 /// How many times to rerun a mutation with file storage failures before
 /// returning the error to its caller.
 pub static UDF_FILE_STORAGE_MAX_RETRIES: LazyLock<usize> =
