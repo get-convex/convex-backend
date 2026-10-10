@@ -61,14 +61,17 @@ use tokio::{
 // the blocking pool, one per isolate worker) gets its own arena, and memory
 // freed in those arenas mostly stays resident: RSS then grows with every push
 // and burst of queries while live memory stays flat.
-#[cfg(target_os = "linux")]
+//
+// x86_64 only: jemalloc fixes its page size at build time, and aarch64 Linux
+// kernels with 16K or 64K pages would abort at the first allocation.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[global_allocator]
 static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 /// Purge unused pages from a background thread after one second, so idle
 /// arenas give memory back to the OS. `MALLOC_CONF` in the environment
 /// overrides this.
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[allow(non_upper_case_globals)]
 #[unsafe(export_name = "malloc_conf")]
 pub static malloc_conf: &[u8] = b"background_thread:true,dirty_decay_ms:1000,muzzy_decay_ms:1000\0";
