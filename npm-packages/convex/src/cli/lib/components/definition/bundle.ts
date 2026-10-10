@@ -709,7 +709,7 @@ export async function bundleImplementations({
       });
     }
     buildDebugInfos.push(
-      buildDebugInfo(directory, definitionPath, "isolate", convexResult),
+      buildDebugInfo(directory, definitionPath, "convex", convexResult),
     );
     const functions = convexResult.modules;
     if (isRoot) {
@@ -814,7 +814,7 @@ export async function bundleImplementations({
 export type BuildDebugInfo = {
   directory: ComponentDirectory;
   definitionPath: ComponentDefinitionPath;
-  kind: "isolate" | "node" | "schema" | "auth";
+  kind: "convex" | "node" | "schema" | "auth";
   metafile: Metafile | null;
   modules: Bundle[];
   externalDependencies: Map<string, string>;
