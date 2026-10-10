@@ -517,6 +517,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                                     occ_info,
                                     None,
                                     mutation_retry_count,
+                                    mutation_retry_count,
                                     true,
                                 )
                                 .await;

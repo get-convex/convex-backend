@@ -129,6 +129,7 @@ use crate::{
     file_uploads::{
         FileUploads,
         PendingFileUpload,
+        UploadedFileUpload,
     },
     metrics::{
         self,
@@ -527,6 +528,31 @@ impl<RT: Runtime> Transaction<RT> {
         self.file_uploads.remove_pending(id)
     }
 
+    pub fn get_pending_file_uploads(
+        &self,
+    ) -> anyhow::Result<Vec<(ResolvedDocumentId, PendingFileUpload)>> {
+        self.file_uploads.pending_files()
+    }
+
+    pub fn mark_files_uploaded(&mut self) -> anyhow::Result<()> {
+        self.file_uploads.require_not_nested()?;
+        self.file_uploads.mark_uploaded();
+        Ok(())
+    }
+
+    pub fn discard_pending_file_uploads(&mut self) -> anyhow::Result<()> {
+        self.file_uploads.require_not_nested()?;
+        self.file_uploads.discard_pending();
+        Ok(())
+    }
+
+    pub fn get_uploaded_files(
+        &self,
+    ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, UploadedFileUpload>> {
+        self.file_uploads.require_not_nested()?;
+        self.file_uploads.uploaded_files()
+    }
+
     /// Returns the transaction limits.
     pub fn transaction_limits(&self) -> &TransactionLimits {
         &self.limits
@@ -557,6 +583,7 @@ impl<RT: Runtime> Transaction<RT> {
         system_tx_size: crate::reads::TransactionReadSize,
         updates: Vec<PendingDocumentUpdate>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
+        uploaded_files: BTreeMap<ResolvedDocumentId, UploadedFileUpload>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
             *self.begin_timestamp() == begin_timestamp,
@@ -567,6 +594,7 @@ impl<RT: Runtime> Transaction<RT> {
             .merge(reads, num_intervals, user_tx_size, system_tx_size);
 
         self.merge_writes(updates)?;
+        self.file_uploads.add_uploaded(uploaded_files)?;
 
         for (tablet_id, rows_read) in rows_read_by_tablet {
             self.stats.entry(tablet_id).or_default().rows_read += rows_read;

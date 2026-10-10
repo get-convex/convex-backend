@@ -1,6 +1,10 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+};
 
 use bytes::Bytes;
+use common::components::ComponentPath;
 use imbl::OrdMap;
 use value::ResolvedDocumentId;
 
@@ -13,6 +17,8 @@ use crate::{
 /// written but whose contents haven't been uploaded yet.
 #[derive(Clone, Debug)]
 pub struct PendingFileUpload {
+    /// The component the file belongs to, for usage attribution.
+    pub component_path: ComponentPath,
     pub bytes: Bytes,
 }
 
@@ -28,12 +34,8 @@ pub struct UploadedFileUpload {
 #[derive(Clone, Debug)]
 pub enum FileUploads {
     /// Files stored while the transaction is running.
-    Pending(OrdMap<ResolvedDocumentId, PendingFileUpload>),
+    Pending(OrdMap<ResolvedDocumentId, Arc<PendingFileUpload>>),
     /// Uploaded files after the transaction execution has finished.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "nothing uploads the pending files yet")
-    )]
     Uploaded(BTreeMap<ResolvedDocumentId, UploadedFileUpload>),
 }
 
@@ -53,7 +55,7 @@ impl FileUploads {
     ) -> anyhow::Result<()> {
         match self {
             Self::Pending(uploads) => {
-                uploads.insert(id, upload);
+                uploads.insert(id, Arc::new(upload));
                 Ok(())
             },
             Self::Uploaded(_) => anyhow::bail!(
@@ -94,5 +96,73 @@ impl FileUploads {
             num_writes: self.num_files(),
             size: self.total_bytes(),
         }
+    }
+
+    pub(crate) fn pending_files(
+        &self,
+    ) -> anyhow::Result<Vec<(ResolvedDocumentId, PendingFileUpload)>> {
+        match self {
+            Self::Pending(uploads) => Ok(uploads
+                .iter()
+                .map(|(id, upload)| (*id, PendingFileUpload::clone(upload)))
+                .collect()),
+            Self::Uploaded(_) => {
+                anyhow::bail!("The transaction's stored files were already uploaded")
+            },
+        }
+    }
+
+    pub(crate) fn mark_uploaded(&mut self) {
+        if let Self::Pending(uploads) = self {
+            let uploaded = uploads
+                .iter()
+                .map(|(id, upload)| {
+                    (
+                        *id,
+                        UploadedFileUpload {
+                            size: upload.bytes.len(),
+                        },
+                    )
+                })
+                .collect();
+            *self = Self::Uploaded(uploaded);
+        }
+    }
+
+    pub(crate) fn discard_pending(&mut self) {
+        if let Self::Pending(_) = self {
+            *self = Self::Uploaded(BTreeMap::new());
+        }
+    }
+
+    pub(crate) fn uploaded_files(
+        &self,
+    ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, UploadedFileUpload>> {
+        match self {
+            Self::Uploaded(uploads) => Ok(uploads.clone()),
+            Self::Pending(_) => {
+                anyhow::bail!("The transaction's stored files haven't been uploaded")
+            },
+        }
+    }
+
+    pub(crate) fn add_uploaded(
+        &mut self,
+        uploaded: BTreeMap<ResolvedDocumentId, UploadedFileUpload>,
+    ) -> anyhow::Result<()> {
+        if uploaded.is_empty() {
+            return Ok(());
+        }
+        match self {
+            Self::Uploaded(uploads) => uploads.extend(uploaded),
+            Self::Pending(uploads) => {
+                anyhow::ensure!(
+                    uploads.is_empty(),
+                    "Can't add uploaded files to a transaction with files still pending"
+                );
+                *self = Self::Uploaded(uploaded);
+            },
+        }
+        Ok(())
     }
 }

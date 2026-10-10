@@ -51,6 +51,9 @@ use common::{
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
+        UDF_FILE_STORAGE_INITIAL_BACKOFF,
+        UDF_FILE_STORAGE_MAX_BACKOFF,
+        UDF_FILE_STORAGE_MAX_RETRIES,
     },
     log_lines::{
         run_function_and_collect_log_lines,
@@ -91,7 +94,10 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use file_storage::TransactionalFileStorage;
+use file_storage::{
+    TransactionalFileStorage,
+    FILE_UPLOAD_FAILED_SHORT_MSG,
+};
 use function_runner::{
     server::{
         FunctionMetadata,
@@ -469,6 +475,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 system_tx_size,
                 updates,
                 function_tx.rows_read_by_tablet,
+                function_tx.uploaded_files,
             )?;
             Some(tx)
         } else {
@@ -938,9 +945,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             *UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
             *UDF_EXECUTOR_OCC_MAX_BACKOFF,
         );
+        let mut file_storage_backoff = Backoff::new(
+            *UDF_FILE_STORAGE_INITIAL_BACKOFF,
+            *UDF_FILE_STORAGE_MAX_BACKOFF,
+        );
 
         loop {
-            let mutation_retry_count = backoff.failures() as usize;
+            let occ_retry_count = backoff.failures() as usize;
+            let mutation_retry_count = occ_retry_count + file_storage_backoff.failures() as usize;
             let usage_tracker = FunctionUsageTracker::new();
 
             // Note that we use different context for every mutation attempt.
@@ -984,6 +996,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         tracing::warn!(
                             "Write throughput limit exceeded, retrying {write_source:?} after \
                              {sleep:?}",
+                        );
+                        self.runtime.wait(sleep).await;
+                        continue;
+                    }
+                    if e.short_msg() == FILE_UPLOAD_FAILED_SHORT_MSG
+                        && (file_storage_backoff.failures() as usize)
+                            < *UDF_FILE_STORAGE_MAX_RETRIES
+                    {
+                        let sleep = file_storage_backoff.fail(&mut self.runtime.rng());
+                        tracing::warn!(
+                            "Failed to upload stored files ({e:#}), retrying {write_source:?} \
+                             after {sleep:?}",
                         );
                         self.runtime.wait(sleep).await;
                         continue;
@@ -1088,6 +1112,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
+                                    occ_retry_count,
                                     true,
                                 )
                                 .await;
@@ -1107,6 +1132,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
+                                    occ_retry_count,
                                     false,
                                 )
                                 .await;

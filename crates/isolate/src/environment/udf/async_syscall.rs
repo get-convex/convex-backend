@@ -442,7 +442,8 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
         let storage_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
         let storage_id = StorageUuid::from(self.rt.new_uuid_v4());
 
-        let namespace: TableNamespace = self.phase.component()?.into();
+        let component = self.phase.component()?;
+        let namespace: TableNamespace = component.into();
         let tx = self.phase.tx()?;
         let max_files = tx.transaction_limits().files_written;
         let max_bytes = tx.transaction_limits().file_write_bytes;
@@ -471,11 +472,18 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
             size: blob.len().try_into()?,
             content_type: content_type.map(|ct| ct.to_string()),
         };
+        let component_path = tx.must_component_path(component)?;
         let (id, virtual_id) = self
             .file_storage
             .store_file_entry(tx, namespace, entry)
             .await?;
-        tx.add_pending_file_upload(id, PendingFileUpload { bytes: blob.into() })?;
+        tx.add_pending_file_upload(
+            id,
+            PendingFileUpload {
+                component_path,
+                bytes: blob.into(),
+            },
+        )?;
         Ok(virtual_id)
     }
 

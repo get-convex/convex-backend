@@ -871,9 +871,10 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         mut occ_info: OccInfo,
         mutation_queue_length: Option<usize>,
         mutation_retry_count: usize,
+        occ_retry_count: usize,
         will_retry: bool,
     ) {
-        occ_info.retry_count = Some(mutation_retry_count as u64);
+        occ_info.retry_count = Some(occ_retry_count as u64);
         self._log_mutation(
             outcome,
             tables_touched,

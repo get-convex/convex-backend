@@ -1637,6 +1637,23 @@ pub static USAGE_TRACKING_WORKER_SLOW_TRACE_THRESHOLD: LazyLock<Duration> = Lazy
 pub static FILE_STORAGE_SIZE_MIN_DOCUMENTS_TO_RESUME: LazyLock<i64> =
     LazyLock::new(|| env_config("FILE_STORAGE_SIZE_MIN_DOCUMENTS_TO_RESUME", 4096));
 
+/// The maximum amount of time a mutation can take to upload stored files.
+pub static UDF_FILE_STORAGE_UPLOAD_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("UDF_FILE_STORAGE_UPLOAD_TIMEOUT_SECONDS", 5)));
+
+/// How many times to rerun a mutation with file storage failures before
+/// returning the error to its caller.
+pub static UDF_FILE_STORAGE_MAX_RETRIES: LazyLock<usize> =
+    LazyLock::new(|| env_config("UDF_FILE_STORAGE_MAX_RETRIES", 2));
+
+/// Initial backoff before rerunning a mutation with file storage failures.
+pub static UDF_FILE_STORAGE_INITIAL_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("UDF_FILE_STORAGE_INITIAL_BACKOFF_MS", 500)));
+
+/// Maximum backoff before rerunning a mutation with file storage failures.
+pub static UDF_FILE_STORAGE_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("UDF_FILE_STORAGE_MAX_BACKOFF_MS", 2000)));
+
 /// The number of events we can accumulate in the buffer that's used to send
 /// events from our business logic to our firehose client.
 ///

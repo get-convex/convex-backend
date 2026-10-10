@@ -27,6 +27,9 @@ use storage::Storage;
 
 mod core;
 mod metrics;
+pub const UPLOAD_PENDING_FILE: &str = "upload_pending_file";
+pub const FILE_UPLOAD_FAILED_SHORT_MSG: &str = "FileUploadFailed";
+
 pub struct FileStream {
     pub sha256: Option<Sha256Digest>,
     pub content_length: ContentLength,
