@@ -195,6 +195,37 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@18.19.130)(@vitest/browser-playwright@4.1.11)(happy-dom@20.10.6(bufferutil@4.0.9))(jsdom@28.1.0(supports-color@10.2.2))(vite@6.4.3(@types/node@18.19.130)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
 
+  '@convex-dev/bundle-analyzer':
+    dependencies:
+      esbuild:
+        specifier: 0.27.0
+        version: 0.27.0
+    devDependencies:
+      '@commander-js/extra-typings':
+        specifier: ^14.0.0
+        version: 14.0.0(commander@14.0.3)
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.130
+      commander:
+        specifier: ^14.0.3
+        version: 14.0.3
+      convex:
+        specifier: workspace:*
+        version: link:../../convex
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@18.19.130)(@vitest/browser-playwright@4.1.11)(happy-dom@20.10.6(bufferutil@4.0.9))(jsdom@28.1.0(supports-color@10.2.2))(vite@6.4.3(@types/node@18.19.130)(jiti@2.7.0)(lightningcss@1.33.0)(sass@1.94.0)(terser@5.44.1)(tsx@4.21.0)(yaml@2.9.0))
+
+  '@convex-dev/bundle-analyzer/tests/fixture':
+    dependencies:
+      convex:
+        specifier: workspace:*
+        version: link:../../../../convex
+
   '@convex-dev/codemod':
     dependencies:
       '@babel/code-frame':

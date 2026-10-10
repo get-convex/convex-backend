@@ -181,6 +181,7 @@ const config = [
   ...[
     "@convex-dev/eslint-plugin",
     "@convex-dev/ai-sdk-provider",
+    "@convex-dev/bundle-analyzer",
     "tests/js-integration-tests",
     "udf-runtime",
     "scenario-runner/convex",

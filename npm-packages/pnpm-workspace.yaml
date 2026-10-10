@@ -1,5 +1,7 @@
 packages:
   - "@convex-dev/ai-sdk-provider"
+  - "@convex-dev/bundle-analyzer"
+  - "@convex-dev/bundle-analyzer/tests/fixture"
   - "@convex-dev/codemod"
   - "@convex-dev/codemod/test/explicit-ids/custom-convex-folder"
   - "@convex-dev/codemod/test/explicit-ids/sample-convex-project"
