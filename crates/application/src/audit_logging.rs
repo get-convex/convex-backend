@@ -79,21 +79,19 @@ impl AuditLogClient {
 
         let records = logs.to_json_strings()?;
         let egress = calculate_audit_log_egress(&records);
-        if !records.is_empty() {
-            let result = firehose_client.send_batch(records).await?;
-            if !result.failures.is_empty() {
-                for failure in result.failures.iter().take(5) {
-                    tracing::error!(
-                        "Firehose error while delivering audit logs: {}: {}",
-                        failure.code,
-                        failure.message,
-                    );
-                }
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "AuditLogFailed",
-                    "Failed to deliver audit logs"
-                ));
+        let result = firehose_client.send_batch(records).await?;
+        if !result.failures.is_empty() {
+            for failure in result.failures.iter().take(5) {
+                tracing::error!(
+                    "Firehose error while delivering audit logs: {}: {}",
+                    failure.code,
+                    failure.message,
+                );
             }
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "AuditLogFailed",
+                "Failed to deliver audit logs"
+            ));
         }
         usage_tracker.track_audit_log_egress(egress);
 
