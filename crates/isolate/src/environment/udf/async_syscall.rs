@@ -240,6 +240,7 @@ pub fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow
 pub enum AsyncSyscallBatch {
     Reads(Vec<AsyncRead>),
     StorageGetUrls(Vec<JsonValue>),
+    StorageGets(Vec<JsonValue>),
     Unbatched { name: String, args: JsonValue },
 }
 
@@ -255,6 +256,7 @@ impl AsyncSyscallBatch {
             "1.0/get" => Self::Reads(vec![AsyncRead::Get(args)]),
             "1.0/queryStreamNext" => Self::Reads(vec![AsyncRead::QueryStreamNext(args)]),
             "1.0/storageGetUrl" => Self::StorageGetUrls(vec![args]),
+            "1.0/storageGet" => Self::StorageGets(vec![args]),
             _ => Self::Unbatched { name, args },
         }
     }
@@ -269,6 +271,8 @@ impl AsyncSyscallBatch {
             (Self::Reads(_), _) => false,
             (Self::StorageGetUrls(_), "1.0/storageGetUrl") => true,
             (Self::StorageGetUrls(_), _) => false,
+            (Self::StorageGets(_), "1.0/storageGet") => true,
+            (Self::StorageGets(_), _) => false,
             (Self::Unbatched { .. }, _) => false,
         }
     }
@@ -282,6 +286,9 @@ impl AsyncSyscallBatch {
             (Self::StorageGetUrls(batch_args), "1.0/storageGetUrl") => {
                 batch_args.push(args);
             },
+            (Self::StorageGets(batch_args), "1.0/storageGet") => {
+                batch_args.push(args);
+            },
             _ => anyhow::bail!("cannot push {name} onto {self:?}"),
         }
         Ok(())
@@ -292,6 +299,7 @@ impl AsyncSyscallBatch {
             // 1.0/get is grouped in with 1.0/queryStreamNext.
             Self::Reads(_) => "1.0/queryStreamNext",
             Self::StorageGetUrls(_) => "1.0/storageGetUrl",
+            Self::StorageGets(_) => "1.0/storageGet",
             Self::Unbatched { name, .. } => name,
         }
     }
@@ -300,6 +308,7 @@ impl AsyncSyscallBatch {
         match self {
             Self::Reads(args) => args.len(),
             Self::StorageGetUrls(args) => args.len(),
+            Self::StorageGets(args) => args.len(),
             Self::Unbatched { .. } => 1,
         }
     }
@@ -752,6 +761,7 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
         AsyncSyscallBatch::StorageGetUrls(batch_args) => {
             storage_get_url_batch(provider, batch_args).await
         },
+        AsyncSyscallBatch::StorageGets(batch_args) => storage_get_batch(provider, batch_args),
         AsyncSyscallBatch::Unbatched { name, args } => {
             let result = match &name[..] {
                 // Database
@@ -1119,6 +1129,21 @@ async fn storage_store<RT: Runtime>(
         .file_storage_store(blob, content_type, expected_sha256)
         .await?;
     Ok(serde_json::value::to_raw_value(&storage_id.encode())?)
+}
+
+fn storage_get_batch<RT: Runtime>(
+    _provider: &mut DatabaseUdfSyscallProvider<RT>,
+    batch_args: Vec<JsonValue>,
+) -> Vec<anyhow::Result<Box<RawValue>>> {
+    batch_args
+        .into_iter()
+        .map(|_| {
+            Err(anyhow::anyhow!(ErrorMetadata::bad_request(
+                "StorageGetNotSupported",
+                "ctx.storage.get() is not yet supported in mutations",
+            )))
+        })
+        .collect()
 }
 
 #[convex_macro::instrument_future]

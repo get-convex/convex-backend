@@ -204,6 +204,13 @@ export interface StorageWriter extends StorageReader {
     blob: Blob,
     options?: { sha256?: string },
   ): Promise<GenericId<"_storage">>;
+
+  /**
+   * @internal
+   */
+  // TODO: move `get` from StorageActionWriter to StorageWriter when mutation
+  // file storage access is ready for release
+  get(storageId: GenericId<"_storage">): Promise<Blob | null>;
 }
 
 /**
