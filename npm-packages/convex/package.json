@@ -145,6 +145,9 @@
         "import": "./dist/esm/values/index.js"
       }
     },
+    "./bundle-analyzer-internal": {
+      "convex-internal-types": "./src/bundle-analyzer-internal/index.ts"
+    },
     "./package.json": "./package.json"
   },
   "@comment typesVersions": [
