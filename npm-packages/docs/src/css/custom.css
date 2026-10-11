@@ -1103,6 +1103,10 @@ html[data-theme="dark"] .convex-menu-header {
   --convex-icon: url("../../static/img/sidebar-icons/eslint.svg");
 }
 
+.convex-sidebar-linting {
+  --convex-icon: url("../../static/img/sidebar-icons/check-circled.svg");
+}
+
 /* END: Icons for each top level item */
 
 /* Make sure footer is always pushed below fold */

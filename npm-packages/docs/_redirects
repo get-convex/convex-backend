@@ -19,6 +19,7 @@
 /client/react/project-setup         /client/react/deployment-urls
 /contact                            /production/contact
 /errors                             /error
+/eslint                             /linting/overview
 /functions/http-endpoints		    /functions/http-actions
 /functions/testing                  /testing/overview
 /get-started                        /tutorial/overview
@@ -140,6 +141,7 @@
 /agents                             /agents/overview
 /ai-gateway                         /ai-gateway/overview
 /testing                            /testing/overview
+/linting                            /linting/overview
 /production                         /production/overview
 /platform-apis                      /platform-apis/overview
 /client/react                       /client/react/overview
