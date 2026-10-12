@@ -35,10 +35,18 @@ automatically upgrade to live subscriptions on the client. No manual
 
 ### Setup
 
+`convex-svelte/sveltekit` requires SvelteKit 2.12 or later.
+
 Add `initConvex()` and the transport hooks to `hooks.ts` (universal hooks — runs
 on both server and client). `initConvex()` creates the `ConvexClient` singleton
 early so the transport decoder can upgrade SSR data to live subscriptions.
 `setupConvex()` in your root layout automatically reuses this singleton.
+
+Client options only take effect where the client is created, like the
+`ConvexReactClient` constructor in React. Pass them to
+`initConvex(PUBLIC_CONVEX_URL, options)`. Options passed to a later
+`setupConvex()` are ignored, with a warning in development. On the server, the
+client is always disabled, so server rendering never opens a WebSocket.
 
 If you only use `convexLoad()`, you only need the `ConvexLoadResult` transport.
 Add `ConvexLoadPaginatedResult` when using `convexLoadPaginated()`.
@@ -76,6 +84,15 @@ If you call `convexLoad()` in universal load functions (`+page.ts`,
 import { convexLoadHydration } from "convex-svelte/sveltekit/server/hydration";
 
 export const handle = convexLoadHydration;
+```
+
+and a `%convex.hydration%` placeholder to the `<head>` of `src/app.html`, where
+the handle puts the results:
+
+```html title="src/app.html"
+<head>
+  %sveltekit.head% %convex.hydration%
+</head>
 ```
 
 SvelteKit runs universal load functions on the server and then
@@ -277,16 +294,18 @@ Server-only loads (`+page.server.ts`) still fetch through your server on each
 navigation.
 
 The query unsubscribes once newer idle queries push it out of the buffer
-(`maxQueries`) or it has been idle for `maxIdleMs`. If a page uses it again
-later, it resubscribes automatically.
+(`maxIdleEntries`, oldest first) or it has been idle for `expiration`
+milliseconds. If a page uses it again later, it resubscribes automatically.
 
-Configure the buffer with the `keepAlive` option of `initConvex()`:
+Configure the buffer with the `queryCache` option of `initConvex()`. The option
+names match convex-helpers'
+[`ConvexQueryCacheProvider`](https://github.com/get-convex/convex-helpers/tree/main/packages/convex-helpers#query-caching):
 
 ```ts title="src/hooks.ts"
 initConvex(PUBLIC_CONVEX_URL, {
-  // The defaults. Pass `keepAlive: false` to unsubscribe as soon as a route
+  // The defaults. Pass `queryCache: false` to unsubscribe as soon as a route
   // stops using a query.
-  keepAlive: { maxQueries: 10, maxIdleMs: 60_000 },
+  queryCache: { maxIdleEntries: 10, expiration: 60_000 },
 });
 ```
 
@@ -306,8 +325,9 @@ A few details:
 
 - Queries that no route ever uses, such as a
   [preload](https://svelte.dev/docs/kit/link-options#data-sveltekit-preload-data)
-  for a link you never click, are released 30 seconds after their first result
-  arrived.
+  for a link you never click, close 5 seconds after their first result arrived.
+  They never take a slot in the idle buffer, so hovering over links can't push
+  out pages you visited. Clicking such a link later just resubscribes.
 - After a `convexLoad()` query unsubscribes, `.isStale` is `true` and `.data`
   keeps the last known value until it resubscribes. A `convexLoadPaginated()`
   query keeps its last `.results`. After `dispose()`, its `loadMore()` returns
@@ -406,10 +426,15 @@ or later. A SvelteKit `handle` that embeds the `convexLoad()` and
 server-rendered HTML, so the load's re-run during hydration reuses them. See
 [Setup](#setup) for why this matters.
 
+- It needs a `%convex.hydration%` placeholder in the `<head>` of `src/app.html`
+  (see [Setup](#setup)). Without it, nothing is embedded and a warning in
+  development says so.
 - Everything `convexLoad()` fetches while a universal load (`+page.ts`,
-  `+layout.ts`) runs is embedded, including calls in helpers the load invokes.
-  Pass `{ hydrate: false }` for a result that must not reach the browser, e.g.
-  one fetched for the server to pick a few fields from.
+  `+layout.ts`) runs is embedded, including calls in helpers the load invokes,
+  but not calls inside
+  [remote functions](https://svelte.dev/docs/kit/remote-functions). Pass
+  `{ hydrate: false }` for a result that must not reach the browser, e.g. one
+  fetched for the server to pick a few fields from.
 - Server loads (`+page.server.ts`) never contribute, not even results they only
   use internally. The results they return reach the browser through the
   transport hook.
@@ -421,8 +446,12 @@ server-rendered HTML, so the load's re-run during hydration reuses them. See
   during hydration, before `setupAuth()`, like without the handle.
 - Results are only reused while the initial page hydrates. Client-side
   navigations always subscribe to Convex.
-- The handle relies on SvelteKit marking universal loads on the server. If it
-  can't read that marker, it embeds nothing and logs a warning.
+- Pages without embedded results, e.g. with `ssr = false`, get no payload and no
+  warnings. If an embedded result can't be read, that load queries Convex
+  instead.
+- The handle relies on SvelteKit marking universal loads and remote functions on
+  the server. If it can't read those markers, it embeds nothing and logs a
+  warning.
 
 ### Setting up `locals.token` (without withServerConvexToken)
 
@@ -497,8 +526,8 @@ Functions and types exported from `convex-svelte/sveltekit`:
 | `decodeConvexLoadPaginated`                 | Function | Paginated transport decoder — use in `hooks.ts`.                                           |
 | `createConvexHttpClient(options?)`          | Function | Create a `ConvexHttpClient` for server-side use.                                           |
 | `CreateConvexHttpClientOptions`             | Type     | Options for `createConvexHttpClient`: `url`, `token`, `options`.                           |
-| `InitConvexOptions`                         | Type     | `ConvexClientOptions` plus [`keepAlive`](#subscription-lifecycle) for `initConvex`.        |
-| `KeepAliveOptions`                          | Type     | Idle buffer settings: `maxQueries` (default `10`), `maxIdleMs` (default `60_000`).         |
+| `InitConvexOptions`                         | Type     | `ConvexClientOptions` plus [`queryCache`](#subscription-lifecycle) for `initConvex`.       |
+| `QueryCacheOptions`                         | Type     | Idle buffer settings: `maxIdleEntries` (default `10`), `expiration` (default `60_000`).    |
 
 The server-only helper `withServerConvexToken` is imported from
 `convex-svelte/sveltekit/server`, and

@@ -99,6 +99,37 @@ The server state is trusted until the client-side auth flow settles, then the
 client takes over. For authenticated server-side data fetching, see
 [Authenticated fetches](/client/svelte/sveltekit-server-rendering.mdx#authenticated-fetches).
 
+## Waiting for auth before the first queries
+
+When the server reports a signed-in user, `setupAuth()` sets the token before
+any query subscribes, so the first queries already run authenticated. For a
+signed-out user nothing waits.
+
+Convex's `expectAuth` client option holds every request until the first token is
+sent. Prefer `initialState` in SvelteKit apps: `expectAuth` only acts before the
+first sign-in, leaves signed-out users with a client that never sends anything,
+and makes a `convexLoad()` in a universal load wait for auth that only the root
+layout sets up.
+
+To keep a whole members-only area from querying without auth, render it only
+once Convex has accepted the token:
+
+```svelte title="src/routes/(app)/+layout.svelte"
+{#if auth.isAuthenticated}
+  {@render children()}
+{:else if auth.isLoading}
+  Checking authentication...
+{:else}
+  Please sign in.
+{/if}
+```
+
+Components inside the block don't exist before that, so none of their queries
+run, and they unmount when the user signs out. Redirect signed-out users in
+`handle` (`hooks.server.ts`) as well, so they never reach the area. These steps
+shape what users see; Convex functions that return private data must still check
+the user themselves.
+
 ## Auth adapters
 
 The primitives above let you wire up any provider by hand. In practice, most
