@@ -2,6 +2,10 @@
 
 ## 1.47.0 (unreleased)
 
+- Fixed the next step printed by `npx convex project create`. It suggested
+  `npx convex deployment create <team>:<project>:dev --type dev`, which always
+  failed because `dev` is reserved for your default dev deployment. It now
+  suggests a `dev/my-feature` reference and passes `--select`.
 - `npx convex deploy` now asks for confirmation before creating or changing an
   index on a large table, since the deploy blocks until the index is backfilled.
   Stage the index (`staged: true`) to backfill it in the background instead, or
