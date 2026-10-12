@@ -219,7 +219,7 @@ the production deployment, `--preview-name <name>` for a preview deployment, or
 ### Read and write environment variables
 
 ```sh
-npx convex env list
+npx convex env list --names-only
 npx convex env get <name>
 npx convex env set <name> <value>
 npx convex env remove <name>
@@ -251,8 +251,8 @@ npx convex env set PUBLIC_KEY --from-file key.pub
 npx convex env set --from-file .env.defaults
 
 # Save environment variables to a file
-npx convex env list >> .env.convex  # append
-npx convex env list >  .env.convex  # overwrite
+npx convex env list --include-values >> .env.convex  # append
+npx convex env list --include-values >  .env.convex  # overwrite
 
 # Update values after editing them locally:
 npx convex env set --force < .env.convex

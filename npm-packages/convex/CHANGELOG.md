@@ -16,6 +16,12 @@
   default, so secrets stay out of the agent's context. Pass
   `includeValues: true` to get the values too, or use `envGet` to read a single
   variable.
+- `npx convex env list` and `npx convex env default list` have a new
+  `--include-values` flag for printing values explicitly. Values are still
+  printed by default. The docs and help text now use `--include-values`
+  wherever the values are needed, like
+  `npx convex env list --include-values > .env.convex`, and `--names-only` for
+  just listing variables.
 
 ## 1.46.0
 

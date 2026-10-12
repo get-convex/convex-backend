@@ -1,4 +1,4 @@
-import { Command } from "@commander-js/extra-typings";
+import { Command, Option } from "@commander-js/extra-typings";
 import { chalkStderr } from "chalk";
 import { Context, oneoffContext } from "../bundler/context.js";
 import {
@@ -43,7 +43,7 @@ const envSetCmd = new Command("set")
       "• `pbpaste | npx convex env set API_KEY` (macOS)",
       "• `Get-Clipboard | npx convex env set API_KEY` (Windows PowerShell)",
       "",
-      "To update many variables at once, save them with `npx convex env list > .env.convex`, edit the file, then reapply the changes with `npx convex env set --force < .env.convex`.",
+      "To update many variables at once, save them with `npx convex env list --include-values > .env.convex`, edit the file, then reapply the changes with `npx convex env set --force < .env.convex`.",
     ].join("\n"),
   )
   .option(
@@ -167,15 +167,21 @@ const envListCmd = new Command("list")
   .summary("List all environment variables and their values")
   .description(
     [
-      "• List all variables and their values: `npx convex env list`",
       "• List only variable names (no values): `npx convex env list --names-only`",
-      "• Save all variables to a file: `npx convex env list > .env.convex`",
-      "• Append to a file: `npx convex env list >> .env.convex`",
+      "• List all variables and their values: `npx convex env list --include-values`",
+      "• Save all variables to a file: `npx convex env list --include-values > .env.convex`",
+      "• Append to a file: `npx convex env list --include-values >> .env.convex`",
     ].join("\n"),
   )
   .option(
     "--names-only",
     "List only the names of environment variables, without their values",
+  )
+  .addOption(
+    new Option(
+      "--include-values",
+      "Print each variable's value alongside its name, in .env format (the default). Pass it explicitly in scripts that rely on the values.",
+    ).conflicts("namesOnly"),
   )
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
@@ -207,8 +213,8 @@ export const env = new Command("env")
       "• Set interactively: `npx convex env set NAME`",
       "• Set multiple from file: `npx convex env set --from-file .env`",
       "• Unset a variable: `npx convex env remove NAME`",
-      "• List all variables and their values: `npx convex env list`",
       "• List only variable names (no values): `npx convex env list --names-only`",
+      "• List all variables and their values: `npx convex env list --include-values`",
       "• Print a variable's value: `npx convex env get NAME`",
       "",
       "By default, this sets and views variables on your dev deployment.",
