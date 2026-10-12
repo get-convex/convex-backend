@@ -12,6 +12,10 @@
   pass the new `--skip-large-indexes-check` flag to proceed without
   confirmation. That flag also covers deleting large indexes, replacing the
   hidden `--allow-deleting-large-indexes` flag, which keeps working.
+- The `envList` MCP tool now returns only environment variable names by
+  default, so secrets stay out of the agent's context. Pass
+  `includeValues: true` to get the values too, or use `envGet` to read a single
+  variable.
 
 ## 1.46.0
 
