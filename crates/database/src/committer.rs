@@ -1088,10 +1088,12 @@ impl<RT: Runtime> Committer<RT> {
                 entry
             })
             .collect_vec();
+        let mut index_write_metrics = metrics::CommitIndexWriteMetrics::default();
         let index_writes = index_writes
             .into_iter()
             .map(|update| {
                 let entry = PersistenceIndexEntry::from_index_update(commit_ts, &update);
+                index_write_metrics.record(&entry, update.is_system_index);
                 write_bytes += entry.size();
                 entry
             })
@@ -1105,6 +1107,7 @@ impl<RT: Runtime> Committer<RT> {
             .write(document_writes, index_writes, write_bytes)
             .await
             .with_context(|| format!("Commit ({write_source:?}) failed to write to persistence"))?;
+        index_write_metrics.log();
         Ok((write_volume, index_key_writes))
     }
 

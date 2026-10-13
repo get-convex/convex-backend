@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    collections::BTreeMap,
+    time::Duration,
+};
 
 use ::search::metrics::{
     SearchType,
@@ -6,8 +9,12 @@ use ::search::metrics::{
 };
 use common::{
     identity::IDENTITY_LABEL,
+    persistence::PersistenceIndexEntry,
     runtime::Runtime,
-    types::Timestamp,
+    types::{
+        IndexWriteMode,
+        Timestamp,
+    },
 };
 use errors::ErrorMetadata;
 use keybroker::Identity;
@@ -462,6 +469,87 @@ register_convex_counter!(
 );
 pub fn commit_index_rows(num_rows: u64) {
     log_counter(&DATABASE_COMMIT_INDEX_ROWS, num_rows);
+}
+
+register_convex_counter!(
+    DATABASE_COMMIT_INDEX_ENTRIES_TOTAL,
+    "Logical index entries in commits acknowledged by persistence",
+    &["operation", "is_system_index", "mode"]
+);
+register_convex_counter!(
+    DATABASE_COMMIT_INDEX_BYTES_TOTAL,
+    "Logical index bytes in commits acknowledged by persistence, measured with \
+     PersistenceIndexEntry::size",
+    &["operation", "is_system_index", "mode"]
+);
+
+#[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd, strum::IntoStaticStr)]
+enum IndexWriteOperation {
+    #[strum(serialize = "unchanged_key")]
+    Unchanged,
+    #[strum(serialize = "new_key")]
+    New,
+    #[strum(serialize = "removed_key")]
+    Removed,
+}
+
+impl From<&PersistenceIndexEntry> for IndexWriteOperation {
+    fn from(entry: &PersistenceIndexEntry) -> Self {
+        match (entry.value, entry.prev) {
+            (Some(_), Some(_)) => Self::Unchanged,
+            (Some(_), None) => Self::New,
+            (None, _) => Self::Removed,
+        }
+    }
+}
+
+#[derive(Eq, PartialEq, Ord, PartialOrd)]
+struct IndexWriteLabels {
+    operation: IndexWriteOperation,
+    is_system_index: bool,
+    mode: IndexWriteMode,
+}
+
+#[derive(Default)]
+struct IndexWriteTotals {
+    entries: u64,
+    bytes: u64,
+}
+
+#[derive(Default)]
+pub(crate) struct CommitIndexWriteMetrics {
+    totals: BTreeMap<IndexWriteLabels, IndexWriteTotals>,
+}
+
+impl CommitIndexWriteMetrics {
+    pub(crate) fn record(&mut self, entry: &PersistenceIndexEntry, is_system_index: bool) {
+        let totals = self
+            .totals
+            .entry(IndexWriteLabels {
+                operation: entry.into(),
+                is_system_index,
+                mode: entry.mode,
+            })
+            .or_default();
+        totals.entries += 1;
+        totals.bytes += entry.size();
+    }
+
+    pub(crate) fn log(self) {
+        for (key, totals) in self.totals {
+            let labels = vec![
+                StaticMetricLabel::new("operation", <&'static str>::from(key.operation)),
+                StaticMetricLabel::new("is_system_index", key.is_system_index.as_label()),
+                StaticMetricLabel::new("mode", <&'static str>::from(key.mode)),
+            ];
+            log_counter_with_labels(
+                &DATABASE_COMMIT_INDEX_ENTRIES_TOTAL,
+                totals.entries,
+                labels.clone(),
+            );
+            log_counter_with_labels(&DATABASE_COMMIT_INDEX_BYTES_TOTAL, totals.bytes, labels);
+        }
+    }
 }
 
 register_convex_histogram!(
