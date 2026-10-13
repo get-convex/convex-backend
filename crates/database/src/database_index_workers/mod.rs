@@ -454,46 +454,46 @@ impl<RT: Runtime> IndexWorker<RT> {
             .collect::<BTreeMap<_, _>>();
 
         if !needs_backfill.is_empty() {
-            let (ts, index_registry, cursor) = if let Some(backfill_cursor) = backfill_cursor
-                && let Some(cursor) = backfill_cursor.cursor
-            {
-                let (latest_ts, snapshot) = database.latest_ts_and_snapshot()?;
-                let snapshot_ts = latest_ts.prior_ts(backfill_cursor.snapshot_ts)?;
-                let table_mapping = snapshot.table_mapping();
-                let table_name = &table_mapping.tablet_to_name()(tablet_id)?;
-                let index_registry = snapshot.index_registry;
-                let cursor = ResolvedDocumentId::new(tablet_id, cursor);
+            let mut tx = database.begin_system().await?;
+            let ts = tx.begin_timestamp();
+            let snapshot = database.snapshot(ts)?;
+            let table_name = tx.table_mapping().tablet_name(tablet_id)?;
+            let cursor = backfill_cursor
+                .and_then(|backfill_cursor| backfill_cursor.cursor)
+                .map(|cursor| ResolvedDocumentId::new(tablet_id, cursor));
+            if let Some(cursor) = cursor {
                 tracing::info!(
-                    "Resuming backfill of {} indexes for {table_name} at ts {snapshot_ts}: \
+                    "Resuming backfill of {} indexes for {table_name} after {} at ts {ts}: \
                      {needs_backfill:?}",
                     needs_backfill.len(),
+                    cursor.developer_id,
                 );
-                (snapshot_ts, index_registry, Some(cursor))
+                let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
+                for index_id in needs_backfill.keys() {
+                    index_backfill_model
+                        .resume_database_index_backfill(*index_id, *ts)
+                        .await?;
+                }
             } else {
-                let mut tx = database.begin_system().await?;
-                let ts = tx.begin_timestamp();
-                let snapshot = database.snapshot(ts)?;
-                let table_mapping = tx.table_mapping();
-                let table_name = &table_mapping.tablet_to_name()(tablet_id)?;
                 tracing::info!(
                     "Starting backfill of {} indexes for {table_name}: {needs_backfill:?}",
                     needs_backfill.len(),
                 );
-                let table_count =
-                    snapshot.table_count(table_mapping.tablet_namespace(tablet_id)?, table_name);
-                let total_docs = table_count.map(|count| count.num_values());
+                let table_namespace = tx.table_mapping().tablet_namespace(tablet_id)?;
+                let total_docs = snapshot
+                    .table_count(table_namespace, &table_name)
+                    .map(|count| count.num_values());
                 let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
                 for index_id in needs_backfill.keys() {
                     index_backfill_model
                         .initialize_database_index_backfill(*index_id, total_docs, *ts)
                         .await?;
                 }
-                database
-                    .commit_with_write_source(tx, "index_worker_backfill_initialization")
-                    .await?;
-                let index_registry = snapshot.index_registry;
-                (ts, index_registry, None)
-            };
+            }
+            database
+                .commit_with_write_source(tx, "index_worker_backfill_initialization")
+                .await?;
+            let index_registry = snapshot.index_registry;
             let index_selector = IndexSelector::ManyIndexes {
                 tablet_id,
                 indexes: needs_backfill,

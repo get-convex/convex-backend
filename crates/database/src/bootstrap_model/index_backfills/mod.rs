@@ -176,6 +176,35 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
         }
     }
 
+    pub async fn resume_database_index_backfill(
+        &mut self,
+        index_id: IndexId,
+        snapshot_ts: Timestamp,
+    ) -> anyhow::Result<()> {
+        let Some(existing_backfill_metadata) =
+            self.existing_backfill_metadata_for_index(index_id).await?
+        else {
+            return Ok(());
+        };
+        let backfill_metadata = IndexBackfillMetadata {
+            cursor: existing_backfill_metadata
+                .cursor
+                .as_ref()
+                .map(|c| BackfillCursor {
+                    snapshot_ts,
+                    cursor: c.cursor,
+                }),
+            ..(**existing_backfill_metadata).clone()
+        };
+        SystemMetadataModel::new_global(self.tx)
+            .replace(
+                existing_backfill_metadata.id(),
+                backfill_metadata.try_into()?,
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_search_index_backfill_progress(
         &mut self,
         existing_backfill_metadata: &ParsedDocument<IndexBackfillMetadata>,

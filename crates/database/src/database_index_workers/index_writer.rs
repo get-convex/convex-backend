@@ -196,6 +196,8 @@ pub struct IndexWriter<RT: Runtime> {
     rate_limiter: Option<Arc<RateLimiter<RT>>>,
     runtime: RT,
     progress_tx: Option<mpsc::Sender<TabletBackfillProgress>>,
+    chunk_size: NonZeroU32,
+    progress_interval: Duration,
     // Optional sink for the read-vs-write timing measured during backfill, so a
     // caller with extra labels (e.g. a db-cluster migration) can emit a metric.
     read_write_reporter: Option<ReadWriteReporter>,
@@ -243,6 +245,8 @@ impl<RT: Runtime> IndexWriter<RT> {
             runtime,
             progress_tx,
             read_write_reporter: None,
+            chunk_size: *INDEX_BACKFILL_CHUNK_SIZE,
+            progress_interval: *INDEX_BACKFILL_PROGRESS_INTERVAL,
         }
     }
 
@@ -546,7 +550,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         };
 
         let updates = revision_pairs
-            .chunks((INDEX_BACKFILL_CHUNK_SIZE.get() as usize).div_ceil(approx_num_indexes))
+            .chunks((self.chunk_size.get() as usize).div_ceil(approx_num_indexes))
             .map(|chunk| async move {
                 let persistence = self.persistence.clone();
                 let rate_limiter = self.rate_limiter.clone();
@@ -632,7 +636,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             backfill_bytes_written += bytes_written;
             backfill_bytes_read += bytes_read;
             if let Some(tx) = self.progress_tx.as_ref()
-                && last_checkpointed.elapsed()? >= *INDEX_BACKFILL_PROGRESS_INTERVAL
+                && last_checkpointed.elapsed()? >= self.progress_interval
                 && let Some(cursor) = cursor
             {
                 tx.send(TabletBackfillProgress {
