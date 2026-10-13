@@ -88,6 +88,7 @@ use super::{
     },
     sql::{
         self,
+        LogBucketBounds,
     },
     PersistenceDeploymentId,
 };
@@ -125,8 +126,48 @@ struct Inner<RT: Runtime> {
     db_name: String,
     deployment_id: PersistenceDeploymentId,
     fresh: AtomicBool,
-    published_ceiling: AtomicI64,
+    published: PublishedBucketBounds,
     engine: IndexEngine,
+}
+
+/// Readers and writers share the maximum observed maintenance bounds.
+/// A torn read is safe: scans retry a stale ceiling, and a stale floor includes
+/// extra buckets (refreshing the bounds if maintenance has dropped one).
+#[derive(Default)]
+pub(super) struct PublishedBucketBounds {
+    created_through_ts: AtomicI64,
+    oldest_kept_ts: AtomicI64,
+}
+
+impl PublishedBucketBounds {
+    pub(super) fn observe(&self, created_through_ts: i64, oldest_kept_ts: i64) {
+        self.created_through_ts
+            .fetch_max(created_through_ts, Ordering::Relaxed);
+        self.oldest_kept_ts
+            .fetch_max(oldest_kept_ts, Ordering::Relaxed);
+    }
+
+    pub(super) fn load(&self) -> anyhow::Result<LogBucketBounds> {
+        LogBucketBounds::from_state(
+            self.created_through_ts.load(Ordering::Relaxed),
+            self.oldest_kept_ts.load(Ordering::Relaxed),
+        )
+    }
+
+    pub(super) async fn refresh<RT: Runtime>(
+        &self,
+        connection: &mut MySqlConnection<'_, RT>,
+    ) -> anyhow::Result<()> {
+        let row: Row = connection
+            .query_optional(sql::READ_LOG_BUCKET_BOUNDS, vec![])
+            .await?
+            .context("MySQL V6 log bucket maintenance state is missing")?;
+        self.observe(
+            row.get_opt(0).context("created_through_ts")??,
+            row.get_opt(1).context("oldest_kept_ts")??,
+        );
+        Ok(())
+    }
 }
 
 impl<RT: Runtime> Persistence<RT> {
@@ -201,7 +242,7 @@ impl<RT: Runtime> Persistence<RT> {
                 db_name,
                 deployment_id,
                 fresh: AtomicBool::new(fresh),
-                published_ceiling: AtomicI64::new(0),
+                published: PublishedBucketBounds::default(),
                 engine: IndexEngine::new(deployment_id),
             }),
             lease,
@@ -290,7 +331,7 @@ impl<RT: Runtime> Persistence<RT> {
                 db_name,
                 deployment_id,
                 fresh: AtomicBool::new(false),
-                published_ceiling: AtomicI64::new(0),
+                published: PublishedBucketBounds::default(),
                 engine: IndexEngine::new(deployment_id),
             }),
         })
@@ -339,7 +380,13 @@ impl<RT: Runtime> Persistence<RT> {
     /// advances, so a cached ceiling remains safe across maintenance rounds.
     async fn ensure_published_bucket(&self, ts: Timestamp) -> anyhow::Result<()> {
         let ts = i64::from(ts);
-        if ts < self.inner.published_ceiling.load(Ordering::Relaxed) {
+        let ceiling = || {
+            self.inner
+                .published
+                .created_through_ts
+                .load(Ordering::Relaxed)
+        };
+        if ts < ceiling() {
             return Ok(());
         }
         let mut connection = self
@@ -347,15 +394,8 @@ impl<RT: Runtime> Persistence<RT> {
             .pool
             .acquire("v6_write_ceiling", &self.inner.db_name)
             .await?;
-        let row = connection
-            .query_optional(sql::READ_LOG_BUCKET_BOUNDS, vec![])
-            .await?
-            .context("MySQL V6 log bucket maintenance state is missing")?;
-        let ceiling: i64 = row.get_opt(0).context("created_through_ts")??;
-        self.inner
-            .published_ceiling
-            .fetch_max(ceiling, Ordering::Relaxed);
-        if ts >= self.inner.published_ceiling.load(Ordering::Relaxed) {
+        self.inner.published.refresh(&mut connection).await?;
+        if ts >= ceiling() {
             return Err(database_operational_error(anyhow::anyhow!(
                 "MySQL V6 index displacement at {ts} awaits log bucket publication"
             )));
@@ -957,6 +997,7 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
         super::reader::IndexReader {
+            published: &self.inner.published,
             pool: &self.inner.pool,
             db_name: &self.inner.db_name,
             deployment_id: self.inner.deployment_id,

@@ -31,7 +31,10 @@ use mysql_async::{
 use url::Url;
 
 use crate::{
-    connection::MySqlConnection,
+    connection::{
+        MySqlConnection,
+        ER_NO_SUCH_TABLE,
+    },
     v6::{
         sql::{
             LogBucket,
@@ -47,8 +50,6 @@ const DOCUMENT_KEY: &[&str] = &["ts", "table_id", "id"];
 const V5_INDEX_KEY: &[&str] = &["index_id", "key_prefix", "key_sha256", "ts"];
 const V6_INDEX_KEY: &[&str] = &["index_id", "key_prefix", "key_suffix_hash"];
 const V6_LOG_KEY: &[&str] = &["index_id", "key_prefix", "key_suffix_hash", "ts"];
-
-const ER_NO_SUCH_TABLE: u16 = 1146;
 
 #[derive(Clone, Debug)]
 pub enum DeploymentDeletionTarget {

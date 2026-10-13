@@ -543,6 +543,12 @@ fn union_arms(
 /// past the prefix limit is not key order; the cursor follows that order, so
 /// pagination is consistent, and the index scan sorts each equal-prefix run by
 /// the reconstructed key.
+///
+/// Each result row ends with the `indexes_maintenance_state` columns of
+/// [`READ_LOG_BUCKET_BOUNDS`], read in the same statement as the page. The
+/// LEFT JOIN yields one row of NULL index columns when the page is empty, so
+/// the bounds are reported either way. The union is limited to one page before
+/// joining documents to bound document lookups by `batch_size`.
 pub(crate) fn index_query(
     deployment_id: PersistenceDeploymentId,
     index_id: PersistenceIndexId,
@@ -586,11 +592,15 @@ LIMIT {batch_size})"#
     (
         format!(
             r#"
-SELECT U.index_id, U.key_prefix, U.key_suffix_hash, U.key_suffix, U.ts, U.table_id, U.document_id, D.json_value, D.prev_ts
-FROM (
+SELECT U.index_id, U.key_prefix, U.key_suffix_hash, U.key_suffix, U.ts, U.table_id, U.document_id, D.json_value, D.prev_ts, S.created_through_ts, S.oldest_kept_ts
+FROM @db_name.indexes_maintenance_state S
+LEFT JOIN (
 {arms}
-) U
+ORDER BY key_prefix {order}, key_suffix_hash {order}
+LIMIT {batch_size}
+) U ON TRUE
 {DOCUMENT_JOIN}
+WHERE S.id = 1
 ORDER BY U.key_prefix {order}, U.key_suffix_hash {order}
 LIMIT {batch_size}
 "#

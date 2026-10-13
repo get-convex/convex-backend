@@ -36,13 +36,11 @@ use common::{
 use errors::ErrorMetadata;
 use futures::Stream;
 use futures_async_stream::try_stream_block;
-use mysql_async::{
-    Row,
-    Value,
-};
+use mysql_async::Value;
 
 use super::{
     column,
+    persistence::PublishedBucketBounds,
     sql::{
         self,
         LogBucket,
@@ -51,34 +49,23 @@ use super::{
     PersistenceDeploymentId,
 };
 use crate::{
-    connection::is_message_too_large_error,
+    connection::{
+        is_message_too_large_error,
+        is_no_such_table_error,
+    },
     document_encoding,
     metrics,
     ConvexMySqlPool,
 };
 
 pub(crate) struct IndexReader<'a, RT: Runtime> {
+    pub(super) published: &'a PublishedBucketBounds,
     pub(crate) pool: &'a ConvexMySqlPool<RT>,
     pub(crate) db_name: &'a str,
     pub(crate) deployment_id: PersistenceDeploymentId,
 }
 
 impl<'a, RT: Runtime> IndexReader<'a, RT> {
-    /// What maintenance last published about the log buckets, read on the
-    /// scan's connection right before the page that uses it.
-    async fn log_bucket_bounds(
-        &self,
-        connection: &mut crate::connection::MySqlConnection<'_, RT>,
-    ) -> anyhow::Result<LogBucketBounds> {
-        let row: Row = connection
-            .query_optional(sql::READ_LOG_BUCKET_BOUNDS, vec![])
-            .await?
-            .context("MySQL V6 log bucket maintenance state is missing")?;
-        let created_through_ts: i64 = row.get_opt(0).context("created_through_ts")??;
-        let oldest_kept_ts: i64 = row.get_opt(1).context("oldest_kept_ts")??;
-        LogBucketBounds::from_state(created_through_ts, oldest_kept_ts)
-    }
-
     pub(crate) fn scan(
         self,
         index: IndexRef,
@@ -109,11 +96,10 @@ impl<'a, RT: Runtime> IndexReader<'a, RT> {
             let mut fallback = false;
             let mut buffered_prefix = None;
             let mut buffered = Vec::new();
+            let mut refreshed = false;
             loop {
                 let mut connection = self.pool.acquire("v6_index_scan", self.db_name).await?;
-                let bounds = self.log_bucket_bounds(&mut connection).await?;
-                stats.sql_statements += 1;
-                let buckets = bounds.covering(snapshot_bucket);
+                let buckets = self.published.load()?.covering(snapshot_bucket);
                 let prepare_timer =
                     metrics::query_index_sql_prepare_timer(self.pool.cluster_name());
                 let (query, params) = sql::index_query(
@@ -129,11 +115,20 @@ impl<'a, RT: Runtime> IndexReader<'a, RT> {
                 prepare_timer.finish();
                 let execute_timer =
                     metrics::query_index_sql_execute_timer(self.pool.cluster_name());
-                let rows = match connection
+                stats.sql_statements += 1;
+                let mut rows = match connection
                     .query_collect(&query, params, page_size, Ok)
                     .await
                 {
                     Ok(rows) => rows,
+                    // A stale cached floor can name a bucket maintenance has since
+                    // dropped. Refresh once; a repeated failure propagates to the caller.
+                    Err(ref error) if is_no_such_table_error(error) && !refreshed => {
+                        stats.sql_statements += 1;
+                        self.published.refresh(&mut connection).await?;
+                        refreshed = true;
+                        continue;
+                    },
                     Err(ref error)
                         if let Some(server_error) = is_message_too_large_error(error) =>
                     {
@@ -163,6 +158,26 @@ impl<'a, RT: Runtime> IndexReader<'a, RT> {
                     Err(error) => return Err(error),
                 };
                 execute_timer.finish();
+                refreshed = false;
+                // The page and bounds share an InnoDB read view. Writers observe
+                // publication before displacing an entry, so visible displacements
+                // fall within these bounds; earlier views retain the entry in
+                // `indexes_latest`. Retry if the query omitted a published bucket.
+                let state = rows
+                    .first()
+                    .context("V6 index page is missing its state row")?;
+                let created_through_ts: i64 = state.get_opt(9).context("row[9]")??;
+                let oldest_kept_ts: i64 = state.get_opt(10).context("row[10]")??;
+                self.published.observe(created_through_ts, oldest_kept_ts);
+                let bounds = LogBucketBounds::from_state(created_through_ts, oldest_kept_ts)?;
+                // Both bucket ranges are contiguous, and the maintenance floor only
+                // advances. Only a newer upper endpoint can add a required bucket.
+                if bounds.covering(snapshot_bucket).last() > buckets.last() {
+                    continue;
+                }
+                if column::maybe_bytes(state, 1)?.is_none() {
+                    rows.clear();
+                }
                 // Check after reading the page to include concurrent displacements.
                 // Below the floor, any later commit may have displaced a revision
                 // into an omitted bucket. `write` requires a document revision for

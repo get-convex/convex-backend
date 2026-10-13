@@ -124,6 +124,14 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
 }
 
 const ER_LOCK_DEADLOCK: u16 = 1213;
+pub(crate) const ER_NO_SUCH_TABLE: u16 = 1146;
+
+pub(crate) fn is_no_such_table_error(error: &anyhow::Error) -> bool {
+    error
+        .chain()
+        .filter_map(|error| error.downcast_ref::<mysql_async::ServerError>())
+        .any(|database_error| database_error.code == ER_NO_SUCH_TABLE)
+}
 
 /// Recognizes the Vitess error returned when a result exceeds its 64 MiB
 /// message limit, allowing callers to retry with a smaller page.

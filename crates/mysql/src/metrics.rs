@@ -151,7 +151,7 @@ impl<'a> QueryIndexStats<'a> {
     }
 }
 register_convex_counter!(
-    MYSQL_QUERY_INDEX_SQL_STATEMENTS,
+    pub(crate) MYSQL_QUERY_INDEX_SQL_STATEMENTS,
     "Number of index query SQL statements",
     &["cluster_name"]
 );
