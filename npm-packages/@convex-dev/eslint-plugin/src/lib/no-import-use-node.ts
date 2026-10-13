@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs";
+import ts from "typescript";
 import { createRule, isEntryPoint } from "../util.js";
 
 export const noImportUseNode = createRule({
@@ -54,9 +55,6 @@ export const noImportUseNode = createRule({
 // Implement basic module resolution for relative paths only.
 // This doesn't work with path aliases and so many other cases;
 // it's a proof of concept that might be helpful to folks debugging.
-// Implement basic module resolution for relative paths only.
-// This doesn't work with path aliases and so many other cases;
-// it's a proof of concept that might be helpful to folks debugging.
 function resolveFile(filePath: string): string | null {
   const extensions = [".ts", ".tsx", ".js", ".jsx", ""];
   for (const ext of extensions) {
@@ -79,13 +77,27 @@ function resolveFile(filePath: string): string | null {
   return null;
 }
 
-// A module is a "use node" module only if the directive is the first statement,
-// after an optional BOM, hashbang, whitespace and comments. A comment that merely
-// mentions "use node" must not count, and a long header comment before a real
-// directive must not hide it.
-const USE_NODE_DIRECTIVE =
-  /^\uFEFF?(?:#![^\n]*\n)?(?:\s|\/\/[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*(["'])use node\1(?=\s|;|\/|$)/;
-
+// A module is a "use node" module only if "use node" is part of its directive
+// prologue: the leading run of string-literal expression statements. A comment
+// that merely mentions "use node" must not count, and a long header comment
+// before a real directive must not hide it.
 export function isUseNodeModule(source: string): boolean {
-  return USE_NODE_DIRECTIVE.test(source);
+  // Cheap pre-check: skip parsing for the vast majority of files.
+  if (!source.includes("use node")) return false;
+
+  const sourceFile = ts.createSourceFile(
+    "module.tsx", // TSX is a superset; only the leading statements matter
+    source,
+    ts.ScriptTarget.Latest,
+  );
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isExpressionStatement(statement) ||
+      !ts.isStringLiteral(statement.expression)
+    ) {
+      return false;
+    }
+    if (statement.expression.text === "use node") return true;
+  }
+  return false;
 }
