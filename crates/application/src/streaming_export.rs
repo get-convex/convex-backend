@@ -87,7 +87,8 @@ impl<RT: Runtime> Application<RT> {
             cursor,
             StreamingExportFilter {
                 selection,
-                ..Default::default()
+                include_hidden: false,
+                include_system: false,
             },
             sync_client,
         )
@@ -113,7 +114,8 @@ impl<RT: Runtime> Application<RT> {
             cursor,
             StreamingExportFilter {
                 selection,
-                ..Default::default()
+                include_hidden: false,
+                include_system: false,
             },
             sync_client,
         )
