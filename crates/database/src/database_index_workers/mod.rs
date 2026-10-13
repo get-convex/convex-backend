@@ -203,16 +203,16 @@ impl<RT: Runtime> IndexWorker<RT> {
             .map(|index_metadata| index_metadata.id().internal_id().into())
             .collect();
         let mut num_to_backfill = 0;
-        let mut model = IndexBackfillModel::new(&mut tx);
+        let backfill_metadata = IndexBackfillModel::new(&mut tx)
+            .all_backfill_metadata()
+            .await?;
         for index_metadata in &index_documents {
             if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config
                 && matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
             {
-                let backfill_metadata = model
-                    .existing_backfill_metadata(index_metadata.id().developer_id)
-                    .await?;
-                let backfill_cursor =
-                    backfill_metadata.and_then(|metadata| metadata.cursor.clone());
+                let backfill_cursor = backfill_metadata
+                    .get(&index_metadata.id().internal_id().into())
+                    .and_then(|metadata| metadata.cursor.clone());
                 let index_id = index_metadata.id().internal_id().into();
                 let tablet_id = *index_metadata.name.table();
                 if !self.in_progress_index_ids.contains(&index_id)
