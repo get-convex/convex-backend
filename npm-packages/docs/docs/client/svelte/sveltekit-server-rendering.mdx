@@ -46,7 +46,8 @@ early so the transport decoder can upgrade SSR data to live subscriptions.
 Client options only take effect where the client is created, like the
 `ConvexReactClient` constructor in React. Pass them to
 `initConvex(PUBLIC_CONVEX_URL, options)`: `setupConvex()` reuses that client and
-ignores options passed to it.
+ignores options passed to it, with a warning in development. On the server, the
+client never opens a WebSocket.
 
 If you only use `convexLoad()`, you only need the `ConvexLoadResult` transport.
 Add `ConvexLoadPaginatedResult` when using `convexLoadPaginated()`.
