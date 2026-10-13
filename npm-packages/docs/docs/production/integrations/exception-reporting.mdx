@@ -102,7 +102,9 @@ event sent to PostHog:
 ### PostHog Error Tracking Notes
 
 - Exceptions may take a minute or two to appear in PostHog.
-- Stack traces from your Convex functions are included automatically.
+- When an exception has a stack trace, Convex includes it automatically and maps
+  its frames to your source code. You do not need to upload source maps to
+  PostHog for these backend exceptions.
 
 ## Configuring Datadog Error Tracking
 
