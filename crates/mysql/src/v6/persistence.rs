@@ -134,7 +134,7 @@ struct Inner<RT: Runtime> {
 /// A torn read is safe: scans retry a stale ceiling, and a stale floor includes
 /// extra buckets (refreshing the bounds if maintenance has dropped one).
 #[derive(Default)]
-pub(super) struct PublishedBucketBounds {
+pub(crate) struct PublishedBucketBounds {
     created_through_ts: AtomicI64,
     oldest_kept_ts: AtomicI64,
 }
@@ -171,7 +171,7 @@ impl PublishedBucketBounds {
 }
 
 impl<RT: Runtime> Persistence<RT> {
-    fn backfill(&self) -> super::backfill::Backfill<'_, RT> {
+    fn backfill(&self) -> super::backfill::Backfill<'_, RT, Lease<RT>> {
         super::backfill::Backfill {
             pool: &self.inner.pool,
             db_name: &self.inner.db_name,
@@ -997,6 +997,7 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
         super::reader::IndexReader {
+            documents: super::reader::DocumentScope::DeploymentId,
             published: &self.inner.published,
             pool: &self.inner.pool,
             db_name: &self.inner.db_name,
@@ -1223,4 +1224,15 @@ fn row_to_document(row: &Row) -> anyhow::Result<DocumentLogEntry> {
         value,
         prev_ts: prev_ts.map(Timestamp::try_from).transpose()?,
     })
+}
+
+impl<RT: Runtime> crate::v6::backfill::BackfillLease for Lease<RT> {
+    async fn transact_read_committed<F, T>(&self, f: F) -> anyhow::Result<T>
+    where
+        F: for<'a> AsyncFnOnce(
+            &'a mut crate::connection::MySqlTransaction<'_>,
+        ) -> anyhow::Result<T>,
+    {
+        Lease::transact_read_committed(self, f).await
+    }
 }

@@ -2,6 +2,7 @@
 //! read-only and persistence-globals tables.
 
 use std::{
+    borrow::Cow,
     fmt::Write,
     iter,
     ops::Bound,
@@ -35,6 +36,7 @@ use mysql_async::{
 
 use super::{
     column,
+    reader::DocumentScope,
     PersistenceDeploymentId,
 };
 use crate::chunks::ApproxSize;
@@ -558,6 +560,7 @@ pub(crate) fn index_query(
     order: Order,
     batch_size: usize,
     log_buckets: &[LogBucket],
+    documents: &DocumentScope,
 ) -> (String, Vec<Value>) {
     let order = match order {
         Order::Asc => "ASC",
@@ -568,7 +571,7 @@ pub(crate) fn index_query(
     append_bound_clause(&mut where_clause, &mut bounds, &lower, BoundSide::Lower);
     append_bound_clause(&mut where_clause, &mut bounds, &upper, BoundSide::Upper);
 
-    let (arms, params) = union_arms(
+    let (arms, mut params) = union_arms(
         log_buckets,
         |table, successor_filter| {
             format!(
@@ -589,6 +592,15 @@ LIMIT {batch_size})"#
             )
         },
     );
+    let document_join = match documents {
+        DocumentScope::DeploymentId => Cow::Borrowed(DOCUMENT_JOIN),
+        DocumentScope::InstanceName(instance) => {
+            params.push(instance.clone().into());
+            Cow::Owned(
+                DOCUMENT_JOIN.replace("D.deployment_id = U.deployment_id", "D.instance_name = ?"),
+            )
+        },
+    };
     (
         format!(
             r#"
@@ -599,7 +611,7 @@ LEFT JOIN (
 ORDER BY key_prefix {order}, key_suffix_hash {order}
 LIMIT {batch_size}
 ) U ON TRUE
-{DOCUMENT_JOIN}
+{document_join}
 WHERE S.id = 1
 ORDER BY U.key_prefix {order}, U.key_suffix_hash {order}
 LIMIT {batch_size}

@@ -1,4 +1,4 @@
-//! V6 index scans over deployment-scoped documents.
+//! Index scans with document joins scoped by deployment ID or instance name.
 use std::{
     ops::Bound,
     sync::Arc,
@@ -58,11 +58,46 @@ use crate::{
     ConvexMySqlPool,
 };
 
+/// A persisted index row refers to a missing or deleted document revision.
+#[derive(Debug, thiserror::Error)]
+#[error("dangling index reference")]
+pub(crate) struct DanglingIndexReference;
+
+#[derive(Clone)]
+pub(crate) enum DocumentScope {
+    DeploymentId,
+    #[allow(
+        dead_code,
+        reason = "Document layouts are selected by optional persistence adapters."
+    )]
+    InstanceName(String),
+}
+
+impl DocumentScope {
+    pub(crate) fn tenant_value(&self, deployment_id: PersistenceDeploymentId) -> Value {
+        match self {
+            Self::DeploymentId => deployment_id.into(),
+            Self::InstanceName(instance) => instance.clone().into(),
+        }
+    }
+
+    fn has_commit_between_sql(&self) -> &'static str {
+        match self {
+            Self::DeploymentId => sql::HAS_COMMIT_BETWEEN,
+            Self::InstanceName(_) => {
+                "SELECT 1 FROM @db_name.documents WHERE instance_name = ? AND ts > ? AND ts < ? \
+                 LIMIT 1"
+            },
+        }
+    }
+}
+
 pub(crate) struct IndexReader<'a, RT: Runtime> {
-    pub(super) published: &'a PublishedBucketBounds,
+    pub(crate) published: &'a PublishedBucketBounds,
     pub(crate) pool: &'a ConvexMySqlPool<RT>,
     pub(crate) db_name: &'a str,
     pub(crate) deployment_id: PersistenceDeploymentId,
+    pub(crate) documents: DocumentScope,
 }
 
 impl<'a, RT: Runtime> IndexReader<'a, RT> {
@@ -111,6 +146,7 @@ impl<'a, RT: Runtime> IndexReader<'a, RT> {
                     order,
                     page_size,
                     &buckets,
+                    &self.documents,
                 );
                 prepare_timer.finish();
                 let execute_timer =
@@ -187,9 +223,9 @@ impl<'a, RT: Runtime> IndexReader<'a, RT> {
                     stats.sql_statements += 1;
                     let displaced_since_snapshot = connection
                         .query_optional(
-                            sql::HAS_COMMIT_BETWEEN,
+                            self.documents.has_commit_between_sql(),
                             vec![
-                                self.deployment_id.into(),
+                                self.documents.tenant_value(self.deployment_id),
                                 Value::Int(i64::from(read_timestamp)),
                                 Value::Int(i64::from(bounds.floor.start_ts()?)),
                             ],
@@ -255,9 +291,11 @@ impl<'a, RT: Runtime> IndexReader<'a, RT> {
                     let table_id = TabletId(InternalId::try_from(column::bytes(&row, 5)?)?);
                     anyhow::ensure!(table_id == tablet_id);
                     let encoded = column::maybe_bytes(&row, 7)?
+                        .context(DanglingIndexReference)
                         .with_context(|| format!("Dangling index reference for {key:?} {ts:?}"))?;
-                    let document =
-                        document_encoding::decode(encoded, table_id)?.with_context(|| {
+                    let document = document_encoding::decode(encoded, table_id)?
+                        .context(DanglingIndexReference)
+                        .with_context(|| {
                             format!("Index reference to deleted document {key:?} {ts:?}")
                         })?;
                     let prev_ts: Option<i64> = row.get_opt(8).context("row[8]")??;

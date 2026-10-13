@@ -280,13 +280,19 @@ impl<RT: Runtime> Persistence<RT> {
             .is_none())
     }
 
+    /// Runs `f` in the transaction that writes the V5 rows, so an error from
+    /// either rolls back the other's writes as well.
     #[fastrace::trace]
-    pub(crate) async fn write_impl<'a>(
+    pub(crate) async fn write_in_transaction<'a, F>(
         &self,
         documents: &'a [DocumentLogEntry],
         indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
-    ) -> anyhow::Result<()> {
+        f: F,
+    ) -> anyhow::Result<()>
+    where
+        F: for<'tx> AsyncFnOnce(&'tx mut MySqlTransaction<'_>) -> anyhow::Result<()>,
+    {
         anyhow::ensure!(documents.len() <= crate::MAX_INSERT_SIZE);
         let mut write_size = 0;
         for update in documents {
@@ -402,7 +408,7 @@ impl<RT: Runtime> Persistence<RT> {
                         )
                         .await?;
                 }
-                Ok(())
+                f(tx).await
             })
             .await
     }
@@ -437,7 +443,8 @@ impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
         indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
-        self.write_impl(documents, indexes, conflict_strategy).await
+        self.write_in_transaction(documents, indexes, conflict_strategy, async |_| Ok(()))
+            .await
     }
 
     async fn write_persistence_global(

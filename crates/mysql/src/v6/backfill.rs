@@ -10,20 +10,30 @@ use common::{
 
 use super::{
     indexes::IndexEngine,
-    persistence::Lease,
     sql,
     PersistenceDeploymentId,
 };
-use crate::ConvexMySqlPool;
+use crate::{
+    connection::MySqlTransaction,
+    ConvexMySqlPool,
+};
 
-pub(crate) struct Backfill<'a, RT: Runtime> {
+/// Transactions must fence the current writer lease and use READ COMMITTED
+/// so reconciliation can delete stale rows without gap-locking index inserts.
+pub(crate) trait BackfillLease: Sync {
+    async fn transact_read_committed<F, T>(&self, f: F) -> anyhow::Result<T>
+    where
+        F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>;
+}
+
+pub(crate) struct Backfill<'a, RT: Runtime, L: BackfillLease> {
     pub(crate) pool: &'a ConvexMySqlPool<RT>,
     pub(crate) db_name: &'a str,
     pub(crate) deployment_id: PersistenceDeploymentId,
     pub(crate) engine: &'a IndexEngine,
-    pub(crate) lease: &'a Lease<RT>,
+    pub(crate) lease: &'a L,
 }
-impl<RT: Runtime> Backfill<'_, RT> {
+impl<RT: Runtime, L: BackfillLease> Backfill<'_, RT, L> {
     /// READ COMMITTED keeps conditional deletes from gap-locking concurrent
     /// index inserts.
     pub(crate) async fn reconcile(&self, index: PersistenceIndexId) -> anyhow::Result<()> {
