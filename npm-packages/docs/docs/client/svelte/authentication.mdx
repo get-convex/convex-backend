@@ -9,20 +9,19 @@ description:
 pagination_next: client/svelte/sveltekit-server-rendering
 ---
 
-`convex-svelte` integrates with any authentication provider through a small,
-reactive API. The `setupAuth()` / `useAuth()` primitives below are the low-level
-integration point; on top of them, the [Auth adapters](#auth-adapters) section
-covers higher-level options that wire a specific auth system to Convex for you.
-For background on how authentication works in Convex generally — including
-hosted providers and the OpenID Connect model — see
+`convex-svelte` works with any authentication provider through two functions:
+`setupAuth()` passes the provider's state to the Convex client, and `useAuth()`
+reads it in components. The [auth adapters](#auth-adapters) below call
+`setupAuth()` for you for specific auth systems. For how authentication works in
+Convex in general, including hosted providers and OpenID Connect, see
 [Authentication](/auth/overview.mdx).
 
 ## setupAuth / useAuth
 
-`setupAuth()` accepts a **reactive getter** returning the auth provider's state
-and automatically manages `client.setAuth()` / `client.clearAuth()`. This
-mirrors React's `ConvexProviderWithAuth` — when the provider state changes
-(sign-in, sign-out, token refresh), the auth lifecycle updates automatically.
+`setupAuth()` takes a **reactive getter** that returns the auth provider's
+state. When that state changes (sign-in, sign-out, token refresh), it calls
+`client.setAuth()` or `client.clearAuth()`. It's the Svelte counterpart of
+React's `ConvexProviderWithAuth`.
 
 ```svelte title="src/routes/+layout.svelte"
 <script lang="ts">
@@ -31,8 +30,8 @@ mirrors React's `ConvexProviderWithAuth` — when the provider state changes
 
   setupConvex(PUBLIC_CONVEX_URL);
 
-  // The getter is reactive — when its return values change,
-  // setupAuth automatically toggles setAuth/clearAuth.
+  // The getter is reactive: when its values change, setupAuth calls
+  // setAuth or clearAuth.
   setupAuth(() => ({
     isLoading: false,
     isAuthenticated: !!session,
@@ -139,42 +138,40 @@ the user themselves.
 
 ## Auth adapters
 
-The primitives above let you wire up any provider by hand. In practice, most
-apps reach for a higher-level adapter that connects a specific auth system to
-Convex and calls `setupAuth()` for you, so `useAuth()` works out of the box.
+`setupAuth()` lets you connect any provider by hand. An adapter does that for a
+specific auth system: it calls `setupAuth()` for you, and `useAuth()` works
+without further setup.
 
 ### Convex Auth
 
-[Convex Auth](/auth/convex-auth.mdx) is Convex's built-in, officially documented
-auth library — authentication runs entirely on your own Convex deployment with
-no third-party service.
+[Convex Auth](/auth/convex-auth.mdx) is Convex's own auth library.
+Authentication runs on your Convex deployment, without a third-party service.
 
-- **Svelte adapter:**
-  [`@mmailaender/convex-auth-svelte`](https://github.com/mmailaender/convex-auth-svelte)
-  (community-maintained) — wires Convex Auth to `setupAuth()` / `useAuth()`,
-  with SvelteKit SSR support.
+For Svelte, the community-maintained
+[`@mmailaender/convex-auth-svelte`](https://github.com/mmailaender/convex-auth-svelte)
+connects Convex Auth to `setupAuth()` and `useAuth()`, with SvelteKit SSR
+support.
 
 ### Convex Better Auth
 
-[Convex Better Auth](https://labs.convex.dev/better-auth) integrates the
-powerful [Better Auth](https://www.better-auth.com) library with Convex.
+[Convex Better Auth](https://labs.convex.dev/better-auth) connects the
+[Better Auth](https://www.better-auth.com) library to Convex.
 
-- **Svelte adapter:**
-  [`@mmailaender/convex-better-auth-svelte`](https://github.com/mmailaender/convex-better-auth-svelte)
-  (community-maintained) — its `createSvelteAuthClient()` calls `setupAuth()`
-  internally with a reactive session getter, so `useAuth()` from either package
-  works. SSR-ready.
-- **UI components:**
-  [Convex Better Auth UI](https://github.com/mmailaender/Convex-Better-Auth-UI)
-  (community-maintained) — production-ready, shadcn-style auth and organization
-  management for SvelteKit (and Next.js), copied into your project. Gets user
-  and organization management running in minutes while keeping full control of
-  the code.
+For Svelte, the community-maintained
+[`@mmailaender/convex-better-auth-svelte`](https://github.com/mmailaender/convex-better-auth-svelte)
+provides `createSvelteAuthClient()`. It calls `setupAuth()` with a reactive
+session getter, so `useAuth()` from either package works, and it supports
+SvelteKit SSR.
+
+[Convex Better Auth UI](https://github.com/mmailaender/Convex-Better-Auth-UI)
+(community-maintained) adds shadcn-style components for sign-in and for user and
+organization management, for SvelteKit and Next.js. They're copied into your
+project, so you can change their code.
 
 ### Hosted providers
 
-Convex also works with hosted identity platforms via OpenID Connect JWTs —
-[Clerk](/auth/clerk.mdx), [WorkOS AuthKit](/auth/authkit/index.mdx), and
+Convex also works with hosted identity platforms that issue OpenID Connect JWTs,
+such as [Clerk](/auth/clerk.mdx), [WorkOS AuthKit](/auth/authkit/index.mdx) and
 [Auth0](/auth/auth0.mdx). There are no dedicated `convex-svelte` wrappers for
 these yet, so in a Svelte app you integrate them through the low-level
 [`setupAuth()`](#setupauth--useauth) pattern: return the provider's reactive
