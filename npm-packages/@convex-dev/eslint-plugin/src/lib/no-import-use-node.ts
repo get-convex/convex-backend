@@ -40,7 +40,7 @@ export const noImportUseNode = createRule({
         } catch {
           return;
         }
-        if (source && source.slice(0, 100).includes("use node")) {
+        if (isUseNodeModule(source)) {
           context.report({
             messageId: "wrong runtime import",
             node: node,
@@ -51,6 +51,9 @@ export const noImportUseNode = createRule({
   },
 });
 
+// Implement basic module resolution for relative paths only.
+// This doesn't work with path aliases and so many other cases;
+// it's a proof of concept that might be helpful to folks debugging.
 // Implement basic module resolution for relative paths only.
 // This doesn't work with path aliases and so many other cases;
 // it's a proof of concept that might be helpful to folks debugging.
@@ -74,4 +77,15 @@ function resolveFile(filePath: string): string | null {
   }
 
   return null;
+}
+
+// A module is a "use node" module only if the directive is the first statement,
+// after an optional BOM, hashbang, whitespace and comments. A comment that merely
+// mentions "use node" must not count, and a long header comment before a real
+// directive must not hide it.
+const USE_NODE_DIRECTIVE =
+  /^\uFEFF?(?:#![^\n]*\n)?(?:\s|\/\/[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*(["'])use node\1(?=\s|;|\/|$)/;
+
+export function isUseNodeModule(source: string): boolean {
+  return USE_NODE_DIRECTIVE.test(source);
 }
