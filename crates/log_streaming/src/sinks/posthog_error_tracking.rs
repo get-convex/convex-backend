@@ -81,7 +81,7 @@ fn serialize_frame(frame: &MappedFrame) -> JsonValue {
         "lineno": frame.line_number,
         "colno": frame.column_number,
         "in_app": true,
-        "resolved": true,
+        "resolved": frame.is_source_mapped,
     })
 }
 
@@ -362,27 +362,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn source_mapped_frames_are_sent_as_resolved() {
-        let frame = MappedFrame {
-            file_name: Some("functions/example.ts".to_string()),
-            function_name: Some("handler".to_string()),
-            line_number: Some(12),
-            column_number: Some(4),
-            ..Default::default()
-        };
+    fn frames_preserve_their_source_mapping_status() {
+        for (filename, is_source_mapped) in [
+            ("functions/example.ts", true),
+            ("convex:/user/example.js", false),
+        ] {
+            let frame = MappedFrame {
+                file_name: Some(filename.to_string()),
+                function_name: Some("handler".to_string()),
+                line_number: Some(12),
+                column_number: Some(4),
+                is_source_mapped,
+                ..Default::default()
+            };
 
-        assert_eq!(
-            serialize_frame(&frame),
-            json!({
-                "platform": "custom",
-                "lang": "javascript",
-                "filename": "functions/example.ts",
-                "function": "handler",
-                "lineno": 12,
-                "colno": 4,
-                "in_app": true,
-                "resolved": true,
-            })
-        );
+            assert_eq!(
+                serialize_frame(&frame),
+                json!({
+                    "platform": "custom",
+                    "lang": "javascript",
+                    "filename": filename,
+                    "function": "handler",
+                    "lineno": 12,
+                    "colno": 4,
+                    "in_app": true,
+                    "resolved": is_source_mapped,
+                })
+            );
+        }
     }
 }
