@@ -13,6 +13,10 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use chrono::{
+    DateTime,
+    Utc,
+};
 use common::types::MemberId;
 use errors::ErrorMetadata;
 use oauth2::{
@@ -397,6 +401,10 @@ pub struct Directory {
     pub state: String,
     #[serde(default)]
     pub name: Option<String>,
+    /// The identity provider behind the directory, e.g. "okta scim v2.0",
+    /// "azure scim v2.0", "gsuite directory", "generic scim v2.0".
+    #[serde(default)]
+    pub r#type: Option<String>,
 }
 
 impl Directory {
@@ -438,6 +446,7 @@ pub struct WorkOSEvent {
     pub id: String,
     /// e.g. "dsync.user.created".
     pub event: String,
+    pub created_at: DateTime<Utc>,
     /// The event-type-specific body, e.g. a `DirectoryUser` for
     /// `dsync.user.*`.
     pub data: serde_json::Value,
@@ -477,6 +486,11 @@ pub trait WorkOSClient: Send + Sync {
         domain: Option<&str>,
     ) -> anyhow::Result<WorkOSOrganizationResponse>;
     async fn delete_organization(&self, organization_id: &str) -> anyhow::Result<()>;
+    /// Removes one domain from its organization. WorkOS has no list-domains
+    /// endpoint; the domains an organization holds come back on
+    /// [`WorkOSClient::get_organization_by_id`]. Deleting an already-deleted
+    /// domain is a no-op.
+    async fn delete_organization_domain(&self, domain_id: &str) -> anyhow::Result<()>;
 
     // Organization membership methods
     async fn create_membership(
@@ -686,6 +700,16 @@ where
         delete_workos_organization(&self.api_key, organization_id, &*self.http_client).await
     }
 
+    async fn delete_organization_domain(&self, domain_id: &str) -> anyhow::Result<()> {
+        delete_workos_resource(
+            &self.api_key,
+            &format!("https://api.workos.com/organization_domains/{domain_id}"),
+            "delete organization domain",
+            &*self.http_client,
+        )
+        .await
+    }
+
     async fn list_organization_memberships(
         &self,
         user_id: &str,
@@ -830,8 +854,11 @@ struct MockWorkOSState {
     organization_domains: HashMap<String, Vec<WorkOSOrganizationDomain>>,
     organization_memberships: HashMap<String, Vec<WorkOSOrganizationMembershipResponse>>,
     /// Distinguishes the ids handed out by successive `create_organization`
-    /// calls.
+    /// and `with_organization_domain` calls. Shared between the two so a
+    /// domain id names one domain across every organization, as WorkOS's do.
     next_id: u64,
+    /// The event log served by [`list_events`], oldest first.
+    events: Vec<WorkOSEvent>,
 }
 
 impl MockWorkOSClient {
@@ -857,20 +884,32 @@ impl MockWorkOSClient {
         domain: &str,
         state: WorkOSDomainState,
     ) -> Self {
-        {
-            let mut guard = self.state.write();
-            let domains = guard
-                .organization_domains
-                .entry(organization_id.to_string())
-                .or_default();
-            domains.push(WorkOSOrganizationDomain {
+        self.add_organization_domain(organization_id, domain, state);
+        self
+    }
+
+    /// Like [`MockWorkOSClient::with_organization_domain`], for a client that
+    /// is already shared, returning the id WorkOS assigned the domain.
+    pub fn add_organization_domain(
+        &self,
+        organization_id: &str,
+        domain: &str,
+        state: WorkOSDomainState,
+    ) -> String {
+        let mut guard = self.state.write();
+        guard.next_id += 1;
+        let id = format!("org_domain_mock{}", guard.next_id);
+        guard
+            .organization_domains
+            .entry(organization_id.to_string())
+            .or_default()
+            .push(WorkOSOrganizationDomain {
                 object: "organization_domain".to_string(),
-                id: format!("org_domain_mock{}", domains.len()),
+                id: id.clone(),
                 domain: domain.to_string(),
                 state,
             });
-        }
-        self
+        id
     }
 
     /// Report `email` as MFA-enrolled from [`is_mfa_enrolled`].
@@ -969,6 +1008,11 @@ impl MockWorkOSClient {
             .write()
             .directory_groups_by_user_id
             .insert(user_id.to_string(), groups);
+    }
+
+    /// Inject the event log served by [`list_events`], oldest first.
+    pub fn set_events(&self, events: Vec<WorkOSEvent>) {
+        self.state.write().events = events;
     }
 }
 
@@ -1149,6 +1193,19 @@ impl WorkOSClient for MockWorkOSClient {
         Ok(())
     }
 
+    async fn delete_organization_domain(&self, domain_id: &str) -> anyhow::Result<()> {
+        let mut state = self.state.write();
+        for domains in state.organization_domains.values_mut() {
+            domains.retain(|domain| domain.id != domain_id);
+        }
+        // `update_organization` writes domains onto the organization itself,
+        // so a domain can live in either place.
+        for org in state.organizations.values_mut() {
+            org.domains.retain(|domain| domain.id != domain_id);
+        }
+        Ok(())
+    }
+
     async fn list_organization_memberships(
         &self,
         user_id: &str,
@@ -1318,11 +1375,33 @@ impl WorkOSClient for MockWorkOSClient {
 
     async fn list_events(
         &self,
-        _event_types: &[&str],
-        _after: Option<&str>,
-        _limit: u32,
+        event_types: &[&str],
+        after: Option<&str>,
+        limit: u32,
     ) -> anyhow::Result<Vec<WorkOSEvent>> {
-        Ok(vec![])
+        // Matches the real client, which rejects this before issuing a request
+        // rather than letting an empty filter mean "every type".
+        if event_types.is_empty() {
+            anyhow::bail!("Refusing to list events with no event types");
+        }
+        let state = self.state.read();
+        let start = match after {
+            Some(after) => match state.events.iter().position(|e| e.id == after) {
+                Some(index) => index + 1,
+                // WorkOS doesn't document what it does with a cursor outside
+                // its retention window, so fail loudly rather than pick a
+                // behaviour: a test that loses its cursor should say so, not
+                // silently replay the whole log.
+                None => anyhow::bail!("Unknown event cursor {after}"),
+            },
+            None => 0,
+        };
+        Ok(state.events[start..]
+            .iter()
+            .filter(|e| event_types.contains(&e.event.as_str()))
+            .take(limit as usize)
+            .cloned()
+            .collect())
     }
 }
 
@@ -3096,7 +3175,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/directory_sync/directories",
+        "https://api.workos.com/directories",
         &[("organization_id", organization_id)],
         "list directories",
         http_client,
@@ -3116,7 +3195,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/directory_sync/groups",
+        "https://api.workos.com/directory_groups",
         &[("directory", directory_id)],
         "list directory groups",
         http_client,
@@ -3137,7 +3216,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/directory_sync/groups",
+        "https://api.workos.com/directory_groups",
         &[("user", directory_user_id)],
         "list directory groups for user",
         http_client,
@@ -3176,7 +3255,7 @@ where
 {
     list_workos_paginated(
         api_key,
-        "https://api.workos.com/directory_sync/users",
+        "https://api.workos.com/directory_users",
         &[("directory", directory_id)],
         "list directory users",
         http_client,
@@ -3195,7 +3274,7 @@ where
     F: Future<Output = Result<HttpResponse, E>>,
     E: std::error::Error + 'static + Send + Sync,
 {
-    let url = format!("https://api.workos.com/directory_sync/users/{directory_user_id}");
+    let url = format!("https://api.workos.com/directory_users/{directory_user_id}");
 
     let request = http::Request::builder()
         .uri(&url)
@@ -3252,7 +3331,7 @@ where
     F: Future<Output = Result<HttpResponse, E>>,
     E: std::error::Error + 'static + Send + Sync,
 {
-    let url = format!("https://api.workos.com/directory_sync/groups/{directory_group_id}");
+    let url = format!("https://api.workos.com/directory_groups/{directory_group_id}");
 
     let request = http::Request::builder()
         .uri(&url)

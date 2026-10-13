@@ -42,13 +42,16 @@ testing = [
 ]
 
 [dependencies]
+ai_gateway_jwt = { workspace = true }
 anyhow = { workspace = true }
 application = { workspace = true }
 async-broadcast = { workspace = true }
+async-trait = { workspace = true }
 authentication = { workspace = true }
 axum = { workspace = true }
 axum-extra = { workspace = true }
 base64 = { workspace = true }
+big_brain_client = { workspace = true }
 clap = { workspace = true }
 clusters = { workspace = true }
 cmd_util = { workspace = true }
@@ -75,6 +78,7 @@ keybroker = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 model = { workspace = true }
+moka = { workspace = true }
 node_executor = { workspace = true }
 parking_lot = { workspace = true }
 reqwest = { workspace = true }

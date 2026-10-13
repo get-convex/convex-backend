@@ -113,6 +113,8 @@ pub fn persistence_seed<RT: Runtime>(
                     multitenant,
                     require_leader,
                 } => {
+                    let deployment_id =
+                        deployment_id.context("MySQL persistence requires a deployment ID")?;
                     let options = MySqlOptions {
                         allow_read_only: flags.allow_read_only,
                         version,

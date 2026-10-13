@@ -63,7 +63,6 @@ use itertools::Itertools;
 use value::{
     DeveloperDocumentId,
     TableMapping,
-    TableName,
     TabletId,
 };
 
@@ -397,12 +396,6 @@ impl DatabaseIndexSnapshot {
             )
             .await?
         {
-            Self::log_start_range_fetch(
-                range_request.printable_index_name.table(),
-                1,
-                0,
-                range_request.max_size,
-            );
             return Ok(RangeFetchResult::MemoryCached {
                 documents: range,
                 next_cursor: CursorPosition::End,
@@ -413,54 +406,10 @@ impl DatabaseIndexSnapshot {
         let cache_results =
             self.cache
                 .get(index.id(), &range_request.interval, range_request.order);
-        let cache_miss_count = cache_results
-            .iter()
-            .filter(|r| matches!(r, DatabaseIndexSnapshotCacheResult::CacheMiss(_)))
-            .count();
-        Self::log_start_range_fetch(
-            range_request.printable_index_name.table(),
-            cache_results.len() - cache_miss_count,
-            cache_miss_count,
-            range_request.max_size,
-        );
         Ok(RangeFetchResult::NonCached {
             index: IndexRef::try_from(&index)?,
             cache_results,
         })
-    }
-
-    fn log_start_range_fetch(
-        _table_name: &TableName,
-        _num_cached_ranges: usize,
-        _num_cache_misses: usize,
-        _prefetch_size: usize,
-    ) {
-        // TODO: This event is reporting to Honeycomb too often
-        // Event::add_to_local_parent("start_range_fetch", || {
-        //     let table_name = if table_name.is_system() {
-        //         table_name.to_string()
-        //     } else {
-        //         format!("user_table")
-        //     };
-        //     let cached_ranges = num_cached_ranges.to_string();
-        //     let cache_misses = num_cache_misses.to_string();
-        //     let prefetch_size = prefetch_size.to_string();
-        //     [
-        //         (Cow::Borrowed("query.table"), Cow::Owned(table_name)),
-        //         (
-        //             Cow::Borrowed("query.cached_ranges"),
-        //             Cow::Owned(cached_ranges),
-        //         ),
-        //         (
-        //             Cow::Borrowed("query.cache_miss_ranges"),
-        //             Cow::Owned(cache_misses),
-        //         ),
-        //         (
-        //             Cow::Borrowed("query.prefetch_size"),
-        //             Cow::Owned(prefetch_size),
-        //         ),
-        //     ]
-        // });
     }
 
     /// Query the given indexes at the snapshot.

@@ -347,6 +347,18 @@ class PerformanceMark extends PerformanceEntry implements IPerformanceMark {
   constructor(name: string, options?: { startTime?: number; detail?: any }) {
     const prefix = "Failed to construct 'PerformanceMark'";
     requiredArguments(arguments.length, 1, prefix);
+    // WebIDL dictionary conversion: only undefined, null, and objects
+    // (including functions) are accepted.
+    if (
+      options !== undefined &&
+      options !== null &&
+      typeof options !== "object" &&
+      typeof options !== "function"
+    ) {
+      throw new TypeError(
+        `${prefix}: The provided value is not of type 'PerformanceMarkOptions'.`,
+      );
+    }
 
     const { detail = null, startTime = callPerformanceNow() } = options ?? {};
 

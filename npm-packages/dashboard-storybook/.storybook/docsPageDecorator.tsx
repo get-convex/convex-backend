@@ -15,6 +15,7 @@ import {
 import {
   useProjectBySlug,
   useCurrentProject,
+  useCurrentProjectWithStatus,
   usePaginatedProjects,
   useProjectById,
 } from "../../dashboard/src/api/projects";
@@ -189,6 +190,7 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       docsPage?: {
         deploymentType?: "dev" | "prod";
         launchDarkly?: Partial<ReturnType<typeof useLaunchDarkly>>;
+        entitlements?: Partial<ReturnType<typeof useTeamEntitlements>>;
       };
     }
   )?.docsPage;
@@ -267,7 +269,10 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
     isLoading: false,
   });
   mocked(useProfile).mockReturnValue(mockProfile);
-  mocked(useTeamEntitlements).mockReturnValue(mockTeamEntitlements);
+  mocked(useTeamEntitlements).mockReturnValue({
+    ...mockTeamEntitlements,
+    ...docsPageParams?.entitlements,
+  });
   mocked(useProjectBySlug).mockReturnValue(
     shouldMockCurrentProject ? mockProject : undefined,
   );
@@ -276,6 +281,10 @@ export const docsPageDecorator: DecoratorFunction<ReactRenderer> = (
       ? (mockProject as ReturnType<typeof useCurrentProject>)
       : undefined,
   );
+  mocked(useCurrentProjectWithStatus).mockReturnValue({
+    project: shouldMockCurrentProject ? mockProject : undefined,
+    isLoading: false,
+  });
   mocked(useProjectById).mockImplementation(() => ({
     project: mockProject,
     isLoading: false,

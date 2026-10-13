@@ -1,5 +1,9 @@
 # Redirects from what the browser requests to what we serve
 # THIS LIST IS NOT ALPHABETICAL! It mostly is, but order matters for wildcards.
+# The security policy lives on the marketing site; 302 so the canonical
+# location can move without browsers caching a stale target.
+/security.txt                       https://www.convex.dev/.well-known/security.txt  302
+/.well-known/security.txt           https://www.convex.dev/.well-known/security.txt  302
 /ai                                 /ai/overview
 /api/interfaces/server.DatabaseWriter   /api/interfaces/server.GenericDatabaseWriter
 /api/interfaces/server.DatabaseReader   /api/interfaces/server.GenericDatabaseReader
@@ -15,6 +19,7 @@
 /client/react/project-setup         /client/react/deployment-urls
 /contact                            /production/contact
 /errors                             /error
+/eslint                             /linting/overview
 /functions/http-endpoints		    /functions/http-actions
 /functions/testing                  /testing/overview
 /get-started                        /tutorial/overview
@@ -122,6 +127,7 @@
 /open-source                        /self-hosting
 /components/using-components        /components/using
 /chef                               /chef/migration-guide
+/production/project-configuration   /config/convex.json
 
 /tutorial                           /tutorial/overview
 /quickstarts                        /quickstart/overview
@@ -133,7 +139,9 @@
 /search                             /search/overview
 /components                         /components/overview
 /agents                             /agents/overview
+/ai-gateway                         /ai-gateway/overview
 /testing                            /testing/overview
+/linting                            /linting/overview
 /production                         /production/overview
 /platform-apis                      /platform-apis/overview
 /client/react                       /client/react/overview

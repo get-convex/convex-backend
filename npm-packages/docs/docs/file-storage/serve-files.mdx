@@ -67,8 +67,8 @@ server-side after checking permissions.
 It is also fine for the client to pass an `Id<"_storage">` to an authenticated
 HTTP action, as long as the action checks that the caller can access that file.
 Do not use the storage ID as the only access check. HTTP action responses are
-[currently limited](/functions/http-actions.mdx#limits) to 20MB, so they aren't
-a fit for serving larger files through Convex.
+[currently limited](/functions/http-actions.mdx#limits) to 100 MiB, so they
+aren't a fit for serving larger files through Convex.
 
 If you need file URLs that automatically expire after some time, consider the
 [Cloudflare R2 component](https://www.convex.dev/components/cloudflare-r2). Use

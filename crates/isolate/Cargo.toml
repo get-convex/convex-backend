@@ -54,18 +54,18 @@ testing = [
 tracy-tracing = ["common/tracy-tracing"]
 
 [dependencies]
+ada-url = { workspace = true }
+ai_gateway_jwt = { workspace = true }
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
-aws-lc-rs = { workspace = true }
 axum = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
-const-oid = { workspace = true }
 convex_macro = { workspace = true }
 database = { workspace = true }
 deno_core = { workspace = true }
@@ -88,12 +88,10 @@ mime = { workspace = true }
 model = { workspace = true }
 multer = { workspace = true }
 must-let = { workspace = true, optional = true }
-openssl-aws-lc = { workspace = true }
 parking_lot = { workspace = true }
 paste = { workspace = true }
 pb = { workspace = true }
 phf = { workspace = true }
-pkcs8 = { workspace = true }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 rand = { workspace = true }
@@ -112,7 +110,6 @@ serde_bytes = { workspace = true }
 serde_json = { workspace = true }
 slab = { workspace = true }
 sourcemap = { workspace = true }
-spki = { workspace = true }
 storage = { workspace = true }
 strum = { workspace = true }
 sync_types = { workspace = true }
@@ -126,6 +123,7 @@ usage_tracking = { workspace = true }
 uuid = { workspace = true }
 value = { workspace = true }
 vector = { workspace = true }
+webcrypto = { workspace = true }
 
 [target."cfg(not(windows))".dependencies]
 libc = { workspace = true }

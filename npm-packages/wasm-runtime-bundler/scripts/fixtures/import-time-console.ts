@@ -1,2 +1,2 @@
-// Logs while evaluating, which the import-phase host does not carry yet.
+// Logs while evaluating, for the import-phase host to record.
 console.log("loaded");

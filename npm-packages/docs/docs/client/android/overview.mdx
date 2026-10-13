@@ -45,7 +45,7 @@ is used to communicate between your code and the Convex backend.
 
 ## Connecting to a backend
 
-The `ConvexClient` is used to establish and maintain a connect between your
+The `ConvexClient` is used to establish and maintain a connection between your
 application and the Convex backend. First you need to create an instance of the
 client by giving it your backend deployment URL:
 
@@ -114,7 +114,7 @@ Any time the data that powers the backend `"workouts:get"` query changes, a new
 will refresh with the new data. Any UI that uses `workouts` will then rebuild,
 giving you a fully reactive UI.
 
-Note: you may prefer to put the subscription logic wrapped a Repository as
+Note: you may prefer to put the subscription logic wrapped in a Repository as
 described in the
 [Android architecture patterns](https://developer.android.com/topic/architecture/data-layer).
 
@@ -237,7 +237,7 @@ interface in the `convex-mobile` repo for more info.
 ## Production and dev deployments
 
 When you're ready to move toward
-[production](https://docs.convex.dev/production) for your app, you can setup
+[production](https://docs.convex.dev/production) for your app, you can set up
 your Android build system to point different builds or flavors of your
 application to different Convex deployments. One fairly simple way to do it is
 by passing different values (e.g. deployment URL) to different build targets or
@@ -306,7 +306,7 @@ aware that you'll need to provide JSON in Convex's undocumented
 [JSON format](https://github.com/get-convex/convex-mobile/blob/5babd583631a7ff6d739e1a2ab542039fd532548/android/convexmobile/src/main/java/dev/convex/android/jsonhelpers.kt#L47).
 
 You can also use the full `ConvexClient` in Android instrumentation tests. You
-can setup a special backend instance for testing or run a local Convex server
+can set up a special backend instance for testing or run a local Convex server
 and run full integration tests.
 
 ## Under the hood

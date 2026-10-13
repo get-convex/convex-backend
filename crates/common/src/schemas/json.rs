@@ -586,6 +586,19 @@ impl TryFrom<ValidatorJson> for DocumentSchema {
     }
 }
 
+impl DocumentSchema {
+    /// Stable content hash used to carry validation state into fresh attempts.
+    ///
+    /// Hashes the canonical JSON serialization: object fields are sorted
+    /// (`BTreeMap`), and union member order is significant — reordering union
+    /// members counts as a different validator.
+    pub fn content_hash(&self) -> anyhow::Result<String> {
+        let json = ValidatorJson::try_from(self.clone())?;
+        let bytes = serde_json::to_vec(&json)?;
+        Ok(value::sha256::Sha256::hash(&bytes).as_hex())
+    }
+}
+
 impl TryFrom<DocumentSchema> for ValidatorJson {
     type Error = anyhow::Error;
 

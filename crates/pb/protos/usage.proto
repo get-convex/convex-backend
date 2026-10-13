@@ -52,6 +52,7 @@ message TextQueryUsage {
   optional string index_name = 3;
   optional uint64 num_searches = 4;
   optional uint64 bytes_searched = 5;
+  optional uint64 filtered_bytes_searched = 6;
 }
 
 message VectorQueryUsage {

@@ -16,10 +16,11 @@ import {
 } from "./meta.js";
 import {
   ArgsAndOptions,
-  FunctionReference,
   FunctionReturnType,
   OptionalRestArgs,
   ValidatorTypeToReturnType,
+  FunctionReference,
+  FunctionReference_future,
 } from "../server/api.js";
 import {
   GenericValidator,
@@ -133,7 +134,11 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
    * const user = await ctx.runQuery(internal.users.getUser, { userId });
    * ```
    */
-  runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
+  runQuery: <
+    Query extends
+      | FunctionReference<"query", "public" | "internal">
+      | FunctionReference_future<"query", "public" | "internal">,
+  >(
     query: Query,
     ...args: ArgsAndOptions<Query, AdvancedRunQueryOptions>
   ) => Promise<FunctionReturnType<Query>>;
@@ -149,7 +154,9 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
    * validation, and creating a new isolated JS context.
    */
   runMutation: <
-    Mutation extends FunctionReference<"mutation", "public" | "internal">,
+    Mutation extends
+      | FunctionReference<"mutation", "public" | "internal">
+      | FunctionReference_future<"mutation", "public" | "internal">,
   >(
     mutation: Mutation,
     ...args: ArgsAndOptions<Mutation, { transactionLimits?: TransactionLimits }>
@@ -243,7 +250,11 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
    * `runQuery` incurs overhead of running argument and return value validation,
    * and creating a new isolated JS context.
    */
-  runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
+  runQuery: <
+    Query extends
+      | FunctionReference<"query", "public" | "internal">
+      | FunctionReference_future<"query", "public" | "internal">,
+  >(
     query: Query,
     ...args: ArgsAndOptions<Query, { transactionLimits?: TransactionLimits }>
   ) => Promise<FunctionReturnType<Query>>;
@@ -326,7 +337,11 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
    * @param args - The arguments to the query function.
    * @returns A promise of the query's result.
    */
-  runQuery<Query extends FunctionReference<"query", "public" | "internal">>(
+  runQuery<
+    Query extends
+      | FunctionReference<"query", "public" | "internal">
+      | FunctionReference_future<"query", "public" | "internal">,
+  >(
     query: Query,
     ...args: OptionalRestArgs<Query>
   ): Promise<FunctionReturnType<Query>>;
@@ -347,7 +362,9 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
    * @returns A promise of the mutation's result.
    */
   runMutation<
-    Mutation extends FunctionReference<"mutation", "public" | "internal">,
+    Mutation extends
+      | FunctionReference<"mutation", "public" | "internal">
+      | FunctionReference_future<"mutation", "public" | "internal">,
   >(
     mutation: Mutation,
     ...args: OptionalRestArgs<Mutation>
@@ -369,7 +386,11 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
    * @param args - The arguments to the action function.
    * @returns A promise of the action's result.
    */
-  runAction<Action extends FunctionReference<"action", "public" | "internal">>(
+  runAction<
+    Action extends
+      | FunctionReference<"action", "public" | "internal">
+      | FunctionReference_future<"action", "public" | "internal">,
+  >(
     action: Action,
     ...args: OptionalRestArgs<Action>
   ): Promise<FunctionReturnType<Action>>;
@@ -1213,6 +1234,11 @@ export type HttpActionBuilder = (
 ) => PublicHttpAction;
 
 export interface AdvancedRunQueryOptions {
+  /**
+   * Custom limits for a nested transaction. Each field specifies the absolute
+   * maximum allowed for the nested function call. Values are capped at the
+   * global transaction limits, so they can only lower limits, never raise them.
+   */
   transactionLimits?: TransactionLimits;
   /**
    * Run a query on a recent snapshot of the database that is not guaranteed
@@ -1223,6 +1249,11 @@ export interface AdvancedRunQueryOptions {
    * database read conflicts are expected, e.g. reading from an append-only
    * table with immutable records where the only read conflicts are from
    * concurrent appends.
+   *
+   * To determine the snapshot of the nested query, you can call
+   * `ctx.meta.getSnapshotTs()` from within the stale snapshot query. To
+   * compare to the parent mutation's snapshot timestamp, you can return that
+   * value from the query and call `ctx.meta.getSnapshotTs()` from the parent.
    */
   useStaleSnapshot?: boolean;
 }

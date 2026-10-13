@@ -46,7 +46,9 @@ export const chat = action({
 ## Agent component
 
 Pass `convexGateway` as `languageModel` on
-[`@convex-dev/agent`](/agents/getting-started). It obtains the token for you:
+[`@convex-dev/agent`](/agents/getting-started). It obtains the token for you.
+
+The Agent and RAG components need `convex` 1.46 or later.
 
 ```sh
 npm install @convex-dev/agent @convex-dev/ai-sdk-provider
@@ -71,12 +73,18 @@ model. For the [RAG component](/agents/rag.mdx), use
 ## Vercel AI SDK
 
 `convexGateway` works with `generateText`, `streamText`, `embed`, and
-`embedMany` from the [Vercel AI SDK](https://ai-sdk.dev/). It needs `convex`
-1.45+ and AI SDK 7, and runs in the default runtime and
-[Node.js actions](/functions/runtimes.mdx):
+`embedMany` from the [Vercel AI SDK](https://ai-sdk.dev/). Use
+`@convex-dev/ai-sdk-provider` 0.2.1 or later with `convex` 1.45 or later and AI
+SDK 7.0.105 or later. The provider works in the default runtime and
+[Node.js actions](/functions/runtimes.mdx).
+
+For a Node.js action, set
+[`node.nodeVersion`](/config/convex-json.mdx#configuring-the-nodejs-version) to
+`"22"` or `"24"` in `convex.json`. The default Convex runtime doesn't need this
+setting.
 
 ```sh
-npm install @convex-dev/ai-sdk-provider ai
+npm install @convex-dev/ai-sdk-provider@^0.2.1 ai
 ```
 
 ```ts
@@ -114,14 +122,56 @@ for await (const chunk of result.textStream) {
 
 ### Choose a model interface
 
-For text generation, start with `convexGateway(model)`. It works across model
-providers and is the recommended default. Use the native Messages or Responses
-interface only when you need endpoint-specific provider features:
+For text generation, start with `convexGateway(model)`, which uses Chat
+Completions across model providers. Use the native Messages or Responses
+interface when you need endpoint-specific provider features:
 
 ```ts
 const messagesModel = convexGateway.messages("anthropic/claude-sonnet-4.5");
 const responsesModel = convexGateway.responses("openai/gpt-5");
 ```
+
+The Responses endpoint is stateless. The provider sets `store: false`; it does
+not support `store: true` or `previous_response_id`.
+
+### Decisions with Jev
+
+<Admonition type="caution" title="Decisions is in alpha">
+
+`convexGateway.evaluationModel()` uses `/alpha/decisions`. The endpoint and AI
+SDK's experimental evaluation interface may change during alpha.
+
+</Admonition>
+
+Use AI SDK's `evaluate` to classify or score data with Jev from an action:
+
+```ts
+import { experimental_evaluate as evaluate } from "ai";
+import { convexGateway } from "@convex-dev/ai-sdk-provider";
+
+const decision = await evaluate({
+  model: convexGateway.evaluationModel("typesafe/jev-1.13"),
+  state: { ticket: "Customer cannot sign in" },
+  questions: {
+    priority: {
+      type: "choice",
+      instructions: "Choose the response priority",
+      criteria: {
+        urgent: "Respond now",
+        normal: "Respond today",
+      },
+    },
+  },
+});
+
+console.log(decision.answers.priority.choice);
+```
+
+Questions can use `choice`, `score`, or `boolean`. Boolean answers contain a
+`probability` between 0 and 1 (called `noul` in the HTTP API). Pass
+`abortSignal` to `evaluate` to cancel a request.
+
+### Embeddings
 
 Create embeddings with `embedMany`. The AI SDK automatically splits batches
 larger than the gateway's 512-input limit:
@@ -135,6 +185,22 @@ const { embeddings } = await embedMany({
   values: ["hello", "world"],
 });
 ```
+
+### Images and videos
+
+Use `convexGateway.imageModel()` with `generateImage`, or
+`convexGateway.videoModel()` with `experimental_generateVideo` and
+`experimental_startVideo`. Image and video generation are in alpha. See
+[Images and videos](/ai-gateway/images-and-videos) for examples and callback
+handling.
+
+### Voice
+
+Use `convexGateway.transcriptionModel()` with `experimental_transcribe`, or
+`convexGateway.speechModel()` with `experimental_generateSpeech`. Voice is in
+alpha and needs `@convex-dev/ai-sdk-provider` 0.3.0-alpha.0 or later, installed
+with `npm install @convex-dev/ai-sdk-provider@alpha`. See
+[Voice](/ai-gateway/voice) for examples and for audio chat models.
 
 ## Manual fetch
 
@@ -169,14 +235,36 @@ export const chat = action({
 });
 ```
 
-See [HTTP API](/ai-gateway/api.mdx) for request and response shapes.
+See [HTTP API](/ai-gateway/api.mdx) for other endpoints, including
+[Decisions](/ai-gateway/api.mdx#post-alphadecisions).
+
+## Local development
+
+Local development requires `convex` 1.46 or later, an up-to-date local backend,
+and a deployment linked to a project whose team has AI Gateway access. From your
+project directory, run:
+
+```sh
+npx convex login
+npx convex deployment select local
+npx convex dev
+```
+
+Restart `npx convex dev` after signing in if it was already running, and accept
+the backend upgrade if prompted. The examples above, including
+`getServiceToken("ai-gateway")`, work unchanged. See
+[Local deployments](/cli/local-deployments-for-dev.mdx) for more setup options.
+
+Inference runs in the cloud and is charged to the linked project's team.
+Anonymous local deployments cannot use the gateway.
 
 ## Token and timeouts
 
-`getServiceToken("ai-gateway")` returns a short-lived token scoped to your
-deployment. It only works inside a running action, and repeated calls in the
-same action reuse one token. Keep the token inside your action: don't return it
-to clients or store it in environment variables.
+Call `getServiceToken("ai-gateway")` inside an action whenever a gateway request
+needs a credential. It returns a short-lived token scoped to your deployment;
+the action runtime caches and refreshes it as needed. Keep the token private.
+Don't return it to clients, store it in environment variables, or cache it
+yourself.
 
 The request runs inside your action, so a long completion can hit the
 [action timeout](/production/state/limits.mdx#execution-time-and-scheduling) (30

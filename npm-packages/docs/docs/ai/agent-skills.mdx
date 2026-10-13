@@ -7,6 +7,8 @@ description:
   workflows"
 ---
 
+import { AgentSkills } from "@site/src/components/AgentSkills";
+
 [Agent Skills](https://agentskills.io) are portable packages of instructions and
 workflows that teach AI coding agents how to perform specialized tasks. Convex
 provides a set of ready-made skills for common workflows like setting up auth,
@@ -30,18 +32,7 @@ GitHub Copilot.
 
 ## Available Skills
 
-| Skill                       | Description                                                            |
-| --------------------------- | ---------------------------------------------------------------------- |
-| `/convex`                   | Top-level entry point — routes to the right Convex skill for your task |
-| `/convex-quickstart`        | Set up a new Convex project from scratch                               |
-| `/convex-setup-auth`        | Configure authentication for your Convex app                           |
-| `/convex-migration-helper`  | Plan and run data migrations                                           |
-| `/convex-create-component`  | Create a new Convex component                                          |
-| `/convex-performance-audit` | Audit and optimize Convex queries and mutations                        |
-
-Skills are added and updated regularly, so this list may not be exhaustive. See
-the [get-convex/agent-skills](https://github.com/get-convex/agent-skills) repo
-for the latest.
+<AgentSkills />
 
 ## Using Skills
 
@@ -58,7 +49,7 @@ you manually invoke them depends on your tool:
 For example, to kick off auth setup in Cursor or Claude Code:
 
 ```
-/convex-setup-auth
+/convex-auth
 ```
 
 ## Learn More

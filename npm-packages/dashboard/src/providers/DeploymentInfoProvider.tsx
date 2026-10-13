@@ -155,8 +155,9 @@ export function DeploymentInfoProvider({
   }, [accessToken]);
   const {
     connectionStateCheckIntervalMs,
-    newDataFilters,
-    giftWrapDataFilters,
+    s3ExportIntegration,
+    showFivetranSyncProgress,
+    healthDeployProgress,
   } = useLaunchDarkly();
   const [, openFeedbackForm] = useFeedbackFormOpen();
   const posthog = usePostHogLib();
@@ -337,9 +338,10 @@ export function DeploymentInfoProvider({
         deploymentsURI,
         isSelfHosted: false,
         workosIntegrationEnabled: true,
+        healthDeployProgressEnabled: healthDeployProgress,
+        s3ExportIntegrationEnabled: s3ExportIntegration,
         connectionStateCheckIntervalMs,
-        newDataFilters,
-        giftWrapDataFilters,
+        showFivetranSyncProgress,
       });
     };
     if (accessTokenRef.current && (deploymentOverride || deploymentName)) {
@@ -352,14 +354,15 @@ export function DeploymentInfoProvider({
     projectsURI,
     teamsURI,
     connectionStateCheckIntervalMs,
-    newDataFilters,
-    giftWrapDataFilters,
+    showFivetranSyncProgress,
     openFeedbackForm,
     isDeploymentLookupSettled,
     isLocalTarget,
     canProveDeploymentMissing,
     cloudDeploymentUrl,
     authRefreshKey,
+    healthDeployProgress,
+    s3ExportIntegration,
   ]);
 
   return deploymentInfo ? (

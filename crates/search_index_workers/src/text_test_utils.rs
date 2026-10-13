@@ -33,7 +33,7 @@ use common::{
         IndexName,
         TabletIndexName,
     },
-    version::MIN_NPM_VERSION_FOR_FUZZY_SEARCH,
+    version::MIN_NPM_VERSION_FOR_PREFIX_SEARCH,
 };
 use database::{
     test_helpers::{
@@ -41,8 +41,6 @@ use database::{
         DbFixturesArgs,
     },
     Database,
-    IndexBackfillMetadata,
-    IndexBackfillModel,
     IndexModel,
     ResolvedQuery,
     TestFacingModel,
@@ -64,7 +62,6 @@ use sync_types::Timestamp;
 use usage_tracking::UsageCounter;
 use value::{
     assert_obj,
-    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -231,16 +228,6 @@ impl TextFixtures {
         Ok(index_data)
     }
 
-    pub async fn index_backfill_progress(
-        &self,
-        index_id: DeveloperDocumentId,
-    ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {
-        let mut tx = self.db.begin_system().await?;
-        IndexBackfillModel::new(&mut tx)
-            .existing_backfill_metadata(index_id)
-            .await
-    }
-
     pub async fn backfill(&self) -> anyhow::Result<()> {
         backfill_text_indexes(
             self.rt.clone(),
@@ -391,10 +378,23 @@ impl TextFixtures {
         index_name: GenericIndexName<TableName>,
         query_string: &str,
     ) -> anyhow::Result<Vec<ResolvedDocument>> {
-        let filters = vec![SearchFilterExpression::Search(
-            SEARCH_FIELD.parse()?,
-            query_string.into(),
-        )];
+        self.search_with_filters_tx(tx, index_name, query_string, vec![])
+            .await
+    }
+
+    /// Searches `query_string` on the search field, additionally constrained
+    /// by `filters`.
+    pub async fn search_with_filters_tx(
+        &self,
+        tx: &mut Transaction<TestRuntime>,
+        index_name: GenericIndexName<TableName>,
+        query_string: &str,
+        mut filters: Vec<SearchFilterExpression>,
+    ) -> anyhow::Result<Vec<ResolvedDocument>> {
+        filters.insert(
+            0,
+            SearchFilterExpression::Search(SEARCH_FIELD.parse()?, query_string.into()),
+        );
         let search = Search {
             table: index_name.table().clone(),
             index_name,
@@ -409,7 +409,7 @@ impl TextFixtures {
             tx,
             TableNamespace::test_user(),
             query,
-            Some(MIN_NPM_VERSION_FOR_FUZZY_SEARCH.clone()),
+            Some(MIN_NPM_VERSION_FOR_PREFIX_SEARCH.clone()),
         )?;
         let mut values = vec![];
         while let Some(value) = query_stream.next(tx, None).await? {
@@ -471,9 +471,18 @@ pub async fn add_document(
     table_name: &TableName,
     text: &str,
 ) -> anyhow::Result<ResolvedDocumentId> {
+    add_document_in_channel(tx, table_name, text, "#general").await
+}
+
+pub async fn add_document_in_channel(
+    tx: &mut Transaction<TestRuntime>,
+    table_name: &TableName,
+    text: &str,
+    channel: &str,
+) -> anyhow::Result<ResolvedDocumentId> {
     let document = assert_obj!(
         "text" => text,
-        "channel" => "#general",
+        "channel" => channel,
     );
     TestFacingModel::new(tx).insert(table_name, document).await
 }

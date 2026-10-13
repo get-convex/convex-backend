@@ -296,7 +296,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
         &mut self,
         storage_id: FileStorageId,
         identity: Identity,
-    ) -> anyhow::Result<Option<FileStorageEntry>> {
+    ) -> anyhow::Result<Option<ParsedDocument<FileStorageEntry>>> {
         // We only expect this function to be called by the framework as part
         // of a storage syscall. We require passing in a system identity to confirm
         // that the caller isn't letting a user call this directly
@@ -306,11 +306,10 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
         let Some(entry) = self.get_file(storage_id).await? else {
             return Ok(None);
         };
-        let document_id = entry.id();
         SystemMetadataModel::new(self.tx, self.namespace)
-            .delete(document_id)
+            .delete(entry.id())
             .await?;
-        Ok(Some(entry.into_value()))
+        Ok(Some(entry))
     }
 
     pub async fn get_total_storage_count(&mut self) -> anyhow::Result<u64> {
@@ -388,9 +387,10 @@ impl<RT: Runtime> FileStorageSizeTracker<RT> {
     pub async fn total_size(
         &mut self,
         identity: &Identity,
-        snapshot: &DatabaseSnapshot<RT>,
+        snapshot: DatabaseSnapshot<RT>,
     ) -> anyhow::Result<u64> {
-        let target_tables = file_storage_target_tables(identity, snapshot).await?;
+        let target_tables = file_storage_target_tables(identity, &snapshot).await?;
+        drop(snapshot);
         // Only resume when every table counted in the totals is still a target:
         // a dropped table's documents are baked into them, and the iterator
         // will never emit them again for us to subtract back out. Added tables

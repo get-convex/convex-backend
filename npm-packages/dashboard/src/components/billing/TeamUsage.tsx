@@ -1,5 +1,4 @@
 import { BusinessPlanSummary } from "components/billing/PlanSummary";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { Sheet } from "@ui/Sheet";
 import { Spinner } from "@ui/Spinner";
 import { Button } from "@ui/Button";
@@ -239,8 +238,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
     componentPrefix,
   );
 
-  const { showAiGatewayUsage } = useLaunchDarkly();
-
   const entitlements = useTeamEntitlements(team?.id);
 
   const hasOrbSubscription = useHasSubscription(team?.id);
@@ -325,7 +322,6 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                   summary={summary}
                   error={summaryError}
                   aiGatewayCost={aiGatewayCost}
-                  showAiGatewayUsage={showAiGatewayUsage}
                   aiGatewayCostError={aiGatewayCostError}
                   isBusinessPlan={isBusinessPlanType}
                   entitlements={entitlements}
@@ -454,7 +450,7 @@ function TeamUsageContents({ team }: { team: TeamResponse }) {
                   />
                 )}
 
-                {section === "aiGatewayCost" && showAiGatewayUsage && (
+                {section === "aiGatewayCost" && (
                   <AiGatewayCostUsage
                     team={team}
                     dateRange={dateRange}

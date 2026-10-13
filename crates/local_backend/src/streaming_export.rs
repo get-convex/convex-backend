@@ -80,6 +80,7 @@ use common::{
         Timestamp,
         UdfIdentifier,
     },
+    version::ClientVersion,
     virtual_system_mapping::{
         all_tables_number_to_name,
         VirtualSystemMapping,
@@ -297,14 +298,7 @@ pub async fn data_sync(
     ExtractRequestMetadata(request_metadata): ExtractRequestMetadata,
     Json(args): Json<DataSyncArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    _data_sync(
-        st,
-        args,
-        identity,
-        DataSyncClient::from(client_version.client()),
-        request_metadata,
-    )
-    .await
+    _data_sync(st, args, identity, client_version, request_metadata).await
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
@@ -547,7 +541,7 @@ async fn _data_sync(
     st: LocalAppState,
     DataSyncArgs { cursor, selection }: DataSyncArgs,
     identity: Identity,
-    sync_client: DataSyncClient,
+    client_version: ClientVersion,
     request_metadata: RequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     st.application
@@ -585,9 +579,38 @@ async fn _data_sync(
         mut usage,
     } = st
         .application
-        .data_sync(identity, cursor, selection, sync_client, request_metadata)
+        .data_sync(
+            identity,
+            cursor,
+            selection,
+            DataSyncClient::from(client_version.client()),
+            request_metadata,
+        )
         .await
         .map_err(cursor_expired_error)?;
+
+    let (tables_synced, total_tables, docs_synced, total_docs) = match &status {
+        SyncStatus::Snapshotting { progress } => (
+            progress.num_tables_synced,
+            progress.total_tables,
+            progress.num_documents_synced,
+            progress.total_documents,
+        ),
+        SyncStatus::Stale { .. } | SyncStatus::UpToDate { .. } => (
+            new_cursor.num_synced_tables(),
+            new_cursor.num_synced_tables(),
+            new_cursor.num_docs_synced(),
+            None,
+        ),
+    };
+    let total_docs = total_docs
+        .map(|total| total.to_string())
+        .unwrap_or_else(|| "?".to_string());
+    let sync_id = new_cursor.sync_id();
+    tracing::info!(
+        "/data/sync {client_version} {sync_id} tables ({tables_synced}/{total_tables}) docs \
+         ({docs_synced}/{total_docs})"
+    );
 
     let truncates = truncates
         .into_iter()

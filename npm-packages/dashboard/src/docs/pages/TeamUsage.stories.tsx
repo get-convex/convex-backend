@@ -143,9 +143,6 @@ export const AiGateway: Story = {
   name: "AI Gateway",
   parameters: {
     screenshotSelector: '[data-testid="ai-gateway-usage"]',
-    docsPage: {
-      launchDarkly: { showAiGatewayUsage: true },
-    },
     nextjs: {
       router: {
         pathname: "/t/[team]/settings/usage",

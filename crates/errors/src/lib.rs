@@ -228,7 +228,7 @@ impl ErrorMetadata {
         Self {
             code: ErrorCode::MisdirectedRequest,
             short_msg: "MisdirectedRequest".into(),
-            msg: "Instance not served by this Conductor".into(),
+            msg: "Service temporarily unavailable".into(),
             source: None,
         }
     }
@@ -393,7 +393,7 @@ impl ErrorMetadata {
         Self {
             code: ErrorCode::TooEarly,
             short_msg: "TooEarly".into(),
-            msg: "Instance is not loaded yet, try again later".into(),
+            msg: "Deployment is not loaded yet, try again later".into(),
             source: None,
         }
     }

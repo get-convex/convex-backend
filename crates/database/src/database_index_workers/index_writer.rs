@@ -4,15 +4,20 @@ use std::{
         BTreeSet,
     },
     fmt::Display,
+    future::Future,
     num::NonZeroU32,
     sync::Arc,
     time::Duration,
 };
 
+use anyhow::Context;
 use common::{
     self,
     bootstrap_model::index::database_index::IndexedFields,
-    errors::is_transient_db_error,
+    errors::{
+        is_db_deadlock_error,
+        is_transient_db_error,
+    },
     fmt::format_read_write_balance,
     knobs::{
         INDEX_BACKFILL_CHUNK_RATE,
@@ -22,7 +27,7 @@ use common::{
         INDEX_BACKFILL_WORKERS,
     },
     persistence::{
-        ConflictStrategy,
+        IndexBackfillEntry,
         LatestDocument,
         Persistence,
         PersistenceIndexEntry,
@@ -170,6 +175,16 @@ impl IndexSelector {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum IndexWriteKind {
+    /// Entries come from a point-in-time table scan and use the persistence
+    /// layer's snapshot backfill path.
+    Snapshot,
+    /// Entries come from an ordered document-log range and apply revisions to
+    /// an existing snapshot.
+    Replay,
+}
+
 #[derive(Clone)]
 pub struct IndexWriter<RT: Runtime> {
     // Persistence target for writing indexes.
@@ -261,6 +276,28 @@ impl<RT: Runtime> IndexWriter<RT> {
         cursor: Option<ResolvedDocumentId>,
         retry_config: Option<RetryConfig>,
     ) -> anyhow::Result<u64> {
+        self.backfill_snapshot(
+            snapshot_ts,
+            index_metadata,
+            index_selector,
+            concurrency,
+            cursor,
+            retry_config,
+            IndexWriteKind::Snapshot,
+        )
+        .await
+    }
+
+    async fn backfill_snapshot(
+        &self,
+        snapshot_ts: RepeatableTimestamp,
+        index_metadata: &IndexRegistry,
+        index_selector: IndexSelector,
+        concurrency: usize,
+        cursor: Option<ResolvedDocumentId>,
+        retry_config: Option<RetryConfig>,
+        write_kind: IndexWriteKind,
+    ) -> anyhow::Result<u64> {
         let pause_client = self.runtime.pause_client();
         pause_client.wait(PERFORM_BACKFILL_LABEL).await;
         let results: Vec<u64> = stream::iter(index_selector.iterate_tables())
@@ -278,6 +315,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                                 tablet_id,
                                 cursor,
                                 retry_config,
+                                write_kind,
                             )
                             .await
                     })
@@ -308,6 +346,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         tablet_id: TabletId,
         cursor: Option<ResolvedDocumentId>,
         retry_config: Option<RetryConfig>,
+        write_kind: IndexWriteKind,
     ) -> anyhow::Result<u64> {
         let table_iterator = TableIterator::new(
             self.runtime.clone(),
@@ -361,8 +400,11 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_selector,
             retry_config,
             &balance,
+            write_kind,
         );
-        let (docs_indexed, _) = future::try_join(producer, consumer).await?;
+        // A dropped chunk write either rolls back or commits an idempotent
+        // update. Lease serialization orders later persistence writes after it.
+        let (docs_indexed, ()) = future::try_join(producer, consumer).await?;
         Ok(docs_indexed)
     }
 
@@ -378,12 +420,12 @@ impl<RT: Runtime> IndexWriter<RT> {
     /// - `index_selector`: Subset of `index_registry` to backfill.
     ///
     /// Preconditions:
-    /// - The selected indexes are fully backfilled for all revisions at
-    ///   `start_ts`.
+    /// - The selected indexes are fully backfilled at `start_ts`, or the latest
+    ///   documents at `end_ts` have already been snapshot-backfilled.
+    /// - No concurrent writes target the selected indexes.
     ///
     /// Postconditions:
-    /// - The selected indexes will be fully backfilled up to `end_ts`, and they
-    ///   will be valid for all timestamps less than or equal to `end_ts`.
+    /// - The selected indexes represent the documents at `end_ts`.
     pub async fn backfill_forwards(
         &self,
         start_ts: Timestamp,
@@ -427,29 +469,62 @@ impl<RT: Runtime> IndexWriter<RT> {
             index_selector,
             retry_config,
             &balance,
+            IndexWriteKind::Replay,
         );
 
         // Consider ourselves successful if both the producer and consumer exit
         // successfully.
         let ((), ()) = futures::try_join!(producer, consumer)?;
+        let marker_indexes: BTreeSet<_> = self
+            .persistence
+            .index_backfill_marker_indexes()
+            .await?
+            .into_iter()
+            .collect();
+        let selected_indexes = index_selector
+            .index_ids()
+            .map(|id| {
+                let index = index_registry
+                    .enabled_index_by_index_id(&id)
+                    .or_else(|| index_registry.pending_index_by_index_id(&id))
+                    .with_context(|| format!("Missing selected index {id}"))?;
+                Ok(IndexRef::try_from(index)?.persistence_index_id())
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let selected_indexes: Vec<_> = selected_indexes
+            .into_iter()
+            .flatten()
+            .filter(|id| marker_indexes.contains(id))
+            .collect();
+        for index in &selected_indexes {
+            retry_persistence_operation("reconcile_index_backfill", retry_config, || async {
+                self.persistence.reconcile_index_backfill(*index).await
+            })
+            .await?;
+        }
         Ok(())
     }
 
-    /// Chunk writes use `ConflictStrategy::Overwrite`, so re-applying a chunk
-    /// after a transient db error is safe.
     async fn write_chunk_with_optional_retry(
         &self,
         persistence: &Arc<dyn Persistence>,
         index_updates: &[PersistenceIndexEntry],
         retry_config: Option<RetryConfig>,
+        write_kind: IndexWriteKind,
     ) -> anyhow::Result<()> {
-        let write = || persistence.write(&[], index_updates, ConflictStrategy::Overwrite);
-        match retry_config {
-            None => write().await,
-            Some(retry) => {
-                retry_with_backoff("index_chunk_write", retry, is_transient_db_error, write).await
-            },
-        }
+        let backfill_entries = match write_kind {
+            IndexWriteKind::Snapshot => index_updates
+                .iter()
+                .cloned()
+                .map(IndexBackfillEntry::try_from)
+                .collect::<anyhow::Result<Vec<_>>>()?,
+            IndexWriteKind::Replay => index_updates
+                .iter()
+                .map(IndexBackfillEntry::from_replay)
+                .collect(),
+        };
+        let write = || async { persistence.write_index_backfill(&backfill_entries).await };
+        retry_persistence_operation("index_chunk_write", retry_config, write).await
     }
 
     async fn write_index_entries(
@@ -460,6 +535,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_selector: &IndexSelector,
         retry_config: Option<RetryConfig>,
         read_write_balance: &ReadWriteBalance,
+        write_kind: IndexWriteKind,
     ) -> anyhow::Result<()> {
         let should_send_progress = self.progress_tx.is_some();
         let approx_num_indexes = match index_selector {
@@ -528,6 +604,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                         &persistence,
                         &index_updates,
                         retry_config,
+                        write_kind,
                     )
                     .await?;
                 }
@@ -648,4 +725,28 @@ impl<RT: Runtime> IndexWriter<RT> {
         .await?;
         Ok(())
     }
+}
+
+async fn retry_persistence_operation<T, F, Fut>(
+    name: &'static str,
+    retry_config: Option<RetryConfig>,
+    operation: F,
+) -> anyhow::Result<T>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = anyhow::Result<T>>,
+{
+    match retry_config {
+        None => operation().await,
+        Some(retry) => {
+            retry_with_backoff(name, retry, is_retriable_persistence_error, operation).await
+        },
+    }
+}
+
+/// A deadlock rolls back only the victim transaction, and backfill writes are
+/// idempotent upserts or conditional deletes, so rerunning an operation whose
+/// earlier transactions already committed is safe.
+fn is_retriable_persistence_error(e: &anyhow::Error) -> bool {
+    is_transient_db_error(e) || is_db_deadlock_error(e)
 }

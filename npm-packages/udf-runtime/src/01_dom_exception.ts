@@ -143,5 +143,10 @@ for (let i = 0; i < entries.length; ++i) {
 Object.setPrototypeOf(DOMException.prototype, Error.prototype);
 
 export const setupDOMException = (global: any) => {
-  global.DOMException = DOMException;
+  Object.defineProperty(global, "DOMException", {
+    configurable: true,
+    enumerable: false,
+    writable: true,
+    value: DOMException,
+  });
 };

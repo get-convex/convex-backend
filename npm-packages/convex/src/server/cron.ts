@@ -1,8 +1,18 @@
-import { getFunctionName, OptionalRestArgs } from "../server/api.js";
+import {
+  FunctionReference_future,
+  getFunctionName,
+  OptionalRestArgs,
+} from "../server/api.js";
 import { parseArgs } from "../common/index.js";
 import { convexToJson, JSONValue, Value } from "../values/index.js";
 import { getFunctionAddress } from "./components/paths.js";
 import { SchedulableFunctionReference } from "./scheduler.js";
+
+// Mirrors the constraint on `Scheduler.runAfter` and `Scheduler.runAt`, which
+// is module-local to `scheduler.ts`.
+type SchedulableFunctionReferenceCompat =
+  | SchedulableFunctionReference
+  | FunctionReference_future<"mutation" | "action", "public" | "internal">;
 
 type CronSchedule = {
   type: "cron";
@@ -238,8 +248,8 @@ function validatedOptionalMinuteOfHour(n: number | undefined) {
 // call shapes apart by whether the second argument resolves to a function
 // reference (the way the scheduler syscalls do) rather than a schedule object.
 function isSchedulableFunctionReference(
-  arg: Hourly | SchedulableFunctionReference,
-): arg is SchedulableFunctionReference {
+  arg: Hourly | SchedulableFunctionReferenceCompat,
+): arg is SchedulableFunctionReferenceCompat {
   try {
     getFunctionAddress(arg);
     return true;
@@ -280,7 +290,7 @@ export class Crons {
   schedule(
     cronIdentifier: string,
     schedule: Schedule,
-    functionReference: SchedulableFunctionReference,
+    functionReference: SchedulableFunctionReferenceCompat,
     args?: Record<string, Value>,
   ) {
     const cronArgs = parseArgs(args);
@@ -304,11 +314,11 @@ export class Crons {
    *
    * @param identifier - A unique name for this scheduled job.
    * @param schedule - The time between runs for this scheduled job.
-   * @param functionReference - A {@link FunctionReference} for the function
-   * to schedule.
+   * @param functionReference - A {@link FunctionReference} or
+   * {@link FunctionReference_future} for the function to schedule.
    * @param args - The arguments to the function.
    */
-  interval<FuncRef extends SchedulableFunctionReference>(
+  interval<FuncRef extends SchedulableFunctionReferenceCompat>(
     cronIdentifier: string,
     schedule: Interval,
     functionReference: FuncRef,
@@ -353,22 +363,22 @@ export class Crons {
    * @param cronIdentifier - A unique name for this scheduled job.
    * @param schedule - What minute (UTC) of each hour to run this function. May
    * be omitted to let Convex pick a minute and spread runs across the hour.
-   * @param functionReference - A {@link FunctionReference} for the function
-   * to schedule.
+   * @param functionReference - A {@link FunctionReference} or
+   * {@link FunctionReference_future} for the function to schedule.
    * @param args - The arguments to the function.
    */
-  hourly<FuncRef extends SchedulableFunctionReference>(
+  hourly<FuncRef extends SchedulableFunctionReferenceCompat>(
     cronIdentifier: string,
     functionReference: FuncRef,
     ...args: OptionalRestArgs<FuncRef>
   ): void;
-  hourly<FuncRef extends SchedulableFunctionReference>(
+  hourly<FuncRef extends SchedulableFunctionReferenceCompat>(
     cronIdentifier: string,
     schedule: Hourly,
     functionReference: FuncRef,
     ...args: OptionalRestArgs<FuncRef>
   ): void;
-  hourly<FuncRef extends SchedulableFunctionReference>(
+  hourly<FuncRef extends SchedulableFunctionReferenceCompat>(
     cronIdentifier: string,
     scheduleOrFunctionReference: Hourly | FuncRef,
     functionReferenceOrArg?: FuncRef | Record<string, Value>,
@@ -414,11 +424,11 @@ export class Crons {
    *
    * @param cronIdentifier - A unique name for this scheduled job.
    * @param schedule - What time (UTC) each day to run this function.
-   * @param functionReference - A {@link FunctionReference} for the function
-   * to schedule.
+   * @param functionReference - A {@link FunctionReference} or
+   * {@link FunctionReference_future} for the function to schedule.
    * @param args - The arguments to the function.
    */
-  daily<FuncRef extends SchedulableFunctionReference>(
+  daily<FuncRef extends SchedulableFunctionReferenceCompat>(
     cronIdentifier: string,
     schedule: Daily,
     functionReference: FuncRef,
@@ -453,10 +463,10 @@ export class Crons {
    *
    * @param cronIdentifier - A unique name for this scheduled job.
    * @param schedule - What day and time (UTC) each week to run this function.
-   * @param functionReference - A {@link FunctionReference} for the function
-   * to schedule.
+   * @param functionReference - A {@link FunctionReference} or
+   * {@link FunctionReference_future} for the function to schedule.
    */
-  weekly<FuncRef extends SchedulableFunctionReference>(
+  weekly<FuncRef extends SchedulableFunctionReferenceCompat>(
     cronIdentifier: string,
     schedule: Weekly,
     functionReference: FuncRef,
@@ -495,11 +505,11 @@ export class Crons {
    *
    * @param cronIdentifier - A unique name for this scheduled job.
    * @param schedule - What day and time (UTC) each month to run this function.
-   * @param functionReference - A {@link FunctionReference} for the function
-   * to schedule.
+   * @param functionReference - A {@link FunctionReference} or
+   * {@link FunctionReference_future} for the function to schedule.
    * @param args - The arguments to the function.
    */
-  monthly<FuncRef extends SchedulableFunctionReference>(
+  monthly<FuncRef extends SchedulableFunctionReferenceCompat>(
     cronIdentifier: string,
     schedule: Monthly,
     functionReference: FuncRef,
@@ -534,11 +544,11 @@ export class Crons {
    *
    * @param cronIdentifier - A unique name for this scheduled job.
    * @param cron - Cron string like `"15 7 * * *"` (Every day at 7:15 UTC)
-   * @param functionReference - A {@link FunctionReference} for the function
-   * to schedule.
+   * @param functionReference - A {@link FunctionReference} or
+   * {@link FunctionReference_future} for the function to schedule.
    * @param args - The arguments to the function.
    */
-  cron<FuncRef extends SchedulableFunctionReference>(
+  cron<FuncRef extends SchedulableFunctionReferenceCompat>(
     cronIdentifier: string,
     cron: CronString,
     functionReference: FuncRef,

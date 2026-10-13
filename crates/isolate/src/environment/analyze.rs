@@ -75,6 +75,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use sync_types::{
+    module_path::InvalidModulePathError,
     CanonicalizedModulePath,
     FunctionName,
     ModulePath,
@@ -380,13 +381,11 @@ impl AnalyzeEnvironment {
         {
             Ok(m) => m,
             Err(e) => {
-                if let Some(e) = e.downcast_ref::<ModuleNotFoundError>() {
-                    return Ok(Err(JsError::from_message(format!("{e}"))));
-                }
-                if let Some(e) = e.downcast_ref::<ModuleResolutionError>() {
-                    return Ok(Err(JsError::from_message(format!("{e}"))));
-                }
-                if let Some(e) = e.downcast_ref::<SystemModuleNotFoundError>() {
+                if e.is::<ModuleNotFoundError>()
+                    || e.is::<ModuleResolutionError>()
+                    || e.is::<SystemModuleNotFoundError>()
+                    || e.is::<InvalidModulePathError>()
+                {
                     return Ok(Err(JsError::from_message(format!("{e}"))));
                 }
                 match e.downcast::<JsError>() {

@@ -196,6 +196,7 @@ export const logTopic = v.union(
   v.literal("current_storage_usage"),
   v.literal("concurrency_stats"),
   v.literal("storage_api_bandwidth"),
+  v.literal("ai_gateway_usage"),
   v.literal("log_stream_egress"),
   v.literal("custom_audit"),
 );
@@ -265,6 +266,58 @@ export const postHogErrorTrackingConfig = v.object({
   host: v.optional(v.string()),
 });
 
+const inclusionDefault = v.union(v.literal("included"), v.literal("excluded"));
+
+// The components, tables, and columns mirrored by an Analytics export, in the
+// streaming export `Selection` wire format: nested maps keyed by component,
+// then table, then column, where `_other` gives the default for entries that
+// aren't listed.
+export const syncSelection = v.record(
+  v.string(),
+  v.union(
+    inclusionDefault,
+    v.record(
+      v.string(),
+      v.union(inclusionDefault, v.record(v.string(), inclusionDefault)),
+    ),
+  ),
+);
+
+const syncPeriod = v.union(
+  v.literal("continuous"),
+  v.literal("hourly"),
+  v.literal("daily"),
+);
+
+export const s3ExportConfig = v.object({
+  type: v.literal("s3Export"),
+  bucket: v.string(),
+  region: v.string(),
+  prefix: v.optional(v.string()),
+  accessKeyId: v.string(),
+  secretAccessKey: v.string(),
+  selection: syncSelection,
+  period: syncPeriod,
+  cursor: v.optional(v.string()),
+  progress: v.optional(
+    v.union(
+      v.object({
+        type: v.literal("snapshotting"),
+        numTablesSynced: v.int64(),
+        totalTables: v.int64(),
+        currentComponent: v.string(),
+        currentTable: v.string(),
+        numDocumentsInCurrentTable: v.int64(),
+        totalDocumentsInCurrentTable: v.union(v.int64(), v.null()),
+        numDocumentsSynced: v.int64(),
+        totalDocuments: v.union(v.int64(), v.null()),
+      }),
+      v.object({ type: v.literal("stale"), ts: v.int64() }),
+      v.object({ type: v.literal("upToDate"), ts: v.int64() }),
+    ),
+  ),
+});
+
 export const sinkConfig = v.union(
   datadogConfig,
   webhookConfig,
@@ -272,6 +325,7 @@ export const sinkConfig = v.union(
   sentryConfig,
   postHogLogsConfig,
   postHogErrorTrackingConfig,
+  s3ExportConfig,
 );
 
 const logSinksTable = defineTable({
@@ -495,11 +549,21 @@ export default defineSchema({
   }).index("by_name_and_ts", ["name", "ts"]),
   _udf_config: defineTable({ serverVersion: v.string() }),
   _schemas: defineTable(schemaMetadata).index("by_state", ["state"]),
-  _schema_validation_progress: defineTable({
+  _schema_validations: defineTable({
     schemaId: v.id("_schemas"),
+    tableName: v.string(),
+    validatorHash: v.optional(v.string()),
+    state: v.union(
+      v.object({ state: v.literal("pending") }),
+      v.object({ state: v.literal("valid") }),
+      v.object({ state: v.literal("failed"), error: v.string() }),
+    ),
+  }).index("by_schema_id_and_table_name", ["schemaId", "tableName"]),
+  _schema_validation_progress: defineTable({
+    validationId: v.id("_schema_validations"),
     numDocsValidated: v.int64(),
     totalDocs: v.union(v.int64(), v.null()),
-  }).index("by_schema_id", ["schemaId"]),
+  }).index("by_validation_id", ["validationId"]),
   _log_sinks: logSinksTable,
   _backend_state: backendStateTable,
   _snapshot_imports: snapshotImportsTable,

@@ -10,6 +10,7 @@ import {
   saveDeploymentConfig,
 } from "./filePaths.js";
 import { runLocalBackend } from "./run.js";
+import { releaseDate } from "./utils.js";
 import { promptYesNo } from "../utils/prompts.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
 import {
@@ -66,6 +67,7 @@ export async function handlePotentialUpgradeAndStart(
     );
     const { cleanupHandle } = await runLocalBackend(ctx, {
       binaryPath: args.newBinaryPath,
+      backendVersion: args.newVersion,
       deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
       ports: args.ports,
@@ -99,6 +101,7 @@ export async function handlePotentialUpgradeAndStart(
     });
     const { cleanupHandle } = await runLocalBackend(ctx, {
       binaryPath: oldBinaryPath,
+      backendVersion: args.oldVersion,
       ports: args.ports,
       deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
@@ -155,6 +158,7 @@ async function handleUpgrade(
   logVerbose(`Running backend on new version ${args.newVersion}`);
   const { cleanupHandle } = await runLocalBackend(ctx, {
     binaryPath: args.newBinaryPath,
+    backendVersion: args.newVersion,
     ports: args.ports,
     deploymentKind: args.deploymentKind,
     deploymentName: args.deploymentName,
@@ -181,10 +185,4 @@ export function _isDowngrade(oldVersion: string, newVersion: string): boolean {
   const oldDate = releaseDate(oldVersion);
   const newDate = releaseDate(newVersion);
   return oldDate !== null && newDate !== null && newDate < oldDate;
-}
-
-// Backend releases are tagged `precompiled-YYYY-MM-DD-<commit>`, so the dates
-// sort lexicographically.
-function releaseDate(version: string): string | null {
-  return /^precompiled-(\d{4}-\d{2}-\d{2})-/.exec(version)?.[1] ?? null;
 }

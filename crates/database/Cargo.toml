@@ -38,6 +38,7 @@ arc-swap = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { workspace = true }
+bytes = { workspace = true }
 cmd_util = { workspace = true }
 common = { workspace = true }
 convex_macro = { workspace = true }

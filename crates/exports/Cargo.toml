@@ -16,6 +16,7 @@ testing = [
     "metrics/testing",
     "model/testing",
     "storage/testing",
+    "streaming_export/testing",
     "usage_tracking/testing",
     "value/testing",
 ]
@@ -39,6 +40,7 @@ model = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 storage = { workspace = true }
+streaming_export = { workspace = true }
 thousands = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
@@ -61,6 +63,7 @@ pretty_assertions = { workspace = true }
 runtime = { workspace = true }
 storage = { workspace = true, features = ["testing"] }
 storage_zip_reader = { workspace = true }
+streaming_export = { workspace = true, features = ["testing"] }
 usage_tracking = { workspace = true, features = ["testing"] }
 value = { workspace = true, features = ["testing"] }
 

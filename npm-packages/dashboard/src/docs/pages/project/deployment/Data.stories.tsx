@@ -1,5 +1,4 @@
 import { Meta, StoryObj } from "@storybook/nextjs";
-import { Fragment } from "react";
 import {
   PermissionsProvider,
   ConnectedDeploymentContext,
@@ -298,30 +297,13 @@ const meta = {
   render: renderDataPage,
 } satisfies Meta<typeof DataView>;
 
-function renderDataPage(
-  _args: unknown,
-  { parameters }: { parameters: Record<string, any> },
-) {
+function renderDataPage() {
   return (
     <ConnectedDeploymentContext.Provider value={mockConnectedDeployment}>
       <ConvexProvider client={mockConvexClient}>
         <DeploymentInfoContext.Provider
           value={{
             ...mockDeploymentInfo,
-            // The index filter bar is behind a LaunchDarkly flag, which
-            // reaches the data page through this context rather than the
-            // hook, so stories opt in per story.
-            newDataFilters: parameters.newDataFilters === true,
-            giftWrapDataFilters: parameters.giftWrapDataFilters === true,
-            // Default to already-opened so no docs screenshot is a photo of
-            // the wrapping paper.  The gift story overrides this to false.
-            useMemberPreference: (name: string) =>
-              name === "new_data_filters_opened"
-                ? {
-                    value: parameters.newDataFiltersOpened !== false,
-                    set: async () => {},
-                  }
-                : mockDeploymentInfo.useMemberPreference(name),
             useCurrentTeam: () => mockTeam,
             useCurrentProject: () => mockProject,
             useCurrentDeployment: () => mockDeployment,
@@ -347,16 +329,9 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-/**
- * Shows the Data page with the index filter bar, which replaces the "Filter &
- * Sort" popover when the `newDataFilters` flag is on.
- */
+/** Shows the Data page's index filter bar, sorting by the `by_name` index. */
 export const IndexFilterBar: Story = {
   parameters: {
-    newDataFilters: true,
-    giftWrapDataFilters: true,
-    // The wrapped bar and the bubble under it, which sits outside the bar.
-    newDataFiltersOpened: false,
     nextjs: {
       router: {
         pathname: "/t/[team]/[project]/[deploymentName]/data",
@@ -372,57 +347,7 @@ export const IndexFilterBar: Story = {
         },
       },
     },
-    screenshotSelector:
-      '[data-testid="indexFilterBar"], [data-testid="giftExplanation"]',
-  },
-  loaders: [
-    () => {
-      // Re-selecting the story you are already on re-runs loaders without
-      // remounting, and GiftWrap decides whether to wrap once at mount. Keying
-      // the story on a token that changes per load makes it start over.
-      return { giftRun: Date.now() };
-    },
-  ],
-  render: (args, context) => (
-    <Fragment key={context.loaded.giftRun}>
-      {renderDataPage(args, context)}
-    </Fragment>
-  ),
-};
-
-/**
- * Shows the Data page with filter panel open, sorting by the `by_name` index.
- */
-export const Filters: Story = {
-  parameters: {
-    nextjs: {
-      router: {
-        pathname: "/t/[team]/[project]/[deploymentName]/data",
-        route: "/t/[team]/[project]/[deploymentName]/data",
-        asPath:
-          "/t/acme/my-amazing-app/happy-capybara-123/data?filters=eyJjbGF1c2VzIjpbXSwiaW5kZXgiOnsibmFtZSI6ImJ5X25hbWUiLCJjbGF1c2VzIjpbeyJ0eXBlIjoiaW5kZXhFcSIsImVuYWJsZWQiOnRydWUsInZhbHVlIjoiZ2VuZXJhbCJ9LHsidHlwZSI6ImluZGV4RXEiLCJlbmFibGVkIjpmYWxzZSwidmFsdWUiOjE3NzU1MTUxNjk5NDd9XX19",
-        query: {
-          team: "acme",
-          project: "my-amazing-app",
-          deploymentName: "happy-capybara-123",
-          filters:
-            "eyJjbGF1c2VzIjpbXSwiaW5kZXgiOnsibmFtZSI6ImJ5X25hbWUiLCJjbGF1c2VzIjpbeyJ0eXBlIjoiaW5kZXhFcSIsImVuYWJsZWQiOnRydWUsInZhbHVlIjoiZ2VuZXJhbCJ9LHsidHlwZSI6ImluZGV4RXEiLCJlbmFibGVkIjpmYWxzZSwidmFsdWUiOjE3NzU1MTUxNjk5NDd9XX19",
-        },
-      },
-    },
-    screenshotSelector: '[data-testid="filterMenu"]',
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    // Wait for the Filter button to appear and click it to open the filter panel
-    await waitFor(
-      async () => {
-        await expect(canvas.queryByLabelText("Filter")).toBeTruthy();
-      },
-      { timeout: 5000 },
-    );
-    await userEvent.click(canvas.getByLabelText("Filter"));
+    screenshotSelector: '[data-testid="indexFilterBar"]',
   },
 };
 
@@ -433,16 +358,15 @@ export const AddDocument: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    // Wait for the toolbar to be visible
+    // Anchored to the exact name: the filter bar's "Add a filter" button also
+    // starts with "add".
     await waitFor(async () => {
       await expect(
-        canvas.getByRole("button", { name: /add|import/i }),
+        canvas.getByRole("button", { name: /^add$/i }),
       ).toBeDefined();
     });
 
-    // Click the "Add" button
-    const addButton = canvas.getByRole("button", { name: /add/i });
-    await userEvent.click(addButton);
+    await userEvent.click(canvas.getByRole("button", { name: /^add$/i }));
 
     // Wait for the add documents panel to appear
     await waitFor(async () => {

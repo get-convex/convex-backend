@@ -10,12 +10,13 @@
   },
   "module": "esnext",
   "dependencies": {
-    "adm-zip": "^0.6.0",
+    "adm-zip": "^0.6.1",
     "archiver": "~7.0.0",
     "commander": "^14.0.3",
     "concat-stream": "^2.0.0",
     "convex": "workspace:*",
     "express": "^5.0.0",
+    "jose": "^5.10.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {
@@ -33,7 +34,7 @@
     "stripe": "^19.0.0",
     "twilio": "^5.0.0",
     "typescript": "~5.0.3",
-    "undici": "7.29.0",
+    "undici": "7.29.1",
     "vitest": "^4.1.0",
     "zod": "^3.24.0",
     "@commander-js/extra-typings": "^14.0.0"

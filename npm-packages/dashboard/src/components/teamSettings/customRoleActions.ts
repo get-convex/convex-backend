@@ -15,6 +15,7 @@ export type ActionCategory =
   | "billing"
   | "oauthApplication"
   | "sso"
+  | "directorySync"
   | "integration"
   | "defaultEnvironmentVariable";
 
@@ -25,7 +26,15 @@ export const ACTIONS_BY_CATEGORY: Record<
   // `team:applyReferralCode` intentionally omitted: redemption is a one-time
   // team-lifecycle event that we want to keep gated to built-in team admins,
   // not delegable via custom roles.
-  team: ["team:update", "team:delete", "team:auditLog:view", "team:usage:view"],
+  team: [
+    "team:update",
+    "team:delete",
+    "team:auditLog:view",
+    "team:domain:create",
+    "team:domain:delete",
+    "team:domain:view",
+    "team:usage:view",
+  ],
   billing: [
     "billing:paymentMethod:update",
     "billing:contact:update",
@@ -43,6 +52,13 @@ export const ACTIONS_BY_CATEGORY: Record<
     "oauthApplication:generateClientSecret",
   ],
   sso: ["sso:enable", "sso:disable", "sso:update", "sso:view"],
+  directorySync: [
+    "directorySync:enable",
+    "directorySync:disable",
+    "directorySync:updateGroupMapping",
+    "directorySync:deleteGroupMapping",
+    "directorySync:view",
+  ],
   integration: [
     "integration:view",
     "integration:create",

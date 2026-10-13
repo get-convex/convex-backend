@@ -92,20 +92,20 @@ Video](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
 Learn more about the motivation by reading:
 [AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents).
 
-Sample code:
+This example uses the [Convex AI Gateway](/ai-gateway/overview.mdx). Follow
+[Getting Started](./getting-started.mdx) to install the packages and component.
 
 ```typescript
-import { Agent } from "@convex-dev/agents";
-import { openai } from "@ai-sdk/openai";
+import { Agent } from "@convex-dev/agent";
+import { convexGateway } from "@convex-dev/ai-sdk-provider";
+import { v } from "convex/values";
 import { components } from "./_generated/api";
 import { action } from "./_generated/server";
 
-// Define an agent
 const supportAgent = new Agent(components.agent, {
   name: "Support Agent",
-  chat: openai.chat("gpt-4o-mini"),
+  languageModel: convexGateway("openai/gpt-5-mini"),
   instructions: "You are a helpful assistant.",
-  tools: { accountLookup, fileTicket, sendEmail },
 });
 
 // Use the agent from within a normal action:
@@ -123,7 +123,7 @@ export const continueThread = action({
   args: { prompt: v.string(), threadId: v.string() },
   handler: async (ctx, { prompt, threadId }) => {
     // This includes previous message history from the thread automatically.
-    const { thread } = await anotherAgent.continueThread(ctx, { threadId });
+    const { thread } = await supportAgent.continueThread(ctx, { threadId });
     const result = await thread.generateText({ prompt });
     return result.text;
   },

@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::Context;
+use bytes::Bytes;
 use common::{
     audit_log_lines::AuditLogLine,
     bootstrap_model::components::handles::FunctionHandle,
@@ -18,6 +19,7 @@ use common::{
     },
     document::DeveloperDocument,
     knobs::{
+        COMPONENT_GET_USER_IDENTITY_LOG_SAMPLE_RATIO,
         MAX_REACTOR_CALL_DEPTH,
         MAX_SYSCALL_BATCH_SIZE,
         TRANSACTION_MAX_READ_SIZE_ROWS,
@@ -32,11 +34,14 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
+    sha256::Sha256,
     try_anyhow,
     types::{
         AllowedVisibility,
         DeploymentClass,
+        ObjectKey,
         RegionName,
+        StorageUuid,
         UdfType,
         WriteTimestamp,
     },
@@ -54,6 +59,7 @@ use database::{
     BootstrapComponentsModel,
     DeveloperQuery,
     PatchValue,
+    PendingFileUpload,
     Transaction,
     TransactionLimits,
     UserFacingModel,
@@ -64,6 +70,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use headers::ContentType;
 use itertools::Itertools;
 use model::{
     components::{
@@ -78,6 +85,7 @@ use model::{
         types::FileStorageEntry,
         BatchKey,
         FileStorageId,
+        FileStorageModel,
     },
     scheduled_jobs::{
         VirtualSchedulerModel,
@@ -85,6 +93,7 @@ use model::{
     },
     virtual_system_mapping,
 };
+use rand::Rng;
 use serde::{
     Deserialize,
     Serialize,
@@ -111,6 +120,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     obj,
     serialized_args_ext::SerializedArgsExt,
+    sha256::Sha256Digest,
     ConvexArray,
     ConvexObject,
     PendingValue,
@@ -232,6 +242,7 @@ pub fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow
 pub enum AsyncSyscallBatch {
     Reads(Vec<AsyncRead>),
     StorageGetUrls(Vec<JsonValue>),
+    StorageGets(Vec<JsonValue>),
     Unbatched { name: String, args: JsonValue },
 }
 
@@ -247,6 +258,7 @@ impl AsyncSyscallBatch {
             "1.0/get" => Self::Reads(vec![AsyncRead::Get(args)]),
             "1.0/queryStreamNext" => Self::Reads(vec![AsyncRead::QueryStreamNext(args)]),
             "1.0/storageGetUrl" => Self::StorageGetUrls(vec![args]),
+            "1.0/storageGet" => Self::StorageGets(vec![args]),
             _ => Self::Unbatched { name, args },
         }
     }
@@ -261,6 +273,8 @@ impl AsyncSyscallBatch {
             (Self::Reads(_), _) => false,
             (Self::StorageGetUrls(_), "1.0/storageGetUrl") => true,
             (Self::StorageGetUrls(_), _) => false,
+            (Self::StorageGets(_), "1.0/storageGet") => true,
+            (Self::StorageGets(_), _) => false,
             (Self::Unbatched { .. }, _) => false,
         }
     }
@@ -274,6 +288,9 @@ impl AsyncSyscallBatch {
             (Self::StorageGetUrls(batch_args), "1.0/storageGetUrl") => {
                 batch_args.push(args);
             },
+            (Self::StorageGets(batch_args), "1.0/storageGet") => {
+                batch_args.push(args);
+            },
             _ => anyhow::bail!("cannot push {name} onto {self:?}"),
         }
         Ok(())
@@ -284,6 +301,7 @@ impl AsyncSyscallBatch {
             // 1.0/get is grouped in with 1.0/queryStreamNext.
             Self::Reads(_) => "1.0/queryStreamNext",
             Self::StorageGetUrls(_) => "1.0/storageGetUrl",
+            Self::StorageGets(_) => "1.0/storageGet",
             Self::Unbatched { name, .. } => name,
         }
     }
@@ -292,6 +310,7 @@ impl AsyncSyscallBatch {
         match self {
             Self::Reads(args) => args.len(),
             Self::StorageGetUrls(args) => args.len(),
+            Self::StorageGets(args) => args.len(),
             Self::Unbatched { .. } => 1,
         }
     }
@@ -410,11 +429,84 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
             .await
     }
 
+    /// Writes the `_file_storage` entry for a file stored by this function and
+    /// stages its contents for upload once the function finishes.
+    async fn file_storage_store(
+        &mut self,
+        blob: Vec<u8>,
+        content_type: Option<ContentType>,
+        expected_sha256: Option<Sha256Digest>,
+    ) -> anyhow::Result<DeveloperDocumentId> {
+        let sha256 = Sha256::hash(&blob);
+        if let Some(expected_sha256) = expected_sha256
+            && expected_sha256 != sha256
+        {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "Sha256Mismatch",
+                format!(
+                    "Sha256 mismatch. Expected: {} Actual: {}",
+                    expected_sha256.as_base64(),
+                    sha256.as_base64()
+                )
+            ));
+        }
+        let storage_key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
+        let storage_id = StorageUuid::from(self.rt.new_uuid_v4());
+
+        let component = self.phase.component()?;
+        let namespace: TableNamespace = component.into();
+        let tx = self.phase.tx()?;
+        let max_files = tx.transaction_limits().files_written;
+        let max_bytes = tx.transaction_limits().file_write_bytes;
+        let written = tx.execution_size().file_storage_write_size;
+        anyhow::ensure!(
+            written.num_writes < max_files,
+            ErrorMetadata::bad_request(
+                "TooManyFilesWritten",
+                format!("Too many files stored by this mutation (limit: {max_files})")
+            )
+        );
+        anyhow::ensure!(
+            written.size + blob.len() <= max_bytes,
+            ErrorMetadata::bad_request(
+                "FilesWrittenTooLarge",
+                format!(
+                    "Too large total size of the files stored by this mutation (limit: \
+                     {max_bytes} bytes)"
+                )
+            )
+        );
+        let entry = FileStorageEntry {
+            storage_id,
+            storage_key,
+            sha256,
+            size: blob.len().try_into()?,
+            content_type: content_type.map(|ct| ct.to_string()),
+        };
+        let component_path = tx.must_component_path(component)?;
+        let (id, virtual_id) = self
+            .file_storage
+            .store_file_entry(tx, namespace, entry)
+            .await?;
+        tx.add_pending_file_upload(
+            id,
+            PendingFileUpload {
+                component_path,
+                bytes: blob.into(),
+            },
+        )?;
+        Ok(virtual_id)
+    }
+
     async fn file_storage_delete(&mut self, storage_id: FileStorageId) -> anyhow::Result<()> {
         let component = self.phase.component()?;
-        self.file_storage
-            .delete(self.phase.tx()?, component.into(), storage_id)
-            .await
+        let tx = self.phase.tx()?;
+        let id = self
+            .file_storage
+            .delete(tx, component.into(), storage_id)
+            .await?;
+        tx.remove_pending_file_upload(&id)?;
+        Ok(())
     }
 
     async fn file_storage_get_entry(
@@ -425,6 +517,92 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
         self.file_storage
             .get_file_entry(self.phase.tx()?, component.into(), storage_id)
             .await
+    }
+
+    async fn file_storage_get_batch(
+        &mut self,
+        storage_ids: BTreeMap<BatchKey, FileStorageId>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<(Bytes, Option<String>)>>> {
+        match self.try_file_storage_get_batch(&storage_ids).await {
+            Ok(results) => results,
+            Err(e) => storage_ids
+                .into_keys()
+                .map(|batch_key| (batch_key, Err(e.clone_error())))
+                .collect(),
+        }
+    }
+
+    async fn try_file_storage_get_batch(
+        &mut self,
+        storage_ids: &BTreeMap<BatchKey, FileStorageId>,
+    ) -> anyhow::Result<BTreeMap<BatchKey, anyhow::Result<Option<(Bytes, Option<String>)>>>> {
+        if self.udf_type != UdfType::Mutation {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "StorageGetNotSupported",
+                "Getting files from storage is only supported in mutations and actions",
+            ));
+        }
+        let component = self.phase.component()?;
+        let tx = self.phase.tx()?;
+        let component_path = tx.must_component_path(component)?;
+        let entries = FileStorageModel::new(tx, component.into())
+            .get_file_batch(storage_ids.clone())
+            .await;
+
+        let mut results = BTreeMap::new();
+        let mut from_downloads = BTreeMap::new();
+        let mut to_download = BTreeMap::new();
+        for (batch_key, entry) in entries {
+            let entry = match entry {
+                Ok(Some(entry)) => entry,
+                Ok(None) => {
+                    results.insert(batch_key, Ok(None));
+                    continue;
+                },
+                Err(e) => {
+                    results.insert(batch_key, Err(e));
+                    continue;
+                },
+            };
+            let content_type = entry.content_type.clone();
+            if let Some(upload) = tx.get_pending_file_upload(&entry.id())? {
+                results.insert(batch_key, Ok(Some((upload.bytes, content_type))));
+                continue;
+            }
+            let storage_key = entry.storage_key.clone();
+            if self.file_downloads.get(&storage_key).is_none()
+                && !to_download.contains_key(&storage_key)
+            {
+                if let Err(e) = check_file_read_limits(tx, entry.size.try_into()?) {
+                    results.insert(batch_key, Err(e));
+                    continue;
+                }
+                tx.add_file_storage_read(entry.size.try_into()?);
+                to_download.insert(
+                    storage_key.clone(),
+                    (component_path.clone(), entry.into_value()),
+                );
+            }
+            from_downloads.insert(batch_key, (storage_key, content_type));
+        }
+        if !to_download.is_empty() {
+            let usage_tracker = tx.usage_tracker.clone();
+            self.file_storage
+                .download_files(
+                    &self.file_downloads,
+                    to_download.into_values().collect(),
+                    usage_tracker,
+                )
+                .await?;
+        }
+        for (batch_key, (storage_key, content_type)) in from_downloads {
+            let bytes = self
+                .file_downloads
+                .get(&storage_key)
+                .context("Downloaded file missing from file_downloads")?;
+            results.insert(batch_key, Ok(Some((bytes, content_type))));
+        }
+        Ok(results)
     }
 
     #[fastrace::trace]
@@ -529,6 +707,7 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
                         module_loader: self.phase.module_loader().clone(),
                         deployment: self.deployment.clone(),
                     },
+                    file_downloads: self.file_downloads.clone(),
                 },
                 rng_seed,
                 new_reactor_depth,
@@ -671,6 +850,7 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
         AsyncSyscallBatch::StorageGetUrls(batch_args) => {
             storage_get_url_batch(provider, batch_args).await
         },
+        AsyncSyscallBatch::StorageGets(batch_args) => storage_get_batch(provider, batch_args).await,
         AsyncSyscallBatch::Unbatched { name, args } => {
             let result = match &name[..] {
                 // Database
@@ -692,6 +872,7 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
                 "1.0/storageGenerateUploadUrl" => {
                     Box::pin(storage_generate_upload_url(provider, args)).await
                 },
+                "1.0/storageStore" => Box::pin(storage_store(provider, args)).await,
                 // Scheduling
                 "1.0/schedule" => Box::pin(schedule(provider, args)).await,
                 "1.0/cancel_job" => Box::pin(cancel_job(provider, args)).await,
@@ -757,6 +938,10 @@ fn tx_metrics<RT: Runtime>(
         documentsWritten: LimitedValue,
         functionsScheduled: LimitedValue,
         scheduledFunctionArgsBytes: LimitedValue,
+        filesWritten: LimitedValue,
+        fileWriteBytes: LimitedValue,
+        filesRead: LimitedValue,
+        fileReadBytes: LimitedValue,
     }
     Ok(serde_json::value::to_raw_value(&TxMetricsJson {
         bytesRead: limit_value(limits.bytes_read, s.read_size.total_document_size),
@@ -769,6 +954,10 @@ fn tx_metrics<RT: Runtime>(
             limits.scheduled_function_args_bytes,
             s.scheduled_size.size,
         ),
+        filesWritten: limit_value(limits.files_written, s.file_storage_write_size.num_writes),
+        fileWriteBytes: limit_value(limits.file_write_bytes, s.file_storage_write_size.size),
+        filesRead: limit_value(limits.files_read, s.file_storage_read_size.num_reads),
+        fileReadBytes: limit_value(limits.file_read_bytes, s.file_storage_read_size.size),
     })?)
 }
 
@@ -894,10 +1083,23 @@ async fn get_user_identity<RT: Runtime>(
 ) -> anyhow::Result<Box<RawValue>> {
     provider.phase.observe_identity()?;
     // TODO: Somehow make the Transaction aware of the dependency on the user.
+    let component = provider.phase.component()?;
     let tx = provider.phase.tx()?;
     let user_identity = tx.user_identity();
-    if !provider.phase.component()?.is_root() {
+    if !component.is_root() {
         log_component_get_user_identity(user_identity.is_some());
+        if provider
+            .rt
+            .rng()
+            .random_bool(*COMPONENT_GET_USER_IDENTITY_LOG_SAMPLE_RATIO)
+        {
+            let component_path = tx.get_component_path_untracked(component);
+            tracing::info!(
+                component_path = ?component_path,
+                has_user_identity = user_identity.is_some(),
+                "component called getUserIdentity()"
+            );
+        }
     }
     if let Some(user_identity) = user_identity {
         return Ok(serde_json::value::to_raw_value(&JsonValue::try_from(
@@ -976,6 +1178,119 @@ async fn storage_delete<RT: Runtime>(
     provider.file_storage_delete(storage_id).await?;
 
     Ok(RawValue::NULL.to_owned())
+}
+
+#[convex_macro::instrument_future]
+async fn storage_store<RT: Runtime>(
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
+    args: JsonValue,
+) -> anyhow::Result<Box<RawValue>> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct StorageStoreArgs {
+        /// Base64-encoded file contents.
+        blob: String,
+        content_type: Option<String>,
+        /// Base64-encoded sha256 of the contents, to check them against.
+        sha256: Option<String>,
+    }
+    let (blob, content_type, expected_sha256) = with_argument_error("storage.store", || {
+        let StorageStoreArgs {
+            blob,
+            content_type,
+            sha256,
+        } = serde_json::from_value(args)?;
+        let blob = base64::decode(&blob).context(ArgName("blob"))?;
+        let content_type = content_type
+            .filter(|ct| !ct.is_empty())
+            .map(|ct| mime::Mime::from_str(&ct).map(ContentType::from))
+            .transpose()
+            .context(ArgName("contentType"))?;
+        let expected_sha256 = sha256
+            .as_deref()
+            .map(Sha256Digest::from_base64)
+            .transpose()
+            .context(ArgName("sha256"))?;
+        Ok((blob, content_type, expected_sha256))
+    })?;
+
+    let storage_id = provider
+        .file_storage_store(blob, content_type, expected_sha256)
+        .await?;
+    Ok(serde_json::value::to_raw_value(&storage_id.encode())?)
+}
+
+fn check_file_read_limits<RT: Runtime>(tx: &Transaction<RT>, size: usize) -> anyhow::Result<()> {
+    let max_files = tx.transaction_limits().files_read;
+    let max_bytes = tx.transaction_limits().file_read_bytes;
+    let read = &tx.file_storage_read_size;
+    anyhow::ensure!(
+        read.num_reads < max_files,
+        ErrorMetadata::bad_request(
+            "TooManyFilesRead",
+            format!("Too many files read by this mutation (limit: {max_files})")
+        )
+    );
+    anyhow::ensure!(
+        read.size + size <= max_bytes,
+        ErrorMetadata::bad_request(
+            "FilesReadTooLarge",
+            format!(
+                "Too large total size of the files read by this mutation (limit: {max_bytes} \
+                 bytes)"
+            )
+        )
+    );
+    Ok(())
+}
+
+#[convex_macro::instrument_future]
+async fn storage_get_batch<RT: Runtime>(
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
+    batch_args: Vec<JsonValue>,
+) -> Vec<anyhow::Result<Box<RawValue>>> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct GetArgs {
+        storage_id: String,
+    }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct GetResult {
+        /// Base64-encoded file contents.
+        blob: String,
+        content_type: Option<String>,
+    }
+    let batch_size = batch_args.len();
+    let mut results = BTreeMap::new();
+    let mut storage_ids = BTreeMap::new();
+    for (idx, args) in batch_args.into_iter().enumerate() {
+        let storage_id_result = with_argument_error("storage.get", || {
+            let GetArgs { storage_id } = serde_json::from_value(args)?;
+            storage_id.parse().context(ArgName("storageId"))
+        });
+        match storage_id_result {
+            Ok(storage_id) => {
+                storage_ids.insert(idx, storage_id);
+            },
+            Err(e) => {
+                assert!(results.insert(idx, Err(e)).is_none());
+            },
+        }
+    }
+    let files = provider.file_storage_get_batch(storage_ids).await;
+    for (batch_key, file) in files {
+        let result = file.and_then(|file| {
+            let result = file.map(|(contents, content_type)| GetResult {
+                blob: base64::encode(&contents),
+                content_type,
+            });
+            Ok(serde_json::value::to_raw_value(&result)?)
+        });
+        assert!(results.insert(batch_key, result).is_none());
+    }
+    assert_eq!(results.len(), batch_size);
+    results.into_values().collect()
 }
 
 #[convex_macro::instrument_future]

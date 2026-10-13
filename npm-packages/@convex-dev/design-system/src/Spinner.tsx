@@ -19,6 +19,7 @@ export function Spinner({ className }: { className?: string }) {
         stroke="currentColor"
         strokeWidth="18"
         fill="none"
+        strokeDasharray="35 65"
         className="animate-dashLength"
       />
     </svg>

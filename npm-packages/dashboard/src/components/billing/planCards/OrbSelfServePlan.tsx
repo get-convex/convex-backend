@@ -161,7 +161,9 @@ export function OrbSelfServePlan({
         ) : (
           <UpgradePlanDialog
             onClose={() => setIsChangingPlan(false)}
-            onConfirm={(newPlanId) => changePlan({ newPlanId })}
+            onConfirm={(newPlanId, promoCode) =>
+              changePlan({ newPlanId, promoCode })
+            }
             newPlan={plan}
             team={team}
           />

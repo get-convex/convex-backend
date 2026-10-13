@@ -230,6 +230,10 @@ pub enum TableValidationOutcome {
     /// The new validator is a superset of the enforced (active, validating)
     /// schema for this table, so all existing documents already conform.
     SupersetOfEnforced,
+    /// The new validator is a superset of a staged validator the
+    /// schema-validation rows have proven valid (and kept valid by checking
+    /// every write since), so all existing documents already conform.
+    SupersetOfStagedValidated,
     /// The new validator is a superset of the table's inferred shape.
     SupersetOfShape,
     /// Documents must be walked.
@@ -243,6 +247,7 @@ impl DatabaseSchema {
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         shape_provider: &F,
+        valid_staged_validators: &BTreeMap<TableName, DocumentSchema>,
     ) -> anyhow::Result<BTreeSet<&'a TableName>>
     where
         F: Fn(&TableName) -> anyhow::Result<Option<Shape<C, S>>>,
@@ -253,6 +258,7 @@ impl DatabaseSchema {
             table_mapping,
             virtual_system_mapping,
             shape_provider,
+            valid_staged_validators,
         )?
         .into_iter()
         .filter_map(|(table_name, outcome)| {
@@ -267,6 +273,9 @@ impl DatabaseSchema {
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         shape_provider: &F,
+        // Must come from the active schema's `Valid` validation rows; see
+        // `validation_outcome_for_validator`.
+        valid_staged_validators: &BTreeMap<TableName, DocumentSchema>,
     ) -> anyhow::Result<Vec<(&'a TableName, TableValidationOutcome)>>
     where
         F: Fn(&TableName) -> anyhow::Result<Option<Shape<C, S>>>,
@@ -285,28 +294,39 @@ impl DatabaseSchema {
             .iter()
             .map(|(table_name, table_definition)| {
                 let table_shape = shape_provider(table_name)?;
-                Self::must_revalidate_table(
+                Self::validation_outcome_for_validator(
                     table_name,
-                    table_definition,
+                    table_definition.document_type.clone(),
                     active_schema,
                     table_mapping,
                     virtual_system_mapping,
                     &table_shape,
+                    valid_staged_validators.get(table_name),
                 )
                 .map(|outcome| (table_name, outcome))
             })
             .try_collect()
     }
 
-    fn must_revalidate_table<C: ShapeConfig, S: ShapeCounter>(
+    /// Whether existing documents must be walked to check they conform to
+    /// `next_schema` for this table, or whether a subset relation (against the
+    /// enforced validator or the table's shape) proves they already do.
+    ///
+    /// `valid_staged_validator` must be the table's staged validator from the
+    /// active schema whose validation row is `Valid` (i.e. from
+    /// `SchemaValidationModel::valid_staged_validators`): treating it
+    /// as a superset proof is only sound because every document was checked
+    /// against it, and every write since is checked on the commit path.
+    #[allow(clippy::too_many_arguments)]
+    pub fn validation_outcome_for_validator<C: ShapeConfig, S: ShapeCounter>(
         table_name: &TableName,
-        table_definition: &TableDefinition,
+        next_schema: Option<DocumentSchema>,
         active_schema: Option<&DatabaseSchema>,
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
         table_shape: &Option<Shape<C, S>>,
+        valid_staged_validator: Option<&DocumentSchema>,
     ) -> anyhow::Result<TableValidationOutcome> {
-        let next_schema = table_definition.document_type.clone();
         let next_schema_validator: Validator = next_schema.into();
 
         // Can skip validation thanks to the schema diff?
@@ -324,6 +344,19 @@ impl DatabaseSchema {
                 table_name
             );
             return Ok(TableValidationOutcome::SupersetOfEnforced);
+        }
+
+        // Can skip validation thanks to a staged validator already proven valid?
+        if let Some(staged_validator) = valid_staged_validator {
+            let staged_validator = Validator::from(staged_validator.clone());
+            if staged_validator.is_subset(&next_schema_validator) {
+                tracing::debug!(
+                    "Skipping validation for table {} because its schema is a superset of a \
+                     validated staged validator",
+                    table_name
+                );
+                return Ok(TableValidationOutcome::SupersetOfStagedValidated);
+            }
         }
 
         if let Some(table_shape) = table_shape {
@@ -350,6 +383,66 @@ impl DatabaseSchema {
         self.tables
             .get(table_name)
             .and_then(|table_definition| table_definition.document_type.as_ref())
+    }
+
+    pub fn staged_schema_for_table(&self, table_name: &TableName) -> Option<&DocumentSchema> {
+        self.tables
+            .get(table_name)
+            .and_then(|table_definition| table_definition.staged_document_type.as_ref())
+    }
+
+    pub fn has_staged_validators(&self) -> bool {
+        self.tables
+            .values()
+            .any(|table| table.staged_document_type.is_some())
+    }
+
+    /// Check a document against the staged validator for its table, if any.
+    /// Unlike `check_value`, this ignores the `schema_validation` flag: staged
+    /// validation asks whether documents satisfy the *proposed* validator,
+    /// independent of whether the current schema is enforced.
+    fn check_value_against_staged(
+        &self,
+        doc: &ResolvedDocument,
+        table_name: &TableName,
+        table_mapping: &NamespacedTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
+    ) -> Result<(), ValidationError> {
+        match self.staged_schema_for_table(table_name) {
+            Some(staged_schema) => {
+                staged_schema.check_value(&doc.value().0, table_mapping, virtual_system_mapping)
+            },
+            None => Ok(()),
+        }
+    }
+
+    pub fn check_existing_document_against_staged(
+        &self,
+        doc: &ResolvedDocument,
+        table_name: TableName,
+        table_mapping: &NamespacedTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
+    ) -> Result<(), SchemaValidationError> {
+        self.check_value_against_staged(doc, &table_name, table_mapping, virtual_system_mapping)
+            .map_err(|validation_error| SchemaValidationError::ExistingDocument {
+                validation_error,
+                table_name,
+                id: doc.developer_id(),
+            })
+    }
+
+    pub fn check_new_document_against_staged(
+        &self,
+        doc: &ResolvedDocument,
+        table_name: TableName,
+        table_mapping: &NamespacedTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
+    ) -> Result<(), SchemaEnforcementError> {
+        self.check_value_against_staged(doc, &table_name, table_mapping, virtual_system_mapping)
+            .map_err(|validation_error| SchemaEnforcementError::Document {
+                validation_error,
+                table_name,
+            })
     }
 
     fn check_value(

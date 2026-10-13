@@ -22,11 +22,11 @@ use crate::{
     },
 };
 
-// The maximum size of a multipart form body is 20 MiB.
-// Matches Response body size limit (HTTP_ACTION_BODY_LIMIT) for simplicity.
-// Multipart forms are parsed in memory (because FormData allows accessing
-// entries in arbitrary order), so this limit protects the server from
-// running out of memory.
+// The maximum size of a multipart form body is 20 MiB. Multipart forms are
+// parsed in memory (because FormData allows accessing entries in arbitrary
+// order), so this limit protects the server from running out of memory. Other
+// HTTP action request bodies are streamed to the isolate and have no size
+// limit in the backend.
 pub const MULTIPART_BODY_LIMIT: u64 = 20 << 20;
 
 impl<RT: Runtime> TaskExecutor<RT> {

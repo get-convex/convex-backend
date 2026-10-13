@@ -283,6 +283,9 @@ const ACTION_RESOURCE_KIND: Record<RoleStatementAction, ResourceKind> = {
   "team:update": "team",
   "team:delete": "team",
   "team:auditLog:view": "team",
+  "team:domain:create": "team",
+  "team:domain:delete": "team",
+  "team:domain:view": "team",
   "team:usage:view": "team",
   // Billing
   "billing:paymentMethod:update": "billing",
@@ -614,6 +617,10 @@ export const TEAM_RESOURCE: ConcreteResource = {
 
 export const SSO_RESOURCE: ConcreteResource = {
   segments: [{ kind: "sso" }],
+};
+
+export const DIRECTORY_SYNC_RESOURCE: ConcreteResource = {
+  segments: [{ kind: "directorySync" }],
 };
 
 export const OAUTH_APPLICATION_RESOURCE: ConcreteResource = {

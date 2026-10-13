@@ -36,6 +36,7 @@ use common::{
     execution_context::{
         ExecutionContext,
         RequestContext,
+        RequestId,
     },
     fastrace_helpers::EncodedSpan,
     knobs::{
@@ -50,6 +51,9 @@ use common::{
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
+        UDF_FILE_STORAGE_INITIAL_BACKOFF,
+        UDF_FILE_STORAGE_MAX_BACKOFF,
+        UDF_FILE_STORAGE_MAX_RETRIES,
     },
     log_lines::{
         run_function_and_collect_log_lines,
@@ -90,7 +94,11 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use file_storage::TransactionalFileStorage;
+use file_storage::{
+    TransactionalFileStorage,
+    FILE_DOWNLOAD_FAILED_SHORT_MSG,
+    FILE_UPLOAD_FAILED_SHORT_MSG,
+};
 use function_runner::{
     server::{
         FunctionMetadata,
@@ -468,6 +476,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 system_tx_size,
                 updates,
                 function_tx.rows_read_by_tablet,
+                function_tx.uploaded_files,
             )?;
             Some(tx)
         } else {
@@ -537,12 +546,17 @@ impl<RT: Runtime> Limiter<RT> {
             } => match x {},
             _ = rt.wait(self.semaphore_timeout) => {
                 log_function_wait_timeout(self.env, self.udf_type);
+                let functions = match self.udf_type {
+                    UdfType::Query => "queries",
+                    UdfType::Mutation => "mutations",
+                    UdfType::Action => "actions",
+                    UdfType::HttpAction => "HTTP actions",
+                };
                 anyhow::bail!(ErrorMetadata::rate_limited(
                     "TooManyConcurrentRequests",
                     format!(
-                        "Too many concurrent requests. Your backend is limited to {} concurrent {}s. {}",
+                        "Too many concurrent requests. Your backend is limited to {} concurrent {functions}. {}",
                         self.total_permits,
-                        self.udf_type.to_lowercase_string(),
                         if self.total_permits > DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY {
                             "If you need more resources, please contact support."
                         } else {
@@ -745,6 +759,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         identity: &Identity,
         attribution: AttributionClaims,
+        request_id: &RequestId,
     ) -> anyhow::Result<String> {
         match identity {
             // Deploy keys and dashboard members carry an op set, from the key's
@@ -782,7 +797,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                  provider directly with your own API key."
             ));
         };
-        minter.mint(&self.deployment, attribution).await
+        minter.mint(&self.deployment, attribution, request_id).await
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
@@ -931,9 +946,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             *UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
             *UDF_EXECUTOR_OCC_MAX_BACKOFF,
         );
+        let mut file_storage_backoff = Backoff::new(
+            *UDF_FILE_STORAGE_INITIAL_BACKOFF,
+            *UDF_FILE_STORAGE_MAX_BACKOFF,
+        );
 
         loop {
-            let mutation_retry_count = backoff.failures() as usize;
+            let occ_retry_count = backoff.failures() as usize;
+            let mutation_retry_count = occ_retry_count + file_storage_backoff.failures() as usize;
             let usage_tracker = FunctionUsageTracker::new();
 
             // Note that we use different context for every mutation attempt.
@@ -976,6 +996,20 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         let sleep = backoff.fail(&mut self.runtime.rng());
                         tracing::warn!(
                             "Write throughput limit exceeded, retrying {write_source:?} after \
+                             {sleep:?}",
+                        );
+                        self.runtime.wait(sleep).await;
+                        continue;
+                    }
+                    if matches!(
+                        e.short_msg(),
+                        FILE_UPLOAD_FAILED_SHORT_MSG | FILE_DOWNLOAD_FAILED_SHORT_MSG
+                    ) && (file_storage_backoff.failures() as usize)
+                        < *UDF_FILE_STORAGE_MAX_RETRIES
+                    {
+                        let sleep = file_storage_backoff.fail(&mut self.runtime.rng());
+                        tracing::warn!(
+                            "File storage failed ({e:#}), retrying {write_source:?} after \
                              {sleep:?}",
                         );
                         self.runtime.wait(sleep).await;
@@ -1081,6 +1115,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
+                                    occ_retry_count,
                                     true,
                                 )
                                 .await;
@@ -1100,6 +1135,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     occ_info,
                                     mutation_queue_length,
                                     mutation_retry_count,
+                                    occ_retry_count,
                                     false,
                                 )
                                 .await;
@@ -2115,8 +2151,9 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         &self,
         identity: Identity,
         caller: AttributedCaller,
+        request_id: RequestId,
     ) -> anyhow::Result<String> {
-        self.mint_ai_gateway_jwt(&identity, AttributionClaims::from(caller))
+        self.mint_ai_gateway_jwt(&identity, AttributionClaims::from(caller), &request_id)
             .await
     }
 
@@ -2256,7 +2293,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                         let component_path = tx
                             .get_component_path(component)
                             .context(format!("Component {component:?} not found"))?;
-                        let id = self
+                        let (_, id) = self
                             .file_storage
                             .store_file_entry(tx, component.into(), entry.clone())
                             .await?;

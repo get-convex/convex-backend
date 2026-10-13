@@ -2,7 +2,7 @@ import { Context } from "aws-lambda";
 import { invoke, ogProcessExit } from "./executor";
 import { logDebug, setDebugLogging } from "./log";
 import { populatePrebuildPackages } from "./source_package";
-import { Writable } from "node:stream";
+import { finished, Writable } from "node:stream";
 
 const warmupPromise = populatePrebuildPackages();
 
@@ -39,7 +39,6 @@ export const handler = awslambda.streamifyResponse(
     await warmupPromise;
     event.requestId = context.awsRequestId;
     const numInvocations = await invoke(event, responseStream);
-    responseStream.end();
     if (
       (event.type === "analyze" || event.type === "build_deps") &&
       numInvocations >= MAX_INVOKE_COUNT
@@ -47,7 +46,10 @@ export const handler = awslambda.streamifyResponse(
       logDebug(
         `analyze or build_deps ran ${numInvocations} times, restarting node process`,
       );
-      ogProcessExit(0);
+      // Exiting before the response flushes truncates it. `finished` also
+      // settles on error/close, so a destroyed stream still restarts.
+      finished(responseStream, () => ogProcessExit(0));
     }
+    responseStream.end();
   },
 );

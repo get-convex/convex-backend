@@ -6,8 +6,10 @@ import {
   DatadogSiteLocation,
   ExportIntegrationType,
   ImportIntegrationType,
+  Integration,
   IntegrationConfig,
   IntegrationType,
+  RedactedS3ExportConfig,
 } from "system-udfs/convex/_system/frontend/common";
 import {
   axiomConfig,
@@ -19,6 +21,7 @@ import {
 } from "system-udfs/convex/schema";
 import { Link } from "@ui/Link";
 import classNames from "classnames";
+import { ArchiveBoxIcon } from "@heroicons/react/24/outline";
 import { WebhookIcon } from "@common/elements/icons";
 import { DatadogLogo } from "@common/lib/logos/DatadogLogo";
 import { AxiomLogo } from "@common/lib/logos/AxiomLogo";
@@ -30,12 +33,12 @@ import { WorkosLogo } from "./logos/WorkosLogo";
 
 export type SinkStatus = Doc<"_log_sinks">["status"];
 
-// A `_log_sinks` document narrowed to a single integration kind. Derives
-// fields from the schema.
-type LogSinkDoc<T extends Doc<"_log_sinks">["config"]["type"]> = Omit<
-  Doc<"_log_sinks">,
+// A configured integration narrowed to a single kind, as `listConfiguredSinks`
+// returns it. Derives fields from the schema.
+type LogSinkDoc<T extends IntegrationConfig["type"]> = Omit<
+  Integration,
   "config"
-> & { config: Extract<Doc<"_log_sinks">["config"], { type: T }> };
+> & { config: Extract<IntegrationConfig, { type: T }> };
 
 export const topicsValidationSchema = Yup.array()
   .nullable()
@@ -53,6 +56,7 @@ export const LOG_INTEGRATIONS = [
 ] as const;
 export const EXC_INTEGRATIONS = ["sentry", "postHogErrorTracking"] as const;
 export const AUTH_INTEGRATIONS = ["workos"] as const;
+export const ANALYTICS_INTEGRATIONS = ["s3Export"] as const;
 export const EXPORT_INTEGRATIONS: ExportIntegrationType[] = ["fivetran"];
 export const IMPORT_INTEGRATIONS: ImportIntegrationType[] = ["airbyte"];
 
@@ -74,6 +78,13 @@ export type ExceptionReportingIntegration =
       kind: "postHogErrorTracking";
       existing: LogSinkDoc<"postHogErrorTracking"> | null;
     };
+
+export type AnalyticsIntegration = {
+  kind: "s3Export";
+  existing: LogSinkDoc<"s3Export"> | null;
+};
+
+export type AnalyticsIntegrationConfig = RedactedS3ExportConfig;
 
 export type ExceptionReportingIntegrationConfig =
   | Infer<typeof sentryConfig>
@@ -148,6 +159,19 @@ export function integrationToLogo(
           />
         ),
       };
+    case "s3Export":
+      return {
+        logo: (
+          <div
+            className={classNames(
+              "flex items-center justify-center rounded-sm border",
+              sizeClass,
+            )}
+          >
+            <ArchiveBoxIcon className={small ? "size-4" : "size-7"} />
+          </div>
+        ),
+      };
     case "airbyte":
       return {
         logo: (
@@ -190,7 +214,11 @@ export function integrationToLogo(
 }
 
 export function integrationUsingLegacyFormat(
-  config: LogIntegrationConfig | ExceptionReportingIntegrationConfig | null,
+  config:
+    | LogIntegrationConfig
+    | ExceptionReportingIntegrationConfig
+    | AnalyticsIntegrationConfig
+    | null,
 ) {
   if (config === null) {
     return false;
@@ -206,6 +234,7 @@ export function integrationUsingLegacyFormat(
       return config.version !== "2";
     case "postHogLogs":
     case "postHogErrorTracking":
+    case "s3Export":
       return false;
     default: {
       config satisfies never;
@@ -257,6 +286,16 @@ export const STREAMING_EXPORT_DESCRIPTION = (
       Learn more
     </Link>
     .
+  </div>
+);
+
+export const ANALYTICS_EXPORT_DESCRIPTION = (
+  <div>
+    <p>
+      Export this deployment's change log to an S3 bucket you own as Apache
+      Iceberg tables, queryable from Athena, Snowflake, Databricks, and other
+      engines through AWS Glue.
+    </p>
   </div>
 );
 
@@ -324,6 +363,8 @@ export function configToUrl(config: IntegrationConfig): string {
       );
       return `${etHost}/error_tracking`;
     }
+    case "s3Export":
+      return `https://s3.console.aws.amazon.com/s3/buckets/${config.bucket}?region=${encodeURIComponent(config.region)}`;
     default:
       kind satisfies never;
       throw new Error(`Unrecognized integration type ${kind}`);
@@ -359,6 +400,8 @@ export const integrationName = (kind: IntegrationType) => {
       return "PostHog Logs";
     case "postHogErrorTracking":
       return "PostHog Error Tracking";
+    case "s3Export":
+      return "AWS S3";
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }

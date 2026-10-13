@@ -328,9 +328,10 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   deploymentsURI: "",
   isSelfHosted: true,
   workosIntegrationEnabled: false,
+  healthDeployProgressEnabled: false,
+  s3ExportIntegrationEnabled: false,
   connectionStateCheckIntervalMs: 2500,
-  newDataFilters: false,
-  giftWrapDataFilters: false,
+  showFivetranSyncProgress: false,
 };
 
 function DeploymentInfoProvider({

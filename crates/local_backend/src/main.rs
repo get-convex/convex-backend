@@ -12,7 +12,10 @@ use common::{
     runtime::Runtime,
     sentry::set_sentry_tags,
     shutdown::ShutdownSignal,
-    types::MemberId,
+    types::{
+        DeploymentId,
+        MemberId,
+    },
     version::SERVER_VERSION_STR,
 };
 use db_connection::{
@@ -151,9 +154,9 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
             skip_index_creation: false,
         },
         &config.name(),
-        // No control plane hands a self-hosted backend a deployment ID; a
-        // layout that keys on one rejects the connection.
-        None,
+        // No control plane hands a self-hosted backend an ID, so derive a
+        // stable one from its name.
+        Some(DeploymentId::stable_from_name(&config.name())),
         runtime.clone(),
         preempt_signal.clone(),
     )

@@ -13,12 +13,13 @@ import { Tooltip } from "@ui/Tooltip";
 import {
   AggregatedFunctionMetrics,
   REST_OF_FUNCTIONS,
+  UsageDeploymentType,
 } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
 import Link from "next/link";
 import { ReactNode, useMemo, useState } from "react";
 import { PlatformDeploymentResponse } from "@convex-dev/platform/managementApi";
-import { DeploymentType, TeamResponse, ProjectDetails } from "generatedApi";
+import { TeamResponse, ProjectDetails } from "generatedApi";
 import { PuzzlePieceIcon } from "@common/elements/icons";
 import { BANDWIDTH_CATEGORIES } from "./lib/teamUsageCategories";
 import { deploymentTypeColorClasses } from "@common/lib/deploymentTypeColorClasses";
@@ -104,7 +105,7 @@ type DeploymentTypeRow = {
   componentPath: string;
   value: number;
   values: number[];
-  deploymentType: DeploymentType | null;
+  deploymentType: UsageDeploymentType | null;
   specialKind: SpecialRowKind | null;
   href: string | null;
 };
@@ -410,7 +411,9 @@ function ChartRow({
         : null;
 
   const deploymentTypeTip =
-    row.deploymentType === "dev" ? (
+    row.deploymentType === "local" ? (
+      <div>AI Gateway spend from local development linked to this project.</div>
+    ) : row.deploymentType === "dev" ? (
       <div>This row aggregates all dev deployments of your team.</div>
     ) : row.deploymentType === "preview" ? (
       <div>This row aggregates all preview deployments of your team.</div>
@@ -459,14 +462,17 @@ function ChartRow({
 function DeploymentTypeIndicator({
   deploymentType,
 }: {
-  deploymentType: DeploymentType;
+  deploymentType: UsageDeploymentType;
 }) {
+  const colorClasses = deploymentTypeColorClasses(
+    deploymentType === "local" ? "custom" : deploymentType,
+  );
   return (
     <>
       <span
         className={cn(
           "mr-2 size-4 rounded-xl border",
-          deploymentTypeColorClasses(deploymentType),
+          colorClasses,
           "border-border-transparent dark:border-border-transparent",
         )}
       />
@@ -488,8 +494,7 @@ function useOrderedAndGroupedRows(
 ): DeploymentTypeRow[] {
   return useMemo(() => {
     // A project can have several production deployments; link to the default
-    // one. `isDefault` only exists on cloud deployments, which is also the only
-    // kind this team-wide usage data can come from.
+    // one. `isDefault` only exists on cloud deployments.
     const prodDeploymentName = deployments.find(
       (d) => d.kind === "cloud" && d.deploymentType === "prod" && d.isDefault,
     )?.name;

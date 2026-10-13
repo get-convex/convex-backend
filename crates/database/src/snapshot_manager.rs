@@ -20,8 +20,8 @@ use common::{
     },
     knobs::{
         MAX_BYTES_WRITTEN_PER_SECOND,
+        MAX_ROWS_WRITTEN_PER_SECOND,
         MAX_TRANSACTION_WINDOW,
-        WRITE_THROUGHPUT_WINDOW,
     },
     runtime::block_in_place,
     types::{
@@ -69,7 +69,11 @@ use crate::{
     },
     transaction::TableCountSnapshot,
     write_log::PendingWrites,
-    write_throughput_limiter::WriteThroughputLimiter,
+    write_throughput_limiter::{
+        WriteThroughputLimit,
+        WriteThroughputLimiter,
+        WriteVolume,
+    },
     ComponentRegistry,
     TableCount,
     TableRegistry,
@@ -744,7 +748,7 @@ impl SnapshotManager {
         pending_writes.recompute_pending_snapshots(snapshot.clone());
     }
 
-    pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot, write_bytes: u64) {
+    pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot, write_volume: WriteVolume) {
         assert!(*self.latest_ts() < ts);
         // Note that we only drop a version if its *successor* leaves the transaction
         // window. That's because the gap between versions could be significant,
@@ -757,22 +761,32 @@ impl SnapshotManager {
         }
         self.versions.push_back((ts, snapshot));
         self.notify_waiters();
-        self.write_throughput_limiter.record_write(ts, write_bytes);
+        self.write_throughput_limiter.record_write(ts, write_volume);
     }
 
     pub fn check_write_throughput_limit(&self, ts: Timestamp) -> anyhow::Result<()> {
-        if !self.write_throughput_limiter.check_limit(ts) {
-            anyhow::bail!(ErrorMetadata::rate_limited(
+        match self.write_throughput_limiter.exceeded_limit(ts) {
+            None => Ok(()),
+            Some(WriteThroughputLimit::Bytes) => Err(ErrorMetadata::rate_limited(
                 "TooManyWrites",
                 format!(
                     "Too many writes per second. Your deployment is limited to {} bytes written \
-                     per {}. Reduce your write rate or upgrade to a larger deployment.",
+                     per second. Reduce your write rate or upgrade to a larger deployment.",
                     common::fmt::format_bytes(*MAX_BYTES_WRITTEN_PER_SECOND),
-                    common::fmt::format_duration(*WRITE_THROUGHPUT_WINDOW),
-                )
-            ));
+                ),
+            )
+            .into()),
+            Some(WriteThroughputLimit::Rows) => Err(ErrorMetadata::rate_limited(
+                "TooManyWrites",
+                format!(
+                    "Too many writes per second. Your deployment is limited to {} document and \
+                     index rows written per second. Reduce your write rate, remove unused \
+                     indexes, or upgrade to a larger deployment.",
+                    MAX_ROWS_WRITTEN_PER_SECOND.unwrap_or(u64::MAX),
+                ),
+            )
+            .into()),
         }
-        Ok(())
     }
 
     pub fn bump_persisted_max_repeatable_ts(&mut self, ts: Timestamp) -> anyhow::Result<bool> {
@@ -785,7 +799,7 @@ impl SnapshotManager {
         self.persisted_max_repeatable_ts = ts;
         let (latest_ts, snapshot) = self.latest();
         if ts > *latest_ts {
-            self.push(ts, snapshot, 0);
+            self.push(ts, snapshot, WriteVolume::default());
             Ok(true)
         } else {
             Ok(false)

@@ -51,8 +51,8 @@ common types for numerical data: `number` and `BigInt`.
 
 `number` is used whenever a value is assigned a literal numeric value, whether
 `42` or `3.14`. `BigInt` can be used by adding a trailing `n`, like `42n`.
-Despite the two types, is very common to use `number` for holding either integer
-or floating point values in JavaScript.
+Despite the two types, it is very common to use `number` for holding either
+integer or floating point values in JavaScript.
 
 Because of this, Convex takes extra care to encode values so they won't lose
 precision. Since technically the `number` type is an IEEE 754 floating point
@@ -115,7 +115,7 @@ data class BaseballTeam(
 ```
 
 The pattern is to store the `Double` values privately and with different names
-that the value from the backend. Then add accessors to provide the `Int` values.
+than the value from the backend. Then add accessors to provide the `Int` values.
 
 ## Field name conversion
 

@@ -1,8 +1,5 @@
 use common::{
-    errors::{
-        FrameData,
-        JsError,
-    },
+    errors::FrameData,
     log_lines::LogLevel,
 };
 
@@ -10,6 +7,7 @@ use super::{
     metrics,
     V8OpProvider,
 };
+use crate::error::source_mapped_stack;
 
 #[convex_macro::v8_op]
 pub fn op_console_message<'b, P: V8OpProvider<'b>>(
@@ -31,10 +29,9 @@ pub fn op_console_trace<'b, P: V8OpProvider<'b>>(
     mut messages: Vec<String>,
     frame_data: Vec<FrameData>,
 ) -> anyhow::Result<()> {
-    let js_error = JsError::from_frames("".to_string(), frame_data, None, |s| {
-        provider.lookup_source_map(s)
-    });
-    messages.push(js_error.to_string());
+    // A leading newline puts the frames under the message, as a browser does.
+    let stack = source_mapped_stack(frame_data, |s| provider.lookup_source_map(s));
+    messages.push(format!("\n{stack}"));
     for message in messages.iter() {
         tracing::trace!("console trace: {:?}", message);
     }

@@ -378,6 +378,7 @@ const config: Config = {
           "/ai-gateway/**",
           "/agents/**",
           "/testing/**",
+          "/linting/**",
           "/production/**",
           "/self-hosting/**",
 
@@ -385,7 +386,6 @@ const config: Config = {
           "/client/**",
           "/dashboard/**",
           "/error/**",
-          "/eslint/**",
           "/home/**",
           "/tutorial/**",
 

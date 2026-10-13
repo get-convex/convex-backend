@@ -12,6 +12,7 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use enum_iterator::Sequence;
 use futures::{
@@ -44,6 +45,8 @@ use crate::{
         GenericIndexName,
         IndexId,
         IndexRef,
+        IndexWriteMode,
+        PersistenceIndexId,
         PersistenceVersion,
         PrevIndexEntry,
         RepeatableReason,
@@ -77,6 +80,9 @@ impl DocumentLogEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PersistenceIndexEntry {
+    /// Whether index backfill may still be inserting entries for existing
+    /// documents.
+    pub mode: IndexWriteMode,
     pub ts: Timestamp,
     pub index: IndexRef,
     pub key: IndexKeyBytes,
@@ -92,6 +98,7 @@ impl PersistenceIndexEntry {
         Self {
             ts,
             index: update.index,
+            mode: update.mode,
             key: update.key.to_bytes(),
             value: match update.value {
                 DatabaseIndexValue::Deleted => None,
@@ -112,6 +119,60 @@ impl PersistenceIndexEntry {
             size += value.size();
         }
         size as u64
+    }
+}
+
+/// An index entry written while building or replaying an index.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexBackfillEntry {
+    pub mode: IndexWriteMode,
+    pub ts: Timestamp,
+    pub index: IndexRef,
+    pub key: IndexKeyBytes,
+    pub value: Option<InternalDocumentId>,
+}
+
+impl TryFrom<PersistenceIndexEntry> for IndexBackfillEntry {
+    type Error = anyhow::Error;
+
+    fn try_from(entry: PersistenceIndexEntry) -> anyhow::Result<Self> {
+        let value = entry.value.context("index backfill wrote a tombstone")?;
+        anyhow::ensure!(
+            entry.prev.is_none(),
+            "index backfill wrote an entry superseding another"
+        );
+        Ok(Self {
+            mode: entry.mode,
+            ts: entry.ts,
+            index: entry.index,
+            key: entry.key,
+            value: Some(value),
+        })
+    }
+}
+
+impl IndexBackfillEntry {
+    pub fn from_replay(entry: &PersistenceIndexEntry) -> Self {
+        Self {
+            mode: entry.mode,
+            ts: entry.ts,
+            index: entry.index,
+            key: entry.key.clone(),
+            value: entry.value,
+        }
+    }
+}
+
+impl From<&IndexBackfillEntry> for PersistenceIndexEntry {
+    fn from(entry: &IndexBackfillEntry) -> Self {
+        Self {
+            mode: entry.mode,
+            ts: entry.ts,
+            index: entry.index,
+            key: entry.key.clone(),
+            value: entry.value,
+            prev: None,
+        }
     }
 }
 
@@ -279,6 +340,36 @@ pub trait Persistence: Sync + Send + 'static {
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
 
+    /// Persists entries read from an index backfill snapshot at their document
+    /// timestamps. Replaying a chunk must be idempotent.
+    async fn write_index_backfill(&self, entries: &[IndexBackfillEntry]) -> anyhow::Result<()> {
+        let entries: Vec<_> = entries.iter().map(PersistenceIndexEntry::from).collect();
+        self.write(&[], &entries, ConflictStrategy::Overwrite).await
+    }
+
+    /// Reconciles backfill entries with live writes. The caller runs this
+    /// after the last backfill chunk is durable and before writes switch to
+    /// [`IndexWriteMode::ScanComplete`]. Implementations must be idempotent.
+    async fn reconcile_index_backfill(&self, _index: PersistenceIndexId) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    /// The indexes for which this persistence records keys that live writes
+    /// deleted. Empty for a layout that keeps no delete markers.
+    async fn index_backfill_marker_indexes(&self) -> anyhow::Result<Vec<PersistenceIndexId>> {
+        Ok(Vec::new())
+    }
+
+    /// Returns the number of deletion markers removed. Each call deletes a
+    /// bounded chunk; the caller must ensure no new markers can be written
+    /// for the index.
+    async fn delete_index_backfill_markers_chunk(
+        &self,
+        _index: PersistenceIndexId,
+    ) -> anyhow::Result<u64> {
+        Ok(0)
+    }
+
     /// Writes global key-value data for the whole persistence.
     /// This is expected to be small data that does not make sense in a
     /// versioned or transaction context. See `PersistenceGlobalKey`.
@@ -300,6 +391,12 @@ pub trait Persistence: Sync + Send + 'static {
         &self,
         request: IndexRetentionRequest<'_>,
     ) -> anyhow::Result<IndexRetentionProgress>;
+
+    /// Whether the database must run the index retention worker. Backends with
+    /// independent index history maintenance return `false`.
+    fn needs_index_retention_deletes(&self) -> bool {
+        true
+    }
 
     // Deletes documents
     async fn delete(

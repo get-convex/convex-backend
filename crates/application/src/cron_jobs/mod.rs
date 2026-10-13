@@ -517,6 +517,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                                     occ_info,
                                     None,
                                     mutation_retry_count,
+                                    mutation_retry_count,
                                     true,
                                 )
                                 .await;
@@ -866,6 +867,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         }
         if num_skipped > 0 {
             let job_id = job.id.developer_id;
+            let job_name = &job.name;
             tracing::info!(
                 "Skipping {num_skipped} run(s) of job {job_id} because multiple scheduled runs \
                  are in the past"
@@ -881,8 +883,8 @@ impl<RT: Runtime> CronJobContext<RT> {
                             &anyhow::anyhow!(ErrorMetadata::bad_request(
                                 "SkippingPastScheduledRuns",
                                 format!(
-                                    "Skipping {num_skipped} run(s) of job {job_id} because \
-                                     multiple scheduled runs are in the past"
+                                    "Skipping {num_skipped} run(s) of cron job '{job_name}' \
+                                     because multiple scheduled runs are in the past"
                                 )
                             )),
                             CanonicalizedComponentFunctionPath {
@@ -908,8 +910,8 @@ impl<RT: Runtime> CronJobContext<RT> {
                     let err = anyhow::anyhow!(ErrorMetadata::bad_request(
                         "SkippingPastScheduledRuns",
                         format!(
-                            "Skipping {num_skipped} run(s) of job {job_id} because multiple \
-                             scheduled runs are in the past"
+                            "Skipping {num_skipped} run(s) of cron job '{job_name}' because \
+                             multiple scheduled runs are in the past"
                         )
                     ));
                     self.function_log

@@ -21,6 +21,7 @@ export const USAGE_LIMIT_METRICS = [
   "databaseIoGb",
   "searchQueryGb",
   "dataEgressGb",
+  "aiGatewayCostDollars",
 ] as const satisfies readonly UsageLimitMetric[];
 
 // Fails to compile if the backend's `UsageLimitMetric` gains a metric not listed
@@ -47,6 +48,7 @@ export const METRIC_LABELS: Record<UsageLimitMetric, string> = {
   databaseIoGb: "Database I/O",
   searchQueryGb: "Search queries",
   dataEgressGb: "Data egress",
+  aiGatewayCostDollars: "AI Gateway",
 };
 
 export function metricLabel(metric: string): string {

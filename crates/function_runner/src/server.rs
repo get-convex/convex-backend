@@ -73,6 +73,10 @@ use model::{
         ModuleSource,
         SourceMap,
     },
+    source_packages::{
+        types::SourcePackage,
+        upload_download::download_package,
+    },
     udf_config::types::UdfConfig,
 };
 use rand::Rng;
@@ -160,6 +164,15 @@ pub trait StorageForDeployment<RT: Runtime>: Debug + Clone + Send + Sync + 'stat
         transaction: &mut Transaction<RT>,
         use_case: StorageUseCase,
     ) -> anyhow::Result<Arc<dyn Storage>>;
+
+    /// Reads a source package's modules out of `modules_storage`.
+    async fn download_package(
+        &self,
+        modules_storage: Arc<dyn Storage>,
+        source_package: &SourcePackage,
+    ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, ModuleConfig>> {
+        download_package(modules_storage, source_package).await
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -348,12 +361,13 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
         let environment_data = EnvironmentData {
             key_broker,
             default_system_env_vars,
-            file_storage,
+            file_storage: file_storage.clone(),
             module_loader: Arc::new(FunctionRunnerModuleLoader {
                 deployment_name: deployment_name.clone(),
                 cache: self.module_cache.clone(),
                 code_cache: self.code_cache.clone(),
                 modules_storage,
+                storage: self.storage.clone(),
             }),
             deployment,
         };
@@ -369,7 +383,7 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                 // system-generated input.
                 let rng_seed = self.rt.rng().random();
                 let unix_timestamp = udf_unix_timestamp(transaction.next_creation_time());
-                let (tx, outcome) = self
+                let (mut tx, outcome) = self
                     .isolate_client
                     .execute_udf(
                         udf_type,
@@ -386,6 +400,13 @@ impl<RT: Runtime, S: StorageForDeployment<RT>> FunctionRunnerCore<RT, S> {
                         subfunctions_in_same_isolate,
                     )
                     .await?;
+                if matches!(&outcome, FunctionOutcome::Mutation(o) if o.result.is_err()) {
+                    tx.discard_pending_file_uploads()?;
+                } else {
+                    file_storage
+                        .upload_pending_files(&mut tx, &usage_tracker)
+                        .await?;
+                }
                 Ok((
                     Some(tx.try_into()?),
                     outcome,

@@ -479,8 +479,8 @@ pub fn committer_full_error() -> ErrorMetadata {
 
     ErrorMetadata::overloaded(
         "CommitterFullError",
-        "Too many concurrent commits in a short period of time. Spread your writes out over time \
-         or throttle them to avoid errors.",
+        "Too many writes in a short period of time. Reduce your writes, spread your writes out \
+         over time or remove unused indexes to reduce load and avoid errors.",
     )
 }
 
@@ -683,6 +683,23 @@ pub fn log_retention_unique_indexes(unique_indexes: usize, source: IndexRetentio
             <&'static str>::from(source),
         )],
     )
+}
+
+register_convex_histogram!(
+    INDEX_BACKFILL_MARKER_CLEANUP_SECONDS,
+    "Time for one index backfill marker cleanup pass",
+    &STATUS_LABEL
+);
+pub fn index_backfill_marker_cleanup_timer() -> StatusTimer {
+    StatusTimer::new(&INDEX_BACKFILL_MARKER_CLEANUP_SECONDS)
+}
+
+register_convex_counter!(
+    INDEX_BACKFILL_MARKERS_DELETED_TOTAL,
+    "The total number of index backfill markers persistence returns as having been deleted"
+);
+pub fn log_index_backfill_markers_deleted(deleted_rows: u64) {
+    log_counter(&INDEX_BACKFILL_MARKERS_DELETED_TOTAL, deleted_rows)
 }
 
 register_convex_counter!(
@@ -1049,4 +1066,20 @@ register_convex_histogram!(
 );
 pub fn log_write_throughput(bytes: u64) {
     log_distribution(&WRITE_THROUGHPUT_BYTES, bytes as f64);
+}
+
+register_convex_counter!(
+    WRITE_THROUGHPUT_ROWS_LIMIT_EXCEEDED_TOTAL,
+    "Total number of times mutation execution was rejected due to the rows written limit"
+);
+pub fn log_write_throughput_rows_limit_exceeded() {
+    log_counter(&WRITE_THROUGHPUT_ROWS_LIMIT_EXCEEDED_TOTAL, 1);
+}
+
+register_convex_histogram!(
+    WRITE_THROUGHPUT_ROWS,
+    "Document and index rows written within the write throughput window"
+);
+pub fn log_write_throughput_rows(rows: u64) {
+    log_distribution(&WRITE_THROUGHPUT_ROWS, rows as f64);
 }

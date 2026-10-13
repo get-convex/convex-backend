@@ -8,7 +8,11 @@ import {
   PaperPlaneIcon,
   PersonIcon,
 } from "@radix-ui/react-icons";
-import { CreditCardIcon, KeyIcon } from "@heroicons/react/24/outline";
+import {
+  CreditCardIcon,
+  KeyIcon,
+  LockClosedIcon,
+} from "@heroicons/react/24/outline";
 
 export type TeamSettingsPage =
   | "general"
@@ -20,7 +24,7 @@ export type TeamSettingsPage =
   | "access-tokens"
   | "applications"
   | "custom-roles"
-  | "sso";
+  | "team-authentication";
 
 // Shared between the team settings sidebar and the command palette so both
 // surfaces show the same icon for a page.
@@ -38,5 +42,5 @@ export const TEAM_SETTINGS_PAGE_ICONS: Record<
   "access-tokens": KeyIcon,
   applications: Link2Icon,
   "custom-roles": IdCardIcon,
-  sso: KeyIcon,
+  "team-authentication": LockClosedIcon,
 };

@@ -96,24 +96,24 @@ impl RejectedBeforeExecutionReason {
         match self {
             Self::ExpiredInQueue => ErrorMetadata::rejected_before_execution(
                 "ExpiredInQueue",
-                "Too many concurrent requests in a short period of time. Spread out your requests \
-                 out over time or throttle them to avoid errors.",
+                "Too many concurrent requests in a short period of time. Spread your requests out \
+                 over time or throttle them to avoid errors.",
             ),
             Self::PerClientWorkerOverloaded | Self::WorkerPoolOverloaded => {
                 ErrorMetadata::rejected_before_execution("WorkerOverloaded", NO_AVAILABLE_WORKERS)
             },
             Self::IsolateNotClean => ErrorMetadata::rejected_before_execution(
                 "IsolateNotClean",
-                "Selected isolate was not clean",
+                "Couldn't start running this function",
             ),
             Self::InitialPermitTimeout => ErrorMetadata::rejected_before_execution(
                 "InitialPermitTimeoutError",
-                "Couldn't acquire a permit on this funrun",
+                "Timed out waiting for capacity to run this function",
             ),
             Self::ExecuteQueueFull => ErrorMetadata::rejected_before_execution(
                 "ExecuteFullError",
-                "Too many concurrent requests in a short period of time. Spread out your requests \
-                 out over time or throttle them to avoid errors.",
+                "Too many concurrent requests in a short period of time. Spread your requests out \
+                 over time or throttle them to avoid errors.",
             ),
         }
     }
@@ -666,6 +666,14 @@ register_convex_counter!(
 );
 pub fn log_isolate_out_of_memory() {
     log_counter(&ISOLATE_OUT_OF_MEMORY_TOTAL, 1);
+}
+
+register_convex_counter!(
+    ISOLATE_HEAP_LIMIT_CALLBACK_REPEATED_TOTAL,
+    "Number of near-heap-limit callbacks for an isolate that was already terminated"
+);
+pub fn log_isolate_heap_limit_callback_repeated(count: u64) {
+    log_counter(&ISOLATE_HEAP_LIMIT_CALLBACK_REPEATED_TOTAL, count);
 }
 
 pub fn record_component_function_path(component_function_path: &ResolvedComponentFunctionPath) {

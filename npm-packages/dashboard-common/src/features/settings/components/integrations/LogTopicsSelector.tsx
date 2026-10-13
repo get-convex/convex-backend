@@ -56,6 +56,11 @@ const TOPICS: {
       "Reports bytes served directly from the storage HTTP API (file downloads).",
   },
   {
+    key: "ai_gateway_usage",
+    description:
+      "Reports AI Gateway inference cost, token usage, model, and function attribution.",
+  },
+  {
     key: "log_stream_egress",
     description: "Reports bytes sent by any log stream to its destination.",
   },

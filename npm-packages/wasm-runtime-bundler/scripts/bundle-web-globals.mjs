@@ -24,11 +24,20 @@ async function main() {
     logLevel: "silent",
   };
 
+  // `browser`, as the V8 runtime's `bundle-server.mjs` builds these same
+  // sources: it honors packages' `browser` field, which is how `object-inspect`
+  // drops its `util.inspect` shim and the `util` polyfill whose evaluation
+  // would otherwise read `process.env.NODE_DEBUG` into every snapshot.
   await build({
     ...common,
+    platform: "browser",
+    mainFields: ["browser", "module", "main"],
     entryPoints: [path.join(packageRoot, "scripts", "web-globals.ts")],
     outfile: path.join(outDir, "web-globals.js"),
     format: "iife",
+    // esbuild renames colliding top-level declarations (`Date` -> `Date2`),
+    // which would show up as the `name` of the exported classes and functions.
+    keepNames: true,
   });
 
   const fixturesDir = path.join(packageRoot, "scripts", "fixtures");

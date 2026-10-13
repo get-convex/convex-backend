@@ -3,12 +3,14 @@ import { DeploymentType } from "generatedApi";
 
 const QUERY_IDS_: {
   summary: DatabricksQueryId;
+  backupStorageEstimate: DatabricksQueryId;
   functionBreakdown: DatabricksQueryId;
   deploymentsByClassAndRegion: DatabricksQueryId;
   deploymentCountByType: DatabricksQueryId;
   deploymentCountByStatus: DatabricksQueryId;
 } = {
   summary: "b63fe48d-320c-401a-8682-0a0b36b50e2b",
+  backupStorageEstimate: "b58b3969-d916-460a-a7b6-210af082b24a",
   functionBreakdown: "76c86baa-418e-4d7f-ac21-46f397030595",
   deploymentsByClassAndRegion: "dfc73057-1948-4b99-a3bf-9ae802a395ee",
   deploymentCountByType: "34801c2e-06a8-4cc5-8ecc-dd412b908763",
@@ -76,9 +78,16 @@ export type UsageSummaryRow = {
   idleDeploymentCount: number;
 };
 
+export type BackupStorageSummary = {
+  databaseStorage: number;
+  fileStorage: number;
+};
+
 // Function name of the row the breakdown query emits per project to carry the
 // functions that fall outside the top-N it returns, so project totals stay exact.
 export const REST_OF_FUNCTIONS = "_rest";
+
+export type UsageDeploymentType = DeploymentType | "local";
 
 export interface AggregatedFunctionMetrics {
   function: string;
@@ -94,7 +103,7 @@ export interface AggregatedFunctionMetrics {
   dataEgress: number; // bytes
   aiGatewayCost: number; // dollars
   // Null on the `_rest` row, which spans every deployment type.
-  deploymentType: DeploymentType | null;
+  deploymentType: UsageDeploymentType | null;
   componentPath: string;
 }
 
@@ -157,6 +166,7 @@ export function useUsageTeamSummary(
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
+  options: { deploymentName?: string; skip?: boolean } = {},
 ) {
   const { data, error } = useUsageQuery({
     queryId: QUERY_IDS_.summary,
@@ -164,6 +174,8 @@ export function useUsageTeamSummary(
     projectId,
     period,
     componentPrefix,
+    deploymentName: options.deploymentName,
+    skip: options.skip,
   });
 
   if (error) {
@@ -220,6 +232,38 @@ export function useUsageTeamSummary(
   };
 }
 
+export function useBackupStorageSummary(
+  teamId: number,
+  projectId: number,
+  deploymentName: string | undefined,
+  skip = false,
+) {
+  const { data, error } = useUsageQuery({
+    queryId: QUERY_IDS_.backupStorageEstimate,
+    teamId,
+    projectId,
+    deploymentName,
+    period: null,
+    componentPrefix: null,
+    skip,
+  });
+
+  if (error) {
+    return { data: undefined, error };
+  }
+
+  const row = data?.[0];
+  return {
+    data: row
+      ? {
+          databaseStorage: Number(row[0]),
+          fileStorage: Number(row[1]),
+        }
+      : undefined,
+    error: undefined,
+  };
+}
+
 export function useUsageTeamMetricsByFunction(
   teamId: number,
   period: DateRange | null,
@@ -269,7 +313,7 @@ export function useUsageTeamMetricsByFunction(
         actionComputeNodeTime: Number(actionComputeNodeTime) / 60 / 60,
         dataEgress: Number(dataEgress),
         // SQL NULL arrives as "" (see useUsageQuery).
-        deploymentType: (deploymentType || null) as DeploymentType | null,
+        deploymentType: (deploymentType || null) as UsageDeploymentType | null,
         componentPath,
         aiGatewayCost: Number(aiGatewayCost),
       }),

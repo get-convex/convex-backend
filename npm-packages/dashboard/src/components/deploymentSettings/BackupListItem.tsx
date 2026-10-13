@@ -32,11 +32,9 @@ import {
   SignalIcon,
 } from "@heroicons/react/24/outline";
 import {
-  useRequestCloudBackup,
   useRestoreFromCloudBackup,
   useDeleteCloudBackup,
   BackupResponse,
-  useListCloudBackupsIfAvailable,
   useCancelCloudBackup,
 } from "api/backups";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
@@ -44,9 +42,10 @@ import { BackupIdentifier } from "elements/BackupIdentifier";
 import { permissionDeniedTip } from "elements/permissionDeniedTip";
 import { cn } from "@ui/cn";
 import { getDeploymentLabel } from "elements/DeploymentDisplay";
-import { usePostHog } from "hooks/usePostHog";
+import { BackupNowButton } from "./BackupNowButton";
 
 export function BackupListItem({
+  teamId,
   backup,
   restoring,
   someBackupInProgress,
@@ -60,6 +59,7 @@ export function BackupListItem({
   maxCloudBackups,
   progressMessage,
 }: {
+  teamId: number;
   backup: BackupResponse;
   restoring: boolean;
   someBackupInProgress: boolean;
@@ -308,6 +308,7 @@ export function BackupListItem({
         >
           {modal === "suggestBackup" ? (
             <SuggestBackup
+              teamId={teamId}
               targetDeployment={targetDeployment}
               onClose={() => setModal(null)}
               onContinue={() => setModal("restoreConfirmation")}
@@ -338,6 +339,7 @@ export function BackupListItem({
 }
 
 function SuggestBackup({
+  teamId,
   targetDeployment,
   onClose,
   onContinue,
@@ -345,6 +347,7 @@ function SuggestBackup({
   maxCloudBackups,
   canCreate,
 }: {
+  teamId: number;
   targetDeployment: PlatformDeploymentResponse;
   onClose: () => void;
   onContinue: () => void;
@@ -365,6 +368,7 @@ function SuggestBackup({
 
       <div className="flex justify-end gap-2">
         <BackupNowButton
+          teamId={teamId}
           deployment={targetDeployment}
           maxCloudBackups={maxCloudBackups}
           canCreate={canCreate}
@@ -699,109 +703,6 @@ function LatestBackup({ backup }: { backup: BackupResponse | null }) {
 function isInLastFiveMinutes(backup: BackupResponse): boolean {
   const fiveMinutes = 5 * 60 * 1000;
   return backup.requestedTime >= Date.now() - fiveMinutes;
-}
-
-export function BackupNowButton({
-  deployment,
-  maxCloudBackups,
-  canCreate,
-  onBackupRequested,
-}: {
-  deployment: PlatformDeploymentResponse;
-  maxCloudBackups: number;
-  canCreate: boolean;
-  onBackupRequested?: () => void;
-}) {
-  const backups = useListCloudBackupsIfAvailable(deployment);
-  const nonFailedBackupsForDeployment = backups?.filter(
-    (backup) =>
-      backup.state === "requested" ||
-      backup.state === "inProgress" ||
-      backup.state === "complete",
-  );
-
-  const deploymentId = deployment.kind === "cloud" ? deployment.id : undefined;
-  const requestBackup = useRequestCloudBackup(deploymentId);
-  const [isOngoing, setIsOngoing] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [includeStorage, setIncludeStorage] = useState(false);
-  const includeStorageCheckboxId = useId();
-  const { capture } = usePostHog();
-
-  const doBackup = async () => {
-    setIsOngoing(true);
-    try {
-      await requestBackup({ includeStorage });
-      capture("created_backup", { includedStorage: includeStorage });
-    } finally {
-      setIsOngoing(false);
-    }
-    setShowModal(false);
-    if (onBackupRequested) {
-      onBackupRequested();
-    }
-  };
-
-  return (
-    <>
-      <Button
-        variant="neutral"
-        className="w-fit"
-        loading={isOngoing}
-        icon={<ArchiveIcon />}
-        onClick={() => setShowModal(true)}
-        disabled={
-          nonFailedBackupsForDeployment === undefined ||
-          nonFailedBackupsForDeployment.length >= maxCloudBackups ||
-          !canCreate
-        }
-        tip={
-          isOngoing
-            ? "A backup is currently in progress."
-            : nonFailedBackupsForDeployment &&
-                nonFailedBackupsForDeployment.length >= maxCloudBackups
-              ? `You can only have up to ${maxCloudBackups} backups on your current plan. Delete some of your existing backups in this deployment to create a new one.`
-              : !canCreate
-                ? permissionDeniedTip(
-                    "You do not have permission to create backups.",
-                    "deployment:backups:create",
-                  )
-                : undefined
-        }
-      >
-        Backup Now
-      </Button>
-
-      {showModal && (
-        <Modal
-          onClose={() => setShowModal(false)}
-          title="Request an immediate backup"
-          size="sm"
-        >
-          <label
-            className="ml-px flex items-center gap-2 text-sm"
-            htmlFor={includeStorageCheckboxId}
-          >
-            <Checkbox
-              id={includeStorageCheckboxId}
-              checked={includeStorage}
-              onChange={() => setIncludeStorage(!includeStorage)}
-            />
-            Include file storage
-          </label>
-
-          <Button
-            className="mt-4 ml-auto flex gap-2"
-            variant="primary"
-            onClick={doBackup}
-            loading={isOngoing}
-          >
-            Create Backup
-          </Button>
-        </Modal>
-      )}
-    </>
-  );
 }
 
 export function progressMessageForBackup(

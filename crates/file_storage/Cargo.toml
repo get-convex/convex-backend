@@ -22,6 +22,7 @@ keybroker = { workspace = true }
 maplit = { workspace = true }
 metrics = { workspace = true }
 model = { workspace = true }
+parking_lot = { workspace = true }
 storage = { workspace = true }
 tracing = { workspace = true }
 usage_tracking = { workspace = true }

@@ -5,7 +5,7 @@ import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/lib/v
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { KEYCAP_CLASSES, KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
-import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
+import { DateTimePicker } from "@common/features/data/components/DateTimePicker";
 import { isInCommonUTCTimestampRange } from "@common/features/data/lib/helpers";
 
 export const CELL_EDITOR_OVERHANG = 2;

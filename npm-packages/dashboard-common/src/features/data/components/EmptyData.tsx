@@ -1,13 +1,13 @@
 import {
   PlusIcon,
   TableIcon,
-  MixerHorizontalIcon,
   ChevronDownIcon,
   DotsVerticalIcon,
 } from "@radix-ui/react-icons";
 import { useContext, useEffect, useRef, useState } from "react";
 import { CreateNewTable } from "@common/features/data/components/DataSidebar";
 import { EmptySection } from "@common/elements/EmptySection";
+import { IndexIcon } from "@common/elements/icons";
 import { useNents } from "@common/lib/useNents";
 import {
   DeploymentInfoContext,
@@ -114,7 +114,7 @@ export function EmptyDataContent({
             </div>
           )}
 
-          {/* Example DataFilters */}
+          {/* Example IndexFilterBar */}
           <div
             className="flex w-full flex-col gap-2 rounded-t border border-b-0 bg-background-secondary/50 p-2"
             inert
@@ -125,12 +125,10 @@ export function EmptyDataContent({
                   <Button
                     size="xs"
                     variant="neutral"
-                    className="w-fit border border-border-transparent text-xs"
-                    icon={<MixerHorizontalIcon className="size-3.5" />}
+                    className="h-6 w-fit border border-border-transparent px-1.5 font-mono text-xs"
+                    icon={<IndexIcon kind="database" className="size-3.5" />}
                   >
-                    <div className="flex items-center gap-2">
-                      <span>Filter & Sort</span>
-                    </div>
+                    by_creation_time
                     <ChevronDownIcon />
                   </Button>
                 </div>

@@ -72,6 +72,14 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
         DeveloperDocumentId::new(index_table_id.table_number, index_id.0)
     }
 
+    pub async fn existing_backfill_metadata_for_index(
+        &mut self,
+        index_id: IndexId,
+    ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {
+        let index_id = self.index_id_as_developer_id(index_id);
+        self.existing_backfill_metadata(index_id).await
+    }
+
     #[fastrace::trace]
     pub async fn existing_backfill_metadata(
         &mut self,
@@ -145,24 +153,29 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
 
     pub async fn update_search_index_backfill_progress(
         &mut self,
-        index_id: IndexId,
+        existing_backfill_metadata: &ParsedDocument<IndexBackfillMetadata>,
         tablet_id: TabletId,
         num_docs_indexed: u64,
     ) -> anyhow::Result<()> {
-        self.update_index_backfill_progress(index_id, tablet_id, num_docs_indexed, None)
-            .await
+        self.update_index_backfill_progress(
+            existing_backfill_metadata,
+            tablet_id,
+            num_docs_indexed,
+            None,
+        )
+        .await
     }
 
     #[fastrace::trace]
     pub async fn update_database_index_backfill_progress(
         &mut self,
-        index_id: IndexId,
+        existing_backfill_metadata: &ParsedDocument<IndexBackfillMetadata>,
         tablet_id: TabletId,
         num_docs_indexed: u64,
         cursor: ResolvedDocumentId,
     ) -> anyhow::Result<()> {
         self.update_index_backfill_progress(
-            index_id,
+            existing_backfill_metadata,
             tablet_id,
             num_docs_indexed,
             Some(cursor.developer_id),
@@ -178,16 +191,12 @@ impl<'a, RT: Runtime> IndexBackfillModel<'a, RT> {
     /// last call.
     async fn update_index_backfill_progress(
         &mut self,
-        index_id: IndexId,
+        existing_backfill_metadata: &ParsedDocument<IndexBackfillMetadata>,
         tablet_id: TabletId,
         num_docs_indexed: u64,
         cursor: Option<DeveloperDocumentId>,
     ) -> anyhow::Result<()> {
-        let index_id = self.index_id_as_developer_id(index_id);
-        let maybe_existing_backfill_metadata = self.existing_backfill_metadata(index_id).await?;
-        let Some(existing_backfill_metadata) = maybe_existing_backfill_metadata else {
-            anyhow::bail!("Index backfill not found for index {}", index_id);
-        };
+        let index_id = existing_backfill_metadata.index_id;
         let cursor = existing_backfill_metadata
             .cursor
             .as_ref()

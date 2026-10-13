@@ -270,10 +270,10 @@ export function teamNavigation(
       Icon: TEAM_SETTINGS_PAGE_ICONS.referrals,
     },
     {
-      label: "Single Sign-On",
+      label: "Team Authentication",
       parent: "Team Settings",
-      href: `${uriPrefix}/settings/sso`,
-      Icon: TEAM_SETTINGS_PAGE_ICONS.sso,
+      href: `${uriPrefix}/settings/team-authentication`,
+      Icon: TEAM_SETTINGS_PAGE_ICONS["team-authentication"],
     },
     {
       label: "OAuth Applications",

@@ -42,7 +42,6 @@ use anyhow::Context as _;
 use async_trait::async_trait;
 use bytes::Bytes;
 use common::{
-    errors::report_error,
     runtime::Runtime,
     try_anyhow,
     types::{
@@ -206,6 +205,9 @@ pub trait Storage: Send + Sync + Debug {
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()>;
 
     /// Upload `bytes` to `key`, overwriting any object already at that key.
+    ///
+    /// This uploads the object in a single request. Objects above a size limit
+    /// can fail. Use `start_upload` for large objects.
     async fn put_object(&self, key: ObjectKey, bytes: Bytes) -> anyhow::Result<()>;
 
     /// List all objects whose key begins with `key_prefix`.
@@ -792,11 +794,13 @@ async fn stream_object_with_retries(
                 return Err(e);
             },
             Err(e) => {
-                let mut toreport = anyhow::anyhow!(e).context(format!(
-                    "failed while reading stream for {key:?}. {retries_remaining} attempts \
-                     remaining"
-                ));
-                report_error(&mut toreport).await;
+                tracing::warn!(
+                    ?key,
+                    retries_remaining,
+                    bytes_yielded,
+                    error = ?e,
+                    "Retrying storage download after stream error"
+                );
                 let new_range =
                     (small_byte_range.start + bytes_yielded as u64)..small_byte_range.end;
                 let output = storage
@@ -909,6 +913,18 @@ impl TryFrom<ClientDrivenUploadToken> for ClientDrivenUpload {
             object_key,
             filepath,
         })
+    }
+}
+
+/// Removes the file backing a `LocalDirStorage` object. An already-absent file
+/// is a success, matching S3 DeleteObject semantics. A missing storage root is
+/// an error: treating it as success would let the caller record a deletion
+/// that never durably happened.
+fn remove_local_object(storage_root: &Path, path: &Path) -> anyhow::Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == io::ErrorKind::NotFound && storage_root.exists() => Ok(()),
+        Err(e) => Err(e).with_context(|| format!("Failed to delete {}", path.display())),
     }
 }
 
@@ -1096,8 +1112,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()> {
         let key = self.filename_for_key(key.clone());
         let path = self.dir.join(key);
-        fs::remove_file(path)?;
-        Ok(())
+        remove_local_object(&self.dir, &path)
     }
 
     async fn put_object(&self, key: ObjectKey, bytes: Bytes) -> anyhow::Result<()> {

@@ -12,7 +12,10 @@ import {
   parseDeploymentSelector,
   ParsedDeploymentSelector,
 } from "./lib/deploymentSelector.js";
-import { updateEnvAndConfigForDeploymentSelection } from "./configure.js";
+import {
+  deploymentUrlForApplicationEnv,
+  updateEnvAndConfigForDeploymentSelection,
+} from "./configure.js";
 import { fetchDeploymentCanonicalUrls } from "./lib/deploy2.js";
 import {
   loadProjectLocalConfig,
@@ -267,9 +270,9 @@ export async function saveSelectedDeployment(
     });
   }
 
-  const { convexSiteUrl: siteUrl } =
+  const { convexCloudUrl, convexSiteUrl: siteUrl } =
     deployment.deploymentFields.deploymentType === "local"
-      ? { convexSiteUrl: null }
+      ? { convexCloudUrl: deployment.url, convexSiteUrl: null }
       : await fetchDeploymentCanonicalUrls(ctx, {
           adminKey: deployment.adminKey,
           deploymentUrl: deployment.url,
@@ -278,7 +281,7 @@ export async function saveSelectedDeployment(
   await updateEnvAndConfigForDeploymentSelection(
     ctx,
     {
-      url: deployment.url,
+      url: deploymentUrlForApplicationEnv(deployment, convexCloudUrl),
       siteUrl,
       deploymentName: deployment.deploymentFields.deploymentName,
       teamSlug: deployment.deploymentFields.teamSlug,

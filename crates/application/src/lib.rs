@@ -331,11 +331,11 @@ use roles::RequireDeploymentOp;
 use scheduled_jobs::ScheduledJobRunner;
 use schema_worker::SchemaWorker;
 use search::{
-    query::RevisionWithKeys,
     searcher::{
         Searcher,
         SegmentTermMetadataFetcher,
     },
+    TextSearchResults,
 };
 use search_index_workers::{
     FastForwardIndexWorker,
@@ -419,6 +419,7 @@ use crate::{
         RedactedJsError,
         RedactedLogLines,
     },
+    s3_export_worker::S3ExportWorker,
     snapshot_import::{
         clear_tables,
         SnapshotImportWorker,
@@ -442,6 +443,7 @@ pub mod log_streaming;
 pub mod log_visibility;
 mod metrics;
 pub mod redaction;
+mod s3_export_worker;
 pub mod scheduled_jobs;
 mod schema_worker;
 pub mod snapshot_import;
@@ -910,6 +912,16 @@ impl<RT: Runtime> Application<RT> {
             runtime.spawn("cron_job_executor", cron_job_executor_fut),
         ));
 
+        let s3_export_worker = S3ExportWorker::new(
+            runtime.clone(),
+            database.clone(),
+            deployment_name.clone(),
+            export_provider.clone(),
+        );
+        let s3_export_worker = Arc::new(Mutex::new(Some(
+            runtime.spawn("s3_export_worker", s3_export_worker.run()),
+        )));
+
         let export_worker = ExportWorker::new(
             runtime.clone(),
             database.clone(),
@@ -964,6 +976,7 @@ impl<RT: Runtime> Application<RT> {
             schema_worker,
             snapshot_import_worker,
             export_worker,
+            s3_export_worker,
             system_table_cleanup_worker,
             migration_worker,
             usage_limit_worker,
@@ -1016,8 +1029,11 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: &Identity,
         claims: AttributionClaims,
+        request_id: &RequestId,
     ) -> anyhow::Result<String> {
-        self.runner.mint_ai_gateway_jwt(identity, claims).await
+        self.runner
+            .mint_ai_gateway_jwt(identity, claims, request_id)
+            .await
     }
 
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {
@@ -1186,7 +1202,7 @@ impl<RT: Runtime> Application<RT> {
         query: pb::searchlight::TextQuery,
         pending_updates: Vec<DocumentUpdate>,
         ts: RepeatableTimestamp,
-    ) -> anyhow::Result<RevisionWithKeys> {
+    ) -> anyhow::Result<TextSearchResults> {
         self.database
             .text_search_at_ts(index_id, printable_index_name, query, pending_updates, ts)
             .await

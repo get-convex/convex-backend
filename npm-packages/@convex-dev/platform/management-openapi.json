@@ -917,7 +917,18 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "PAT": []
+          },
+          {
+            "OAuth Team Token": []
+          },
+          {
+            "Team Token": []
+          }
+        ]
       }
     },
     "/teams/{team_id}/list_deployments": {
@@ -1894,6 +1905,7 @@
           "Teams"
         ],
         "summary": "Create a team",
+        "description": "This endpoint is not publicly accessible. It is reserved for specific\nintegrations that have been granted permission to create teams on behalf of\nusers. To request access, contact platforms@convex.dev.",
         "operationId": "create team",
         "requestBody": {
           "content": {
@@ -1920,7 +1932,7 @@
             "description": "Invalid team name or deployment region"
           },
           "403": {
-            "description": "Caller is not authorized to create teams"
+            "description": "This application is not authorized to create teams. This endpoint is reserved for specific integrations that are allowed to create users. If you need to create teams for your users, please contact us at platforms@convex.dev"
           }
         },
         "security": []
@@ -2084,6 +2096,9 @@
                 "deployment:token:update",
                 "deployment:token:delete",
                 "deployment:token:view",
+                "member:token:createWithSsoAccess",
+                "team:domain:create",
+                "team:domain:delete",
                 "deployment:customDomain:create",
                 "deployment:customDomain:delete",
                 "deployment:backups:create",
@@ -2111,6 +2126,7 @@
                 "sso:enable",
                 "sso:disable",
                 "sso:update",
+                "member:loginWithSso",
                 "directorySync:enable",
                 "directorySync:disable",
                 "directorySync:updateGroupMapping",
@@ -2853,6 +2869,9 @@
               "deployment:token:update",
               "deployment:token:delete",
               "deployment:token:view",
+              "member:token:createWithSsoAccess",
+              "team:domain:create",
+              "team:domain:delete",
               "deployment:customDomain:create",
               "deployment:customDomain:delete",
               "deployment:backups:create",
@@ -2880,6 +2899,7 @@
               "sso:enable",
               "sso:disable",
               "sso:update",
+              "member:loginWithSso",
               "directorySync:enable",
               "directorySync:disable",
               "directorySync:updateGroupMapping",
@@ -4482,7 +4502,9 @@
         "type": "string",
         "enum": [
           "aws-us-east-1",
-          "aws-eu-west-1"
+          "aws-eu-west-1",
+          "aws-ca-central-1",
+          "aws-ap-southeast-2"
         ]
       },
       "RequestDestination": {
@@ -4569,6 +4591,9 @@
           "billing:view",
           "billing:invoices:view",
           "team:auditLog:view",
+          "team:domain:create",
+          "team:domain:delete",
+          "team:domain:view",
           "team:token:create",
           "team:token:update",
           "team:token:delete",
@@ -4747,13 +4772,6 @@
               "$ref": "#/components/schemas/TeamMemberCustomRole"
             },
             "description": "The custom roles attached to this team member. Present iff\n`role` is `custom`."
-          },
-          "dsyncSuspended": {
-            "type": [
-              "boolean",
-              "null"
-            ],
-            "description": "Present only on directory-sync teams. `true` means the member's IdP\naccount is suspended."
           }
         }
       },

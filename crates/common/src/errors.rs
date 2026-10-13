@@ -98,7 +98,7 @@ impl Debug for MainError {
 
 /// Redact PII from text that is about to be handed to a third party
 /// (sentry/datadog).
-fn redact_pii(s: &str) -> Cow<'_, str> {
+pub fn redact_pii(s: &str) -> Cow<'_, str> {
     if *SHOW_PII_IN_ERRORS {
         return Cow::Borrowed(s);
     }
@@ -520,7 +520,9 @@ impl fmt::Display for FrameData {
         if self.is_promise_all
             && let Some(promise_index) = self.promise_index
         {
-            write!(f, "Promise.all (index {promise_index})")?;
+            // V8's `SerializeJSStackFrame` renders a `Promise.all` frame as
+            // just its element index, with no function name or location.
+            return write!(f, "Promise.all (index {promise_index})");
         }
         let is_method_call = !(self.is_top_level == Some(true) || self.is_constructor);
         if is_method_call {
@@ -869,10 +871,23 @@ pub fn is_duplicate_write_error(e: &anyhow::Error) -> bool {
     e.is::<DuplicateWriteError>()
 }
 
+/// Not a [`DatabaseOperationalError`]: those are retried per statement, but a
+/// deadlock rolls back the whole transaction.
+#[derive(thiserror::Error, Debug)]
+#[error(transparent)]
+pub struct DatabaseDeadlockError(anyhow::Error);
+pub fn database_deadlock_error(error: anyhow::Error) -> anyhow::Error {
+    anyhow::anyhow!(DatabaseDeadlockError(error))
+}
+
 /// True if `e` (or anything in its anyhow context chain) is a transient
 /// database error.
 pub fn is_transient_db_error(e: &anyhow::Error) -> bool {
     e.is::<DatabaseTimeoutError>() || e.is::<DatabaseOperationalError>()
+}
+
+pub fn is_db_deadlock_error(e: &anyhow::Error) -> bool {
+    e.is::<DatabaseDeadlockError>()
 }
 
 pub const AUTH_ERROR: &str = "AuthError";

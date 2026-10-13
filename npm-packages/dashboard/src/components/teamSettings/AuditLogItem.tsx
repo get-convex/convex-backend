@@ -255,6 +255,24 @@ function EntryAction({
       return <span>updated the team</span>;
     case "team:delete":
       return <span>deleted the team</span>;
+    case "team:domain:create":
+      return (
+        <span>
+          added {metadata.current?.domain ? "the" : "a"} domain{" "}
+          {metadata.current?.domain && (
+            <span className="font-semibold">{metadata.current.domain}</span>
+          )}
+        </span>
+      );
+    case "team:domain:delete":
+      return (
+        <span>
+          removed {metadata.previous?.domain ? "the" : "a"} domain{" "}
+          {metadata.previous?.domain && (
+            <span className="font-semibold">{metadata.previous.domain}</span>
+          )}
+        </span>
+      );
     case "deployment:create": {
       const deploymentType =
         metadata.current?.deploymentType ?? metadata.current?.type;
@@ -428,6 +446,12 @@ function EntryAction({
               verb="viewed"
             />
           )}
+        </span>
+      );
+    case "member:token:createWithSsoAccess":
+      return (
+        <span>
+          created a personal access token with SSO access to this team
         </span>
       );
     case "team:token:update":
@@ -623,6 +647,9 @@ function EntryAction({
     case "sso:update": {
       return <span>updated SSO settings</span>;
     }
+    case "member:loginWithSso": {
+      return <span>signed in with SSO</span>;
+    }
     case "directorySync:enable": {
       return <span>enabled directory sync</span>;
     }
@@ -630,29 +657,28 @@ function EntryAction({
       return <span>disabled directory sync</span>;
     }
     case "directorySync:updateGroupMapping": {
-      const groupId =
-        metadata.current?.workosGroupId ?? metadata.previous?.workosGroupId;
+      const group = metadata.current?.group;
       return (
         <span>
-          updated directory sync group role mapping
-          {groupId && (
+          updated the role for directory group
+          {group && (
             <>
-              {" for group "}
-              <span className="font-semibold">{groupId}</span>
+              {" "}
+              <span className="font-semibold">{group}</span>
             </>
           )}
         </span>
       );
     }
     case "directorySync:deleteGroupMapping": {
-      const groupId = metadata.previous?.workosGroupId;
+      const group = metadata.previous?.group;
       return (
         <span>
-          removed directory sync group role mapping
-          {groupId && (
+          removed the role mapping for directory group
+          {group && (
             <>
-              {" for group "}
-              <span className="font-semibold">{groupId}</span>
+              {" "}
+              <span className="font-semibold">{group}</span>
             </>
           )}
         </span>

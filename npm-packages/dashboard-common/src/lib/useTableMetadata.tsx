@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { NextRouter, useRouter } from "next/router";
-import { useQuery } from "convex/react";
 import { createGlobalState } from "react-use";
 import udfs from "@common/udfs";
 import { useNents } from "@common/lib/useNents";
+import { useSystemQuery } from "@common/lib/useSystemQuery";
 import { isUserTableName } from "@common/lib/utils";
 
 // Remembers each table's most recent (already base64-encoded) `filters` query
@@ -23,9 +23,13 @@ export function useTableMetadata(): TableMetadata | undefined {
   const router = useRouter();
   const { selectedNent } = useNents();
 
-  const tableMapping = useQuery(udfs.getTableMapping.default, {
+  const tableMappingState = useSystemQuery(udfs.getTableMapping.default, {
     componentId: selectedNent?.id ?? null,
   });
+  // A member without `deployment:data:view` can't list tables, which reads the
+  // same as "not loaded yet" to every caller below.
+  const tableMapping =
+    tableMappingState.status === "success" ? tableMappingState.data : undefined;
 
   const tableNames = useMemo(
     () =>

@@ -1,6 +1,7 @@
 mod async_syscall;
 mod fetch;
 mod phase;
+mod service_token;
 mod storage;
 mod stream;
 mod syscall;
@@ -59,6 +60,7 @@ use deno_core::v8::{
     self,
     scope,
 };
+use errors::ErrorMetadata;
 use futures::{
     future::BoxFuture,
     select_biased,
@@ -111,7 +113,7 @@ use udf::{
     HttpActionResponseStreamer,
     HttpActionResult,
     SyscallTrace,
-    HTTP_ACTION_BODY_LIMIT,
+    HTTP_ACTION_RESPONSE_BODY_LIMIT,
 };
 use value::{
     heap_size::HeapSize,
@@ -131,6 +133,7 @@ pub use self::{
 };
 use self::{
     phase::ActionPhase,
+    service_token::ServiceTokenCache,
     task::{
         TaskId,
         TaskRequest,
@@ -224,6 +227,10 @@ pub struct ActionEnvironment<RT: Runtime> {
     total_log_lines: usize,
     log_line_sender: mpsc::UnboundedSender<LogLine>,
     http_response_streamer: Option<HttpActionResponseStreamer>,
+    /// Set once a body chunk would push the response past
+    /// `HTTP_ACTION_RESPONSE_BODY_LIMIT`. Chunks over the limit are dropped,
+    /// so `total_bytes_sent` alone never exceeds the limit.
+    http_response_too_large: bool,
 
     rt: RT,
 
@@ -296,7 +303,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             convex_origin_override: convex_origin_override.clone(),
             http_action_route: http_action_route.clone(),
             deployment,
-            ai_gateway_token: Arc::new(tokio::sync::OnceCell::new()),
+            service_token: Arc::new(ServiceTokenCache::default()),
         };
         let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();
         let running_tasks = rt.spawn("task_executor", task_executor.go(pending_task_receiver));
@@ -306,6 +313,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             total_log_lines: 0,
             log_line_sender,
             http_response_streamer,
+            http_response_too_large: false,
 
             next_task_id: TaskId(0),
             pending_task_sender,
@@ -513,7 +521,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 scope
                     .state_mut()?
                     .environment
-                    .send_stream(stream_id, Some(body));
+                    .send_stream(stream_id, Some(body))?;
                 Some(stream_id)
             },
             None => None,
@@ -579,7 +587,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let stream_id = state.create_request_stream()?;
         state
             .environment
-            .send_stream(stream_id, Some(sender_closed));
+            .send_stream(stream_id, Some(sender_closed))?;
 
         Ok(stream_id)
     }
@@ -627,14 +635,14 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 streamer.send_part(HttpActionResponsePart::Head(h))??;
             },
             Ok(HttpActionResponsePart::BodyChunk(b)) => {
-                if streamer.total_bytes_sent() > HTTP_ACTION_BODY_LIMIT {
-                    // We've already hit the body size limit so should not continue sending more
+                if environment.http_response_too_large {
                     return Ok(());
                 }
-                if streamer.total_bytes_sent() + b.len() > HTTP_ACTION_BODY_LIMIT {
+                if streamer.total_bytes_sent() + b.len() > HTTP_ACTION_RESPONSE_BODY_LIMIT {
+                    environment.http_response_too_large = true;
                     let e = JsError::from_message(format!(
                         "HttpResponseTooLarge: HTTP actions support responses up to {}",
-                        HTTP_ACTION_BODY_LIMIT.format_size(BINARY)
+                        HTTP_ACTION_RESPONSE_BODY_LIMIT.format_size(BINARY)
                     ));
                     environment.trace_system(SystemWarning {
                         level: LogLevel::Error,
@@ -665,7 +673,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         &mut self,
         stream_id: uuid::Uuid,
         stream: Option<BoxStream<'static, anyhow::Result<bytes::Bytes>>>,
-    ) {
+    ) -> anyhow::Result<()> {
         let task_id = self.next_task_id.increment();
         self.pending_task_sender
             .send(TaskRequest {
@@ -673,7 +681,11 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 variant: TaskRequestEnum::AsyncOp(AsyncOpRequest::SendStream { stream, stream_id }),
                 parent_trace: EncodedSpan::from_parent(),
             })
-            .expect("TaskExecutor went away?");
+            .map_err(|_| {
+                anyhow!(ErrorMetadata::operational_internal_server_error())
+                    .context("TaskExecutor went away")
+            })?;
+        Ok(())
     }
 
     #[fastrace::trace]
@@ -729,12 +741,15 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let execution_time = timeout.into_function_execution_time(UdfType::Action);
         let user_execution_time = execution_time.elapsed;
         let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
-        let udf_args = parse_udf_args(&path.udf_path, arguments.clone().into_args()?)?;
-        self.add_warnings_to_log_lines_action(
-            execution_time,
-            &udf_args,
-            result.as_ref().ok().and_then(|r| r.as_ref().ok()),
-        )?;
+        // Arguments that don't parse have already failed the action before it did
+        // any work, so there's nothing to warn about.
+        if let Ok(udf_args) = parse_udf_args(&path.udf_path, arguments.clone().into_args()?) {
+            self.add_warnings_to_log_lines_action(
+                execution_time,
+                &udf_args,
+                result.as_ref().ok().and_then(|r| r.as_ref().ok()),
+            )?;
+        }
         let outcome = ActionOutcome {
             path: path.for_logging(),
             arguments,
@@ -1258,15 +1273,17 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         execution_time: FunctionExecutionTime,
         total_bytes_sent: usize,
     ) -> anyhow::Result<()> {
-        if let Some(warning) = approaching_limit_warning(
-            total_bytes_sent,
-            HTTP_ACTION_BODY_LIMIT,
-            "HttpResponseTooLarge",
-            || "Large response returned from an HTTP action".to_string(),
-            None,
-            Some(" bytes"),
-            None,
-        ) {
+        if !self.http_response_too_large
+            && let Some(warning) = approaching_limit_warning(
+                total_bytes_sent,
+                HTTP_ACTION_RESPONSE_BODY_LIMIT,
+                "HttpResponseTooLarge",
+                || "Large response returned from an HTTP action".to_string(),
+                None,
+                Some(" bytes"),
+                None,
+            )
+        {
             self.trace_system(warning)?;
         }
         self.add_warnings_to_log_lines(execution_time)?;
@@ -1336,7 +1353,11 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 variant: request,
                 parent_trace: EncodedSpan::from_parent(),
             })
-            .expect("TaskExecutor went away?");
+            .map_err(|_| {
+                self.task_promise_resolvers.remove(&task_id);
+                anyhow!(ErrorMetadata::operational_internal_server_error())
+                    .context("TaskExecutor went away")
+            })?;
         Ok(())
     }
 

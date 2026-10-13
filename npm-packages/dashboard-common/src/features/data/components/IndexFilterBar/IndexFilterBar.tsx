@@ -3,10 +3,9 @@ import {
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
-import { ReactNode, useCallback } from "react";
+import { useCallback } from "react";
 import { FilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@ui/Button";
-import { cn } from "@ui/cn";
 import { Tooltip } from "@ui/Tooltip";
 import { SchemaJson, formatNumberCompact } from "@common/lib/format";
 import {
@@ -14,10 +13,8 @@ import {
   validatorForFilterField,
 } from "@common/features/data/components/Table/utils/validators";
 import { FunnelIcon } from "@common/elements/icons";
-import { GiftWrap } from "@common/elements/GiftWrap";
-import { useGiftWrap } from "./useGiftWrap";
 import { AddFilterMenu } from "./AddFilterMenu";
-import { FieldSelector } from "@common/features/data/components/DataFilters/FieldSelector";
+import { FieldSelector } from "./FieldSelector";
 import { FilterChip } from "./FilterChip";
 import { IndexSelector, OrderToggle } from "./IndexSelector";
 import { FilterActions } from "./useFilterActions";
@@ -49,7 +46,6 @@ export function IndexFilterBar({
   setHiddenColumns,
   columnOrder,
   setColumnOrder,
-  example = false,
 }: {
   actions: FilterActions;
   indexDefs: IndexDef[];
@@ -66,12 +62,6 @@ export function IndexFilterBar({
   setHiddenColumns: (hiddenColumns: string[]) => void;
   columnOrder: string[];
   setColumnOrder: (columnOrder: string[]) => void;
-  /**
-   * Render the bar as an illustration: no wrapping paper to open, none of the
-   * toolbar on the right and none of the bar's own chrome, leaving the filter
-   * path it is here to show.
-   */
-  example?: boolean;
 }) {
   const {
     shown,
@@ -106,8 +96,6 @@ export function IndexFilterBar({
         : undefined,
     [documentValidator, tableName],
   );
-
-  const showToolbar = !example;
 
   const selectedIndex: IndexDef =
     (isSearchFilter(shown.index)
@@ -158,115 +146,105 @@ export function IndexFilterBar({
 
   return (
     <div
-      className={cn(
-        "flex w-full flex-col gap-1.5",
-        // An illustration brings its own frame, and the bar's own would be one
-        // more border inside it.
-        !example &&
-          "rounded-t-lg border border-b-0 bg-background-secondary/50 p-2",
-      )}
+      className="flex w-full flex-col gap-1.5 rounded-t-lg border border-b-0 bg-background-secondary/50 p-2"
       data-testid="indexFilterBar"
     >
       <div className="flex items-start gap-2">
-        <Wrapper example={example}>
-          <div className="flex min-w-0 grow flex-wrap items-center gap-1.5">
-            <IndexSelector
-              indexDefs={indexDefs}
-              current={selectedIndex}
-              onChooseIndex={chooseIndex}
-              onChooseSearch={startSearch}
-            />
-            {pathItems.map((item) => (
+        <div className="flex min-w-0 grow flex-wrap items-center gap-1.5">
+          <IndexSelector
+            indexDefs={indexDefs}
+            current={selectedIndex}
+            onChooseIndex={chooseIndex}
+            onChooseSearch={startSearch}
+          />
+          {pathItems.map((item) => (
+            <div
+              key={item.key}
+              className="flex min-w-0 animate-fadeInFromLoading items-center gap-1.5"
+            >
+              <Separator />
+              {renderFilterItem(item)}
+            </div>
+          ))}
+          {nextIndexField && (
+            <div
+              key={nextIndexField}
+              className="flex animate-fadeInFromLoading items-center gap-1.5"
+            >
+              <Separator />
+              <Button
+                variant="unstyled"
+                aria-label={`Filter by ${nextIndexField}`}
+                onClick={() => addField(nextIndexField)}
+                className="flex h-6 items-center gap-1 rounded-md border border-dashed px-1.5 font-mono text-xs text-content-secondary hover:border-border-selected hover:text-content-primary"
+                icon={<FunnelIcon />}
+                data-testid="next-indexed-field"
+              >
+                {nextIndexField}
+              </Button>
+            </div>
+          )}
+          {/* Unindexed filters sit apart from the index path behind a wider
+              gap instead of a divider. It is a spacer element rather than a
+              margin on the group so that wrapped lines aren't indented. */}
+          <span aria-hidden className="w-0.5 shrink-0" />
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {scanItems.map((item) => (
               <div
                 key={item.key}
-                className="flex min-w-0 animate-fadeInFromLoading items-center gap-1.5"
+                className="flex min-w-0 animate-fadeInFromLoading"
               >
-                <Separator />
                 {renderFilterItem(item)}
               </div>
             ))}
-            {nextIndexField && (
-              <div
-                key={nextIndexField}
-                className="flex animate-fadeInFromLoading items-center gap-1.5"
+            <AddFilterMenu
+              fields={tableFields}
+              optionsFor={optionsFor}
+              onAddScan={addScanField}
+              onAddIndexed={addField}
+              onAddWithIndex={addFieldWithIndex}
+              onStartSearch={startSearch}
+            />
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <OrderToggle
+            order={currentOrder(shown)}
+            sortField={effectiveSortField(indexDefs, shown)}
+            indexName={selectedIndex.name}
+            disabled={searchActive || enabledIndexClauses(shown).length > 0}
+            onChange={setOrder}
+          />
+          <FieldSelector
+            allFields={allFields}
+            hiddenColumns={hiddenColumns}
+            setHiddenColumns={setHiddenColumns}
+            columnOrder={columnOrder}
+            setColumnOrder={setColumnOrder}
+          />
+          {numRowsWeKnowOf !== undefined && (
+            <div className="flex items-center gap-1 text-xs whitespace-nowrap">
+              <span
+                className="font-semibold"
+                title={numRowsWeKnowOf.toLocaleString()}
               >
-                <Separator />
-                <Button
-                  variant="unstyled"
-                  aria-label={`Filter by ${nextIndexField}`}
-                  onClick={() => addField(nextIndexField)}
-                  className="flex h-6 items-center gap-1 rounded-md border border-dashed px-1.5 font-mono text-xs text-content-secondary hover:border-border-selected hover:text-content-primary"
-                  icon={<FunnelIcon />}
-                  data-testid="next-indexed-field"
-                >
-                  {nextIndexField}
-                </Button>
-              </div>
-            )}
-            {/* Unindexed filters sit apart from the index path behind a wider
-                gap instead of a divider. It is a spacer element rather than a
-                margin on the group so that wrapped lines aren't indented. */}
-            <span aria-hidden className="w-0.5 shrink-0" />
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              {scanItems.map((item) => (
-                <div
-                  key={item.key}
-                  className="flex min-w-0 animate-fadeInFromLoading"
-                >
-                  {renderFilterItem(item)}
-                </div>
-              ))}
-              <AddFilterMenu
-                fields={tableFields}
-                optionsFor={optionsFor}
-                onAddScan={addScanField}
-                onAddIndexed={addField}
-                onAddWithIndex={addFieldWithIndex}
-                onStartSearch={startSearch}
-              />
+                {formatNumberCompact(numRowsWeKnowOf)}
+              </span>
+              {numRowsWeKnowOf === 1 ? "document" : "documents"}
+              {hasFilters && (
+                <>
+                  {numRowsWeKnowOf !== numRows && " loaded"}
+                  <Tooltip
+                    tip="Filtered results are paginated and more documents will be loaded as you scroll."
+                    side="left"
+                  >
+                    <QuestionMarkCircledIcon />
+                  </Tooltip>
+                </>
+              )}
             </div>
-          </div>
-        </Wrapper>
-        {showToolbar && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <OrderToggle
-              order={currentOrder(shown)}
-              sortField={effectiveSortField(indexDefs, shown)}
-              indexName={selectedIndex.name}
-              disabled={searchActive || enabledIndexClauses(shown).length > 0}
-              onChange={setOrder}
-            />
-            <FieldSelector
-              allFields={allFields}
-              hiddenColumns={hiddenColumns}
-              setHiddenColumns={setHiddenColumns}
-              columnOrder={columnOrder}
-              setColumnOrder={setColumnOrder}
-            />
-            {numRowsWeKnowOf !== undefined && (
-              <div className="flex items-center gap-1 text-xs whitespace-nowrap">
-                <span
-                  className="font-semibold"
-                  title={numRowsWeKnowOf.toLocaleString()}
-                >
-                  {formatNumberCompact(numRowsWeKnowOf)}
-                </span>
-                {numRowsWeKnowOf === 1 ? "document" : "documents"}
-                {hasFilters && (
-                  <>
-                    {numRowsWeKnowOf !== numRows && " loaded"}
-                    <Tooltip
-                      tip="Filtered results are paginated and more documents will be loaded as you scroll."
-                      side="left"
-                    >
-                      <QuestionMarkCircledIcon />
-                    </Tooltip>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
       {dataFetchErrors && dataFetchErrors.length > 0 && (
         <p
@@ -277,28 +255,6 @@ export function IndexFilterBar({
         </p>
       )}
     </div>
-  );
-}
-
-function Wrapper({
-  example,
-  children,
-}: {
-  example: boolean;
-  children: ReactNode;
-}) {
-  const { enabled, opened, open } = useGiftWrap();
-  return example || !enabled ? (
-    <div className="min-w-0 grow">{children}</div>
-  ) : (
-    <GiftWrap
-      className="min-w-0 grow"
-      explanation="You've been selected to try a new data filtering experience."
-      opened={opened}
-      onOpen={open}
-    >
-      {children}
-    </GiftWrap>
   );
 }
 

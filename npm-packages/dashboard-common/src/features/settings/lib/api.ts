@@ -2,7 +2,10 @@ import { useCallback, useContext } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { createDeploymentClient } from "@convex-dev/platform";
-import type { UsageLimitConfigResponse } from "@convex-dev/platform/deploymentApi";
+import type {
+  ActiveDataSync,
+  UsageLimitConfigResponse,
+} from "@convex-dev/platform/deploymentApi";
 import { useAdminKey, useDeploymentUrl } from "@common/lib/deploymentApi";
 import { toast } from "@common/lib/utils";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -309,4 +312,37 @@ export function useDeleteUsageLimit(): (id: string) => Promise<void> {
     },
     [deploymentUrl, adminKey, reportHttpError, mutate],
   );
+}
+
+function activeDataSyncsKey(deploymentUrl: string) {
+  return ["activeDataSyncs", deploymentUrl] as const;
+}
+
+// Fivetran drives the initial snapshot in a tight loop, so poll often enough
+// that its progress visibly advances while the page is open.
+const ACTIVE_DATA_SYNCS_REFRESH_MS = 15 * 1000;
+
+// Syncs that called `/data/sync` within the past 3 days, across every
+// integration. `enabled` gates the fetch on the two things the endpoint
+// requires: the caller's `deployment:data:view` permission and the team's
+// streaming export entitlement. Returns `undefined` until the first response
+// lands, and on failure — this backs a passive status indicator, so a broken
+// poll shows nothing rather than toasting every 15 seconds.
+export function useActiveDataSyncs(
+  enabled: boolean,
+): ActiveDataSync[] | undefined {
+  const deploymentUrl = useDeploymentUrl();
+  const adminKey = useAdminKey();
+  const { data } = useSWR(
+    enabled ? activeDataSyncsKey(deploymentUrl) : null,
+    async () => {
+      const client = createDeploymentClient(deploymentUrl, adminKey);
+      const { data: body, response } = await client.GET(
+        "/data/list_active_syncs",
+      );
+      return response.ok && body ? body.syncs : undefined;
+    },
+    { refreshInterval: ACTIVE_DATA_SYNCS_REFRESH_MS },
+  );
+  return data;
 }

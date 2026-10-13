@@ -10,14 +10,17 @@ import udfs from "@common/udfs";
 import { BackupListItem, progressMessageForBackup } from "./BackupListItem";
 import { BackupDeploymentSelector } from "./BackupDeploymentSelector";
 import { useLatestRestore } from "./BackupRestoreStatus";
+import { BackupNowButton } from "./BackupNowButton";
 
 export function BackupList({
+  teamId,
   targetDeployment,
   canCreate,
   canImport,
   canDelete,
   maxCloudBackups,
 }: {
+  teamId: number;
   targetDeployment: PlatformDeploymentResponse; // = deployment the settings page is open for
   canCreate: boolean;
   canImport: boolean;
@@ -50,13 +53,21 @@ export function BackupList({
           selectedDeployment={selectedDeployment}
           onChange={setSelectedDeployment}
           targetDeployment={targetDeployment}
-        />
+        >
+          <BackupNowButton
+            teamId={teamId}
+            deployment={targetDeployment}
+            maxCloudBackups={maxCloudBackups}
+            canCreate={canCreate}
+          />
+        </BackupDeploymentSelector>
       </div>
       <div className="scrollbar grow overflow-auto">
         {!backups ? (
           <Loading />
         ) : (
           <BackupListForDeployment
+            teamId={teamId}
             backups={backups}
             targetDeployment={targetDeployment}
             restoringBackupId={restoringBackupId}
@@ -72,6 +83,7 @@ export function BackupList({
 }
 
 function BackupListForDeployment({
+  teamId,
   backups,
   targetDeployment,
   restoringBackupId,
@@ -80,6 +92,7 @@ function BackupListForDeployment({
   canDelete,
   maxCloudBackups,
 }: {
+  teamId: number;
   backups: BackupResponse[];
   targetDeployment: PlatformDeploymentResponse;
   restoringBackupId: bigint | null;
@@ -125,6 +138,7 @@ function BackupListForDeployment({
       {backups.map((backup) => (
         <BackupListItem
           key={backup.id}
+          teamId={teamId}
           backup={backup}
           restoring={BigInt(backup.id) === restoringBackupId}
           someBackupInProgress={someBackupInProgress}

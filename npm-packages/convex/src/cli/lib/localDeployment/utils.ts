@@ -92,3 +92,9 @@ export function printLocalDeploymentWelcomeMessage() {
 
 export const LOCAL_BACKEND_INSTANCE_SECRET =
   "4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974";
+
+// Backend releases are tagged `precompiled-YYYY-MM-DD-<commit>`, so the dates
+// sort lexicographically.
+export function releaseDate(version: string): string | null {
+  return /^precompiled-(\d{4}-\d{2}-\d{2})-/.exec(version)?.[1] ?? null;
+}

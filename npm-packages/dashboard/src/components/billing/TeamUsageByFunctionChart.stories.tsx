@@ -9,6 +9,7 @@ import { rootComponentPath } from "api/usage";
 import { Sheet } from "@ui/Sheet";
 import {
   FunctionBreakdownMetric,
+  FunctionBreakdownMetricAiGateway,
   FunctionBreakdownMetricCalls,
   FunctionBreakdownMetricCompute,
   FunctionBreakdownMetricDatabaseIO,
@@ -410,6 +411,24 @@ export const Default: Story = {
     deployments,
     maxValue: maxValueFor(FunctionBreakdownMetricCalls),
     metric: FunctionBreakdownMetricCalls,
+  },
+};
+
+export const LocalAiSpend: Story = {
+  args: {
+    rows: (["local", "local", "dev", "prod"] as const).map(
+      (deploymentType) => ({
+        ...rows[0],
+        function: "summaries.js:summarize",
+        deploymentType,
+        aiGatewayCost: 0.25,
+      }),
+    ),
+    team,
+    project,
+    deployments,
+    maxValue: 0.5,
+    metric: FunctionBreakdownMetricAiGateway,
   },
 };
 

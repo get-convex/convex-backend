@@ -6,6 +6,7 @@ use std::{
     collections::{
         hash_map::DefaultHasher,
         BTreeMap,
+        BTreeSet,
     },
     hash::{
         Hash,
@@ -56,6 +57,8 @@ use common::{
         DOCUMENT_RETENTION_DELETE_CHUNK,
         DOCUMENT_RETENTION_DELETE_PARALLEL,
         DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS,
+        INDEX_BACKFILL_MARKER_CLEANUP_BUSY_INTERVAL_SECONDS,
+        INDEX_BACKFILL_MARKER_CLEANUP_IDLE_INTERVAL_SECONDS,
         INDEX_RETENTION_DELAY,
         MAX_RETENTION_DELAY_SECONDS,
         RETENTION_CHECKPOINT_PERIOD_SECS,
@@ -91,6 +94,8 @@ use common::{
     types::{
         GenericIndexName,
         IndexId,
+        IndexWriteMode,
+        PersistenceIndexId,
         RepeatableReason,
         RepeatableTimestamp,
         Timestamp,
@@ -129,6 +134,7 @@ use value::InternalDocumentId;
 
 use crate::{
     metrics::{
+        index_backfill_marker_cleanup_timer,
         index_retention_delete_timer,
         latest_min_document_snapshot_timer,
         latest_min_snapshot_timer,
@@ -137,6 +143,7 @@ use crate::{
         log_document_retention_cursor_lag,
         log_document_retention_no_cursor,
         log_document_retention_scanned_document,
+        log_index_backfill_markers_deleted,
         log_index_retention_cursor_age,
         log_index_retention_cursor_lag,
         log_index_retention_no_cursor,
@@ -320,89 +327,81 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
     ) -> anyhow::Result<LeaderRetentionWorkers> {
         let rt = &self.retention_manager.rt;
         let reader = self.persistence.reader();
+        let needs_index_retention_deletes = self.persistence.needs_index_retention_deletes();
         let SnapshotBounds {
             min_index_snapshot_ts,
             min_document_snapshot_ts,
         } = *self.bounds_writer.read();
         let index_table_id = bootstrap_metadata.index_tablet_id;
-        // We need to delete from all indexes that might be queried.
-        // Therefore we scan _index.by_id at min_index_snapshot_ts before
-        // min_index_snapshot_ts starts moving, and update the map before
-        // confirming any deletes.
-        let mut all_indexes = {
-            let mut meta_index_scan = reader.index_scan(
-                bootstrap_metadata.index_by_id,
-                bootstrap_metadata.index_tablet_id,
-                *min_index_snapshot_ts,
-                &Interval::all(),
-                Order::Asc,
-                usize::MAX,
-                self.retention_manager.clone(),
-            );
-            let mut indexes = BTreeMap::new();
-            while let Some((_, rev)) = meta_index_scan.try_next().await? {
-                LeaderRetentionWorkers::accumulate_index_document(rev.value, &mut indexes)?;
-            }
-            indexes
-        };
-
-        let mut index_cursor = min_index_snapshot_ts;
-        // Also update the set of indexes up to the current timestamp before document
-        // retention starts moving.
-        let latest_ts = snapshot_reader.lock().latest_ts();
-        LeaderRetentionWorkers::accumulate_indexes(
-            self.persistence.as_ref(),
-            &mut all_indexes,
-            &mut index_cursor,
-            latest_ts,
-            index_table_id,
-            self.retention_manager.clone(),
-        )
-        .await?;
 
         let (send_min_index_snapshot, receive_min_index_snapshot) =
             watch::channel(min_index_snapshot_ts);
         let (send_min_document_snapshot, receive_min_document_snapshot) =
             watch::channel(min_document_snapshot_ts);
-        let advance_min_snapshot_handle = rt.spawn(
-            "retention_advance_min_snapshot",
-            LeaderRetentionWorkers::go_advance_min_snapshot(
-                self.bounds_writer,
-                self.retention_manager.checkpoint_reader.clone(),
-                rt.clone(),
-                self.persistence.clone(),
-                send_min_index_snapshot,
-                send_min_document_snapshot,
-                snapshot_reader.clone(),
-                lease_lost_shutdown.clone(),
-            ),
-        );
-        let index_deletion_cursor = LeaderRetentionWorkers::get_checkpoint(
-            reader.as_ref(),
-            snapshot_reader.clone(),
-            RetentionType::Index,
-        )
-        .await?;
         let checkpoint_quota = Quota::with_period(*RETENTION_CHECKPOINT_PERIOD_SECS)
             .context("Checkpoint period cannot be zero")?;
 
-        let index_deletion_handle = rt.spawn(
-            "retention_delete",
-            LeaderRetentionWorkers::go_delete_indexes(
-                self.retention_manager.bounds_reader.clone(),
-                rt.clone(),
-                self.persistence.clone(),
-                all_indexes,
+        let index_deletion_handle = if needs_index_retention_deletes {
+            // Scan _index.by_id before advancing retention so the deleter includes
+            // every index that can still be queried.
+            let mut all_indexes = {
+                let mut meta_index_scan = reader.index_scan(
+                    bootstrap_metadata.index_by_id,
+                    bootstrap_metadata.index_tablet_id,
+                    *min_index_snapshot_ts,
+                    &Interval::all(),
+                    Order::Asc,
+                    usize::MAX,
+                    self.retention_manager.clone(),
+                );
+                let mut indexes = BTreeMap::new();
+                while let Some((_, rev)) = meta_index_scan.try_next().await? {
+                    LeaderRetentionWorkers::accumulate_index_document(rev.value, &mut indexes)?;
+                }
+                indexes
+            };
+
+            let mut index_cursor = min_index_snapshot_ts;
+            // Include indexes created since the snapshot before document retention
+            // advances.
+            let latest_ts = snapshot_reader.lock().latest_ts();
+            LeaderRetentionWorkers::accumulate_indexes(
+                self.persistence.as_ref(),
+                &mut all_indexes,
+                &mut index_cursor,
+                latest_ts,
                 index_table_id,
-                index_cursor,
                 self.retention_manager.clone(),
-                receive_min_index_snapshot,
-                self.checkpoint_writer,
+            )
+            .await?;
+
+            let index_deletion_cursor = LeaderRetentionWorkers::get_checkpoint(
+                reader.as_ref(),
                 snapshot_reader.clone(),
-                index_deletion_cursor,
-                checkpoint_quota,
-            ),
-        );
+                RetentionType::Index,
+            )
+            .await?;
+
+            Some(rt.spawn(
+                "retention_delete",
+                LeaderRetentionWorkers::go_delete_indexes(
+                    self.retention_manager.bounds_reader.clone(),
+                    rt.clone(),
+                    self.persistence.clone(),
+                    all_indexes,
+                    index_table_id,
+                    index_cursor,
+                    self.retention_manager.clone(),
+                    receive_min_index_snapshot,
+                    self.checkpoint_writer,
+                    snapshot_reader.clone(),
+                    index_deletion_cursor,
+                    checkpoint_quota,
+                ),
+            ))
+        } else {
+            None
+        };
         let document_deletion_cursor = LeaderRetentionWorkers::get_checkpoint(
             reader.as_ref(),
             snapshot_reader.clone(),
@@ -443,15 +442,36 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
                 deleted_tablet_sender,
             ),
         );
+        let advance_min_snapshot_handle = rt.spawn(
+            "retention_advance_min_snapshot",
+            LeaderRetentionWorkers::go_advance_min_snapshot(
+                self.bounds_writer,
+                self.retention_manager.checkpoint_reader.clone(),
+                rt.clone(),
+                self.persistence.clone(),
+                send_min_index_snapshot,
+                send_min_document_snapshot,
+                snapshot_reader.clone(),
+                lease_lost_shutdown.clone(),
+            ),
+        );
+        let index_backfill_marker_cleanup_handle = rt.spawn(
+            "index_backfill_marker_cleanup",
+            LeaderRetentionWorkers::go_delete_index_backfill_markers(
+                rt.clone(),
+                self.persistence,
+                snapshot_reader,
+            ),
+        );
+        // Shut down receivers before senders so channel closure cannot stop a worker
+        // early.
+        let mut handles: Vec<Box<dyn SpawnHandle>> = vec![index_backfill_marker_cleanup_handle];
+        handles.extend(index_deletion_handle);
+        handles.push(document_deletion_handle);
+        handles.push(tablet_deletion_handle);
+        handles.push(advance_min_snapshot_handle);
         Ok(LeaderRetentionWorkers {
-            handles: Arc::new(Mutex::new(vec![
-                // Order matters because we need to shutdown the threads that have
-                // receivers before the senders
-                index_deletion_handle,
-                document_deletion_handle,
-                tablet_deletion_handle,
-                advance_min_snapshot_handle,
-            ])),
+            handles: Arc::new(Mutex::new(handles)),
         })
     }
 }
@@ -463,6 +483,95 @@ impl LeaderRetentionWorkers {
             shutdown_and_join(handle).await?;
         }
         Ok(())
+    }
+
+    pub(crate) async fn delete_index_backfill_markers_once(
+        persistence: &dyn Persistence,
+        snapshot_reader: &Reader<SnapshotManager>,
+    ) -> anyhow::Result<bool> {
+        let timer = index_backfill_marker_cleanup_timer();
+        // Read marker index IDs before the snapshot: with this ordering, an ID
+        // absent from the registry belongs to a dropped index. Persistence index
+        // IDs are never reused.
+        let marker_indexes = persistence.index_backfill_marker_indexes().await?;
+        if marker_indexes.is_empty() {
+            timer.finish();
+            return Ok(false);
+        }
+        let scanning_indexes: BTreeSet<PersistenceIndexId> = snapshot_reader
+            .lock()
+            .latest_snapshot()
+            .index_registry
+            .all_indexes()
+            .filter_map(|index| match &index.config {
+                IndexConfig::Database {
+                    on_disk_state,
+                    persistence_index_id,
+                    ..
+                } if on_disk_state.write_mode() == IndexWriteMode::Scanning => {
+                    *persistence_index_id
+                },
+                IndexConfig::Database { .. }
+                | IndexConfig::Text { .. }
+                | IndexConfig::Vector { .. } => None,
+            })
+            .collect();
+        let indexes_with_obsolete_markers: Vec<_> = marker_indexes
+            .into_iter()
+            .filter(|index| !scanning_indexes.contains(index))
+            .collect();
+        let mut deleted = 0;
+        // One chunk per index lets each pass make progress on every eligible
+        // index, even when one index has many markers.
+        for index in &indexes_with_obsolete_markers {
+            deleted += persistence
+                .delete_index_backfill_markers_chunk(*index)
+                .await?;
+        }
+        if deleted > 0 {
+            log_index_backfill_markers_deleted(deleted);
+            tracing::debug!(
+                "Deleted {deleted} index backfill markers for {} indexes",
+                indexes_with_obsolete_markers.len()
+            );
+        }
+        timer.finish();
+        Ok(deleted > 0)
+    }
+
+    async fn go_delete_index_backfill_markers<RT: Runtime>(
+        rt: RT,
+        persistence: Arc<dyn Persistence>,
+        snapshot_reader: Reader<SnapshotManager>,
+    ) {
+        let mut error_backoff = Backoff::new(INITIAL_BACKOFF, *MAX_RETENTION_DELAY_SECONDS);
+        let mut delay = *INDEX_BACKFILL_MARKER_CLEANUP_IDLE_INTERVAL_SECONDS;
+        loop {
+            Self::wait_with_jitter(&rt, delay).await;
+            delay = match Self::delete_index_backfill_markers_once(
+                persistence.as_ref(),
+                &snapshot_reader,
+            )
+            .await
+            {
+                Ok(deleted) => {
+                    error_backoff.reset();
+                    if deleted {
+                        *INDEX_BACKFILL_MARKER_CLEANUP_BUSY_INTERVAL_SECONDS
+                    } else {
+                        *INDEX_BACKFILL_MARKER_CLEANUP_IDLE_INTERVAL_SECONDS
+                    }
+                },
+                Err(mut error) => {
+                    report_error(&mut error).await;
+                    let delay = error_backoff.fail(&mut rt.rng());
+                    tracing::debug!(
+                        "index backfill marker cleanup failed, delaying {delay:?}: {error:?}"
+                    );
+                    delay
+                },
+            };
+        }
     }
 
     /// Returns a list of tablets in `Deleting` state and the timestamp at which
@@ -491,6 +600,7 @@ impl LeaderRetentionWorkers {
         snapshot_reader: &Reader<SnapshotManager>,
         checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
+        needs_index_retention_deletes: bool,
     ) -> anyhow::Result<RepeatableTimestamp> {
         let delay = match retention_type {
             RetentionType::Document => *DOCUMENT_RETENTION_DELAY,
@@ -502,12 +612,11 @@ impl LeaderRetentionWorkers {
             .sub(delay)
             .context("Cannot calculate retention timestamp")?;
 
-        if matches!(retention_type, RetentionType::Document) {
+        if matches!(retention_type, RetentionType::Document) && needs_index_retention_deletes {
             // Ensures the invariant that the index retention confirmed deleted timestamp
-            // is always greater than the minimum document snapshot timestamp. It is
-            // important that we do this because it prevents us from deleting
-            // documents before their indexes are deleted + ensures that the
-            // index retention deleter is always reading from a valid snapshot.
+            // is always greater than or equal to the minimum document snapshot timestamp.
+            // This prevents us from deleting documents before their indexes are deleted
+            // and ensures that the index retention deleter reads from a valid snapshot.
             let index_confirmed_deleted = match checkpoint_reader.lock().checkpoint {
                 Some(val) => val,
                 None => RepeatableTimestamp::MIN,
@@ -526,9 +635,13 @@ impl LeaderRetentionWorkers {
         retention_type: RetentionType,
         lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Option<RepeatableTimestamp>> {
-        let candidate =
-            Self::candidate_min_snapshot_ts(snapshot_reader, checkpoint_reader, retention_type)
-                .await?;
+        let candidate = Self::candidate_min_snapshot_ts(
+            snapshot_reader,
+            checkpoint_reader,
+            retention_type,
+            persistence.needs_index_retention_deletes(),
+        )
+        .await?;
         let min_snapshot_ts = match retention_type {
             RetentionType::Document => bounds_writer.read().min_document_snapshot_ts,
             RetentionType::Index => bounds_writer.read().min_index_snapshot_ts,
@@ -584,7 +697,7 @@ impl LeaderRetentionWorkers {
     }
 
     async fn emit_timestamp(
-        snapshot_sender: &Sender<RepeatableTimestamp>,
+        snapshot_sender: Option<&Sender<RepeatableTimestamp>>,
         ts: anyhow::Result<Option<RepeatableTimestamp>>,
         retention_type: RetentionType,
     ) {
@@ -594,7 +707,9 @@ impl LeaderRetentionWorkers {
             },
             Ok(Some(ts)) => {
                 log_retention_ts_advanced(retention_type);
-                if let Err(err) = snapshot_sender.send(ts) {
+                if let Some(snapshot_sender) = snapshot_sender
+                    && let Err(err) = snapshot_sender.send(ts)
+                {
                     report_error(&mut err.into()).await;
                 }
             },
@@ -612,6 +727,7 @@ impl LeaderRetentionWorkers {
         snapshot_reader: Reader<SnapshotManager>,
         shutdown: ShutdownSignal,
     ) {
+        let needs_index_retention_deletes = persistence.needs_index_retention_deletes();
         loop {
             {
                 let _timer = retention_advance_timestamp_timer();
@@ -625,7 +741,12 @@ impl LeaderRetentionWorkers {
                     shutdown.clone(),
                 )
                 .await;
-                Self::emit_timestamp(&min_snapshot_sender, index_ts, RetentionType::Index).await;
+                Self::emit_timestamp(
+                    needs_index_retention_deletes.then_some(&min_snapshot_sender),
+                    index_ts,
+                    RetentionType::Index,
+                )
+                .await;
 
                 let document_ts = Self::advance_timestamp(
                     &mut bounds_writer,
@@ -637,7 +758,7 @@ impl LeaderRetentionWorkers {
                 )
                 .await;
                 Self::emit_timestamp(
-                    &min_document_snapshot_sender,
+                    Some(&min_document_snapshot_sender),
                     document_ts,
                     RetentionType::Document,
                 )

@@ -87,7 +87,7 @@ export function SubscriptionOverview({
   const canResumeSubscription =
     hasAdminPermissions || canResumeSubscriptionCustom;
 
-  if (isLoading || invoicesResult.status === "loading") {
+  if (isLoading) {
     return <Loading className="h-60 w-full" fullHeight={false} />;
   }
   const invoices =
@@ -99,6 +99,23 @@ export function SubscriptionOverview({
   const nextInvoiceDate = invoices?.find(
     (i) => i.status === "draft",
   )?.invoiceDate;
+  const renewalDateContent =
+    invoicesResult.status === "loading" ? (
+      <Loading
+        className="h-4 w-32 bg-neutral-8/30 dark:bg-neutral-3/20"
+        fullHeight={false}
+      />
+    ) : typeof nextInvoiceDate === "number" ? (
+      <span className="font-semibold">
+        {formatDate(new Date(nextInvoiceDate))}
+      </span>
+    ) : null;
+  const renewalDate = renewalDateContent && (
+    <div className="flex items-center gap-1 text-sm">
+      Subscription renews on
+      {renewalDateContent}
+    </div>
+  );
   return (
     <>
       {subscription && (
@@ -144,14 +161,9 @@ export function SubscriptionOverview({
                 Resume Subscription
               </Button>
             </>
-          ) : typeof nextInvoiceDate === "number" ? (
-            <div className="text-sm">
-              Subscription renews on{" "}
-              <span className="font-semibold">
-                {formatDate(new Date(nextInvoiceDate))}
-              </span>
-            </div>
-          ) : null}
+          ) : (
+            renewalDate
+          )}
           {/* The backend only populates these financial fields for actors that
               can view billing details. */}
           {canViewBillingDetails === true && (
@@ -212,6 +224,9 @@ export function SubscriptionOverview({
             </>
           )}
         </Sheet>
+      )}
+      {team.managedBy !== "vercel" && invoicesResult.status === "loading" && (
+        <Loading className="h-60 w-full" fullHeight={false} />
       )}
       {team.managedBy !== "vercel" && invoicesResult.status === "denied" && (
         <Sheet className="flex w-full flex-col gap-4">

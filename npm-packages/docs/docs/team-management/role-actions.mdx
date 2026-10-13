@@ -1,7 +1,7 @@
 ---
 title: "Role Actions"
 slug: "role-actions"
-sidebar_position: 3
+sidebar_position: 4
 description:
   "Reference for every action a Convex role can grant, and which built-in roles
   cover which actions."
@@ -92,6 +92,30 @@ Resource leaf: `sso:*`.
 | ----------------------------------------- | ----------------------------- | :--------: | :------------: |
 | `sso:enable`, `sso:disable`, `sso:update` | Manage the SSO configuration. |     ✓      |       ✗        |
 | `sso:view`                                | View the SSO configuration.   |     ✓      |       ✓        |
+
+## Authentication domains
+
+Resource leaf: `team:*`. These cover the **Authentication Domains** section of
+the [team authentication page](/team-management/sso.mdx), which both SSO and
+[Directory Sync](/team-management/directory-sync.mdx) read.
+
+| Action                                     | Description                  | Team Admin | Team Developer |
+| ------------------------------------------ | ---------------------------- | :--------: | :------------: |
+| `team:domain:create`, `team:domain:delete` | Add and remove team domains. |     ✓      |       ✗        |
+| `team:domain:view`                         | View the team's domains.     |     ✓      |       ✓        |
+
+## Directory Sync
+
+Resource leaf: `directorySync:*`.
+
+| Action                                                                 | Description                              | Team Admin | Team Developer |
+| ---------------------------------------------------------------------- | ---------------------------------------- | :--------: | :------------: |
+| `directorySync:enable`, `directorySync:disable`                        | Turn directory management on and off.    |     ✓      |       ✗        |
+| `directorySync:updateGroupMapping`, `directorySync:deleteGroupMapping` | Change the role a directory group gives. |     ✓      |       ✗        |
+| `directorySync:view`                                                   | View the Directory Sync configuration.   |     ✓      |       ✓        |
+
+Reviewing the staged roster before enabling Directory Sync also requires
+`member:view`, because it lists each team member and their role.
 
 ## Team integrations
 

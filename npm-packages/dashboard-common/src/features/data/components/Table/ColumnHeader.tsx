@@ -33,8 +33,8 @@ type ColumnHeaderProps = {
   isLastColumn: boolean;
   openContextMenu: DataCellProps["onOpenContextMenu"];
   sort?: "asc" | "desc";
-  sortOption?: SortOption;
-  onSort?: () => void;
+  sortOption: SortOption;
+  onSort: () => void;
   localStorageKey: string;
   tableContainerRef: RefObject<HTMLDivElement | null>;
 };
@@ -171,16 +171,6 @@ export function ColumnHeader({
                 localStorageKey={localStorageKey}
               />
             )}
-          {sort && !sortOption && (
-            <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
-              <CaretUpIcon
-                className={cn(
-                  "transition-all",
-                  sort === "asc" ? "" : "rotate-180",
-                )}
-              />
-            </Tooltip>
-          )}
         </div>
       </div>
       {canDragOrDrop && isHovered && (
@@ -215,11 +205,9 @@ export function ColumnHeader({
   );
 }
 
-// With the index filter bar, the column name doubles as the sort control.
-// Sorting follows an index, so a column can only be sorted when some index
-// starts with it (or continues the applied indexed filters); otherwise the
-// tooltip says which index to add. Without a `sortOption` the name renders
-// exactly as before.
+// The column name doubles as the sort control. Sorting follows an index, so a
+// column can only be sorted when some index starts with it (or continues the
+// applied indexed filters); otherwise the tooltip says which index to add.
 function SortableColumnName({
   columnName,
   sort,
@@ -230,14 +218,11 @@ function SortableColumnName({
 }: {
   columnName: string;
   sort?: "asc" | "desc";
-  sortOption?: SortOption;
-  onSort?: () => void;
+  sortOption: SortOption;
+  onSort: () => void;
   isHovered: boolean;
   children: React.ReactNode;
 }) {
-  if (!sortOption || !onSort || columnName === emptyColumnName) {
-    return <>{children}</>;
-  }
   if (sortOption.kind === "switch" && sortOption.dropsClauses) {
     return (
       <span className="flex items-center gap-1">

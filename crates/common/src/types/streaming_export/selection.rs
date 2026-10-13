@@ -9,7 +9,7 @@ use utoipa::ToSchema;
 
 use super::SelectionArg;
 
-#[derive(Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, ToSchema)]
 #[schema(example = json!({
     "_other": "excluded",
     "": {
@@ -59,7 +59,7 @@ pub enum ExcludedTag {
     Excluded,
 }
 
-#[derive(Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, ToSchema)]
 #[serde(untagged)]
 pub enum ComponentSelection {
     /// Export some of this component's tables.
@@ -79,7 +79,7 @@ pub enum ComponentSelection {
     Excluded(ExcludedTag),
 }
 
-#[derive(Serialize, Deserialize, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, ToSchema)]
 #[serde(untagged)]
 pub enum TableSelection {
     #[schema(title = "Included")]

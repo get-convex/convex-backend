@@ -10,9 +10,11 @@ import SchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/sched
 import ChainedSchedulingDemo from "!!raw-loader!@site/../demos/convex-test/convex/chainedScheduling.test.ts";
 import AuthDemo from "!!raw-loader!@site/../demos/convex-test/convex/auth.test.ts";
 import MockingFetchDemo from "!!raw-loader!@site/../demos/convex-test/convex/mockingFetch.test.ts";
+import GlobalsDemo from "!!raw-loader!@site/../demos/convex-test/convex/globals.test.ts";
 import ErrorDemo from "!!raw-loader!@site/../demos/convex-test/convex/error.test.ts";
 import HttpDemo from "!!raw-loader!@site/../demos/convex-test/convex/http.test.ts";
 import RunDemo from "!!raw-loader!@site/../demos/convex-test/convex/run.test.ts";
+import RequestMetadataDemo from "!!raw-loader!@site/../demos/convex-test/convex/requestMetadata.test.ts";
 
 The [`convex-test`](https://www.npmjs.com/package/convex-test) library provides
 a mock implementation of the Convex backend in JavaScript. It enables fast
@@ -65,7 +67,7 @@ convex-test library.
 
     <Details summary={<>If your Convex functions are in a directory other than <code>convex</code></>}>
       If your project has a
-      [different name or location configured](/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)
+      [different name or location configured](/config/convex-json.mdx#changing-the-convex-folder-name-or-location)
       for the `convex/` folder in `convex.json`, you need to call
       [`import.meta.glob`](https://vitejs.dev/guide/features#glob-import) and pass the
       result as the second argument to `convexTest`.
@@ -358,6 +360,19 @@ automatically:
   highlightPatterns={["withIdentity"]}
 />
 
+### Request metadata
+
+Mutations, actions, and HTTP actions can read details about the request that
+triggered them with `ctx.meta.getRequestMetadata()`. To test functions that
+depend on the client's IP address or user agent, create a version of the `t`
+accessor with `t.withRequestMetadata` (version `0.0.59` and later):
+
+<Snippet
+  title="convex/requestMetadata.test.ts"
+  source={RequestMetadataDemo}
+  highlightPatterns={["withRequestMetadata"]}
+/>
+
 ## Vitest tips
 
 ### Asserting results
@@ -389,6 +404,59 @@ You can use Vitest's
   source={MockingFetchDemo}
   highlightPatterns={["stubGlobal"]}
 />
+
+### Overriding globals inside functions
+
+Some libraries override runtime globals such as `fetch`, `Math`, `Date`,
+`console`, `process`, or `crypto` while a Convex function runs. `convex-test`
+scopes those overrides to a single function invocation, so they don't leak into
+other functions or into your test.
+
+Override a global by assigning a replacement object to it:
+
+<Snippet
+  title="convex/globals.test.ts"
+  source={GlobalsDemo}
+  snippet="overrideMath"
+  highlightPatterns={["globalThis.Math = replacement"]}
+/>
+
+The override is visible to the handler and everything it calls directly,
+including after `await`. Nested calls through `ctx.runQuery`, `ctx.runMutation`,
+or `ctx.runAction` start from the test's globals and do not inherit it.
+
+#### Assign to the global; don't mutate or redefine it
+
+Isolation works by intercepting assignments to the global itself, so only
+assignment is scoped to the invocation:
+
+- ✅ `globalThis.Math = replacement`
+- ❌ `Math.random = () => 0.5` — mutates the object shared with the rest of the
+  test. Build a replacement object instead, as shown above.
+- ❌ `Object.defineProperty(globalThis, "Math", { value: replacement })` —
+  replaces the property rather than assigning through it. `vi.stubGlobal` does
+  this, so avoid it while running queries/mutations/actions.
+- ❌ `delete globalThis.crypto` — removes the property. Assign `undefined`
+  instead:
+
+<Snippet
+  title="convex/globals.test.ts"
+  source={GlobalsDemo}
+  snippet="unsetCrypto"
+  highlightPatterns={["crypto = undefined"]}
+/>
+
+The property still exists, so `typeof crypto === "undefined"` checks pass, but
+this doesn't simulate deleting the property.
+
+The ❌ forms change the global for the whole test process, and they also disable
+the restrictions `convex-test` applies inside queries and mutations, even when
+used in test setup.
+
+Isolation covers the supported globals that exist and are configurable in your
+test environment; it doesn't cover custom globals. Overrides made outside a
+handler are shared test setup — restore them yourself, for example in a
+`finally` block.
 
 ### Measuring test coverage
 

@@ -10,6 +10,7 @@ import { cn } from "@ui/cn";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { toast } from "@common/lib/utils";
+import { isTextEditingTarget } from "@common/lib/isTextEditingTarget";
 import { NavigationDestination, paletteFilter } from "./navigation";
 import {
   DrillModifierContext,
@@ -132,14 +133,8 @@ export function CommandPalette() {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {
         return;
       }
-      const el = document.activeElement;
       // Don't steal "/" while the user is typing in a field.
-      if (
-        el instanceof HTMLElement &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.isContentEditable)
-      ) {
+      if (isTextEditingTarget(document.activeElement)) {
         return;
       }
       event.preventDefault();

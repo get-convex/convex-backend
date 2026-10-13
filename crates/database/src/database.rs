@@ -157,10 +157,10 @@ use itertools::Itertools;
 use keybroker::Identity;
 use search::{
     metrics::SearchType,
-    query::RevisionWithKeys,
     Searcher,
     TextIndexManager,
     TextIndexManagerState,
+    TextSearchResults,
 };
 use short_future::ShortBoxFuture;
 use storage::Storage;
@@ -260,6 +260,7 @@ use crate::{
     ComponentRegistry,
     ComponentsTable,
     DataSyncIterator,
+    LatestTableIterator,
     MultiTableIterator,
     SchemasTable,
     TableIterator,
@@ -325,7 +326,7 @@ pub struct Database<RT: Runtime> {
     retention_workers: LeaderRetentionWorkers,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
-    index_cache_handle: Option<IndexCacheHandle>,
+    index_cache_handle: IndexCacheHandle,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
     invalidation_callback: InvalidationMetricCallback,
@@ -1142,7 +1143,7 @@ impl<RT: Runtime> Database<RT> {
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
             search_storage: Arc::new(OnceLock::new()),
-            index_cache_handle: Some(index_cache_handle),
+            index_cache_handle,
             virtual_system_mapping,
             bootstrap_metadata,
             invalidation_callback,
@@ -1250,9 +1251,7 @@ impl<RT: Runtime> Database<RT> {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.committer.shutdown();
         self.subscriptions.shutdown();
-        if let Some(handle) = &self.index_cache_handle {
-            handle.remove_deployment();
-        }
+        self.index_cache_handle.remove_deployment();
         self.retention_workers.shutdown().await?;
         tracing::info!("Database shutdown");
         Ok(())
@@ -1335,6 +1334,24 @@ impl<RT: Runtime> Database<RT> {
             snapshot_ts,
             persistence,
             retention_validator,
+            page_size,
+        )
+    }
+
+    /// Walk tables at the latest repeatable timestamp instead of a snapshot,
+    /// so the walk never replays the document log. Every page is read at or
+    /// after `min_ts`; see [`LatestTableIterator`] for the consistency it
+    /// offers.
+    pub fn latest_table_iterator(
+        &self,
+        min_ts: RepeatableTimestamp,
+        page_size: usize,
+    ) -> LatestTableIterator<RT> {
+        LatestTableIterator::new(
+            self.runtime.clone(),
+            min_ts,
+            self.reader.clone(),
+            self.retention_validator(),
             page_size,
         )
     }
@@ -1762,12 +1779,14 @@ impl<RT: Runtime> Database<RT> {
                 self.index_ref_at(snapshot.as_ref(), index.id())?
             };
             let mut reader = Arc::new(persistence_snapshot) as Arc<dyn IndexReader>;
-            if let Some(snapshot) = snapshot
-                && let Some(handle) = self.index_cache_handle.clone()
-            {
+            if let Some(snapshot) = snapshot {
                 // TODO: it is probably OK to still use the index cache even if
                 // we don't have an index_registry at the same timestamp.
-                reader = Arc::new(handle.caching_index_reader(reader, snapshot.index_registry));
+                reader = Arc::new(
+                    self.index_cache_handle
+                        .clone()
+                        .caching_index_reader(reader, snapshot.index_registry),
+                );
             }
             let index_page = reader
                 .index_page(index, tablet_id, interval, order, max_size)
@@ -2031,7 +2050,7 @@ impl<RT: Runtime> Database<RT> {
                     )
                     .read_snapshot(repeatable_ts)?,
                 ),
-                self.index_cache_handle.clone(),
+                Some(self.index_cache_handle.clone()),
                 index_cache,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -2096,7 +2115,7 @@ impl<RT: Runtime> Database<RT> {
             snapshot,
             table_summaries: None,
             persistence_snapshot: repeatable_persistence.read_snapshot(ts)?,
-            index_cache_handle: self.index_cache_handle.clone(),
+            index_cache_handle: Some(self.index_cache_handle.clone()),
             persistence_reader: self.reader.clone(),
             retention_validator: self.retention_validator(),
         })
@@ -2731,7 +2750,7 @@ impl<RT: Runtime> Database<RT> {
         query: pb::searchlight::TextQuery,
         pending_updates: Vec<DocumentUpdate>,
         ts: RepeatableTimestamp,
-    ) -> anyhow::Result<RevisionWithKeys> {
+    ) -> anyhow::Result<TextSearchResults> {
         let snapshot = self.snapshot(ts)?;
         let index = snapshot
             .index_registry
@@ -2801,16 +2820,42 @@ pub struct ConflictingRead {
 }
 
 fn occ_write_source_string(
-    source: &str,
+    source: &WriteSource,
     document_id: String,
     is_same_write_source: bool,
-) -> String {
+) -> Option<String> {
     let preamble = if is_same_write_source {
         "Another call to this mutation".to_string()
     } else {
-        format!("A call to \"{source}\"")
+        match source {
+            WriteSource::Udf(_) => format!("A call to \"{}\"", source.display_name()?),
+            WriteSource::SystemUdf(_) | WriteSource::System(_) => {
+                convex_writer_description(source).to_string()
+            },
+        }
     };
-    format!("{preamble} changed the document with ID \"{document_id}\"")
+    Some(format!(
+        "{preamble} changed the document with ID \"{document_id}\""
+    ))
+}
+
+/// Convex's own writers have internal names, so describe them by what the
+/// developer did.
+pub(crate) fn convex_writer_description(source: &WriteSource) -> &'static str {
+    match source {
+        WriteSource::SystemUdf(identifier) => {
+            let (_, udf_path) = (**identifier).clone().into_component_and_udf_path();
+            if udf_path.starts_with("_system/frontend/") {
+                "An edit in the Convex dashboard"
+            } else {
+                "A Convex system operation"
+            }
+        },
+        WriteSource::System(label) if label.contains("fivetran") => "A Fivetran sync",
+        WriteSource::System(label) if label.contains("airbyte") => "An Airbyte sync",
+        WriteSource::System(label) if label.starts_with("snapshot_import") => "A data import",
+        WriteSource::Udf(_) | WriteSource::System(_) => "A Convex system operation",
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -2852,13 +2897,11 @@ impl ConflictingReadWithWriteSource {
 
         // We want to show the document's ID only if we know which mutation changed it,
         // so use it only if we have a write source.
-        let occ_msg = self.write_source.display_name().map(|write_source| {
-            occ_write_source_string(
-                &write_source,
-                self.read.id.to_string(),
-                *current_writer == self.write_source,
-            )
-        });
+        let occ_msg = occ_write_source_string(
+            &self.write_source,
+            self.read.id.to_string(),
+            *current_writer == self.write_source,
+        );
 
         let write_source = self.write_source.display_name();
 
@@ -2911,10 +2954,10 @@ impl ConflictingReadWithWriteSource {
     }
 }
 
-/// `op` requires system identity, and the caller does not have it.
-pub fn unauthorized_error(op: &'static str) -> ErrorMetadata {
+/// `op` is an internal name, so it stays out of the message.
+pub fn unauthorized_error(_op: &'static str) -> ErrorMetadata {
     ErrorMetadata::forbidden(
         "SystemIdentityRequired",
-        format!("Operation {op} not permitted"),
+        "You don't have permission to perform this operation.",
     )
 }

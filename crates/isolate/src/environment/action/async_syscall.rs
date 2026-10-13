@@ -12,7 +12,10 @@ use common::{
         UnixTimestamp,
     },
     try_anyhow,
-    types::AttributedCaller,
+    types::{
+        AttributedCaller,
+        AI_GATEWAY_URL,
+    },
 };
 use errors::{
     ErrorMetadata,
@@ -70,6 +73,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 "1.0/createServiceToken" => {
                     self.async_syscall_createServiceToken(args).await?.into()
                 },
+                "1.0/getServiceUrl" => self.async_syscall_getServiceUrl(args)?.into(),
                 "1.0/actions/schedule" => self.async_syscall_schedule(args).await?.into(),
                 "1.0/actions/cancel_job" => self.async_syscall_cancel_job(args).await?.into(),
                 "1.0/actions/vectorSearch" => self.async_syscall_vectorSearch(args).await?.into(),
@@ -196,15 +200,26 @@ impl<RT: Runtime> TaskExecutor<RT> {
         };
         let action_callbacks = self.action_callbacks.clone();
         let identity = self.identity.clone();
+        let request_id = self.context.request_id.clone();
         let token = self
-            .ai_gateway_token
-            .get_or_try_init(|| async move {
-                action_callbacks
-                    .create_ai_gateway_token(identity, caller)
-                    .await
-            })
+            .service_token
+            .get_or_mint(
+                || self.rt.system_time(),
+                || async move {
+                    action_callbacks
+                        .create_ai_gateway_token(identity, caller, request_id)
+                        .await
+                },
+            )
             .await?;
-        Ok(JsonValue::String(token.clone()))
+        Ok(JsonValue::String(token))
+    }
+
+    fn async_syscall_getServiceUrl(&self, args: JsonValue) -> anyhow::Result<JsonValue> {
+        let GetServiceUrlArgs {
+            service: Service::AiGateway,
+        } = with_argument_error("getServiceUrl", || Ok(serde_json::from_value(args)?))?;
+        Ok(JsonValue::String(AI_GATEWAY_URL.to_owned()))
     }
 
     #[convex_macro::instrument_future]
@@ -560,7 +575,8 @@ impl<RT: Runtime> TaskExecutor<RT> {
     }
 }
 
-/// The service a `1.0/createServiceToken` syscall names.
+/// The service a `1.0/createServiceToken` or `1.0/getServiceUrl` syscall
+/// names.
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 enum Service {
     #[serde(rename = "ai-gateway")]
@@ -569,6 +585,11 @@ enum Service {
 
 #[derive(Deserialize)]
 struct CreateServiceTokenArgs {
+    service: Service,
+}
+
+#[derive(Deserialize)]
+struct GetServiceUrlArgs {
     service: Service,
 }
 

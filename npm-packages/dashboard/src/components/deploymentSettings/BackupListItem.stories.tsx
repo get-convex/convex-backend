@@ -44,6 +44,7 @@ const targetDeployment: PlatformDeploymentResponse = {
 const meta = {
   component: BackupListItem,
   args: {
+    teamId: 1,
     backup,
     restoring: false,
     someBackupInProgress: false,

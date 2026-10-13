@@ -54,6 +54,7 @@ use crate::{
     BootstrapComponentsModel,
     IndexModel,
     SchemaModel,
+    SchemaValidationModel,
     SystemMetadataModel,
     Transaction,
 };
@@ -238,6 +239,20 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         &mut self,
         tablet_id: TabletId,
     ) -> anyhow::Result<TableNumber> {
+        let table_metadata = self.get_table_metadata(tablet_id).await?;
+        let table_doc_id = table_metadata.id();
+        let table_metadata = table_metadata.into_value();
+        if table_metadata.state == TableState::Active {
+            let referenced_name = self
+                .tx
+                .virtual_system_mapping()
+                .associated_virtual_table_name(&table_metadata.name)
+                .unwrap_or(&table_metadata.name)
+                .clone();
+            SchemaValidationModel::new(self.tx, table_metadata.namespace)
+                .invalidate_table_references(&referenced_name)
+                .await?;
+        }
         for index in IndexModel::new(self.tx)
             .all_indexes_on_table(tablet_id)
             .await?
@@ -247,9 +262,6 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 .delete(index_id)
                 .await?;
         }
-        let table_metadata = self.get_table_metadata(tablet_id).await?;
-        let table_doc_id = table_metadata.id();
-        let table_metadata = table_metadata.into_value();
         let updated_table_metadata = TableMetadata {
             name: table_metadata.name,
             number: table_metadata.number,

@@ -56,7 +56,8 @@ pub fn with_argument_error<T>(
     })
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum Phase {
     Importing,
     Executing,

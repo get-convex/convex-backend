@@ -854,6 +854,17 @@ impl std::fmt::Display for RequestDestination {
 pub struct ResolvedHostname {
     pub deployment_name: String,
     pub destination: RequestDestination,
+    pub source: ResolvedHostnameSource,
+}
+
+/// How the deployment was resolved, so default-domain restrictions can
+/// distinguish built-in aliases from registered custom domains and local
+/// routing.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum ResolvedHostnameSource {
+    DefaultDomain,
+    CustomDomain,
+    Local,
 }
 
 pub const CONVEX_DOMAIN_REGEX_INSTANCE_CAPTURE: &str = "instance";
@@ -877,6 +888,7 @@ pub fn resolve_convex_domain(uri: &Uri) -> anyhow::Result<Option<ResolvedHostnam
         return Ok(Some(ResolvedHostname {
             deployment_name,
             destination,
+            source: ResolvedHostnameSource::DefaultDomain,
         }));
     }
     Ok(None)
@@ -917,6 +929,7 @@ impl<S: Sync> FromRequestParts<S> for ExtractResolvedHostname {
         Ok(ExtractResolvedHostname(ResolvedHostname {
             deployment_name: ::std::env::var("CONVEX_SITE").unwrap_or_default(),
             destination: RequestDestination::ConvexCloud,
+            source: ResolvedHostnameSource::Local,
         }))
     }
 }

@@ -45,7 +45,7 @@
     "progress": "~2.0.3",
     "semver": "^7.6.0",
     "ts-morph": "^27.0.0",
-    "tsc-alias": "~1.8.15"
+    "tsc-alias": "~1.9.0"
   },
   "engines": {
     "node": ">=20.0.0"

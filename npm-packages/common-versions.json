@@ -16,6 +16,11 @@
    */
   "allowedAlternativeVersions": {
     /**
+     * The convex-test docs demo needs the global isolation behavior in 0.0.58
+     * and `t.withRequestMetadata` from 0.0.59.
+     */
+    "convex-test": ["^0.0.60"],
+    /**
      * Convex minimum version of TypeScript supported is 5.0;
      * Whatever features were added after that, don't use them!
      *
@@ -54,7 +59,7 @@
     /**
      * The dashboards are on Next.js 16 while the demos stay on 15.
      */
-    "next": ["^16.3.2"],
+    "next": ["^16.3.8"],
     "react": ["^18.3.1", "^19.2.4"],
     "react-dom": ["^18.3.1", "^19.2.4"],
     //"typescript": ["^5"],
@@ -62,6 +67,10 @@
     "@types/react": ["^18", "^18.2.65", "^18.3.17", "^19.2.4"],
     "@types/react-dom": ["^18", "^18.2.21", "^18.3.1", "^19.2.3"],
     "typescript-eslint": ["^8.45.0", "~8.57.0"],
+    /**
+     * The ESLint plugin parses imported helpers with the same release as its types and utils.
+     */
+    "@typescript-eslint/parser": ["~8.58.0"],
 
     "zod": ["^3.25.0", "^4.3.6"]
   }

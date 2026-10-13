@@ -35,6 +35,12 @@ Practically speaking, a component is defined in a folder containing a
  └-- …folders/files.ts  # Queries, mutations, and actions for the component.
 ```
 
+Module paths are the component's API: apps call a `send` mutation defined in
+`component/messages.ts` as `components.myComponent.messages.send`. A component
+with a single module often names it `lib.ts`. If your component has more than
+one module, name each after the object it deals with, such as `messages.ts` or
+`jobs.ts`.
+
 The component's `convex.config.ts` file configures the component's default name
 and child components.
 
@@ -353,9 +359,9 @@ component.use(childComponent, { httpPrefix: "/child/" });
 export default component;
 ```
 
-Within all of a component’s functions, `process.env.CONVEX_SITE_URL` reflects
-the full URL where the component is mounted, including the `httpPrefix`. This
-allows the component to construct correct URLs for callbacks, redirects, or
+Within all of a component’s functions, `env.CONVEX_SITE_URL` reflects the full
+URL where the component is mounted, including the `httpPrefix`. This allows the
+component to construct correct URLs for callbacks, redirects, or
 self-referencing links without needing to know its mount path at build time.
 
 **Limitation:** Component HTTP actions do not have access to `ctx.auth` or the
@@ -513,6 +519,7 @@ import type {
   GenericDataModel,
   GenericMutationCtx,
 } from "convex/server";
+import { env } from "./_generated/server.js";
 import type { ComponentApi } from "../component/_generated/component.js";
 
 export async function callMyFunction(
@@ -523,7 +530,7 @@ export async function callMyFunction(
   // You can create function handles, add shared utilities,
   // or do any processing that needs to run in the app's environment.
   const functionHandle = await createFunctionHandle(args.someFn);
-  const someArg = process.env.SOME_ARG;
+  const someArg = env.SOME_ARG;
   await ctx.runMutation(component.call.fn, {
     ...args,
     someArg,
@@ -668,7 +675,7 @@ export class Foo {
       FOO_AUTH_KEY?: string;
     },
   ) {
-    this.apiKey = options?.FOO_AUTH_KEY ?? process.env.FOO_AUTH_KEY!;
+    this.apiKey = options?.FOO_AUTH_KEY ?? env.FOO_AUTH_KEY;
   }
 
   async count(ctx: GenericQueryCtx<GenericDataModel>) {

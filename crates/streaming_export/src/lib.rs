@@ -207,6 +207,24 @@ impl SyncCursor {
         Self::from_proto(encryptor.decrypt_proto(DATA_SYNC_CURSOR_VERSION, token)?)
     }
 
+    /// Serializes the cursor without encryption, for a token that only
+    /// servers we run hold.
+    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        Ok(prost::Message::encode_to_vec(&self.to_proto()?))
+    }
+
+    /// Deserializes a token previously produced by [`Self::to_bytes`].
+    pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        Self::from_proto(prost::Message::decode(bytes)?)
+    }
+
+    /// Tables the cursor has captured. At a consistent snapshot
+    /// ([`SyncStatus::Stale`] or [`SyncStatus::UpToDate`]) this is every
+    /// target table.
+    pub fn tables(&self) -> impl Iterator<Item = &(ComponentPath, TableName)> {
+        self.names.values()
+    }
+
     /// Unique id of the sync this cursor belongs to.
     pub fn sync_id(&self) -> &str {
         &self.sync_id
@@ -413,6 +431,22 @@ fn resolve_name(
         .cloned()
         .unwrap_or_else(ComponentPath::root);
     Ok((component_path, table_name))
+}
+
+pub fn selected_tables<RT: Runtime>(
+    db_snapshot: &DatabaseSnapshot<RT>,
+    filter: &StreamingExportFilter,
+) -> anyhow::Result<Vec<(ComponentPath, TableName)>> {
+    let snapshot = &db_snapshot.snapshot;
+    let table_mapping = snapshot.table_mapping();
+    let component_paths = snapshot.component_ids_to_paths();
+    let mut tables = vec![];
+    for (tablet_id, ..) in table_mapping.iter() {
+        if table_included(filter, tablet_id, table_mapping, &component_paths)? {
+            tables.push(resolve_name(snapshot, &component_paths, tablet_id)?);
+        }
+    }
+    Ok(tables)
 }
 
 /// Mint a fresh sync id for a cold start, tagged with the integration that

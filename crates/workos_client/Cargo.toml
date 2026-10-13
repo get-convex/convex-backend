@@ -14,6 +14,7 @@ testing = ["common/testing", "errors/testing"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
 common = { workspace = true }
 errors = { workspace = true }
 http = { workspace = true }

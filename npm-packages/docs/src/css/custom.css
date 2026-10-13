@@ -1088,11 +1088,23 @@ html[data-theme="dark"] .convex-menu-header {
 }
 
 .convex-sidebar-http-api {
-  --convex-icon: url(heroicons/24/outline/book-open.svg);
+  --convex-icon: url(heroicons/24/outline/link.svg);
+}
+
+.convex-sidebar-config-files {
+  --convex-icon: url(heroicons/24/outline/document-duplicate.svg);
+}
+
+.convex-sidebar-errors {
+  --convex-icon: url(heroicons/24/outline/exclamation-triangle.svg);
 }
 
 .convex-sidebar-eslint {
   --convex-icon: url("../../static/img/sidebar-icons/eslint.svg");
+}
+
+.convex-sidebar-linting {
+  --convex-icon: url("../../static/img/sidebar-icons/check-circled.svg");
 }
 
 /* END: Icons for each top level item */
@@ -1638,6 +1650,12 @@ html[data-theme="dark"] .StackPosts-title-image--dark {
   width: 11rem;
   height: 6rem;
   object-fit: cover;
+}
+
+.StackPosts-post-image--default {
+  padding: 2rem;
+  background: var(--color-n1);
+  object-fit: contain;
 }
 
 .StackPosts-post-content {

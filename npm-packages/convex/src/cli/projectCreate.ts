@@ -64,7 +64,7 @@ async function runProjectCreate(
   logMessage(
     chalkStderr.gray(
       `Next, add a deployment with ` +
-        `\`npx convex deployment create ${team.slug}:${projectSlug}:dev --type dev\` ` +
+        `\`npx convex deployment create ${team.slug}:${projectSlug}:dev/my-feature --type dev --select\` ` +
         `(pass \`--region us\` to choose a region).`,
     ),
   );

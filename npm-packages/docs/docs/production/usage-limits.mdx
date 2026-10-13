@@ -28,8 +28,9 @@ in the dashboard.
 
 ## Thresholds
 
-Each metric can have two thresholds, each enforced over a daily or monthly
-window:
+Each metric supports a disable threshold. Production and preview deployments
+also support a warning threshold. Each threshold is enforced over a daily or
+monthly window:
 
 - The **warning threshold** is a soft limit: when it is exceeded, an event is
   recorded on the deployment's
@@ -38,7 +39,7 @@ window:
   is disabled for the rest of the window, and new function calls return an error
   explaining that the deployment exceeded a usage limit.
 
-When either threshold is reached on a Production or Preview deployments, Convex
+When either threshold is reached on a production or preview deployment, Convex
 sends a notification email to all members of your team. Development deployments
 do not receive email notifications.
 
@@ -74,6 +75,7 @@ The full list of metrics you can configure a usage limit for are:
 | Database I/O                    | GB       | Bandwidth used reading from and writing to the database.                                                                                                               |
 | Search queries                  | query-GB | Bandwidth used serving text and vector search queries.                                                                                                                 |
 | Data egress                     | GB       | Bandwidth used serving file downloads, outgoing fetch requests, and log stream egress.                                                                                 |
+| AI Gateway                      | USD      | Cost of model requests through the [AI Gateway](/ai-gateway/usage-and-billing.mdx).                                                                                    |
 
 ## Audit log
 

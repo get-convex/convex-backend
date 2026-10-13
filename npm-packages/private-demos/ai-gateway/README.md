@@ -43,3 +43,19 @@ just convex-usher run node/aiSdkProvider:chatCompletion \
 - `node/openai:responses` uses the provider's `convexGateway.responses(...)`
   model to exercise the gateway's native OpenAI Responses endpoint. The OpenAI
   SDK examples continue to cover model listing and Chat Completions.
+
+## Jev Decisions (alpha)
+
+Classify a support ticket as `urgent`, `normal`, or `low` with Jev. The
+`node/aiSdkProvider:triageTicket` action passes the ticket and priority criteria
+to AI SDK's `evaluate()` with `convexGateway.evaluationModel()` and returns the
+selected priority.
+
+Build the workspace provider and deploy `/alpha/decisions` to the gateway before
+running this example. The provider handles authentication with
+`getServiceToken("ai-gateway")`. Each request incurs AI usage charges.
+
+```shell
+just convex-usher run node/aiSdkProvider:triageTicket \
+  '{"ticket":"All users are getting 500 errors when signing in. There is no workaround."}'
+```

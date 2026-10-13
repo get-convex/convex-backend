@@ -46,7 +46,6 @@ use tower_http::{
     },
     decompression::RequestDecompressionLayer,
 };
-use udf::HTTP_ACTION_BODY_LIMIT;
 use utoipa::{
     openapi::security::{
         ApiKey,
@@ -99,6 +98,7 @@ use crate::{
         cancel_developer_job,
         create_function_handle,
         create_service_token,
+        get_service_url,
         internal_action_post,
         internal_mutation_post,
         internal_query_post,
@@ -460,6 +460,7 @@ where
         .route("/mutation", post(internal_mutation_post))
         .route("/action", post(internal_action_post))
         .route("/create_service_token", post(create_service_token))
+        .route("/get_service_url", post(get_service_url))
         .route("/schedule_job", post(schedule_job))
         .route("/vector_search", post(vector_search))
         .route("/cancel_job", post(cancel_developer_job))
@@ -493,7 +494,6 @@ pub fn http_action_routes() -> Router<RouterState> {
     Router::new()
         .route("/{*rest}", http_action_handler())
         .route("/", http_action_handler())
-        .layer(DefaultBodyLimit::max(HTTP_ACTION_BODY_LIMIT))
 }
 
 pub fn app_metrics_routes<S>() -> Router<S>

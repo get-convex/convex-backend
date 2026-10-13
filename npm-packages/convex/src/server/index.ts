@@ -103,7 +103,11 @@ export {
   internalMutationGeneric,
   internalQueryGeneric,
 } from "./impl/registration_impl.js";
-export { getServiceToken } from "./impl/actions_impl.js";
+export {
+  getServiceToken,
+  getServiceUrl,
+  type ServiceName,
+} from "./impl/actions_impl.js";
 export type {
   TransactionMetric,
   TransactionMetrics,
@@ -174,6 +178,7 @@ export {
 export type {
   ApiFromModules,
   AnyApi,
+  FunctionReference_future,
   FilterApi,
   FunctionType,
   FunctionReference,

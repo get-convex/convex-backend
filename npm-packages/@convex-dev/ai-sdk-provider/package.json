@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/ai-sdk-provider",
-  "version": "0.2.0-alpha.1",
+  "version": "0.3.0",
   "description": "AI SDK provider for the Convex AI gateway",
   "license": "Apache-2.0",
   "type": "module",
@@ -20,6 +20,10 @@
   "files": [
     "dist",
     "src/index.ts",
+    "src/evaluation-model.ts",
+    "src/transcription-model.ts",
+    "src/video-model.ts",
+    "src/video-webhook.ts",
     "LICENSE"
   ],
   "tshy": {
@@ -39,10 +43,11 @@
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.40",
     "@ai-sdk/openai": "4.0.45",
-    "@ai-sdk/openai-compatible": "3.0.14"
+    "@ai-sdk/openai-compatible": "3.0.14",
+    "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "ai": "^7.0.0",
+    "ai": "^7.0.105",
     "convex": "^1.45.0"
   },
   "engines": {
@@ -50,7 +55,7 @@
   },
   "devDependencies": {
     "@types/node": "^18.17.0",
-    "ai": "7.0.34",
+    "ai": "7.0.105",
     "convex": "workspace:*",
     "tshy": "^3.0.0",
     "typescript": "~5.0.3",

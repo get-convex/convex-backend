@@ -165,30 +165,26 @@ impl<RT: Runtime> S3Storage<RT> {
         S3Storage::new_with_prefix(bucket_name, key_prefix, runtime).await
     }
 
+    fn s3_key(&self, key: &ObjectKey) -> S3Key {
+        S3Key(self.key_prefix.clone() + key)
+    }
+
     /// Helper method to configure multipart upload builder with optional AWS
     /// headers for S3 compatibility with non-AWS services
     fn configure_multipart_upload_builder(
         &self,
-        mut upload_builder: CreateMultipartUploadFluentBuilder,
+        upload_builder: CreateMultipartUploadFluentBuilder,
     ) -> CreateMultipartUploadFluentBuilder {
-        // Add server-side encryption if not disabled for S3 compatibility
-        if !is_sse_disabled() {
-            upload_builder = upload_builder.server_side_encryption(ServerSideEncryption::Aes256);
-        }
-
-        // Add checksum algorithm if not disabled for S3 compatibility
-        if !are_checksums_disabled() {
+        upload_builder
+            .set_server_side_encryption(server_side_encryption())
             // Because we're using multipart uploads, we're really specifying the part
             // checksum algorithm here, so it needs to match what we use for
             // each part.
-            upload_builder = upload_builder.checksum_algorithm(ChecksumAlgorithm::Crc32);
-        }
-
-        upload_builder
+            .set_checksum_algorithm(checksum_algorithm())
     }
 
     async fn start_upload_with_key(&self, key: ObjectKey) -> anyhow::Result<S3Upload<RT>> {
-        let s3_key = S3Key(self.key_prefix.clone() + &key);
+        let s3_key = self.s3_key(&key);
         let upload_builder = self
             .client
             .create_multipart_upload()
@@ -299,7 +295,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
 
     async fn start_client_driven_upload(&self) -> anyhow::Result<ClientDrivenUploadToken> {
         let key: ObjectKey = self.runtime.new_uuid_v4().to_string().try_into()?;
-        let s3_key = S3Key(self.key_prefix.clone() + &key);
+        let s3_key = self.s3_key(&key);
         let upload_builder = self
             .client
             .create_multipart_upload()
@@ -332,7 +328,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             object_key,
             upload_id,
         } = token.try_into()?;
-        let s3_key = S3Key(self.key_prefix.clone() + &object_key);
+        let s3_key = self.s3_key(&object_key);
         PartNumber::try_from(part_number + 1)
             .map_err(|e| ErrorMetadata::bad_request("Invalid part number", e.to_string()))?;
         let mut s3_upload = S3Upload::new_client_driven(
@@ -367,7 +363,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             object_key,
             upload_id,
         } = token.try_into()?;
-        let s3_key = S3Key(self.key_prefix.clone() + &object_key);
+        let s3_key = self.s3_key(&object_key);
         let uploaded_parts: Vec<_> = part_tokens
             .into_iter()
             .map(ObjectPart::try_from)
@@ -388,7 +384,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
 
     async fn signed_url(&self, key: ObjectKey, expires_in: Duration) -> anyhow::Result<String> {
         let timer = sign_url_timer();
-        let s3_key = S3Key(self.key_prefix.clone() + &key);
+        let s3_key = self.s3_key(&key);
         let presigning_config = PresigningConfig::builder().expires_in(expires_in).build()?;
         let presigned_request = self
             .client
@@ -406,7 +402,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
         expires_in: Duration,
     ) -> anyhow::Result<(ObjectKey, String)> {
         let key: ObjectKey = self.runtime.new_uuid_v4().to_string().try_into()?;
-        let s3_key = S3Key(self.key_prefix.clone() + &key);
+        let s3_key = self.s3_key(&key);
         let presigning_config = PresigningConfig::builder().expires_in(expires_in).build()?;
         // TODO(CX-4921): figure out how to add SSE/checksums here
         let presigned_request = self
@@ -534,7 +530,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
     }
 
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()> {
-        let s3_key = S3Key(self.key_prefix.clone() + key);
+        let s3_key = self.s3_key(key);
         self.client
             .delete_object()
             .bucket(self.bucket.clone())
@@ -546,9 +542,16 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
     }
 
     async fn put_object(&self, key: ObjectKey, bytes: Bytes) -> anyhow::Result<()> {
-        let mut upload = self.start_upload_with_key(key).await?;
-        upload.write(bytes).await?;
-        let _ = Box::new(upload).complete().await?;
+        self.client
+            .put_object()
+            .bucket(self.bucket.clone())
+            .key(&self.s3_key(&key).0)
+            .body(ByteStream::from(bytes))
+            .set_server_side_encryption(server_side_encryption())
+            .set_checksum_algorithm(checksum_algorithm())
+            .send()
+            .await
+            .with_context(|| format!("Failed to put object {key:?}"))?;
         Ok(())
     }
 
@@ -637,6 +640,18 @@ impl<RT: Runtime> S3Storage<RT> {
     }
 }
 
+/// Optional server-side encryption header to configure upload builders, for
+/// S3 compatibility with non-AWS services.
+fn server_side_encryption() -> Option<ServerSideEncryption> {
+    (!is_sse_disabled()).then_some(ServerSideEncryption::Aes256)
+}
+
+/// Optional checksum algorithm header to configure upload builders, for S3
+/// compatibility with non-AWS services.
+fn checksum_algorithm() -> Option<ChecksumAlgorithm> {
+    (!are_checksums_disabled()).then_some(ChecksumAlgorithm::Crc32)
+}
+
 struct S3Key(String);
 
 pub struct S3Upload<RT: Runtime> {
@@ -709,19 +724,15 @@ impl<RT: Runtime> S3Upload<RT> {
         let part_number = self.next_part_number()?;
         crate::metrics::log_aws_s3_part_upload_size_bytes(data.len());
 
-        let mut builder = self
+        let builder = self
             .client
             .upload_part()
             .body(ByteStream::from(data))
             .bucket(self.bucket.clone())
             .key(&self.s3_key.0)
             .part_number(Into::<u16>::into(part_number) as i32)
-            .upload_id(self.upload_id.to_string());
-
-        // Add checksum algorithm if not disabled for S3 compatibility
-        if !are_checksums_disabled() {
-            builder = builder.checksum_algorithm(ChecksumAlgorithm::Crc32);
-        }
+            .upload_id(self.upload_id.to_string())
+            .set_checksum_algorithm(checksum_algorithm());
 
         Ok(UploadPart {
             part_number,

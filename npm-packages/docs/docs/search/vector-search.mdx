@@ -286,6 +286,13 @@ vector index will be included in the index and returned by the vector search.
 
 For information on limits, see [here](/production/state/limits.mdx).
 
+## Costs
+
+Vector searches are billed in
+[query-GBs](/production/state/limits.mdx#search-pricing): each search counts the
+full size of the vector index it runs against, regardless of how many results it
+returns and regardless of which `filterFields` it uses.
+
 ## Future development
 
 We're always open to customer feedback and requests. Some ideas we've considered

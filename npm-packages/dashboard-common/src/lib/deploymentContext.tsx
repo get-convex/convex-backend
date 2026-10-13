@@ -338,14 +338,13 @@ export type DeploymentInfo = (
   deploymentsURI: string;
   isSelfHosted: boolean;
   workosIntegrationEnabled: boolean;
+  /** Shows schema validation and index backfill progress on the health page. */
+  healthDeployProgressEnabled: boolean;
+  s3ExportIntegrationEnabled: boolean;
   connectionStateCheckIntervalMs: number;
-  // Feature flag: show the index-first filter bar on the Data page instead of
-  // the Filter & Sort panel. Cloud only -- `useNewDataFilters` keeps the beta
-  // off in self-hosted dashboards whatever this says.
-  newDataFilters?: boolean;
-  // Feature flag: wrap that bar as a gift the member has to unwrap. Cloud
-  // only, and the beta menu that ties it back up goes with it.
-  giftWrapDataFilters?: boolean;
+  /** Whether the Fivetran integration card reports the progress of active
+   *  data syncs. */
+  showFivetranSyncProgress: boolean;
   /** Opens the feedback sheet. Absent where there is nowhere to send it,
    *  such as the self-hosted dashboard. */
   openFeedbackForm?: (context: FeedbackContext) => void;

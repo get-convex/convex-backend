@@ -1,4 +1,4 @@
-import React, { MutableRefObject, useEffect, useState } from "react";
+import React, { Fragment, MutableRefObject, useEffect, useState } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -26,7 +26,6 @@ type FunctionalChild = (bag: {
 type PopoverProps = {
   children: React.ReactNode | FunctionalChild;
   className?: string;
-  openButtonClassName?: string;
   button: React.ReactNode | FunctionalChild;
   placement?: Placement;
   offset?: [number | null | undefined, number | null | undefined];
@@ -36,13 +35,35 @@ type PopoverProps = {
   portal?: boolean;
   padding?: boolean;
   focus?: boolean;
-};
+} & (
+  | {
+      asChild?: false;
+      /** Carried by the wrapper around `button` while the panel is open. */
+      openButtonClassName?: string;
+    }
+  | {
+      /**
+       * Hands the trigger's behavior to `button` itself instead of wrapping it
+       * in a div. The wrapper carries HeadlessUI's `aria-expanded`, which
+       * belongs on the control it describes, so a `button` that is already a
+       * real button should claim it.
+       */
+      asChild: true;
+      /**
+       * There is no wrapper to carry it, and HeadlessUI's types have no
+       * `className` to hand a fragment. `button` is given `open` instead, so
+       * the trigger styles its own open state.
+       */
+      openButtonClassName?: never;
+    }
+);
 
 export function Popover({
   className,
   openButtonClassName = "",
   children,
   button,
+  asChild = false,
   placement = "bottom",
   offset = [0, 8],
   onOpen,
@@ -90,13 +111,19 @@ export function Popover({
         );
         return (
           <>
-            <HeadlessPopoverButton
-              ref={setReferenceElement}
-              as="div"
-              className={open ? openButtonClassName : ""}
-            >
-              {button as any /* TODO(react-18-upgrade) */}
-            </HeadlessPopoverButton>
+            {asChild ? (
+              <HeadlessPopoverButton as={Fragment} ref={setReferenceElement}>
+                {button as any /* TODO(react-18-upgrade) */}
+              </HeadlessPopoverButton>
+            ) : (
+              <HeadlessPopoverButton
+                ref={setReferenceElement}
+                as="div"
+                className={open ? openButtonClassName : ""}
+              >
+                {button as any /* TODO(react-18-upgrade) */}
+              </HeadlessPopoverButton>
+            )}
             {portal ? <Portal>{panel}</Portal> : panel}
           </>
         );

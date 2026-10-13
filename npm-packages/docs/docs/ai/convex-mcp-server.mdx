@@ -152,7 +152,8 @@ Available tools that can be disabled: `data`, `envGet`, `envList`, `envRemove`,
 
 ### Environment Variable Tools
 
-- **`envList`**: Lists all environment variables for a deployment
+- **`envList`**: Lists the names of all environment variables for a deployment.
+  Pass `includeValues: true` to also get their values
 - **`envGet`**: Retrieves the value of a specific environment variable
 - **`envSet`**: Sets a new environment variable or updates an existing one
 - **`envRemove`**: Removes an environment variable from the deployment

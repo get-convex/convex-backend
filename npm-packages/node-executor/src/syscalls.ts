@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { decodeJwt } from "jose";
 import { z } from "zod";
 
 import { DeploymentMetadata, UserIdentity } from "convex/server";
@@ -24,6 +25,19 @@ const CALLBACK_INITIAL_BACKOFF_MS = process.env.CALLBACK_INITIAL_BACKOFF_MS
   ? parseInt(process.env.CALLBACK_INITIAL_BACKOFF_MS)
   : 1000;
 const CALLBACK_MAX_BACKOFF_MS = 20000;
+
+type CachedServiceToken = {
+  token: string;
+  expiresAtMs: number;
+};
+
+function serviceTokenExpirationMs(token: string): number {
+  const expirationSeconds = decodeJwt(token).exp;
+  if (expirationSeconds === undefined || !Number.isFinite(expirationSeconds)) {
+    throw new Error("AI Gateway service token has no valid expiration");
+  }
+  return expirationSeconds * 1000;
+}
 
 function callbackBackoffMs(attempt: number): number {
   const base = Math.min(
@@ -175,6 +189,15 @@ const createServiceTokenReturn = z.object({
   token: z.string(),
 });
 
+const getServiceUrlSchema = z.object({
+  service: z.literal("ai-gateway"),
+  version: z.string(),
+});
+
+const getServiceUrlReturn = z.object({
+  url: z.string(),
+});
+
 export type ScheduledJob = z.infer<typeof scheduleSchema>;
 
 export interface Syscalls {
@@ -237,10 +260,15 @@ export class SyscallsImpl {
   // unrelated invocation that reuses this process.
   abortController: AbortController;
 
-  // Per-action: this instance is created once per invocation. Concurrent first
-  // calls share the in-flight promise; a rejected mint is dropped so a later
-  // call retries.
-  aiGatewayTokenPromise?: Promise<string>;
+  aiGatewayToken?: CachedServiceToken;
+
+  // Kept separate from the cached value so a failed refresh can be retried.
+  aiGatewayTokenRefreshPromise?: Promise<CachedServiceToken>;
+
+  // Service URLs are stable for an action, so avoid repeated backend callbacks.
+  aiGatewayUrlPromise?: Promise<string>;
+
+  serviceTokenGuaranteedLifetimeMs: number;
 
   constructor(
     udfPath: UdfPath,
@@ -252,6 +280,7 @@ export class SyscallsImpl {
     executionContext: ExecutionContext,
     encodedParentTrace: string | null,
     deployment: DeploymentMetadata,
+    serviceTokenGuaranteedLifetimeMs: number,
   ) {
     this.udfPath = udfPath;
     this.lambdaExecuteId = lambdaExecuteId;
@@ -264,6 +293,7 @@ export class SyscallsImpl {
     this.executionContext = executionContext;
     this.encodedParentTrace = encodedParentTrace;
     this.deployment = deployment;
+    this.serviceTokenGuaranteedLifetimeMs = serviceTokenGuaranteedLifetimeMs;
     this.mutationSessionId = randomUUID();
     this.nextMutationRequestId = 0;
     this.abortController = new AbortController();
@@ -519,6 +549,9 @@ export class SyscallsImpl {
         case "1.0/createServiceToken": {
           return JSON.stringify(await this.syscallCreateServiceToken(jsonArgs));
         }
+        case "1.0/getServiceUrl": {
+          return JSON.stringify(await this.syscallGetServiceUrl(jsonArgs));
+        }
         case "1.0/actions/vectorSearch": {
           return JSON.stringify(await this.syscallVectorSearch(jsonArgs));
         }
@@ -766,19 +799,71 @@ export class SyscallsImpl {
       operationName,
       false,
     );
-    const pending = (this.aiGatewayTokenPromise ??= this.actionCallback({
+    if (
+      this.aiGatewayToken !== undefined &&
+      this.aiGatewayToken.expiresAtMs - Date.now() >=
+        this.serviceTokenGuaranteedLifetimeMs
+    ) {
+      return this.aiGatewayToken.token;
+    }
+
+    let pending = this.aiGatewayTokenRefreshPromise;
+    if (pending === undefined) {
+      pending = this.actionCallback({
+        version: args.version,
+        body: {},
+        path: "/api/actions/create_service_token",
+        operationName,
+        responseValidator: createServiceTokenReturn,
+        retryTransient: true,
+      }).then(({ token }) => {
+        const cached = {
+          token,
+          expiresAtMs: serviceTokenExpirationMs(token),
+        };
+        if (
+          cached.expiresAtMs - Date.now() <
+          this.serviceTokenGuaranteedLifetimeMs
+        ) {
+          throw new Error(
+            "Newly minted AI Gateway service token does not satisfy the guaranteed lifetime",
+          );
+        }
+        this.aiGatewayToken = cached;
+        return cached;
+      });
+      this.aiGatewayTokenRefreshPromise = pending;
+    }
+    try {
+      return (await pending).token;
+    } finally {
+      if (this.aiGatewayTokenRefreshPromise === pending) {
+        this.aiGatewayTokenRefreshPromise = undefined;
+      }
+    }
+  }
+
+  async syscallGetServiceUrl(rawArgs: string): Promise<string> {
+    const operationName = "get service url";
+    const args = this.validateArgs(
+      rawArgs,
+      getServiceUrlSchema,
+      operationName,
+      false,
+    );
+    const pending = (this.aiGatewayUrlPromise ??= this.actionCallback({
       version: args.version,
       body: {},
-      path: "/api/actions/create_service_token",
+      path: "/api/actions/get_service_url",
       operationName,
-      responseValidator: createServiceTokenReturn,
+      responseValidator: getServiceUrlReturn,
       retryTransient: true,
-    }).then(({ token }) => token));
+    }).then(({ url }) => url));
     try {
       return await pending;
     } catch (e) {
-      if (this.aiGatewayTokenPromise === pending) {
-        this.aiGatewayTokenPromise = undefined;
+      if (this.aiGatewayUrlPromise === pending) {
+        this.aiGatewayUrlPromise = undefined;
       }
       throw e;
     }

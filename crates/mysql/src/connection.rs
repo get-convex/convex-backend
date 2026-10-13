@@ -9,6 +9,7 @@ use std::{
 use ::metrics::StaticMetricLabel;
 use common::{
     errors::{
+        database_deadlock_error,
         database_operational_error,
         database_timeout_error,
         duplicate_write_error,
@@ -125,9 +126,15 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
             code: 1062 | 1586,
             ..
         }) => duplicate_write_error(e.into()),
+        mysql_async::Error::Server(mysql_async::ServerError {
+            code: ER_LOCK_DEADLOCK,
+            ..
+        }) => database_deadlock_error(e.into()),
         _ => e.into(),
     }
 }
+
+const ER_LOCK_DEADLOCK: u16 = 1213;
 
 /// Recognizes the Vitess error returned when a result exceeds its 64 MiB
 /// message limit, allowing callers to retry with a smaller page.
@@ -574,15 +581,11 @@ impl MySqlTransaction<'_> {
         statement: &str,
         params: Vec<MySqlValue>,
     ) -> anyhow::Result<()> {
-        let future = if self.use_prepared_statements {
-            let statement = format_mysql_binary_protocol(self.db_name, statement)?;
-            self.inner.exec_drop(statement, Params::Positional(params))
-        } else {
-            let statement =
-                format_mysql_text_protocol(self.db_name, statement, params, self.labels)?;
-            self.inner.query_drop(statement)
-        };
-        with_timeout(future).await
+        if !self.use_prepared_statements {
+            return self.query_drop(statement, params).await;
+        }
+        let statement = format_mysql_binary_protocol(self.db_name, statement)?;
+        with_timeout(self.inner.exec_drop(statement, Params::Positional(params))).await
     }
 
     /// Execute a SQL statement, returning the number of rows affected.
@@ -591,19 +594,38 @@ impl MySqlTransaction<'_> {
         statement: &str,
         params: Vec<MySqlValue>,
     ) -> anyhow::Result<u64> {
-        let affected_rows = if self.use_prepared_statements {
-            let statement = format_mysql_binary_protocol(self.db_name, statement)?;
+        if !self.use_prepared_statements {
+            return self.query_iter(statement, params).await;
+        }
+        let statement = format_mysql_binary_protocol(self.db_name, statement)?;
+        Ok(
             with_timeout(self.inner.exec_iter(statement, Params::Positional(params)))
                 .await?
-                .affected_rows()
-        } else {
-            let statement =
-                format_mysql_text_protocol(self.db_name, statement, params, self.labels)?;
-            with_timeout(self.inner.query_iter(statement))
-                .await?
-                .affected_rows()
-        };
-        Ok(affected_rows)
+                .affected_rows(),
+        )
+    }
+
+    /// Executes a raw query using the text protocol, even when the connection
+    /// is configured to use prepared statements.
+    pub async fn query_drop(
+        &mut self,
+        statement: &str,
+        params: Vec<MySqlValue>,
+    ) -> anyhow::Result<()> {
+        let statement = format_mysql_text_protocol(self.db_name, statement, params, self.labels)?;
+        with_timeout(self.inner.query_drop(statement)).await
+    }
+
+    /// Like [`Self::query_drop`], returning the number of rows affected.
+    pub async fn query_iter(
+        &mut self,
+        statement: &str,
+        params: Vec<MySqlValue>,
+    ) -> anyhow::Result<u64> {
+        let statement = format_mysql_text_protocol(self.db_name, statement, params, self.labels)?;
+        Ok(with_timeout(self.inner.query_iter(statement))
+            .await?
+            .affected_rows())
     }
 
     pub async fn commit(self) -> anyhow::Result<()> {

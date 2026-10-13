@@ -38,7 +38,8 @@ export type UsageMetric =
   | "actionComputeCpuGbHours"
   | "databaseIoGb"
   | "searchQueryGb"
-  | "dataEgressGb";
+  | "dataEgressGb"
+  | "aiGatewayCostDollars";
 
 export type UsageLimitWindow = "day" | "month";
 
@@ -149,6 +150,15 @@ export const METRIC_CONFIG: Record<UsageMetric, MetricConfig> = {
     rawStep: 1,
     defaultAmount: 1000,
   },
+  aiGatewayCostDollars: {
+    name: "AI Gateway",
+    description:
+      "Raw USD cost of Convex-managed AI models through the AI Gateway.",
+    rawUnit: "USD",
+    rawUnitShort: "USD",
+    rawStep: 1,
+    defaultAmount: 100,
+  },
 };
 
 const METRIC_ORDER: UsageMetric[] = [
@@ -160,6 +170,7 @@ const METRIC_ORDER: UsageMetric[] = [
   "databaseIoGb",
   "searchQueryGb",
   "dataEgressGb",
+  "aiGatewayCostDollars",
 ];
 
 // Whether Convex sends a notification email when a usage limit is exceeded.

@@ -27,6 +27,7 @@ pub struct WorkerHandles {
     pub(crate) schema_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     pub(crate) snapshot_import_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     pub(crate) export_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    pub(crate) s3_export_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     pub(crate) system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     pub(crate) migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     pub(crate) usage_limit_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
@@ -46,6 +47,10 @@ impl WorkerHandles {
         self.search_worker.lock().shutdown();
         self.search_and_vector_bootstrap_worker.lock().shutdown();
         self.fast_forward_worker.lock().shutdown();
+        let s3_export_worker = self.s3_export_worker.lock().take();
+        if let Some(s3_export_worker) = s3_export_worker {
+            shutdown_and_join(s3_export_worker).await?;
+        }
         let export_worker = self.export_worker.lock().take();
         if let Some(export_worker) = export_worker {
             shutdown_and_join(export_worker).await?;
