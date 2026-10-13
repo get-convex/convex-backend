@@ -115,6 +115,13 @@ To keep a whole members-only area from querying without auth, render it only
 once Convex has accepted the token:
 
 ```svelte title="src/routes/(app)/+layout.svelte"
+<script lang="ts">
+  import { useAuth } from "convex-svelte";
+
+  let { children } = $props();
+  const auth = useAuth();
+</script>
+
 {#if auth.isAuthenticated}
   {@render children()}
 {:else if auth.isLoading}

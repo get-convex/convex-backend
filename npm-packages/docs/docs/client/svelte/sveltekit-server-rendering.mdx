@@ -35,7 +35,8 @@ automatically upgrade to live subscriptions on the client. No manual
 
 ### Setup
 
-`convex-svelte/sveltekit` requires SvelteKit 2.12 or later.
+`convex-svelte/sveltekit` requires SvelteKit 2.12 or later, including
+SvelteKit 3.
 
 Add `initConvex()` and the transport hooks to `hooks.ts` (universal hooks — runs
 on both server and client). `initConvex()` creates the `ConvexClient` singleton
@@ -44,9 +45,8 @@ early so the transport decoder can upgrade SSR data to live subscriptions.
 
 Client options only take effect where the client is created, like the
 `ConvexReactClient` constructor in React. Pass them to
-`initConvex(PUBLIC_CONVEX_URL, options)`. Options passed to a later
-`setupConvex()` are ignored, with a warning in development. On the server, the
-client is always disabled, so server rendering never opens a WebSocket.
+`initConvex(PUBLIC_CONVEX_URL, options)`: `setupConvex()` reuses that client and
+ignores options passed to it.
 
 If you only use `convexLoad()`, you only need the `ConvexLoadResult` transport.
 Add `ConvexLoadPaginatedResult` when using `convexLoadPaginated()`.
@@ -77,8 +77,9 @@ export const transport = {
 ```
 
 If you call `convexLoad()` in universal load functions (`+page.ts`,
-`+layout.ts`), also add the `convexLoadHydration` handle to `hooks.server.ts`
-(requires SvelteKit 2.56 or later):
+`+layout.ts`), also add the `convexLoadHydration` handle to `hooks.server.ts`.
+It requires SvelteKit 2.56 or later and doesn't support SvelteKit 3 yet (see
+[convexLoadHydration](#convexloadhydration)):
 
 ```ts title="src/hooks.server.ts"
 import { convexLoadHydration } from "convex-svelte/sveltekit/server/hydration";
@@ -265,18 +266,18 @@ without making any request. `convexLoadPaginated` returns
   `locals.token`).
 
 Both produce identical SSR on first page load. Use `+page.ts` for best
-navigation performance.
+navigation performance. Use `+page.server.ts` if you need access to server-only
+data (e.g. `locals`, cookies) or prefer explicit auth handling.
 
 <Admonition type="caution" title="+page.ts without convexLoadHydration">
 
 Without the `convexLoadHydration` handle, the hydration run of a `+page.ts` load
 queries Convex before `setupAuth()` has authenticated the client. Auth-protected
 queries then return their unauthenticated result (or fail the load) until the
-live subscription catches up.
+live subscription catches up. This includes SvelteKit 3, where the handle isn't
+supported yet: load data that needs auth in `+page.server.ts` there.
 
 </Admonition>
- Use `+page.server.ts` if you need access to server-only
-data (e.g. `locals`, cookies) or prefer explicit auth handling.
 
 ### Subscription lifecycle
 
@@ -449,9 +450,10 @@ server-rendered HTML, so the load's re-run during hydration reuses them. See
 - Pages without embedded results, e.g. with `ssr = false`, get no payload and no
   warnings. If an embedded result can't be read, that load queries Convex
   instead.
-- The handle relies on SvelteKit marking universal loads and remote functions on
-  the server. If it can't read those markers, it embeds nothing and logs a
-  warning.
+- The handle relies on SvelteKit 2 marking universal loads and remote functions
+  on the server. SvelteKit 3 no longer marks universal loads, so the handle
+  can't tell them apart from server loads: it embeds nothing there and logs a
+  warning. The same happens if it can't read the markers for another reason.
 
 ### Setting up `locals.token` (without withServerConvexToken)
 
