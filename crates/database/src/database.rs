@@ -1019,27 +1019,6 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     }
 }
 
-pub struct StreamingExportFilter {
-    pub selection: StreamingExportSelection,
-    pub include_hidden: bool,
-    pub include_system: bool,
-}
-
-impl Default for StreamingExportFilter {
-    fn default() -> Self {
-        Self {
-            selection: StreamingExportSelection::default(),
-            // Allow snapshot imports to be streamed by default.
-            // Note this behavior is kind of odd for `--require-empty` imports
-            // because the rows are streamed before they are committed to Convex,
-            // and it's very strange for `--replace` imports because the imported
-            // rows are merged with existing rows.
-            include_hidden: true,
-            include_system: false,
-        }
-    }
-}
-
 impl<RT: Runtime> Database<RT> {
     #[fastrace::trace]
     pub async fn load(
@@ -2176,8 +2155,16 @@ impl<RT: Runtime> Database<RT> {
         Ok(invalid_ts)
     }
 
-    fn streaming_export_table_filter(
-        filter: &StreamingExportFilter,
+    /// Whether the legacy `document_deltas` / `list_snapshot` APIs export
+    /// `tablet_id`.
+    ///
+    /// We allow snapshot imports to be streamed by default.
+    /// Note this behavior is kind of odd for `--require-empty` imports
+    /// because the rows are streamed before they are committed to Convex,
+    /// and it's very strange for `--replace` imports because the imported
+    /// rows are merged with existing rows.
+    fn legacy_streaming_export_table_filter(
+        selection: &StreamingExportSelection,
         tablet_id: TabletId,
         table_mapping: &TableMapping,
         component_paths: &BTreeMap<ComponentId, ComponentPath>,
@@ -2186,10 +2173,7 @@ impl<RT: Runtime> Database<RT> {
             // Always exclude deleted tablets.
             return Ok(false);
         }
-        if !filter.include_system && table_mapping.is_system_tablet(tablet_id) {
-            return Ok(false);
-        }
-        if !filter.include_hidden && !table_mapping.is_active(tablet_id) {
+        if table_mapping.is_system_tablet(tablet_id) {
             return Ok(false);
         }
 
@@ -2202,9 +2186,7 @@ impl<RT: Runtime> Database<RT> {
             return Ok(false);
         };
 
-        Ok(filter
-            .selection
-            .is_table_included(component_path, table_name))
+        Ok(selection.is_table_included(component_path, table_name))
     }
 
     #[fastrace::trace]
@@ -2212,7 +2194,7 @@ impl<RT: Runtime> Database<RT> {
         &self,
         identity: Identity,
         cursor: Option<Timestamp>,
-        filter: StreamingExportFilter,
+        selection: StreamingExportSelection,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<DocumentDeltas> {
@@ -2288,8 +2270,8 @@ impl<RT: Runtime> Database<RT> {
                 new_cursor = Some(ts);
             }
             // Skip deltas for system and non-selected tables.
-            if Self::streaming_export_table_filter(
-                &filter,
+            if Self::legacy_streaming_export_table_filter(
+                &selection,
                 id.table(),
                 &table_mapping,
                 &component_paths,
@@ -2302,9 +2284,7 @@ impl<RT: Runtime> Database<RT> {
                     .cloned()
                     .unwrap_or_else(ComponentPath::root);
                 let id = DeveloperDocumentId::new(table_number, id.internal_id());
-                let column_filter = filter
-                    .selection
-                    .column_filter(&component_path, &table_name)?;
+                let column_filter = selection.column_filter(&component_path, &table_name)?;
                 let filtered_doc = maybe_doc
                     .map(|doc| column_filter.filter_document(doc.to_developer()))
                     .transpose()?;
@@ -2345,7 +2325,7 @@ impl<RT: Runtime> Database<RT> {
         identity: Identity,
         snapshot: Option<Timestamp>,
         cursor: Option<ResolvedDocumentId>,
-        filter: StreamingExportFilter,
+        selection: StreamingExportSelection,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<SnapshotPage> {
@@ -2393,8 +2373,8 @@ impl<RT: Runtime> Database<RT> {
                     return None;
                 }
 
-                match Self::streaming_export_table_filter(
-                    &filter,
+                match Self::legacy_streaming_export_table_filter(
+                    &selection,
                     tablet_id,
                     &table_mapping,
                     &component_paths,
@@ -2527,9 +2507,7 @@ impl<RT: Runtime> Database<RT> {
                 .get(&component_id)
                 .cloned()
                 .unwrap_or_else(ComponentPath::root);
-            let column_filter = filter
-                .selection
-                .column_filter(&component_path, &table_name)?;
+            let column_filter = selection.column_filter(&component_path, &table_name)?;
 
             let filtered_doc = column_filter.filter_document(doc.to_developer())?;
 

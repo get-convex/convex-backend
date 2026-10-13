@@ -14,7 +14,6 @@ use database::{
     streaming_export_selection::StreamingExportSelection,
     DocumentDeltas,
     SnapshotPage,
-    StreamingExportFilter,
 };
 use errors::ErrorMetadata;
 use keybroker::Identity;
@@ -62,10 +61,7 @@ impl<RT: Runtime> Application<RT> {
             .document_deltas(
                 identity,
                 Some(cursor),
-                StreamingExportFilter {
-                    selection,
-                    ..Default::default()
-                },
+                selection,
                 *DOCUMENT_DELTAS_LIMIT,
                 *DOCUMENT_DELTAS_LIMIT,
             )
@@ -85,11 +81,7 @@ impl<RT: Runtime> Application<RT> {
             &self.database.latest_database_snapshot()?,
             identity.clone(),
             cursor,
-            StreamingExportFilter {
-                selection,
-                include_hidden: false,
-                include_system: false,
-            },
+            selection,
             sync_client,
         )
         .await?;
@@ -112,11 +104,7 @@ impl<RT: Runtime> Application<RT> {
             &self.database.latest_database_snapshot()?,
             identity,
             cursor,
-            StreamingExportFilter {
-                selection,
-                include_hidden: false,
-                include_system: false,
-            },
+            selection,
             sync_client,
         )
         .await
@@ -281,10 +269,7 @@ impl<RT: Runtime> Application<RT> {
                 identity,
                 snapshot,
                 cursor,
-                StreamingExportFilter {
-                    selection,
-                    ..Default::default()
-                },
+                selection,
                 *SNAPSHOT_LIST_LIMIT,
                 *SNAPSHOT_LIST_LIMIT,
             )
