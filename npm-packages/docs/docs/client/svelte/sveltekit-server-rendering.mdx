@@ -383,6 +383,12 @@ actions, endpoints) for authenticating SSR fetches and running one-off calls
 from the server. For one-off calls from the **client**, use
 [`getConvexClient()`](/client/svelte/reactivity.mdx#one-time-calls) instead.
 
+`withServerConvexToken` and `convexLoadHydration` keep per-request state in
+`AsyncLocalStorage` from `node:async_hooks`. Node, Deno and Bun provide it. On
+Cloudflare Workers it's built in from compatibility date 2026-08-04; for earlier
+dates, enable the `nodejs_compat` compatibility flag, or the Worker fails to
+start.
+
 ### withServerConvexToken (recommended)
 
 Import from `convex-svelte/sveltekit/server`. Wraps your SvelteKit `resolve()`
