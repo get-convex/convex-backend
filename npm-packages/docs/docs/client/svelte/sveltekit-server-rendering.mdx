@@ -282,16 +282,16 @@ reachable from `page.data` (every layout plus the current page) or rendered by a
 component. Once you navigate away, the query is released.
 
 A released query doesn't unsubscribe right away. It waits in a small idle
-buffer, so revisiting a page reuses the live subscription instead of subscribing
-again. In a universal `+page.ts`, that also makes the revisit instant: the load
+buffer (by default up to 10 queries, for up to 60 seconds each), so revisiting a
+page reuses the live subscription instead of subscribing again. In a universal `+page.ts`, that also makes the revisit instant: the load
 gets its data from the live subscription without a round trip. A revisited
 `convexLoadPaginated()` query also keeps the pages loaded with `loadMore()`.
 Server-only loads (`+page.server.ts`) still fetch through your server on each
 navigation.
 
 The query unsubscribes once newer idle queries push it out of the buffer
-(`maxIdleEntries`, oldest first) or it has been idle for `expiration`
-milliseconds. If a page uses it again later, it resubscribes automatically.
+(`maxIdleEntries`, default 10, oldest first) or it has been idle for
+`expiration` milliseconds (default 60,000). If a page uses it again later, it resubscribes automatically.
 
 Configure the buffer with the `queryCache` option of `initConvex()`. The option
 names match convex-helpers'
