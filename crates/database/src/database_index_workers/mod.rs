@@ -49,7 +49,7 @@ use common::{
 };
 use fastrace::future::FutureExt as _;
 use futures::FutureExt as _;
-use hashlink::LinkedHashSet;
+use hashlink::LinkedHashMap;
 use keybroker::Identity;
 use tokio::{
     select,
@@ -96,10 +96,9 @@ pub struct IndexWorker<RT: Runtime> {
     in_progress_index_ids: HashSet<IndexId, ahash::RandomState>,
     /// The index backfill tasks
     in_progress: JoinMap<Vec<IndexId>, anyhow::Result<u64>>,
-    /// Order-preserving HashSet that represents the order that pending index
-    /// backfills will be processed. This does not include indexes that are
-    /// `in_progress`.
-    pending: LinkedHashSet<(IndexId, TabletId, Option<BackfillCursor>), ahash::RandomState>,
+    /// Pending index backfills in the order they will be processed. Each index
+    /// is either pending once or in progress once.
+    pending: LinkedHashMap<IndexId, PendingBackfill, ahash::RandomState>,
     /// Receiver for progress updates from `IndexWriter`'s tablet backfills.
     progress_rx: mpsc::Receiver<TabletBackfillProgress>,
     /// Limit on the size of `in_progress`
@@ -111,6 +110,11 @@ pub struct IndexWorker<RT: Runtime> {
     usage_tracking: UsageCounter,
     backoff: Backoff,
     runtime: RT,
+}
+
+struct PendingBackfill {
+    tablet_id: TabletId,
+    cursor: Option<BackfillCursor>,
 }
 
 struct BackfillTarget {
@@ -215,13 +219,15 @@ impl<RT: Runtime> IndexWorker<RT> {
                     .and_then(|metadata| metadata.cursor.clone());
                 let index_id = index_metadata.id().internal_id().into();
                 let tablet_id = *index_metadata.name.table();
-                if !self.in_progress_index_ids.contains(&index_id)
-                    && !self
-                        .pending
-                        .contains(&(index_id, tablet_id, backfill_cursor.clone()))
-                {
-                    self.pending
-                        .insert((index_id, tablet_id, backfill_cursor.clone()));
+                if !self.in_progress_index_ids.contains(&index_id) {
+                    // Preserve queue order when updating an index's cursor.
+                    self.pending.replace(
+                        index_id,
+                        PendingBackfill {
+                            tablet_id,
+                            cursor: backfill_cursor,
+                        },
+                    );
                 }
                 num_to_backfill += 1;
             }
@@ -233,15 +239,17 @@ impl<RT: Runtime> IndexWorker<RT> {
         );
 
         // Cancel backfills for indexes that no longer exist
-        self.pending.retain(|(index_id, tablet_id, _)| {
-            let exists = existing_index_ids.contains(index_id);
-            if !exists {
-                tracing::info!(
-                    "Dropping pending backfill of dropped index {index_id} on tablet {tablet_id}"
-                );
-            }
-            exists
-        });
+        self.pending
+            .retain(|index_id, PendingBackfill { tablet_id, .. }| {
+                let exists = existing_index_ids.contains(index_id);
+                if !exists {
+                    tracing::info!(
+                        "Dropping pending backfill of dropped index {index_id} on tablet \
+                         {tablet_id}"
+                    );
+                }
+                exists
+            });
         self.in_progress.abort_matching(|index_ids| {
             let abort = !index_ids
                 .iter()
@@ -256,12 +264,13 @@ impl<RT: Runtime> IndexWorker<RT> {
 
         // Start new work if allowed by the concurrency limit
         while self.in_progress.len() < self.max_concurrency
-            && let Some((index_id, tablet_id, backfill_cursor)) = self.pending.pop_front()
+            && let Some((index_id, PendingBackfill { tablet_id, cursor })) =
+                self.pending.pop_front()
         {
             tracing::info!(
                 "Queuing index backfill for index ID {index_id} and tablet ID {tablet_id}"
             );
-            self.queue_index_backfill(index_id, tablet_id, backfill_cursor);
+            self.queue_index_backfill(index_id, tablet_id, cursor);
         }
         let subscription_fut = self.database.subscribe_and_wait_for_invalidation(token);
         select! {
@@ -386,16 +395,14 @@ impl<RT: Runtime> IndexWorker<RT> {
         let mut index_ids = vec![index_id];
         // Since we're mainly limited by the speed of reading the table, let's
         // grab all the other pending indexes for this table at once
-        self.pending.retain(
-            |&(other_index_id, other_tablet_id, ref other_backfill_cursor)| {
-                if other_tablet_id == tablet_id && other_backfill_cursor == &backfill_cursor {
-                    index_ids.push(other_index_id);
-                    false
-                } else {
-                    true
-                }
-            },
-        );
+        self.pending.retain(|&other_index_id, other| {
+            if other.tablet_id == tablet_id && other.cursor == backfill_cursor {
+                index_ids.push(other_index_id);
+                false
+            } else {
+                true
+            }
+        });
 
         for &index_id in &index_ids {
             self.in_progress_index_ids.insert(index_id);
