@@ -325,7 +325,10 @@ use model::{
     usage_limits::UsageLimitsModel,
 };
 use node_executor::NodeActions;
-use parking_lot::Mutex;
+use parking_lot::{
+    Mutex,
+    RwLock,
+};
 use rand::Rng;
 use roles::RequireDeploymentOp;
 use scheduled_jobs::ScheduledJobRunner;
@@ -431,7 +434,9 @@ pub mod airbyte_import;
 pub mod api;
 pub mod app_metric_seed;
 pub mod application_function_runner;
+mod audit_log_config;
 pub mod audit_logging;
+mod backend_info;
 mod cache;
 pub mod cron_jobs;
 pub mod deploy_config;
@@ -625,6 +630,10 @@ pub struct Application<RT: Runtime> {
     app_auth: Arc<ApplicationAuth<RT>>,
     log_manager_client: LogManagerClient,
     audit_log_client: AuditLogClient,
+    sentry_tags: Arc<RwLock<Vec<(&'static str, String)>>>,
+    // Serializes `_backend_info` writes together with the log-streaming permission
+    // and Sentry tag updates that follow them.
+    backend_info_write_lock: Arc<tokio::sync::Mutex<()>>,
     oidc_http_client: CachedHttpClient,
 }
 
@@ -1001,6 +1010,8 @@ impl<RT: Runtime> Application<RT> {
             app_auth,
             log_manager_client,
             audit_log_client,
+            sentry_tags: Default::default(),
+            backend_info_write_lock: Default::default(),
             oidc_http_client,
         })
     }
