@@ -291,7 +291,7 @@ const count = await client.query(api.tasks.count, {});
 ```
 
 In SvelteKit, the
-[`createConvexHttpClient()`](/client/svelte/sveltekit-server-rendering.mdx#server-helpers)
+[`createConvexHttpClient()`](/client/svelte/sveltekit-server-rendering.mdx#one-off-calls-from-the-server)
 helper builds one with per-request auth wired in. The HTTP client supports
 one-shot calls only — no subscriptions and no optimistic updates.
 
