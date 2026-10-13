@@ -7,6 +7,7 @@ use anyhow::Context as _;
 use common::{
     backoff::Backoff,
     errors::{
+        is_db_deadlock_error,
         is_transient_db_error,
         recapture_stacktrace_noreport,
         report_error,
@@ -225,11 +226,13 @@ async fn write_batch<RT: Runtime>(runtime: RT, persistence: Arc<dyn Persistence>
                 break Ok(());
             },
             Err(mut e) => {
-                if !is_transient_db_error(&e) {
+                // MySQL rolls back the deadlock victim's entire transaction, so
+                // retrying the batch with the same timestamps is safe.
+                if !is_transient_db_error(&e) && !is_db_deadlock_error(&e) {
                     break Err(e);
                 }
                 let delay = backoff.fail(&mut runtime.rng());
-                tracing::error!("Failed to write to persistence because database timed out");
+                tracing::error!("Failed to write to persistence, retrying");
                 report_error(&mut e).await;
                 runtime.wait(delay).await;
             },
