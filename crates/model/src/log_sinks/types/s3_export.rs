@@ -43,7 +43,7 @@ pub struct S3ExportConfig {
 
 impl S3ExportConfig {
     /// Cursor progress belongs to the destination that received the exported
-    /// documents. Keep in sync with `requiresResync` in
+    /// documents. Keep in sync with the fields `destinationFixed` disables in
     /// `S3ExportConfigurationForm.tsx`.
     pub fn requires_resync(&self, new: &S3ExportConfig) -> bool {
         // Exhaustive destructuring makes new fields require a resync decision.

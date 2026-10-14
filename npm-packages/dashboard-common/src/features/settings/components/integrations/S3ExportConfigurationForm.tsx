@@ -79,23 +79,6 @@ const STEP_FIELDS = [
   ["period"],
 ] as const;
 
-type S3Destination = {
-  bucket: string;
-  region: string;
-  prefix?: string | null;
-  accessKeyId: string;
-};
-
-// Match `S3ExportConfig::requires_resync` so the save message reflects backend behavior.
-function requiresResync(old: S3Destination, next: S3Destination) {
-  return (
-    old.bucket !== next.bucket ||
-    old.region !== next.region ||
-    (old.prefix || null) !== (next.prefix || null) ||
-    old.accessKeyId !== next.accessKeyId
-  );
-}
-
 export function S3ExportConfigurationForm({
   onClose,
   integration,
@@ -126,7 +109,6 @@ export function S3ExportConfigurationForm({
   const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
   const deploymentName = useDeploymentName();
 
-  const storedAccessKeyId = existingConfig?.accessKeyId;
   const validationSchema = useMemo(
     () =>
       Yup.object().shape({
@@ -141,16 +123,10 @@ export function S3ExportConfigurationForm({
         accessKeyId: Yup.string().required("Access key ID is required"),
         secretAccessKey: isNewIntegration
           ? Yup.string().required("Secret access key is required")
-          : // Blank keeps the stored secret, but a different access key ID
-            // needs the secret that goes with it.
-            Yup.string().test(
-              "secret-required-for-new-key",
-              "Enter the secret access key for this access key ID",
-              (value, ctx) =>
-                !!value || ctx.parent.accessKeyId === storedAccessKeyId,
-            ),
+          : // Blank keeps the stored secret.
+            Yup.string(),
       }),
-    [isNewIntegration, storedAccessKeyId],
+    [isNewIntegration],
   );
 
   const formState = useFormik<{
@@ -266,21 +242,14 @@ export function S3ExportConfigurationForm({
       Continue
     </Button>
   );
-  // The policy the user's IAM user has now, as far as the form knows: the one
-  // they last copied, or the one for the saved destination.
+  // An existing export's destination is fixed, so only a new export's policy
+  // can change after the user copies it.
   const [copiedPolicy, setCopiedPolicy] = useState<string>();
-  const appliedPolicy =
-    copiedPolicy ??
-    (existingConfig &&
-      iamPolicy({
-        bucket: existingConfig.bucket,
-        region: existingConfig.region,
-        prefix: existingConfig.prefix ?? "",
-        deploymentName,
-      }));
-  const destinationChanged = !!appliedPolicy && appliedPolicy !== policy;
-  const restartsOnSave =
-    !!existingConfig && requiresResync(existingConfig, formState.values);
+  const destinationChanged = !!copiedPolicy && copiedPolicy !== policy;
+  // Match the destination fields enforced by `ensure_same_s3_destination`.
+  const destinationFixed = !isNewIntegration;
+  const destinationFixedDescription =
+    "Fixed for this export. Delete it and create a new one to change this.";
 
   return (
     <form
@@ -298,7 +267,12 @@ export function S3ExportConfigurationForm({
               id="bucket"
               error={fieldError("bucket")}
               onBlur={formState.handleBlur}
-              description="An existing S3 bucket. Convex doesn't create it."
+              disabled={destinationFixed}
+              description={
+                destinationFixed
+                  ? destinationFixedDescription
+                  : "An existing S3 bucket. Convex doesn't create it."
+              }
             />
             <div className="flex flex-col gap-1">
               <Combobox
@@ -311,6 +285,7 @@ export function S3ExportConfigurationForm({
                   await formState.setFieldTouched("region", true, false);
                 }}
                 placeholder="Select the bucket's region"
+                disabled={destinationFixed}
                 allowCustomValue
                 unknownLabel={(value) => value}
                 buttonClasses="w-full bg-inherit"
@@ -329,6 +304,7 @@ export function S3ExportConfigurationForm({
               id="prefix"
               error={fieldError("prefix")}
               onBlur={formState.handleBlur}
+              disabled={destinationFixed}
             />
             {!destinationError && (
               <p className="text-xs text-content-secondary">
@@ -380,10 +356,9 @@ export function S3ExportConfigurationForm({
               id="accessKeyId"
               error={fieldError("accessKeyId")}
               onBlur={formState.handleBlur}
+              disabled={destinationFixed}
               description={
-                isNewIntegration
-                  ? undefined
-                  : "To use a new key, create one under the IAM user's Security credentials and enter both values."
+                destinationFixed ? destinationFixedDescription : undefined
               }
             />
             <TextInput
@@ -467,7 +442,6 @@ export function S3ExportConfigurationForm({
               </Disclosure>
             </div>
             {!isNewIntegration &&
-              !restartsOnSave &&
               !isEqual(formState.values.selection, initialSelection) && (
                 <p className="text-xs text-content-secondary" role="status">
                   Saving keeps the progress of tables you already export. Tables

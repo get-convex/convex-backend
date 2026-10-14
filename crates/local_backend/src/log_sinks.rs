@@ -472,6 +472,39 @@ fn validate_s3_selection(selection: &Selection) -> anyhow::Result<()> {
     Ok(())
 }
 
+// Resuming a cursor in a different destination would skip all previously
+// exported pages. `/` and `None` address the same S3 directory, so an update
+// that only respells the prefix keeps the stored one.
+fn ensure_same_s3_destination(
+    existing: &S3ExportConfig,
+    updated: S3ExportConfig,
+) -> anyhow::Result<S3ExportConfig> {
+    let trimmed = |prefix: &Option<String>| {
+        prefix
+            .as_deref()
+            .unwrap_or_default()
+            .trim_matches('/')
+            .to_owned()
+    };
+    let updated = if trimmed(&existing.prefix) == trimmed(&updated.prefix) {
+        S3ExportConfig {
+            prefix: existing.prefix.clone(),
+            ..updated
+        }
+    } else {
+        updated
+    };
+    anyhow::ensure!(
+        !existing.requires_resync(&updated),
+        ErrorMetadata::bad_request(
+            "S3ExportDestinationChanged",
+            "An S3 export's bucket, region, prefix, and access key ID can't change. Delete the \
+             export and create a new one instead.",
+        )
+    );
+    Ok(updated)
+}
+
 fn validate_s3_bucket(bucket: &str) -> anyhow::Result<()> {
     // https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
     let is_lower_alnum = |c: char| c.is_ascii_lowercase() || c.is_ascii_digit();
@@ -1564,26 +1597,26 @@ pub async fn update_log_stream(
             if let Some(selection) = &update_args.selection {
                 validate_s3_selection(selection)?;
             }
-            let bucket = update_args.bucket.unwrap_or(existing_config.bucket);
-            validate_s3_bucket(&bucket)?;
-
             let config = S3ExportConfig {
-                bucket,
-                region: update_args.region.unwrap_or(existing_config.region),
-                prefix: update_args.prefix.unwrap_or(existing_config.prefix),
+                bucket: update_args.bucket.unwrap_or(existing_config.bucket.clone()),
+                region: update_args.region.unwrap_or(existing_config.region.clone()),
+                prefix: update_args.prefix.unwrap_or(existing_config.prefix.clone()),
                 access_key_id: update_args
                     .access_key_id
                     .map(|k| k.into())
-                    .unwrap_or(existing_config.access_key_id),
+                    .unwrap_or(existing_config.access_key_id.clone()),
                 secret_access_key: update_args
                     .secret_access_key
                     .map(|k| k.into())
-                    .unwrap_or(existing_config.secret_access_key),
-                selection: update_args.selection.unwrap_or(existing_config.selection),
+                    .unwrap_or(existing_config.secret_access_key.clone()),
+                selection: update_args
+                    .selection
+                    .unwrap_or(existing_config.selection.clone()),
                 period: update_args.period.unwrap_or(existing_config.period),
                 cursor: None,
                 progress: None,
             };
+            let config = ensure_same_s3_destination(&existing_config, config)?;
 
             st.application
                 .patch_log_sink_config(
