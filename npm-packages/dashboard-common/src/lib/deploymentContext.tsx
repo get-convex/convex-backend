@@ -345,6 +345,8 @@ export type DeploymentInfo = (
   /** Whether the Fivetran integration card reports the progress of active
    *  data syncs. */
   showFivetranSyncProgress: boolean;
+  /** Shows the component switcher as a tree of nested components. */
+  componentSwitcherTreeEnabled: boolean;
   /** Opens the feedback sheet. Absent where there is nowhere to send it,
    *  such as the self-hosted dashboard. */
   openFeedbackForm?: (context: FeedbackContext) => void;

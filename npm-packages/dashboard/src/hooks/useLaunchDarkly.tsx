@@ -13,6 +13,7 @@ export const flagDefaults: {
   showFivetranSyncProgress: boolean;
   supportTicketForAllPlans: boolean;
   healthDeployProgress: boolean;
+  componentSwitcherTreeEnabled: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
@@ -25,6 +26,7 @@ export const flagDefaults: {
   showFivetranSyncProgress: false,
   supportTicketForAllPlans: false,
   healthDeployProgress: false,
+  componentSwitcherTreeEnabled: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

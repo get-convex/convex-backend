@@ -158,6 +158,7 @@ export function DeploymentInfoProvider({
     s3ExportIntegration,
     showFivetranSyncProgress,
     healthDeployProgress,
+    componentSwitcherTreeEnabled,
   } = useLaunchDarkly();
   const [, openFeedbackForm] = useFeedbackFormOpen();
   const posthog = usePostHogLib();
@@ -342,6 +343,7 @@ export function DeploymentInfoProvider({
         s3ExportIntegrationEnabled: s3ExportIntegration,
         connectionStateCheckIntervalMs,
         showFivetranSyncProgress,
+        componentSwitcherTreeEnabled,
       });
     };
     if (accessTokenRef.current && (deploymentOverride || deploymentName)) {
@@ -363,6 +365,7 @@ export function DeploymentInfoProvider({
     authRefreshKey,
     healthDeployProgress,
     s3ExportIntegration,
+    componentSwitcherTreeEnabled,
   ]);
 
   return deploymentInfo ? (
