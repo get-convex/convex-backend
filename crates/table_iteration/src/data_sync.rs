@@ -62,7 +62,8 @@
 //!    index *at `synced_ts`* (requires `synced_ts` within index retention),
 //!    emit each row, and advance `current_id`. On end-of-table, move
 //!    `current_table` into `synced_tables` and pick the next target table (or
-//!    finish → `Synced`).
+//!    finish → `Synced`). If the read falls out of index retention, the page
+//!    runs along the `ts` dimension instead.
 //! 2. **`ts` dimension** — walk the document log forward from `synced_ts`, emit
 //!    captured documents at their new revision, and advance `synced_ts` to the
 //!    last fully-consumed timestamp. Documents not yet captured are skipped
@@ -134,7 +135,10 @@ use common::{
         Timestamp,
     },
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use futures::{
     pin_mut,
     TryStreamExt,
@@ -468,6 +472,9 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             TableCursor::InProgress { .. } => {
                 // `synced_ts <= latest` is enforced above, so this subtraction is safe.
                 let lag = *latest - cursor.synced_ts;
+                // N.B.: this heuristic doesn't guarantee that we're within
+                // index retention, since `latest` doesn't advance on idle
+                // deployments.
                 let fresh = lag < self.by_id_freshness;
                 if !fresh {
                     cover!(coverage::TS_SELECTED_LAG);
@@ -477,7 +484,24 @@ impl<RT: Runtime> DataSyncIterator<RT> {
         };
 
         let (entries, status) = if use_by_id {
-            self.by_id_page(&mut cursor, latest, target_tables).await?
+            let saved_cursor = cursor.clone();
+            match self.by_id_page(&mut cursor, latest, target_tables).await {
+                Ok(result) => result,
+                // As noted above, we can be out of index retention even if
+                // "fresh", so fall back if necessary
+                Err(e) if e.is_out_of_retention() => {
+                    cursor = saved_cursor;
+                    cover!(coverage::BY_ID_OUT_OF_RETENTION);
+                    tracing::warn!(
+                        "data sync by_id page at {} fell out of index retention, falling back to \
+                         the ts dimension: {e:#}",
+                        cursor.synced_ts
+                    );
+                    self.ts_page(&mut cursor, latest, target_tables, include_prev_revs)
+                        .await?
+                },
+                Err(e) => return Err(e),
+            }
         } else {
             self.ts_page(&mut cursor, latest, target_tables, include_prev_revs)
                 .await?
