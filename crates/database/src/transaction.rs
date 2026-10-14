@@ -1551,6 +1551,7 @@ impl FinalTransaction {
     fn new<RT: Runtime>(transaction: Transaction<RT>) -> anyhow::Result<Self> {
         // All subtransactions must have committed or rolled back.
         transaction.require_not_nested()?;
+        transaction.file_uploads.require_no_pending()?;
 
         let begin_timestamp = transaction.begin_timestamp();
         Ok(Self {
