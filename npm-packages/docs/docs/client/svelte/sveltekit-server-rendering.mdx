@@ -36,7 +36,9 @@ SvelteKit 3.
 `initConvex()` creates the `ConvexClient` singleton early, so the transport hook
 can turn server results into live subscriptions. `setupConvex()` in your root
 layout reuses this client. `convexLoad()` needs the `ConvexLoadResult`
-transport, and `convexLoadPaginated()` needs `ConvexLoadPaginatedResult`.
+transport, and `convexLoadPaginated()` needs `ConvexLoadPaginatedResult`. On
+SvelteKit 3, declare `PUBLIC_CONVEX_URL` in `src/env.ts` first, as in
+[Overview](/client/svelte/overview.mdx#setup).
 
 ```ts title="src/hooks.ts"
 import {
@@ -46,7 +48,7 @@ import {
   encodeConvexLoadPaginated,
   decodeConvexLoadPaginated,
 } from "convex-svelte/sveltekit";
-import { PUBLIC_CONVEX_URL } from "$env/static/public";
+import { PUBLIC_CONVEX_URL } from "$app/env/public"; // SvelteKit 2: "$env/static/public"
 
 initConvex(PUBLIC_CONVEX_URL);
 
@@ -66,8 +68,9 @@ export const transport = {
 Client options only take effect where the client is created, like the
 `ConvexReactClient` constructor in React. Pass them to
 `initConvex(PUBLIC_CONVEX_URL, options)`: `setupConvex()` reuses that client and
-ignores options passed to it, with a warning in development. On the server, the
-client never opens a WebSocket.
+ignores options passed to it. In development, it warns about options that differ
+from the ones the client was created with. On the server, the client never opens
+a WebSocket.
 
 ### Server hooks
 
@@ -134,7 +137,7 @@ don't need it.
 
 ```ts title="src/routes/+page.ts"
 import { convexLoad } from "convex-svelte/sveltekit";
-import { api } from "$convex/_generated/api";
+import { api } from "../convex/_generated/api.js";
 
 export const load = async ({ fetch }) => ({
   tasks: await convexLoad(api.tasks.get, {}, { fetch }),
@@ -168,12 +171,11 @@ date.
 ### convexLoadPaginated
 
 `convexLoadPaginated()` does the same for paginated queries. It loads the first
-page on the server, and `loadMore()` loads further pages once the live
-subscription runs in the browser.
+page on the server, and `loadMore()` loads further pages in the browser.
 
 ```ts title="src/routes/+page.ts"
 import { convexLoadPaginated } from "convex-svelte/sveltekit";
-import { api } from "$convex/_generated/api";
+import { api } from "../convex/_generated/api.js";
 
 export const load = async ({ fetch }) => ({
   messages: await convexLoadPaginated(
@@ -208,8 +210,8 @@ export const load = async ({ fetch }) => ({
 
 The result has the same reactive shape as `usePaginatedQuery()`: `.results`,
 `.status`, `.isLoading`, `.error` and `.loadMore()`. The first page comes from
-the server, so there's no loading state. `loadMore()` works once the live
-subscription has started after hydration.
+the server, so there's no loading state. `loadMore()` calls made before the live
+subscription has started are queued and run once it has.
 
 ### Skip a query
 
@@ -217,15 +219,19 @@ Pass `'skip'` as args to not run the query, for example when the user isn't
 signed in:
 
 ```ts title="src/routes/+page.server.ts"
+import { convexLoad } from "convex-svelte/sveltekit";
+import { api } from "../convex/_generated/api.js";
+
 export const load = async ({ locals }) => ({
   user: await convexLoad(api.users.get, locals.token ? {} : "skip"),
 });
 ```
 
-When skipped, `convexLoad` returns
-`{ data: undefined, isLoading: false, error: undefined, isStale: false }`
-without making any request. `convexLoadPaginated` returns
-`{ results: [], status: 'Exhausted', isLoading: false, error: undefined, loadMore: () => false }`.
+A skipped `convexLoad()` makes no request and returns
+`{ data: undefined, isLoading: false, error: undefined, isStale: false }`. A
+skipped `convexLoadPaginated()` returns
+`{ results: [], status: 'Exhausted', isLoading: false, error: undefined }`, and
+its `loadMore()` returns `false`. Both have a `dispose()` that does nothing.
 
 ### Pass a token explicitly
 
@@ -235,6 +241,9 @@ over `withServerConvexToken()` and queries Convex directly, without the
 hydration endpoint:
 
 ```ts title="src/routes/+page.server.ts"
+import { convexLoad } from "convex-svelte/sveltekit";
+import { api } from "../convex/_generated/api.js";
+
 export const load = async ({ locals }) => ({
   tasks: await convexLoad(api.tasks.get, {}, { token: locals.token }),
 });
@@ -336,6 +345,7 @@ names match convex-helpers'
 [`ConvexQueryCacheProvider`](https://github.com/get-convex/convex-helpers/tree/main/packages/convex-helpers#query-caching):
 
 ```ts title="src/hooks.ts"
+// The rest of src/hooks.ts as in Setup
 initConvex(PUBLIC_CONVEX_URL, {
   // The defaults. Pass `queryCache: false` to unsubscribe as soon as a route
   // stops using a query.
@@ -347,6 +357,9 @@ To skip the buffer for a single query, for example one that's expensive to keep
 running, pass `keepAlive: false` to `convexLoad()` or `convexLoadPaginated()`:
 
 ```ts title="src/routes/+page.ts"
+import { convexLoad } from "convex-svelte/sveltekit";
+import { api } from "../convex/_generated/api.js";
+
 export const load = async ({ fetch }) => ({
   feed: await convexLoad(api.feed.live, {}, { fetch, keepAlive: false }),
 });
@@ -377,7 +390,7 @@ query, mutation or action once, use `createConvexHttpClient()`. With
 
 ```ts title="src/routes/+page.server.ts"
 import { createConvexHttpClient } from "convex-svelte/sveltekit";
-import { api } from "$convex/_generated/api";
+import { api } from "../convex/_generated/api.js";
 
 export const load = async () => {
   const client = createConvexHttpClient();
@@ -389,6 +402,9 @@ export const load = async () => {
 An explicit token takes precedence:
 
 ```ts title="src/routes/+page.server.ts"
+import { createConvexHttpClient } from "convex-svelte/sveltekit";
+import { api } from "../convex/_generated/api.js";
+
 export const load = async ({ locals }) => {
   const client = createConvexHttpClient({ token: locals.token });
   const tasks = await client.query(api.tasks.get, {});
@@ -402,14 +418,13 @@ in the browser, use
 
 ## SSR with initialData (manual alternative)
 
-If you prefer server-only load functions (`+page.server.ts`) or need more
-control, you can use the `initialData` option on `useQuery()` and
-`usePaginatedQuery()` directly.
+Without the transport hook, you can load data in a server load yourself and pass
+it to `useQuery()` or `usePaginatedQuery()` as `initialData`.
 
 ```ts title="src/routes/+page.server.ts"
 import { ConvexHttpClient } from "convex/browser";
 import type { PageServerLoad } from "./$types.js";
-import { PUBLIC_CONVEX_URL } from "$env/static/public";
+import { PUBLIC_CONVEX_URL } from "$app/env/public"; // SvelteKit 2: "$env/static/public"
 import { api } from "../convex/_generated/api.js";
 
 export const load = (async () => {
@@ -457,7 +472,7 @@ see
 
 ## API reference
 
-Functions and types exported from `convex-svelte/sveltekit`:
+The main functions and types exported from `convex-svelte/sveltekit`:
 
 | Export                                      | Kind     | Description                                                                                          |
 | ------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------- |

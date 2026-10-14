@@ -19,19 +19,19 @@ Convex in general, including hosted providers and OpenID Connect, see
 ## setupAuth / useAuth
 
 `setupAuth()` takes a **reactive getter** that returns the auth provider's
-state. When that state changes (sign-in, sign-out, token refresh), it calls
-`client.setAuth()` or `client.clearAuth()`. It's the Svelte counterpart of
-React's `ConvexProviderWithAuth`.
+state, and keeps the Convex client's token in sync with it: it sets the token on
+sign-in and token refresh, and clears it on sign-out. It's the Svelte
+counterpart of React's `ConvexProviderWithAuth`.
 
 ```svelte title="src/routes/+layout.svelte"
 <script lang="ts">
   import { setupConvex, setupAuth } from "convex-svelte";
-  import { PUBLIC_CONVEX_URL } from "$env/static/public";
+  import { PUBLIC_CONVEX_URL } from "$app/env/public"; // SvelteKit 2: "$env/static/public"
 
   setupConvex(PUBLIC_CONVEX_URL);
 
-  // The getter is reactive: when its values change, setupAuth calls
-  // setAuth or clearAuth.
+  // The getter is reactive: when its values change, setupAuth updates
+  // the client's token.
   setupAuth(() => ({
     isLoading: false,
     isAuthenticated: !!session,
@@ -66,18 +66,20 @@ React's `ConvexProviderWithAuth`.
 {/if}
 ```
 
-When the auth provider's `isAuthenticated` changes from `true` to `false` (user
-signs out), the internal `$effect` re-runs, calls `clearAuth()` automatically,
-and `useAuth().isAuthenticated` updates to `false`. No manual cleanup needed.
+When the provider's `isAuthenticated` changes from `true` to `false` because the
+user signs out, `setupAuth()` clears the client's token and
+`useAuth().isAuthenticated` becomes `false`. You don't clean anything up
+yourself.
 
 ## SSR initial state
 
-Pass `initialState` to seed the server render before any client-side `$effect`
-runs:
+Pass `initialState` so the server render, and the first render in the browser,
+already know whether the user is signed in:
 
 ```svelte title="src/routes/+layout.svelte"
 <script lang="ts">
   import { setupConvex, setupAuth } from "convex-svelte";
+  import { PUBLIC_CONVEX_URL } from "$app/env/public"; // SvelteKit 2: "$env/static/public"
 
   let { data } = $props(); // from +layout.server.ts
 
@@ -205,10 +207,10 @@ You can also use `client.setAuth()` directly for custom integrations:
 
 Authentication exports from `convex-svelte`:
 
-| Export                          | Kind     | Description                                                                  |
-| ------------------------------- | -------- | ---------------------------------------------------------------------------- |
-| `setupAuth(provider, options?)` | Function | Set up reactive authentication. Manages `setAuth`/`clearAuth` automatically. |
-| `useAuth()`                     | Function | Read auth state (`isLoading`, `isAuthenticated`) from context.               |
-| `ConvexAuthProvider`            | Type     | Auth provider state: `isLoading`, `isAuthenticated`, `fetchAccessToken`.     |
-| `SetupAuthOptions`              | Type     | Options for `setupAuth`: `initialState` for SSR hydration.                   |
-| `UseAuthReturn`                 | Type     | Return type of `useAuth`: `isLoading`, `isAuthenticated`.                    |
+| Export                          | Kind     | Description                                                                         |
+| ------------------------------- | -------- | ----------------------------------------------------------------------------------- |
+| `setupAuth(provider, options?)` | Function | Set up reactive authentication. Keeps the client's token in sync with the provider. |
+| `useAuth()`                     | Function | Read auth state (`isLoading`, `isAuthenticated`) from context.                      |
+| `ConvexAuthProvider`            | Type     | Auth provider state: `isLoading`, `isAuthenticated`, `fetchAccessToken`.            |
+| `SetupAuthOptions`              | Type     | Options for `setupAuth`: `initialState` for SSR hydration.                          |
+| `UseAuthReturn`                 | Type     | Return type of `useAuth`: `isLoading`, `isAuthenticated`.                           |
