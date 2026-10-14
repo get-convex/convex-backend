@@ -1,7 +1,7 @@
 use std::{
     collections::{
-        hash_map::Entry,
-        HashMap as StdHashMap,
+        btree_map::Entry,
+        BTreeMap,
         HashSet,
     },
     sync::{
@@ -99,14 +99,14 @@ impl CacheKey {
 
 struct IndexIntervalsInner {
     map: IntervalMap,
-    id_to_params: StdHashMap<SubscriberId, (Arc<Interval>, Order, usize)>,
+    id_to_params: BTreeMap<SubscriberId, (Arc<Interval>, Order, usize)>,
     /// Maps each registered (interval, order, max_size) to its (SubscriberId,
     /// refcount). Each call to `insert` increments the refcount; each call to
     /// `remove` decrements it. The entry is only removed from the IntervalMap
     /// when the refcount reaches zero
     /// Refcounting is necessary to prevent the lazy eviction listener
     /// from unregistering an interval that a concurrent populate re-registered.
-    params_to_id: StdHashMap<(Arc<Interval>, Order, usize), (SubscriberId, usize)>,
+    params_to_id: BTreeMap<(Arc<Interval>, Order, usize), (SubscriberId, usize)>,
     next_id: SubscriberId,
 }
 
@@ -122,8 +122,8 @@ impl IndexIntervals {
         Self {
             inner: Arc::new(Mutex::new(IndexIntervalsInner {
                 map: IntervalMap::new(),
-                id_to_params: StdHashMap::new(),
-                params_to_id: StdHashMap::new(),
+                id_to_params: BTreeMap::new(),
+                params_to_id: BTreeMap::new(),
                 next_id: 0,
             })),
         }
