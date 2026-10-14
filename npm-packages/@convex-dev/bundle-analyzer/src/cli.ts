@@ -1,5 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
-import { AnalyzerError } from "./output.js";
+import { AnalyzerError } from "./lib/output.js";
 import { analyzerVersion } from "./version.js";
 
 const program = new Command("bundle-analyzer")
