@@ -101,8 +101,8 @@ it's minimal — fetch in your load function, use the result directly in the
 template. No manual `initialData` wiring needed:
 
 ```ts title="src/routes/+page.ts"
-export const load = async () => ({
-  tasks: await convexLoad(api.tasks.get, {}),
+export const load = async ({ fetch }) => ({
+  tasks: await convexLoad(api.tasks.get, {}, { fetch }),
 });
 ```
 

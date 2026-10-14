@@ -107,11 +107,11 @@ signed-out user nothing waits.
 Convex's `expectAuth` client option holds every request until the first token is
 sent. Prefer `initialState` in SvelteKit apps: `expectAuth` only acts before the
 first sign-in, leaves signed-out users with a client that never sends anything,
-and makes a `convexLoad()` in a universal load wait for auth that only the root
-layout sets up.
+and makes a universal load that calls `convexLoad()` without `{ fetch }` wait
+during hydration for auth that only the root layout sets up.
 
 To keep a whole members-only area from querying without auth, render it only
-once Convex has accepted the token:
+while `useAuth()` reports a signed-in user:
 
 ```svelte title="src/routes/(app)/+layout.svelte"
 <script lang="ts">
@@ -130,11 +130,14 @@ once Convex has accepted the token:
 {/if}
 ```
 
-Components inside the block don't exist before that, so none of their queries
-run, and they unmount when the user signs out. Redirect signed-out users in
-`handle` (`hooks.server.ts`) as well, so they never reach the area. These steps
-shape what users see; Convex functions that return private data must still check
-the user themselves.
+Components inside the block don't exist while `auth.isAuthenticated` is `false`,
+so none of their queries run, and they unmount when the user signs out. With
+`initialState: { isAuthenticated: true }`, the flag is `true` from the first
+render, before Convex has confirmed the token. Queries in the area still wait
+for the token, because `setupAuth()` hands it to the client before any query
+subscribes. Redirect signed-out users in `handle` (`hooks.server.ts`) as well,
+so they never reach the area. These steps shape what users see; Convex functions
+that return private data must still check the user themselves.
 
 ## Auth adapters
 

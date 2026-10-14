@@ -93,6 +93,12 @@ const convexAuth: Handle = async ({ event, resolve }) => {
 export const handle = sequence(convexAuth, convexLoadHydration);
 ```
 
+Only pass the requesting user's own token to `withServerConvexToken()`, for
+example from their session cookie. Anyone who can send a request to your app can
+run any public query through the `convexLoadHydration` endpoint with that token,
+so a shared or service token would let every visitor run queries as that
+identity.
+
 Without auth, `convexLoadHydration` is all you need:
 `export const handle = convexLoadHydration;`
 
@@ -289,9 +295,9 @@ warning points out either case.
 
 A few details:
 
-- The endpoint only runs public queries, for same-origin requests, with the
-  requesting user's token: it gives no more access than the browser's own
-  client.
+- The endpoint runs public queries only, with the token from
+  `withServerConvexToken()`. As long as that's the requesting user's own token,
+  it gives no more access than the user's browser already has.
 - If `convexLoadHydration` runs before your auth handle, its queries run without
   the user's token. In development, a console warning points out the order.
 - SvelteKit only records fetches of universal loads. Server loads return their
@@ -392,7 +398,7 @@ export const load = async ({ locals }) => {
 
 The `url` option falls back to the URL set by `initConvex()`. For one-off calls
 in the browser, use
-[`getConvexClient()`](/client/svelte/reactivity.mdx#one-time-calls) instead.
+[`getConvexClient()`](/client/svelte/reactivity.mdx#client-access) instead.
 
 ## SSR with initialData (manual alternative)
 
