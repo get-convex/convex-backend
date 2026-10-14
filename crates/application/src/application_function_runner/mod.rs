@@ -404,8 +404,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
 
     // Drain the v8 action concurrency permits to deterministically
     // exercise the concurrency limit in tests.
-    // Execute using the function runner. Can be used for v8 udfs other than http
-    // actions.
     #[fastrace::trace]
     async fn function_runner_execute(
         &self,
@@ -417,6 +415,11 @@ impl<RT: Runtime> FunctionRouter<RT> {
         http_action_metadata: Option<HttpActionMetadata>,
         wait_for_permit: bool,
     ) -> anyhow::Result<(Option<Transaction<RT>>, FunctionOutcome)> {
+        // Read in this transaction so preference changes invalidate cached queries.
+        let udf_runtime = BackendInfoModel::new(&mut tx)
+            .get()
+            .await?
+            .and_then(|info| info.default_udf_runtime);
         let in_memory_index_last_modified = self
             .database
             .snapshot(tx.begin_timestamp())?
@@ -440,6 +443,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
             .function_runner
             .run_function(
                 udf_type,
+                udf_runtime,
                 tx.identity().clone(),
                 tx.begin_timestamp(),
                 FunctionWrites {

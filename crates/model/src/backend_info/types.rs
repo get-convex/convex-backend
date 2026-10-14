@@ -4,6 +4,7 @@ use common::types::{
     DeploymentType,
     ProjectId,
     TeamId,
+    UdfRuntime,
     DEFAULT_PROVISION_CONCURRENCY,
 };
 use serde::{
@@ -22,6 +23,7 @@ pub struct BackendInfoPersisted {
     pub deployment_ref: Option<String>,
     pub project_name: Option<String>,
     pub project_slug: Option<String>,
+    pub default_udf_runtime: Option<UdfRuntime>,
 
     // Entitlements
     pub streaming_export_enabled: bool,
@@ -43,6 +45,7 @@ impl From<BackendInfoPersisted> for BackendInfo {
             deployment_ref: bi.deployment_ref,
             project_name: bi.project_name,
             project_slug: bi.project_slug,
+            default_udf_runtime: bi.default_udf_runtime,
             streaming_export_enabled: Some(bi.streaming_export_enabled),
             provision_concurrency: Some(bi.provision_concurrency),
             log_streaming_enabled: Some(bi.log_streaming_enabled),
@@ -63,6 +66,7 @@ impl From<BackendInfo> for BackendInfoPersisted {
             deployment: bi.deployment_id,
             project_name: bi.project_name,
             project_slug: bi.project_slug,
+            default_udf_runtime: bi.default_udf_runtime,
             deployment_ref: bi.deployment_ref,
             streaming_export_enabled: bi.streaming_export_enabled.unwrap_or_default(),
             deployment_type: bi.deployment_type,
@@ -104,6 +108,8 @@ pub struct SerializedBackendInfo {
     custom_audit_logs_in_log_streams_config_enabled: Option<bool>,
     #[serde(default)]
     ai_gateway_disabled: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    default_udf_runtime: Option<String>,
 }
 
 impl From<BackendInfoPersisted> for SerializedBackendInfo {
@@ -129,6 +135,7 @@ impl From<BackendInfoPersisted> for SerializedBackendInfo {
             custom_audit_logs_in_log_streams_config_enabled: b
                 .custom_audit_logs_in_log_streams_config_enabled,
             ai_gateway_disabled: b.ai_gateway_disabled,
+            default_udf_runtime: b.default_udf_runtime.map(|runtime| runtime.to_string()),
         }
     }
 }
@@ -170,6 +177,7 @@ impl TryFrom<SerializedBackendInfo> for BackendInfoPersisted {
             send_logs_to_client,
             custom_audit_logs_in_log_streams_config_enabled,
             ai_gateway_disabled,
+            default_udf_runtime: o.default_udf_runtime.map(|s| s.parse()).transpose()?,
         })
     }
 }

@@ -8,6 +8,7 @@ use crate::types::{
     DeploymentType,
     ProjectId,
     TeamId,
+    UdfRuntime,
 };
 
 pub const DEFAULT_PROVISION_CONCURRENCY: i32 = 0;
@@ -23,6 +24,10 @@ pub struct BackendInfo {
     pub deployment_id: DeploymentId,
     pub deployment_type: DeploymentType,
     pub deployment_ref: Option<String>,
+
+    // None inherits the executor's code default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_udf_runtime: Option<UdfRuntime>,
 
     // If None, the value is overwritten with the default value.
     pub streaming_export_enabled: Option<bool>,
@@ -46,6 +51,7 @@ impl BackendInfo {
             deployment_id,
             deployment_type,
             deployment_ref,
+            default_udf_runtime,
             streaming_export_enabled,
             provision_concurrency,
             log_streaming_enabled,
@@ -75,6 +81,8 @@ impl BackendInfo {
         // TODO: Enable deployment_ref verification once all conductors
         // understand this field.
         let _ = deployment_ref;
+        // Verification also runs against Conductors predating runtime preferences.
+        let _ = default_udf_runtime;
 
         if self.streaming_export_enabled != *streaming_export_enabled {
             return Some("backend_info.streaming_export_enabled");

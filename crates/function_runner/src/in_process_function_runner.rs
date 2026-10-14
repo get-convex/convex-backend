@@ -43,6 +43,7 @@ use common::{
         DeploymentMetadata,
         IndexId,
         RepeatableTimestamp,
+        UdfRuntime,
         UdfType,
     },
 };
@@ -236,6 +237,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
     async fn run_function(
         &self,
         udf_type: UdfType,
+        _udf_runtime: Option<UdfRuntime>,
         identity: Identity,
         ts: RepeatableTimestamp,
         existing_writes: FunctionWrites,

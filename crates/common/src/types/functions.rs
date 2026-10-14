@@ -52,6 +52,16 @@ pub enum UdfType {
     HttpAction,
 }
 
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, strum::EnumString, strum::Display,
+)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum UdfRuntime {
+    V8,
+    Wasm,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UdfTypeJson {
     Query,

@@ -30,6 +30,7 @@ use common::{
     types::{
         IndexId,
         RepeatableTimestamp,
+        UdfRuntime,
         UdfType,
     },
 };
@@ -87,6 +88,7 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
     async fn run_function(
         &self,
         udf_type: UdfType,
+        udf_runtime: Option<UdfRuntime>,
         identity: Identity,
         ts: RepeatableTimestamp,
         existing_writes: FunctionWrites,
