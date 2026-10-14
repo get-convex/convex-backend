@@ -57,7 +57,14 @@ import {
   checkForLargeIndexBackfill,
   LargeIndexBackfillCheck,
 } from "./checkForLargeIndexBackfill.js";
-import { sharedSchemaEvaluation } from "./schemaEvaluation.js";
+import {
+  pushStagesValidators,
+  sharedSchemaEvaluation,
+} from "./schemaEvaluation.js";
+import {
+  checkForStagedValidatorDeletion,
+  StagedValidatorDeletionCheck,
+} from "./checkForStagedValidatorDeletion.js";
 import { LogManager } from "./logs.js";
 import { createHash } from "crypto";
 import { Bundle, BundleHash } from "../../bundler/index.js";
@@ -82,6 +89,7 @@ export type PushOptions = {
   logManager?: LogManager | undefined;
   largeIndexDeletionCheck: LargeIndexDeletionCheck;
   largeIndexBackfillCheck: LargeIndexBackfillCheck;
+  stagedValidatorDeletionCheck: StagedValidatorDeletionCheck;
   // Whether a dry run should warn when the schema change would block the
   // deploy on a slow table walk. On for deploys; off for commands whose dry
   // runs never deploy (e.g. codegen).
@@ -131,6 +139,11 @@ export async function runCodegen(
         liveComponentSources: options.liveComponentSources,
         typecheckComponents: false,
         debugNodeApis: options.debugNodeApis,
+        // Code generation uses the source schema independently of deployment data.
+        largeIndexDeletionCheck: "no verification",
+        largeIndexBackfillCheck: "no verification",
+        stagedValidatorDeletionCheck: "no verification",
+        warnOnSlowSchemaValidation: false,
       },
     );
   } else {
@@ -241,6 +254,7 @@ async function startComponentsPushAndCodegen(
     debugNodeApis: boolean;
     largeIndexDeletionCheck: LargeIndexDeletionCheck;
     largeIndexBackfillCheck: LargeIndexBackfillCheck;
+    stagedValidatorDeletionCheck: StagedValidatorDeletionCheck;
     warnOnSlowSchemaValidation: boolean;
     codegenOnlyThisComponent?: string | undefined;
   },
@@ -491,9 +505,40 @@ async function startComponentsPushAndCodegen(
     );
   }
 
-  if (options.dryRun && options.warnOnSlowSchemaValidation) {
+  const stagedValidatorDeletionCheck = options.stagedValidatorDeletionCheck;
+  if (stagedValidatorDeletionCheck !== "no verification") {
+    await parentSpan.enterAsync(
+      "checkForStagedValidatorDeletion",
+      async (span) => {
+        const response = await schemaEvaluation(span);
+        await checkForStagedValidatorDeletion({
+          ctx,
+          response,
+          askForConfirmation:
+            stagedValidatorDeletionCheck === "ask for confirmation",
+          // A dry run previews the confirmation required by a real push.
+          dryRun: options.dryRun,
+        });
+      },
+    );
+  }
+
+  // A real push evaluates the schema only when the evaluation is already
+  // paid for by the unstaging check or the pushed schema stages a validator,
+  // so `dev` pushes of ordinary schemas skip the isolate evaluation and round
+  // trip that the status report would otherwise add on every save.
+  if (
+    options.warnOnSlowSchemaValidation &&
+    (options.dryRun ||
+      stagedValidatorDeletionCheck !== "no verification" ||
+      pushStagesValidators(startPushRequest))
+  ) {
     await parentSpan.enterAsync("checkForSlowSchemaValidation", (span) =>
-      checkForSlowSchemaValidation({ span, schemaEvaluation }),
+      checkForSlowSchemaValidation({
+        span,
+        schemaEvaluation,
+        dryRun: options.dryRun,
+      }),
     );
   }
 

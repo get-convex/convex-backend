@@ -260,6 +260,7 @@ export async function normalizeDevOptions(
     debugNodeApis?: boolean;
     liveComponentSources?: boolean;
     pushAllModules?: boolean;
+    allowUnstagingSchema?: boolean;
     while?: string;
   },
 ): Promise<{
@@ -279,6 +280,7 @@ export async function normalizeDevOptions(
   debugNodeApis: boolean;
   liveComponentSources: boolean;
   pushAllModules: boolean;
+  allowUnstagingSchema: boolean;
 }> {
   if (cmdOptions.runComponent && !cmdOptions.run) {
     return await ctx.crash({
@@ -332,6 +334,7 @@ export async function normalizeDevOptions(
     debugNodeApis: !!cmdOptions.debugNodeApis,
     liveComponentSources: !!cmdOptions.liveComponentSources,
     pushAllModules: !!cmdOptions.pushAllModules,
+    allowUnstagingSchema: !!cmdOptions.allowUnstagingSchema,
   };
 }
 

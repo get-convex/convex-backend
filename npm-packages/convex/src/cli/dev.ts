@@ -144,6 +144,15 @@ export const dev = new Command("dev")
       .hideHelp(),
   )
   .addOption(
+    // Only `--prod` pushes check this; hidden alongside it.
+    new Option(
+      "--allow-unstaging-schema",
+      "Skip the confirmation prompt when a push to production discards a staged table validator that is validating or already validated.",
+    )
+      .default(false)
+      .hideHelp(),
+  )
+  .addOption(
     new Option(
       "--env-file <envFile>",
       `Path to a custom file of environment variables, for choosing the \

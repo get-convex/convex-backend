@@ -585,14 +585,12 @@ export class TableDefinition<
    * })
    * ```
    *
-   * TODO: link a worked staged-schema example from the docs once one exists.
+   * See [Staged validators](https://docs.convex.dev/database/schemas#staged-validators).
    *
    * @param documentSchema - Field changes for a table defined as an object or
    * `v.any()`, or a full schema validator specifying the proposed next document
    * type. Use a full schema validator for a table defined as a union.
    * @returns A {@link TableDefinition} with the staged validator attached.
-   *
-   * @internal
    */
   staged(
     documentSchema:

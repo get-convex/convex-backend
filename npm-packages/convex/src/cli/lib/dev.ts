@@ -60,6 +60,7 @@ export async function devAgainstDeployment(
     debugNodeApis: boolean;
     liveComponentSources: boolean;
     pushAllModules: boolean;
+    allowUnstagingSchema: boolean;
   },
 ) {
   const logManager = new LogManager(devOptions.tailLogs);
@@ -154,6 +155,12 @@ export async function devAgainstDeployment(
         largeIndexBackfillCheck:
           credentials.deploymentType === "prod"
             ? "ask for confirmation"
+            : "no verification",
+        stagedValidatorDeletionCheck:
+          credentials.deploymentType === "prod"
+            ? devOptions.allowUnstagingSchema
+              ? "has confirmation"
+              : "ask for confirmation"
             : "no verification",
         warnOnSlowSchemaValidation: true,
         message: null,
