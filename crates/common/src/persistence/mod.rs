@@ -340,6 +340,13 @@ pub trait Persistence: Sync + Send + 'static {
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
 
+    /// Durably invalidates shadow state before administrative writes that may
+    /// bypass normal document/index write pairing, such as restores and
+    /// migration copies.
+    async fn invalidate_shadow(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     /// Persists entries read from an index backfill snapshot at their document
     /// timestamps. Replaying a chunk must be idempotent.
     async fn write_index_backfill(&self, entries: &[IndexBackfillEntry]) -> anyhow::Result<()> {

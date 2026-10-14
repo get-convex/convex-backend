@@ -132,7 +132,7 @@ use crate::{
 
 pub struct Persistence<RT: Runtime> {
     newly_created: AtomicBool,
-    pub(super) lease: Lease<RT>,
+    pub(crate) lease: Lease<RT>,
 
     // Used by the reader.
     pub(super) read_pool: Arc<ConvexMySqlPool<RT>>,
@@ -1507,7 +1507,7 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
 /// The only thing a `Lease` can do is execute a transaction against the
 /// database and atomically ensure that the lease was still held during the
 /// transaction, and otherwise return a lease lost.
-pub(super) struct Lease<RT: Runtime> {
+pub(crate) struct Lease<RT: Runtime> {
     pool: Arc<ConvexMySqlPool<RT>>,
     db_name: String,
     instance_name: MySqlInstanceName,
@@ -1517,6 +1517,46 @@ pub(super) struct Lease<RT: Runtime> {
 }
 
 impl<RT: Runtime> Lease<RT> {
+    #[allow(
+        dead_code,
+        reason = "Consumed by the opt-in shadow implementation in the follow-up PR"
+    )]
+    pub(crate) fn pool(&self) -> &Arc<ConvexMySqlPool<RT>> {
+        &self.pool
+    }
+
+    #[allow(
+        dead_code,
+        reason = "Consumed by the opt-in shadow implementation in the follow-up PR"
+    )]
+    pub(crate) fn db_name(&self) -> &str {
+        &self.db_name
+    }
+
+    #[allow(
+        dead_code,
+        reason = "Consumed by the opt-in shadow implementation in the follow-up PR"
+    )]
+    pub(crate) fn multitenant(&self) -> bool {
+        self.multitenant
+    }
+
+    #[allow(
+        dead_code,
+        reason = "Consumed by the opt-in shadow implementation in the follow-up PR"
+    )]
+    pub(crate) fn timestamp(&self) -> i64 {
+        self.lease_ts
+    }
+
+    #[allow(
+        dead_code,
+        reason = "Consumed by the opt-in shadow implementation in the follow-up PR"
+    )]
+    pub(crate) fn instance_name(&self) -> &str {
+        &self.instance_name.raw
+    }
+
     /// Acquire a lease. Makes other lease-holders get `LeaseLostError` when
     /// they commit.
     async fn acquire(
@@ -1567,7 +1607,7 @@ impl<RT: Runtime> Lease<RT> {
     /// might've been made to the database state while the lease was not
     /// held.
     #[fastrace::trace]
-    pub(super) async fn transact<F, T>(&self, f: F) -> anyhow::Result<T>
+    pub(crate) async fn transact<F, T>(&self, f: F) -> anyhow::Result<T>
     where
         F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
     {
@@ -1579,7 +1619,7 @@ impl<RT: Runtime> Lease<RT> {
     /// this so their DELETEs take only record locks, sparing concurrent index
     /// writers the next-key/gap locks REPEATABLE READ adds.
     #[fastrace::trace]
-    pub(super) async fn transact_read_committed<F, T>(&self, f: F) -> anyhow::Result<T>
+    pub(crate) async fn transact_read_committed<F, T>(&self, f: F) -> anyhow::Result<T>
     where
         F: for<'a> AsyncFnOnce(&'a mut MySqlTransaction<'_>) -> anyhow::Result<T>,
     {
