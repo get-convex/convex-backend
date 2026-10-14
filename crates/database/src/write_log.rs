@@ -703,8 +703,7 @@ impl LogReader {
     }
 
     pub fn max_ts(&self) -> Timestamp {
-        let snapshot = { self.inner.lock().log.clone() };
-        snapshot.max_ts()
+        self.inner.lock().log.max_ts()
     }
 
     /// Blocks until the log has advanced past the given timestamp.
@@ -1153,10 +1152,7 @@ impl PendingWrites {
         &self.by_ts[position].write_source
     }
 
-    pub fn pop_first(
-        &mut self,
-        handle: PendingWriteHandle,
-    ) -> (OrderedDocumentWrites, WriteSource, Snapshot) {
+    pub fn pop_first(&mut self, handle: PendingWriteHandle) -> (OrderedDocumentWrites, Snapshot) {
         let pending_write = self
             .by_ts
             .pop_front()
@@ -1179,11 +1175,7 @@ impl PendingWrites {
                 entry.remove();
             }
         }
-        (
-            pending_write.writes,
-            pending_write.write_source,
-            pending_write.snapshot,
-        )
+        (pending_write.writes, pending_write.snapshot)
     }
 
     pub fn min_ts(&self) -> Option<Timestamp> {

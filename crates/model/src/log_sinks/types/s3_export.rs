@@ -1,6 +1,6 @@
 //! Configuration for mirroring a deployment's data into object storage so it
-//! can be queried by analytics engines. These rows live in the log sinks table
-//! alongside log streams, but they carry no log sink client.
+//! can be queried by analytics engines. These documents live in the log sinks
+//! table alongside log streams, but they carry no log sink client.
 
 use std::fmt;
 
@@ -13,6 +13,7 @@ use serde::{
     Serialize,
 };
 use utoipa::ToSchema;
+use value::codegen_convex_serialization;
 
 /// How often the mirror is refreshed from the deployment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -21,45 +22,6 @@ pub enum SyncPeriod {
     Continuous,
     Hourly,
     Daily,
-}
-
-/// A mirror in a Convex-owned bucket, queried through Convex.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ManagedAnalyticsConfig {
-    /// The components, tables, and columns to mirror.
-    pub selection: Selection,
-    pub period: SyncPeriod,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SerializedManagedAnalyticsConfig {
-    pub selection: Selection,
-    pub period: SyncPeriod,
-}
-
-impl From<ManagedAnalyticsConfig> for SerializedManagedAnalyticsConfig {
-    fn from(value: ManagedAnalyticsConfig) -> Self {
-        Self {
-            selection: value.selection,
-            period: value.period,
-        }
-    }
-}
-
-impl From<SerializedManagedAnalyticsConfig> for ManagedAnalyticsConfig {
-    fn from(value: SerializedManagedAnalyticsConfig) -> Self {
-        Self {
-            selection: value.selection,
-            period: value.period,
-        }
-    }
-}
-
-impl fmt::Display for ManagedAnalyticsConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "ManagedAnalyticsConfig {{ period: {:?} }}", self.period)
-    }
 }
 
 /// A mirror in a customer-owned S3 bucket.
@@ -75,7 +37,33 @@ pub struct S3ExportConfig {
     /// The components, tables, and columns to mirror.
     pub selection: Selection,
     pub period: SyncPeriod,
+    pub cursor: Option<String>,
+    pub progress: Option<S3ExportProgress>,
 }
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum S3ExportProgress {
+    #[serde(rename_all = "camelCase")]
+    Snapshotting {
+        num_tables_synced: i64,
+        total_tables: i64,
+        current_component: String,
+        current_table: String,
+        num_documents_in_current_table: i64,
+        total_documents_in_current_table: Option<i64>,
+        num_documents_synced: i64,
+        total_documents: Option<i64>,
+    },
+    Stale {
+        ts: i64,
+    },
+    UpToDate {
+        ts: i64,
+    },
+}
+
+codegen_convex_serialization!(S3ExportProgress, S3ExportProgress);
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -87,6 +75,10 @@ pub struct SerializedS3ExportConfig {
     pub secret_access_key: String,
     pub selection: Selection,
     pub period: SyncPeriod,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub progress: Option<S3ExportProgress>,
 }
 
 impl From<S3ExportConfig> for SerializedS3ExportConfig {
@@ -99,6 +91,8 @@ impl From<S3ExportConfig> for SerializedS3ExportConfig {
             secret_access_key: value.secret_access_key.0,
             selection: value.selection,
             period: value.period,
+            cursor: value.cursor,
+            progress: value.progress,
         }
     }
 }
@@ -113,6 +107,8 @@ impl From<SerializedS3ExportConfig> for S3ExportConfig {
             secret_access_key: PII(value.secret_access_key),
             selection: value.selection,
             period: value.period,
+            cursor: value.cursor,
+            progress: value.progress,
         }
     }
 }

@@ -110,7 +110,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
   deploymentsURI: "",
   isSelfHosted: true,
   workosIntegrationEnabled: false,
-  managedAnalyticsIntegrationEnabled: false,
+  healthDeployProgressEnabled: true,
   s3ExportIntegrationEnabled: false,
   connectionStateCheckIntervalMs: 2500,
   showFivetranSyncProgress: false,

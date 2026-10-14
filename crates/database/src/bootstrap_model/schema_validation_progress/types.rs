@@ -13,8 +13,8 @@ use value::{
 /// separate from attempts so flushing progress cannot invalidate a document
 /// transaction that records a validation failure.
 ///
-/// Documents keyed by `schemaId` instead of `validationId` are the aggregate
-/// format written before attempts existed; see `legacy::types`.
+/// Documents keyed by `schemaId` instead of `validationId` were the aggregate
+/// format written before attempts existed; migration 133 deleted them.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchemaValidationProgress {
     /// The attempt these counters belong to. Should correspond to a document in

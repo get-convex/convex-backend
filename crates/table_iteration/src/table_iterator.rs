@@ -182,31 +182,6 @@ impl<RT: Runtime> TableIterator<RT> {
         self.inner.fetch_page(index_id, tablet_id, cursor).await
     }
 
-    /// Stream every document in the table, where each page is read at a fresh
-    /// repeatable timestamp (>= the constructor's `snapshot_ts`). Page
-    /// timestamps are weakly monotonic, but the stream as a whole is NOT a
-    /// consistent snapshot of the table: each document is its latest revision
-    /// as of its page's timestamp, and a document modified concurrently with
-    /// the walk may be observed at either revision (or, for an insert or
-    /// delete, in either state). Every document that exists unchanged for the
-    /// whole walk is yielded exactly once, in `by_id` order.
-    #[try_stream(ok = (LatestDocument, RepeatableTimestamp), error = anyhow::Error)]
-    pub async fn stream_latest_documents_in_table(self, tablet_id: TabletId, by_id: IndexRef) {
-        let mut cursor = TableScanCursor::default();
-        loop {
-            let pause_client = self.inner.runtime.pause_client();
-            pause_client.wait("before_latest_page").await;
-            let (page, ts) = self.inner.fetch_page(by_id, tablet_id, &mut cursor).await?;
-            for (_, doc) in page {
-                tokio::task::consume_budget().await;
-                yield (doc, ts);
-            }
-            if matches!(cursor.index_key, Some(CursorPosition::End)) {
-                break;
-            }
-        }
-    }
-
     #[try_stream(ok = LatestDocument, error = anyhow::Error)]
     pub async fn stream_documents_in_table(
         self,
@@ -240,6 +215,73 @@ impl<RT: Runtime> TableIterator<RT> {
         pin_mut!(stream);
         while let Some(rev) = stream.try_next().await? {
             yield rev;
+        }
+    }
+}
+
+/// Walks a table by reading each page at the latest repeatable timestamp,
+/// with no snapshot to reconstruct: unlike [`TableIterator`], it never replays
+/// the document log, so its cost stays flat under concurrent writes.
+///
+/// The walk is NOT a consistent snapshot of the table. Page timestamps are
+/// weakly monotonic and at least `min_ts`, each document is its latest
+/// revision as of its page's timestamp, and a document modified concurrently
+/// with the walk may be observed at either revision (or, for an insert or
+/// delete, in either state). Every document that exists unchanged for the
+/// whole walk is yielded exactly once, in `by_id` order.
+pub struct LatestTableIterator<RT: Runtime> {
+    runtime: RT,
+    /// Lower bound on page timestamps, so the walk observes every write that
+    /// committed before it. The latest repeatable timestamp in persistence
+    /// advances only periodically and can lag behind recent commits.
+    min_ts: RepeatableTimestamp,
+    persistence: Arc<dyn PersistenceReader>,
+    retention_validator: Arc<dyn RetentionValidator>,
+    page_size: usize,
+}
+
+impl<RT: Runtime> LatestTableIterator<RT> {
+    pub fn new(
+        runtime: RT,
+        min_ts: RepeatableTimestamp,
+        persistence: Arc<dyn PersistenceReader>,
+        retention_validator: Arc<dyn RetentionValidator>,
+        page_size: usize,
+    ) -> Self {
+        Self {
+            runtime,
+            min_ts,
+            persistence,
+            retention_validator,
+            page_size,
+        }
+    }
+
+    /// Stream every document in the table with the timestamp its page was
+    /// read at.
+    #[try_stream(ok = (LatestDocument, RepeatableTimestamp), error = anyhow::Error)]
+    pub async fn stream_documents_in_table(self, tablet_id: TabletId, by_id: IndexRef) {
+        let mut cursor = TableScanCursor::default();
+        loop {
+            let pause_client = self.runtime.pause_client();
+            pause_client.wait("before_latest_page").await;
+            let (page, ts) = fetch_page(
+                &self.persistence,
+                &self.retention_validator,
+                self.page_size,
+                self.min_ts,
+                by_id,
+                tablet_id,
+                &mut cursor,
+            )
+            .await?;
+            for (_, doc) in page {
+                tokio::task::consume_budget().await;
+                yield (doc, ts);
+            }
+            if matches!(cursor.index_key, Some(CursorPosition::End)) {
+                break;
+            }
         }
     }
 }
@@ -583,71 +625,22 @@ impl<RT: Runtime> TableIteratorInner<RT> {
         }
     }
 
-    /// We have these constraints:
-    ///
-    /// 1. we need each walk to be >= snapshot_ts
-    /// 2. we need each successive walk to be >= the previous walk
-    /// 3. we need each walk to be repeatable
-    /// 4. we need each walk to be within retention
-    ///
-    /// We can satisfy these constraints by always walking at max(snapshot_ts,
-    /// new_static_repeatable_recent()).
-    ///
-    /// 1. max(snapshot_ts, anything) >= snapshot_ts
-    /// 2. snapshot_ts never changes and new_static_repeatable_recent is weakly
-    ///    monotonically increasing
-    /// 3. snapshot_ts and new_static_repeatable_recent are both Repeatable, and
-    ///    the max of Repeatable timestamps is repeatable.
-    /// 4. new_static_repeatable_recent is within retention, so max(anything,
-    ///    new_static_repeatable_recent()) is within retention.
-    async fn new_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
-        Ok(cmp::max(
-            self.snapshot_ts,
-            new_static_repeatable_recent(self.persistence.as_ref()).await?,
-        ))
-    }
-
-    #[fastrace::trace]
     async fn fetch_page(
         &self,
         index_id: IndexRef,
         tablet_id: TabletId,
         cursor: &mut TableScanCursor,
     ) -> anyhow::Result<(Vec<(IndexKeyBytes, LatestDocument)>, RepeatableTimestamp)> {
-        for attempt in 0.. {
-            let ts = self.new_ts().await?;
-            let repeatable_persistence = RepeatablePersistence::new(
-                self.persistence.clone(),
-                ts,
-                self.retention_validator.clone(),
-            );
-            let reader = repeatable_persistence.read_snapshot(ts)?;
-            let stream = reader.index_scan(
-                index_id,
-                tablet_id,
-                &cursor.interval(),
-                Order::Asc,
-                self.page_size,
-            );
-            let documents_in_page: Vec<_> = match stream.take(self.page_size).try_collect().await {
-                Ok(docs) => docs,
-                Err(e)
-                    if attempt < *TABLE_ITERATOR_MAX_RETRIES
-                        && (e.is_out_of_retention() || e.is::<DatabaseTimeoutError>()) =>
-                {
-                    tracing::warn!("TableIterator hit retriable error {e}, retrying...");
-                    continue;
-                },
-                Err(e) => return Err(e),
-            };
-            if documents_in_page.len() < self.page_size {
-                cursor.advance(CursorPosition::End)?;
-            } else if let Some((index_key, ..)) = documents_in_page.last() {
-                cursor.advance(CursorPosition::After(index_key.clone()))?;
-            }
-            return Ok((documents_in_page, ts));
-        }
-        unreachable!()
+        fetch_page(
+            &self.persistence,
+            &self.retention_validator,
+            self.page_size,
+            self.snapshot_ts,
+            index_id,
+            tablet_id,
+            cursor,
+        )
+        .await
     }
 
     /// Load the revisions of documents visible at `self.snapshot_ts`.
@@ -852,4 +845,65 @@ impl Deref for IterationDocuments {
     fn deref(&self) -> &Self::Target {
         &self.docs
     }
+}
+
+/// Read one page of `index_id` in `tablet_id` after `cursor`, advancing the
+/// cursor, and return the page with the repeatable timestamp it was read at.
+///
+/// Each page is read at `max(min_ts, new_static_repeatable_recent())`, which
+/// satisfies every constraint on a walk's page timestamps:
+///
+/// 1. each page is >= `min_ts`;
+/// 2. successive pages are weakly monotonic, since `min_ts` never changes and
+///    `new_static_repeatable_recent` only moves forward;
+/// 3. each page is repeatable, as the max of repeatable timestamps;
+/// 4. each page is within retention, since `new_static_repeatable_recent` is.
+///
+/// Reads that fall out of retention or time out are retried at a fresh
+/// timestamp up to `TABLE_ITERATOR_MAX_RETRIES` times.
+#[fastrace::trace]
+async fn fetch_page(
+    persistence: &Arc<dyn PersistenceReader>,
+    retention_validator: &Arc<dyn RetentionValidator>,
+    page_size: usize,
+    min_ts: RepeatableTimestamp,
+    index_id: IndexRef,
+    tablet_id: TabletId,
+    cursor: &mut TableScanCursor,
+) -> anyhow::Result<(Vec<(IndexKeyBytes, LatestDocument)>, RepeatableTimestamp)> {
+    // An empty page never advances the cursor, so a zero page size would loop
+    // forever.
+    anyhow::ensure!(page_size > 0, "table iterator page size must be positive");
+    for attempt in 0.. {
+        let recent_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
+        let ts = cmp::max(min_ts, recent_ts);
+        let repeatable_persistence =
+            RepeatablePersistence::new(persistence.clone(), ts, retention_validator.clone());
+        let reader = repeatable_persistence.read_snapshot(ts)?;
+        let stream = reader.index_scan(
+            index_id,
+            tablet_id,
+            &cursor.interval(),
+            Order::Asc,
+            page_size,
+        );
+        let documents_in_page: Vec<_> = match stream.take(page_size).try_collect().await {
+            Ok(docs) => docs,
+            Err(e)
+                if attempt < *TABLE_ITERATOR_MAX_RETRIES
+                    && (e.is_out_of_retention() || e.is::<DatabaseTimeoutError>()) =>
+            {
+                tracing::warn!("TableIterator hit retriable error {e}, retrying...");
+                continue;
+            },
+            Err(e) => return Err(e),
+        };
+        if documents_in_page.len() < page_size {
+            cursor.advance(CursorPosition::End)?;
+        } else if let Some((index_key, ..)) = documents_in_page.last() {
+            cursor.advance(CursorPosition::After(index_key.clone()))?;
+        }
+        return Ok((documents_in_page, ts));
+    }
+    unreachable!()
 }

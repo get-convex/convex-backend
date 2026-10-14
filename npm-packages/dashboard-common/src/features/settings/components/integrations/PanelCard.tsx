@@ -34,13 +34,13 @@ import { FivetranSyncStatus } from "./FivetranSyncProgress";
 import { IntegrationTitle } from "./IntegrationTitle";
 import { IntegrationOverflowMenu } from "./IntegrationOverflowMenu";
 import { IntegrationStatus } from "./IntegrationStatus";
+import { S3ExportStatus } from "./S3ExportStatus";
 import { AxiomConfigurationForm } from "./AxiomConfigurationForm";
 import { DatadogConfigurationForm } from "./DatadogConfigurationForm";
 import { SentryConfigurationForm } from "./SentryConfigurationForm";
 import { WebhookConfigurationForm } from "./WebhookConfigurationForm";
 import { PostHogLogsConfigurationForm } from "./PostHogLogsConfigurationForm";
 import { PostHogErrorTrackingConfigurationForm } from "./PostHogErrorTrackingConfigurationForm";
-import { ManagedAnalyticsConfigurationForm } from "./ManagedAnalyticsConfigurationForm";
 import { S3ExportConfigurationForm } from "./S3ExportConfigurationForm";
 import { WorkOSConfigurationForm } from "./WorkOSConfigurationForm";
 import { WorkOSIntegrationStatus } from "./WorkOSIntegrationStatus";
@@ -63,6 +63,8 @@ export type PanelCardProps = {
    *  members without write access can see what's available. */
   writeDisabled?: boolean;
   writeDisabledTip?: React.ReactNode;
+  configureDisabled?: boolean;
+  configureDisabledTip?: React.ReactNode;
 };
 
 function ProBadge({ teamSlug }: { teamSlug?: string }) {
@@ -91,6 +93,8 @@ export function PanelCard({
   onAddedIntegration,
   writeDisabled = false,
   writeDisabledTip,
+  configureDisabled,
+  configureDisabledTip,
 }: PanelCardProps) {
   const classes = classNames(
     "py-3 px-4",
@@ -174,7 +178,6 @@ export function PanelCard({
         integration.kind === "webhook" ||
         integration.kind === "postHogLogs" ||
         integration.kind === "postHogErrorTracking" ||
-        integration.kind === "managedAnalytics" ||
         integration.kind === "s3Export") && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {isModalOpen &&
@@ -183,14 +186,17 @@ export function PanelCard({
             logo={logo}
             integrationKind={integration.kind}
             description={
-              integration.kind === "managedAnalytics" ||
               integration.kind === "s3Export"
                 ? ANALYTICS_EXPORT_DESCRIPTION
                 : LOG_STREAMS_DESCRIPTION
             }
           />
           <div className="flex items-center gap-4">
-            <IntegrationStatus integration={integration} />
+            {integration.kind === "s3Export" && integration.existing ? (
+              <S3ExportStatus existing={integration.existing} />
+            ) : (
+              <IntegrationStatus integration={integration} />
+            )}
             {unavailableReason === "MissingEntitlement" ? (
               <ProBadge teamSlug={teamSlug} />
             ) : (
@@ -199,6 +205,8 @@ export function PanelCard({
                 onConfigure={() => setIsModalOpen(true)}
                 disabled={writeDisabled}
                 disabledTip={writeDisabledTip}
+                configureDisabled={configureDisabled}
+                configureDisabledTip={configureDisabledTip}
               />
             )}
           </div>
@@ -344,28 +352,12 @@ function renderForm(
           </div>
         </Modal>
       );
-    case "managedAnalytics":
-      return (
-        <Modal onClose={closeModal} title="Configure Managed Analytics">
-          <div className="flex flex-col gap-4">
-            <div className="max-w-prose text-xs text-pretty text-content-secondary">
-              Mirror this deployment's data into a Convex-managed bucket in
-              Apache Iceberg format, and query it from your analytics engine.
-            </div>
-            <ManagedAnalyticsConfigurationForm
-              integration={integration}
-              onClose={closeModal}
-              {...addedIntegrationProp}
-            />
-          </div>
-        </Modal>
-      );
     case "s3Export":
       return (
         <LogIntegrationSidePanel
           closeModal={closeModal}
-          title="Configure Streaming Export to AWS S3"
-          description="Mirror this deployment's data into an S3 bucket you own, in Apache Iceberg format, so it can be queried by your analytics engine."
+          title="Configure AWS S3"
+          description="Export this deployment's change log to an S3 bucket you own."
         >
           {(closePanel) => (
             <S3ExportConfigurationForm

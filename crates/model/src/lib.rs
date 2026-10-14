@@ -467,8 +467,6 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
         }
     }
 
-    database::SchemaValidationModel::reset_for_compatibility(&mut tx).await?;
-
     database
         .commit_with_write_source(tx, "init_app_system_tables")
         .await?;

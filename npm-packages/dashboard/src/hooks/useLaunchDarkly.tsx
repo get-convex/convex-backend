@@ -9,11 +9,10 @@ export const flagDefaults: {
   ephemeralZipExportToken: boolean;
   directorySync: boolean;
   promos: boolean;
-  managedAnalyticsIntegration: boolean;
   s3ExportIntegration: boolean;
   showFivetranSyncProgress: boolean;
-  canadaAvailable: boolean;
-  australiaAvailable: boolean;
+  supportTicketForAllPlans: boolean;
+  healthDeployProgress: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
@@ -22,11 +21,10 @@ export const flagDefaults: {
   ephemeralZipExportToken: false,
   directorySync: false,
   promos: false,
-  managedAnalyticsIntegration: false,
   s3ExportIntegration: false,
   showFivetranSyncProgress: false,
-  canadaAvailable: false,
-  australiaAvailable: false,
+  supportTicketForAllPlans: false,
+  healthDeployProgress: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(

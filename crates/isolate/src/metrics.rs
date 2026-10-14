@@ -96,24 +96,24 @@ impl RejectedBeforeExecutionReason {
         match self {
             Self::ExpiredInQueue => ErrorMetadata::rejected_before_execution(
                 "ExpiredInQueue",
-                "Too many concurrent requests in a short period of time. Spread out your requests \
-                 out over time or throttle them to avoid errors.",
+                "Too many concurrent requests in a short period of time. Spread your requests out \
+                 over time or throttle them to avoid errors.",
             ),
             Self::PerClientWorkerOverloaded | Self::WorkerPoolOverloaded => {
                 ErrorMetadata::rejected_before_execution("WorkerOverloaded", NO_AVAILABLE_WORKERS)
             },
             Self::IsolateNotClean => ErrorMetadata::rejected_before_execution(
                 "IsolateNotClean",
-                "Selected isolate was not clean",
+                "Couldn't start running this function",
             ),
             Self::InitialPermitTimeout => ErrorMetadata::rejected_before_execution(
                 "InitialPermitTimeoutError",
-                "Couldn't acquire a permit on this funrun",
+                "Timed out waiting for capacity to run this function",
             ),
             Self::ExecuteQueueFull => ErrorMetadata::rejected_before_execution(
                 "ExecuteFullError",
-                "Too many concurrent requests in a short period of time. Spread out your requests \
-                 out over time or throttle them to avoid errors.",
+                "Too many concurrent requests in a short period of time. Spread your requests out \
+                 over time or throttle them to avoid errors.",
             ),
         }
     }

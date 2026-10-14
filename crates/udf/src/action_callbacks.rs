@@ -6,7 +6,10 @@ use common::{
         ComponentId,
         ComponentPath,
     },
-    execution_context::ExecutionContext,
+    execution_context::{
+        ExecutionContext,
+        RequestId,
+    },
     runtime::UnixTimestamp,
     types::AttributedCaller,
 };
@@ -35,6 +38,7 @@ pub trait ActionCallbacks: Send + Sync {
         &self,
         identity: Identity,
         caller: AttributedCaller,
+        request_id: RequestId,
     ) -> anyhow::Result<String>;
 
     // Executing UDFs

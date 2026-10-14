@@ -9,7 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "next": "^15.5.24",
+    "next": "^15.5.27",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "convex": "workspace:*",

@@ -1599,28 +1599,6 @@
           {
             "allOf": [
               {
-                "$ref": "#/components/schemas/CreateManagedAnalyticsLogStreamArgs"
-              },
-              {
-                "type": "object",
-                "required": [
-                  "logStreamType"
-                ],
-                "properties": {
-                  "logStreamType": {
-                    "type": "string",
-                    "enum": [
-                      "managedAnalytics"
-                    ]
-                  }
-                }
-              }
-            ],
-            "title": "ManagedAnalytics"
-          },
-          {
-            "allOf": [
-              {
                 "$ref": "#/components/schemas/CreateS3ExportLogStreamArgs"
               },
               {
@@ -1763,25 +1741,6 @@
           },
           {
             "type": "object",
-            "title": "ManagedAnalytics",
-            "required": [
-              "id",
-              "logStreamType"
-            ],
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "logStreamType": {
-                "type": "string",
-                "enum": [
-                  "managedAnalytics"
-                ]
-              }
-            }
-          },
-          {
-            "type": "object",
             "title": "S3Export",
             "required": [
               "id",
@@ -1800,29 +1759,6 @@
             }
           }
         ]
-      },
-      "CreateManagedAnalyticsLogStreamArgs": {
-        "type": "object",
-        "required": [
-          "period"
-        ],
-        "properties": {
-          "selection": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Selection",
-                "description": "The components, tables, and columns to mirror. Defaults to everything."
-              }
-            ]
-          },
-          "period": {
-            "$ref": "#/components/schemas/SyncPeriod",
-            "description": "How often the mirror is refreshed."
-          }
-        }
       },
       "CreatePostHogErrorTrackingLogStreamArgs": {
         "type": "object",
@@ -2679,28 +2615,6 @@
           {
             "allOf": [
               {
-                "$ref": "#/components/schemas/ManagedAnalyticsLogStreamConfig"
-              },
-              {
-                "type": "object",
-                "required": [
-                  "logStreamType"
-                ],
-                "properties": {
-                  "logStreamType": {
-                    "type": "string",
-                    "enum": [
-                      "managedAnalytics"
-                    ]
-                  }
-                }
-              }
-            ],
-            "title": "ManagedAnalytics"
-          },
-          {
-            "allOf": [
-              {
                 "$ref": "#/components/schemas/S3ExportLogStreamConfig"
               },
               {
@@ -2814,36 +2728,10 @@
           "current_storage_usage",
           "concurrency_stats",
           "storage_api_bandwidth",
+          "ai_gateway_usage",
           "log_stream_egress",
           "custom_audit"
         ]
-      },
-      "ManagedAnalyticsLogStreamConfig": {
-        "type": "object",
-        "title": "ManagedAnalyticsConfig",
-        "required": [
-          "id",
-          "status",
-          "selection",
-          "period"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "status": {
-            "$ref": "#/components/schemas/LogStreamStatus",
-            "description": "Status of the integration"
-          },
-          "selection": {
-            "$ref": "#/components/schemas/Selection",
-            "description": "The components, tables, and columns being mirrored."
-          },
-          "period": {
-            "$ref": "#/components/schemas/SyncPeriod",
-            "description": "How often the mirror is refreshed."
-          }
-        }
       },
       "MemberId": {
         "type": "integer",
@@ -3444,28 +3332,6 @@
           {
             "allOf": [
               {
-                "$ref": "#/components/schemas/UpdateManagedAnalyticsSinkArgs"
-              },
-              {
-                "type": "object",
-                "required": [
-                  "logStreamType"
-                ],
-                "properties": {
-                  "logStreamType": {
-                    "type": "string",
-                    "enum": [
-                      "managedAnalytics"
-                    ]
-                  }
-                }
-              }
-            ],
-            "title": "ManagedAnalytics"
-          },
-          {
-            "allOf": [
-              {
                 "$ref": "#/components/schemas/UpdateS3ExportSinkArgs"
               },
               {
@@ -3486,33 +3352,6 @@
             "title": "S3Export"
           }
         ]
-      },
-      "UpdateManagedAnalyticsSinkArgs": {
-        "type": "object",
-        "properties": {
-          "selection": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/Selection",
-                "description": "The components, tables, and columns to mirror."
-              }
-            ]
-          },
-          "period": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/SyncPeriod",
-                "description": "How often the mirror is refreshed."
-              }
-            ]
-          }
-        }
       },
       "UpdatePostHogErrorTrackingSinkArgs": {
         "type": "object",

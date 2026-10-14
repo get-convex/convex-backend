@@ -1,4 +1,5 @@
 import { Sheet } from "@ui/Sheet";
+import { Link } from "@ui/Link";
 import { useState } from "react";
 import { RegionName, TeamResponse } from "generatedApi";
 import { useSelectableRegions } from "lib/regions";
@@ -27,7 +28,15 @@ export function DefaultRegionForm({
     <Sheet id={TEAM_SETTINGS_SECTIONS.defaultRegion.id} className="text-sm">
       <h3 className="mb-1">Default Region</h3>
       <p className="mb-4 max-w-prose text-content-secondary">
-        The region where new deployments in this team are created.
+        The region where new deployments in this team are created. Usage in
+        regions outside the US has a 30% regional surcharge.{" "}
+        <Link
+          href="https://docs.convex.dev/production/regions#pricing"
+          target="_blank"
+        >
+          Learn more about regions
+        </Link>
+        .
       </p>
       <DefaultRegionSelector
         value={selectedRegion}

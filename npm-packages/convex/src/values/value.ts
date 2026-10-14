@@ -311,12 +311,16 @@ const MAX_VALUE_FOR_ERROR_LEN = 16384;
 export function stringifyValueForError(value: any) {
   const str = JSON.stringify(value, (_key, value) => {
     if (value === undefined) {
-      // By default `JSON.stringify` converts undefined, functions, symbols,
-      // Infinity, and NaN to null which produces a confusing error message.
-      // We deal with `undefined` specifically because it's the most common.
-      // Ideally we'd use a pretty-printing library that prints `undefined`
-      // (no quotes), but it might not be worth the bundle size cost.
+      // JSON.stringify omits undefined object properties and converts undefined
+      // array elements to null. Preserve them in error messages.
       return "undefined";
+    }
+    if (typeof value === "function") {
+      // A fixed placeholder also works for functions with custom string coercion.
+      return "[Function]";
+    }
+    if (typeof value === "symbol") {
+      return String(value);
     }
     if (typeof value === "bigint") {
       // `JSON.stringify` throws on bigints by default.

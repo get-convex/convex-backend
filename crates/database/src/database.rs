@@ -260,6 +260,7 @@ use crate::{
     ComponentRegistry,
     ComponentsTable,
     DataSyncIterator,
+    LatestTableIterator,
     MultiTableIterator,
     SchemasTable,
     TableIterator,
@@ -325,7 +326,7 @@ pub struct Database<RT: Runtime> {
     retention_workers: LeaderRetentionWorkers,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
-    index_cache_handle: Option<IndexCacheHandle>,
+    index_cache_handle: IndexCacheHandle,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
     invalidation_callback: InvalidationMetricCallback,
@@ -1018,27 +1019,6 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     }
 }
 
-pub struct StreamingExportFilter {
-    pub selection: StreamingExportSelection,
-    pub include_hidden: bool,
-    pub include_system: bool,
-}
-
-impl Default for StreamingExportFilter {
-    fn default() -> Self {
-        Self {
-            selection: StreamingExportSelection::default(),
-            // Allow snapshot imports to be streamed by default.
-            // Note this behavior is kind of odd for `--require-empty` imports
-            // because the rows are streamed before they are committed to Convex,
-            // and it's very strange for `--replace` imports because the imported
-            // rows are merged with existing rows.
-            include_hidden: true,
-            include_system: false,
-        }
-    }
-}
-
 impl<RT: Runtime> Database<RT> {
     #[fastrace::trace]
     pub async fn load(
@@ -1142,7 +1122,7 @@ impl<RT: Runtime> Database<RT> {
             write_commits_since_load: Arc::new(AtomicUsize::new(0)),
             searcher,
             search_storage: Arc::new(OnceLock::new()),
-            index_cache_handle: Some(index_cache_handle),
+            index_cache_handle,
             virtual_system_mapping,
             bootstrap_metadata,
             invalidation_callback,
@@ -1250,9 +1230,7 @@ impl<RT: Runtime> Database<RT> {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.committer.shutdown();
         self.subscriptions.shutdown();
-        if let Some(handle) = &self.index_cache_handle {
-            handle.remove_deployment();
-        }
+        self.index_cache_handle.remove_deployment();
         self.retention_workers.shutdown().await?;
         tracing::info!("Database shutdown");
         Ok(())
@@ -1335,6 +1313,24 @@ impl<RT: Runtime> Database<RT> {
             snapshot_ts,
             persistence,
             retention_validator,
+            page_size,
+        )
+    }
+
+    /// Walk tables at the latest repeatable timestamp instead of a snapshot,
+    /// so the walk never replays the document log. Every page is read at or
+    /// after `min_ts`; see [`LatestTableIterator`] for the consistency it
+    /// offers.
+    pub fn latest_table_iterator(
+        &self,
+        min_ts: RepeatableTimestamp,
+        page_size: usize,
+    ) -> LatestTableIterator<RT> {
+        LatestTableIterator::new(
+            self.runtime.clone(),
+            min_ts,
+            self.reader.clone(),
+            self.retention_validator(),
             page_size,
         )
     }
@@ -1762,12 +1758,14 @@ impl<RT: Runtime> Database<RT> {
                 self.index_ref_at(snapshot.as_ref(), index.id())?
             };
             let mut reader = Arc::new(persistence_snapshot) as Arc<dyn IndexReader>;
-            if let Some(snapshot) = snapshot
-                && let Some(handle) = self.index_cache_handle.clone()
-            {
+            if let Some(snapshot) = snapshot {
                 // TODO: it is probably OK to still use the index cache even if
                 // we don't have an index_registry at the same timestamp.
-                reader = Arc::new(handle.caching_index_reader(reader, snapshot.index_registry));
+                reader = Arc::new(
+                    self.index_cache_handle
+                        .clone()
+                        .caching_index_reader(reader, snapshot.index_registry),
+                );
             }
             let index_page = reader
                 .index_page(index, tablet_id, interval, order, max_size)
@@ -2031,7 +2029,7 @@ impl<RT: Runtime> Database<RT> {
                     )
                     .read_snapshot(repeatable_ts)?,
                 ),
-                self.index_cache_handle.clone(),
+                Some(self.index_cache_handle.clone()),
                 index_cache,
             ),
             Arc::new(TextIndexManagerSnapshot::new(
@@ -2096,7 +2094,7 @@ impl<RT: Runtime> Database<RT> {
             snapshot,
             table_summaries: None,
             persistence_snapshot: repeatable_persistence.read_snapshot(ts)?,
-            index_cache_handle: self.index_cache_handle.clone(),
+            index_cache_handle: Some(self.index_cache_handle.clone()),
             persistence_reader: self.reader.clone(),
             retention_validator: self.retention_validator(),
         })
@@ -2157,8 +2155,16 @@ impl<RT: Runtime> Database<RT> {
         Ok(invalid_ts)
     }
 
-    fn streaming_export_table_filter(
-        filter: &StreamingExportFilter,
+    /// Whether the legacy `document_deltas` / `list_snapshot` APIs export
+    /// `tablet_id`.
+    ///
+    /// We allow snapshot imports to be streamed by default.
+    /// Note this behavior is kind of odd for `--require-empty` imports
+    /// because the rows are streamed before they are committed to Convex,
+    /// and it's very strange for `--replace` imports because the imported
+    /// rows are merged with existing rows.
+    fn legacy_streaming_export_table_filter(
+        selection: &StreamingExportSelection,
         tablet_id: TabletId,
         table_mapping: &TableMapping,
         component_paths: &BTreeMap<ComponentId, ComponentPath>,
@@ -2167,10 +2173,7 @@ impl<RT: Runtime> Database<RT> {
             // Always exclude deleted tablets.
             return Ok(false);
         }
-        if !filter.include_system && table_mapping.is_system_tablet(tablet_id) {
-            return Ok(false);
-        }
-        if !filter.include_hidden && !table_mapping.is_active(tablet_id) {
+        if table_mapping.is_system_tablet(tablet_id) {
             return Ok(false);
         }
 
@@ -2183,9 +2186,7 @@ impl<RT: Runtime> Database<RT> {
             return Ok(false);
         };
 
-        Ok(filter
-            .selection
-            .is_table_included(component_path, table_name))
+        Ok(selection.is_table_included(component_path, table_name))
     }
 
     #[fastrace::trace]
@@ -2193,7 +2194,7 @@ impl<RT: Runtime> Database<RT> {
         &self,
         identity: Identity,
         cursor: Option<Timestamp>,
-        filter: StreamingExportFilter,
+        selection: StreamingExportSelection,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<DocumentDeltas> {
@@ -2269,8 +2270,8 @@ impl<RT: Runtime> Database<RT> {
                 new_cursor = Some(ts);
             }
             // Skip deltas for system and non-selected tables.
-            if Self::streaming_export_table_filter(
-                &filter,
+            if Self::legacy_streaming_export_table_filter(
+                &selection,
                 id.table(),
                 &table_mapping,
                 &component_paths,
@@ -2283,9 +2284,7 @@ impl<RT: Runtime> Database<RT> {
                     .cloned()
                     .unwrap_or_else(ComponentPath::root);
                 let id = DeveloperDocumentId::new(table_number, id.internal_id());
-                let column_filter = filter
-                    .selection
-                    .column_filter(&component_path, &table_name)?;
+                let column_filter = selection.column_filter(&component_path, &table_name)?;
                 let filtered_doc = maybe_doc
                     .map(|doc| column_filter.filter_document(doc.to_developer()))
                     .transpose()?;
@@ -2326,7 +2325,7 @@ impl<RT: Runtime> Database<RT> {
         identity: Identity,
         snapshot: Option<Timestamp>,
         cursor: Option<ResolvedDocumentId>,
-        filter: StreamingExportFilter,
+        selection: StreamingExportSelection,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<SnapshotPage> {
@@ -2374,8 +2373,8 @@ impl<RT: Runtime> Database<RT> {
                     return None;
                 }
 
-                match Self::streaming_export_table_filter(
-                    &filter,
+                match Self::legacy_streaming_export_table_filter(
+                    &selection,
                     tablet_id,
                     &table_mapping,
                     &component_paths,
@@ -2508,9 +2507,7 @@ impl<RT: Runtime> Database<RT> {
                 .get(&component_id)
                 .cloned()
                 .unwrap_or_else(ComponentPath::root);
-            let column_filter = filter
-                .selection
-                .column_filter(&component_path, &table_name)?;
+            let column_filter = selection.column_filter(&component_path, &table_name)?;
 
             let filtered_doc = column_filter.filter_document(doc.to_developer())?;
 
@@ -2801,16 +2798,42 @@ pub struct ConflictingRead {
 }
 
 fn occ_write_source_string(
-    source: &str,
+    source: &WriteSource,
     document_id: String,
     is_same_write_source: bool,
-) -> String {
+) -> Option<String> {
     let preamble = if is_same_write_source {
         "Another call to this mutation".to_string()
     } else {
-        format!("A call to \"{source}\"")
+        match source {
+            WriteSource::Udf(_) => format!("A call to \"{}\"", source.display_name()?),
+            WriteSource::SystemUdf(_) | WriteSource::System(_) => {
+                convex_writer_description(source).to_string()
+            },
+        }
     };
-    format!("{preamble} changed the document with ID \"{document_id}\"")
+    Some(format!(
+        "{preamble} changed the document with ID \"{document_id}\""
+    ))
+}
+
+/// Convex's own writers have internal names, so describe them by what the
+/// developer did.
+pub(crate) fn convex_writer_description(source: &WriteSource) -> &'static str {
+    match source {
+        WriteSource::SystemUdf(identifier) => {
+            let (_, udf_path) = (**identifier).clone().into_component_and_udf_path();
+            if udf_path.starts_with("_system/frontend/") {
+                "An edit in the Convex dashboard"
+            } else {
+                "A Convex system operation"
+            }
+        },
+        WriteSource::System(label) if label.contains("fivetran") => "A Fivetran sync",
+        WriteSource::System(label) if label.contains("airbyte") => "An Airbyte sync",
+        WriteSource::System(label) if label.starts_with("snapshot_import") => "A data import",
+        WriteSource::Udf(_) | WriteSource::System(_) => "A Convex system operation",
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -2852,13 +2875,11 @@ impl ConflictingReadWithWriteSource {
 
         // We want to show the document's ID only if we know which mutation changed it,
         // so use it only if we have a write source.
-        let occ_msg = self.write_source.display_name().map(|write_source| {
-            occ_write_source_string(
-                &write_source,
-                self.read.id.to_string(),
-                *current_writer == self.write_source,
-            )
-        });
+        let occ_msg = occ_write_source_string(
+            &self.write_source,
+            self.read.id.to_string(),
+            *current_writer == self.write_source,
+        );
 
         let write_source = self.write_source.display_name();
 
@@ -2911,10 +2932,10 @@ impl ConflictingReadWithWriteSource {
     }
 }
 
-/// `op` requires system identity, and the caller does not have it.
-pub fn unauthorized_error(op: &'static str) -> ErrorMetadata {
+/// `op` is an internal name, so it stays out of the message.
+pub fn unauthorized_error(_op: &'static str) -> ErrorMetadata {
     ErrorMetadata::forbidden(
         "SystemIdentityRequired",
-        format!("Operation {op} not permitted"),
+        "You don't have permission to perform this operation.",
     )
 }

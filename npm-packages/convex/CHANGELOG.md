@@ -2,12 +2,26 @@
 
 ## 1.47.0 (unreleased)
 
+- Fixed the next step printed by `npx convex project create`. It suggested
+  `npx convex deployment create <team>:<project>:dev --type dev`, which always
+  failed because `dev` is reserved for your default dev deployment. It now
+  suggests a `dev/my-feature` reference and passes `--select`.
 - `npx convex deploy` now asks for confirmation before creating or changing an
   index on a large table, since the deploy blocks until the index is backfilled.
   Stage the index (`staged: true`) to backfill it in the background instead, or
   pass the new `--skip-large-indexes-check` flag to proceed without
   confirmation. That flag also covers deleting large indexes, replacing the
   hidden `--allow-deleting-large-indexes` flag, which keeps working.
+- The `envList` MCP tool now returns only environment variable names by
+  default, so secrets stay out of the agent's context. Pass
+  `includeValues: true` to get the values too, or use `envGet` to read a single
+  variable.
+- `npx convex env list` and `npx convex env default list` have a new
+  `--include-values` flag for printing values explicitly. Values are still
+  printed by default. The docs and help text now use `--include-values`
+  wherever the values are needed, like
+  `npx convex env list --include-values > .env.convex`, and `--names-only` for
+  just listing variables.
 
 ## 1.46.0
 

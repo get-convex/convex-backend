@@ -1998,6 +1998,9 @@ export interface components {
         };
         ChangeSubscriptionPlanArgs: {
             newPlanId: string;
+            /** @description The promo code the user entered. Redeemed if it's an Orb coupon; a
+             *     promo plan's code is already reflected in `new_plan_id`. */
+            promoCode?: string | null;
         };
         CheckOauthAppArgs: {
             clientId: string;
@@ -2069,6 +2072,9 @@ export interface components {
             disableThresholdCents?: number | null;
             /** Format: int64 */
             warningThresholdCents?: number | null;
+            /** @description The promo code the user entered. Redeemed if it's an Orb coupon; a
+             *     promo plan's code is already reflected in `plan_id`. */
+            promoCode?: string | null;
         };
         CreateTeamArgs: {
             name: components["schemas"]["ProposedTeamName"];

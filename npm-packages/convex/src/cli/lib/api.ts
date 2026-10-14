@@ -67,6 +67,8 @@ export async function createProject(
       body: {
         projectName,
         deploymentType: deploymentToProvision?.deploymentType ?? null,
+        // The published platform types lag the CLI's own spec by a release,
+        // so the cast is deliberate: a new region needs no change here.
         deploymentRegion: (deploymentToProvision?.region ??
           null) as PublishedRegionName | null,
       },

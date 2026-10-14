@@ -98,7 +98,7 @@ fn create_base_snapshot() -> v8::StartupData {
         crypto_key_prototype.set_with_attr(
             symbol_tostringtag.into(),
             strings::CryptoKey.create(scope).unwrap().into(),
-            v8::PropertyAttribute::DONT_ENUM,
+            v8::PropertyAttribute::DONT_ENUM | v8::PropertyAttribute::READ_ONLY,
         );
 
         let crypto_key_private = v8::ObjectTemplate::new(scope);

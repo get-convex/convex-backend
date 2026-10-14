@@ -75,7 +75,7 @@ impl From<&str> for ModuleSource {
 }
 
 /// Bundler-generated source map for a `ModuleSource`.
-pub type SourceMap = String;
+pub type SourceMap = Arc<str>;
 
 #[derive(Debug, Clone)]
 pub struct FullModuleSource {

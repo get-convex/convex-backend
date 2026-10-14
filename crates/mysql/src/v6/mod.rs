@@ -2,10 +2,12 @@
 //!
 //! The V6 logical database is tenant-scoped by `deployment_id`.
 
+pub(crate) mod backfill;
 pub(crate) mod documents;
 pub(crate) mod indexes;
 pub mod maintenance;
 mod persistence;
+pub(crate) mod reader;
 pub(crate) mod sql;
 use std::sync::Arc;
 
@@ -113,7 +115,7 @@ CREATE TABLE IF NOT EXISTS @db_name.documents (
 ) ROW_FORMAT=DYNAMIC;
 "#;
 
-const INDEXES_LATEST_DDL: &str = r#"
+pub(crate) const INDEXES_LATEST_DDL: &str = r#"
 CREATE TABLE IF NOT EXISTS @db_name.indexes_latest (
     deployment_id INT UNSIGNED NOT NULL,
     index_id INT UNSIGNED NOT NULL,
@@ -130,7 +132,7 @@ CREATE TABLE IF NOT EXISTS @db_name.indexes_latest (
 
 /// Deletion markers used to reconcile index backfill rows. Each marker records
 /// the latest deletion timestamp for an index key.
-const INDEXES_BACKFILL_DELETES_DDL: &str = r#"
+pub(crate) const INDEXES_BACKFILL_DELETES_DDL: &str = r#"
 CREATE TABLE IF NOT EXISTS @db_name.indexes_backfill_deletes (
     deployment_id INT UNSIGNED NOT NULL,
     index_id INT UNSIGNED NOT NULL,

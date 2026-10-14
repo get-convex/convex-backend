@@ -19,6 +19,7 @@ import { setupRequest } from "udf-runtime/src/23_request";
 import { setupResponse } from "udf-runtime/src/23_response";
 import { setupPerformance } from "udf-runtime/src/27_performance";
 import { setupJsSyscall } from "udf-runtime/src/js_syscall";
+import { setupTextEncodingStreams } from "./text-encoding-streams";
 
 setupDate(globalThis);
 setupMisc(globalThis);
@@ -27,6 +28,7 @@ setupConsole(globalThis);
 setupStructuredClone(globalThis);
 setupEvent(globalThis);
 setupStreams(globalThis);
+setupTextEncodingStreams(globalThis);
 setupAbortSignal(globalThis);
 setupAsyncHooks(globalThis);
 setupBlob(globalThis);
@@ -38,7 +40,7 @@ setupPerformance(globalThis);
 setupJsSyscall(globalThis);
 
 // TODO: implement actions
-globalThis.fetch = async () => {
+globalThis.fetch = async function fetch(_input: unknown) {
   throw new TypeError(
     "Can't use fetch() in queries and mutations. Please consider using an action. See https://docs.convex.dev/functions/actions for more details.",
   );
@@ -53,36 +55,17 @@ globalThis.fetch = async () => {
 const unsupported = (name: string) =>
   new TypeError(`${name} is not supported in the wasm runtime`);
 
-const unsupportedFunction = (name: string) => {
+const unsupportedFunction = (name: string, length = 0) => {
   const fn = () => {
     throw unsupported(name);
   };
   Object.defineProperty(fn, "name", { value: name });
+  Object.defineProperty(fn, "length", { value: length });
   return fn;
 };
 
-const unsupportedClass = (name: string) => {
-  const cls = class {
-    constructor() {
-      throw unsupported(name);
-    }
-  };
-  Object.defineProperty(cls, "name", { value: name });
-  return cls;
-};
-
-globalThis.setTimeout = unsupportedFunction("setTimeout") as any;
-globalThis.setInterval = unsupportedFunction("setInterval") as any;
+globalThis.setTimeout = unsupportedFunction("setTimeout", 2) as any;
+globalThis.setInterval = unsupportedFunction("setInterval", 2) as any;
 // Nothing can be scheduled, so there is never a timer to clear.
-globalThis.clearTimeout = () => {};
-globalThis.clearInterval = () => {};
-
-globalThis.WebAssembly = {
-  compile: unsupportedFunction("WebAssembly.compile"),
-  instantiate: unsupportedFunction("WebAssembly.instantiate"),
-  validate: unsupportedFunction("WebAssembly.validate"),
-  Module: unsupportedClass("WebAssembly.Module"),
-  Instance: unsupportedClass("WebAssembly.Instance"),
-  Memory: unsupportedClass("WebAssembly.Memory"),
-  Table: unsupportedClass("WebAssembly.Table"),
-} as unknown as typeof WebAssembly;
+globalThis.clearTimeout = function clearTimeout(_id: unknown) {};
+globalThis.clearInterval = function clearInterval(_id: unknown) {};

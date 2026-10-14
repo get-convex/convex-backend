@@ -184,6 +184,8 @@ export interface QueryMeta {
    * Note: this should not be compared to `_creationTime` or `Date.now()`, as
    * those are based on wall-clock time rather than the database clock, and
    * aren't guaranteed to follow commit order.
+   *
+   * Docs: https://docs.convex.dev/database/advanced/commit-timestamp
    */
   getSnapshotTs(): bigint;
 }

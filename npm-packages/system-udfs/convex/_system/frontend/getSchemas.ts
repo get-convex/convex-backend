@@ -35,36 +35,108 @@ export default queryPrivateSystem("ViewData")({
   },
 });
 
+type ValidationRow = Awaited<ReturnType<typeof validationProgress>>;
+
+/// Per-table validation attempts for the pending schema, or null when no
+/// schema is pending or the worker hasn't started walking tables yet.
+async function pendingValidationRows(
+  db: DatabaseReader,
+): Promise<ValidationRow[] | null> {
+  const pending = await getSchemaByState(db, "pending");
+  if (!pending) {
+    return null;
+  }
+  const attempts = await db
+    .query("_schema_validations")
+    .withIndex("by_schema_id_and_table_name", (q) =>
+      q.eq("schemaId", pending._id),
+    )
+    .collect();
+  const rows = await Promise.all(
+    attempts.map((attempt) => validationProgress(db, attempt)),
+  );
+  return rows.length === 0 ? null : rows;
+}
+
+function aggregateProgress(rows: ValidationRow[]) {
+  return {
+    numDocsValidated: rows.reduce(
+      (sum, row) => sum + Number(row.numDocsValidated),
+      0,
+    ),
+    totalDocs: rows.every((row) => row.totalDocs !== null)
+      ? rows.reduce((sum, row) => sum + Number(row.totalDocs), 0) || null
+      : null,
+  };
+}
+
 export const schemaValidationProgress = queryPrivateSystem("ViewData")({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async function ({
     db,
   }): Promise<{ numDocsValidated: number; totalDocs: number | null } | null> {
-    const pending = await getSchemaByState(db, "pending");
-    if (!pending) {
+    const rows = await pendingValidationRows(db);
+    return rows === null ? null : aggregateProgress(rows);
+  },
+});
+
+export type TableValidationProgress = {
+  tableName: string;
+  state: "pending" | "valid" | "failed";
+  error?: string;
+  numDocsValidated: number;
+  totalDocs: number | null;
+};
+
+/// The aggregate progress plus one entry per table the pending schema is
+/// validating, sorted by table name.
+export const schemaValidationProgressByTable = queryPrivateSystem("ViewData")({
+  args: { componentId: v.optional(v.union(v.string(), v.null())) },
+  handler: async function ({ db }): Promise<{
+    numDocsValidated: number;
+    totalDocs: number | null;
+    tables: TableValidationProgress[];
+  } | null> {
+    const rows = await pendingValidationRows(db);
+    if (rows === null) {
       return null;
     }
+    const tables = rows
+      .map((row) => ({
+        tableName: row.tableName,
+        state: row.state.state,
+        ...(row.state.state === "failed" ? { error: row.state.error } : {}),
+        numDocsValidated: Number(row.numDocsValidated),
+        totalDocs: row.totalDocs === null ? null : Number(row.totalDocs),
+      }))
+      .sort((a, b) => a.tableName.localeCompare(b.tableName));
+    return { ...aggregateProgress(rows), tables };
+  },
+});
+
+export const stagedSchemaValidationProgress = queryPrivateSystem("ViewData")({
+  args: { componentId: v.optional(v.union(v.string(), v.null())) },
+  handler: async function ({ db }) {
+    const active = await getSchemaByState(db, "active");
+    if (!active) return [];
     const attempts = await db
       .query("_schema_validations")
       .withIndex("by_schema_id_and_table_name", (q) =>
-        q.eq("schemaId", pending._id),
+        q.eq("schemaId", active._id),
       )
       .collect();
-    const rows = await Promise.all(
+    const docs = await Promise.all(
       attempts.map((attempt) => validationProgress(db, attempt)),
     );
-    if (rows.length === 0) {
-      return null;
-    }
-    return {
-      numDocsValidated: rows.reduce(
-        (sum, row) => sum + Number(row.numDocsValidated),
-        0,
-      ),
-      totalDocs: rows.every((row) => row.totalDocs !== null)
-        ? rows.reduce((sum, row) => sum + Number(row.totalDocs), 0) || null
-        : null,
-    };
+    return docs
+      .filter((doc) => doc.validatorHash !== undefined)
+      .map((doc) => ({
+        tableName: doc.tableName,
+        state: doc.state,
+        numDocsValidated: Number(doc.numDocsValidated),
+        totalDocs: doc.totalDocs === null ? null : Number(doc.totalDocs),
+      }))
+      .sort((a, b) => a.tableName.localeCompare(b.tableName));
   },
 });
 

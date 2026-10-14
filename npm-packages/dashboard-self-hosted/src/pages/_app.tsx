@@ -328,7 +328,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   deploymentsURI: "",
   isSelfHosted: true,
   workosIntegrationEnabled: false,
-  managedAnalyticsIntegrationEnabled: false,
+  healthDeployProgressEnabled: false,
   s3ExportIntegrationEnabled: false,
   connectionStateCheckIntervalMs: 2500,
   showFivetranSyncProgress: false,

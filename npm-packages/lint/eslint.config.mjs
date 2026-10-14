@@ -134,6 +134,7 @@ const config = [
     ignores: [
       "**/dont-publish-alpha-as-latest.mjs",
       "**/version-check.mjs",
+      "npm-packages-private/auth-emails/**",
       "npm-packages-private/data/**",
       "npm-packages-private/grafana-mcp/**",
       "npm-packages-private/postalservice/**",
@@ -180,6 +181,7 @@ const config = [
   ...[
     "@convex-dev/eslint-plugin",
     "@convex-dev/ai-sdk-provider",
+    "@convex-dev/bundle-analyzer",
     "tests/js-integration-tests",
     "udf-runtime",
     "scenario-runner/convex",

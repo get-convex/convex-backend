@@ -30,7 +30,7 @@ export function DefaultRegionSelector({
         value={value}
         onChange={onChange}
       >
-        <div className="grid max-w-xl auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid auto-rows-fr grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
           {regions ? (
             <>
               <Region

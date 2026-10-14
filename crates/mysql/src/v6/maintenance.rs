@@ -18,6 +18,7 @@ use std::{
 
 use anyhow::Context as _;
 use common::{
+    cover,
     knobs::{
         INDEXES_LOG_LOOKAHEAD_BUCKETS,
         INDEX_RETENTION_DELAY,
@@ -83,9 +84,10 @@ SET lease_owner = ?, lease_expires_ts = ?
 WHERE id = 1 AND (lease_expires_ts <= ? OR lease_owner = ?)
 "#;
 
+// Writers cache the published ceiling, so it must remain monotonic.
 const PUBLISH_STATE: &str = r#"
 UPDATE @db_name.indexes_maintenance_state
-SET created_through_ts = ?,
+SET created_through_ts = GREATEST(created_through_ts, ?),
     oldest_kept_ts = GREATEST(oldest_kept_ts, ?),
     last_run_ts = ?,
     last_run_status = 'ok'
@@ -232,6 +234,7 @@ impl<RT: Runtime> IndexesLogMaintenance<RT> {
         // older floor can only be pointed at buckets that are still here.
         let dropped = bucket_to_drop(&existing, prev_oldest_kept_ts, now_bucket)?;
         if let Some(bucket) = dropped {
+            cover!(super::coverage::BUCKET_DROPPED);
             conn.execute_many(&drop_log_ddl(bucket)).await?;
             metrics::log_indexes_log_bucket_dropped(self.pool.cluster_name());
             existing.remove(&bucket);

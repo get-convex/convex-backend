@@ -7,6 +7,12 @@ const syncPeriodOptions: Option<SyncPeriod>[] = [
   { value: "continuous", label: "Continuous" },
 ];
 
+const CHECK_INTERVAL: Record<SyncPeriod, string> = {
+  daily: "every day",
+  hourly: "every hour",
+  continuous: "continuously",
+};
+
 export function SyncPeriodSelector({
   value,
   onChange,
@@ -17,17 +23,18 @@ export function SyncPeriodSelector({
   return (
     <div className="flex flex-col gap-1">
       <Combobox
-        label="Sync Frequency"
+        label="Check for changes"
         labelHidden={false}
         options={syncPeriodOptions}
         selectedOption={value}
         setSelectedOption={(period) => period && onChange(period)}
         allowCustomValue={false}
+        disableSearch
         buttonClasses="w-full bg-inherit"
       />
       <div className="max-w-prose text-xs text-content-secondary">
-        How often the mirror is refreshed. Your data lags the deployment by up
-        to this interval.
+        The first export starts when you save. After it catches up, Convex
+        checks for changes {CHECK_INTERVAL[value]}.
       </div>
     </div>
   );

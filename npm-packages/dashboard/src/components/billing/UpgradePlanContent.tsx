@@ -9,7 +9,6 @@ import { useGetCoupon, useCreateSubscription } from "api/billing";
 import { FormikProvider, useFormik, useFormikContext } from "formik";
 import * as Yup from "yup";
 import { Address, PlanResponse, TeamResponse } from "generatedApi";
-import { Link } from "@ui/Link";
 import { PriceSummary } from "components/billing/PriceSummary";
 import { usePostHog } from "hooks/usePostHog";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
@@ -36,7 +35,6 @@ export type UpgradePlanContentProps = {
   setPaymentMethod: (paymentMethod?: string) => void;
   billingAddressInputs: React.ReactNode;
   paymentDetailsForm: React.ReactNode;
-  isChef: boolean;
   teamManagedBy?: string;
 };
 
@@ -57,14 +55,12 @@ export function UpgradePlanContentContainer({
   name: profileName,
   onUpgradeComplete,
   plan,
-  isChef,
   ...props
 }: Pick<UpgradePlanContentProps, "numMembers" | "plan"> & {
   team: TeamResponse;
   email?: string;
   name?: string | null;
   onUpgradeComplete: () => void;
-  isChef: boolean;
 }) {
   const createSubscription = useCreateSubscription(team.id);
   const { capture } = usePostHog();
@@ -91,6 +87,7 @@ export function UpgradePlanContentContainer({
     onSubmit: async (v) => {
       await createSubscription({
         planId: v.planId,
+        promoCode: v.promoCode || undefined,
         paymentMethod: v.paymentMethod,
         billingAddress: v.billingAddress,
         name: v.name,
@@ -158,7 +155,6 @@ export function UpgradePlanContentContainer({
       <UpgradePlanContent
         {...props}
         plan={plan}
-        isChef={isChef}
         teamManagedBy={team.managedBy === "vercel" ? team.managedBy : undefined}
         setPaymentMethod={(p) => {
           if (!p) {
@@ -213,7 +209,6 @@ export function UpgradePlanContent({
   setPaymentMethod,
   billingAddressInputs,
   paymentDetailsForm,
-  isChef,
   teamManagedBy,
 }: UpgradePlanContentProps) {
   const formState = useFormikContext<UpgradeFormState>();
@@ -285,8 +280,8 @@ export function UpgradePlanContent({
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <p className="text-sm text-content-secondary">
-              We recommend setting spending limit warnings and hard limits to
-              avoid unexpected charges on your Convex usage.
+              We recommend setting a warning threshold and a disable threshold
+              to avoid unexpected charges on your Convex usage.
             </p>
             <SpendingLimits />
             {!requiresPaymentMethod && (
@@ -402,34 +397,26 @@ export function UpgradePlanContent({
   );
 
   return (
-    <>
-      {isChef && plan.planType === "CONVEX_STARTER_PLUS" && (
-        <p className="mb-2">
-          {plan.name} is recommended for Convex Chef users.{" "}
-          <Link href="/team/settings/billing">View all plans.</Link>
-        </p>
-      )}
-      <div className="flex flex-col gap-4">
-        <PriceSummary
-          plan={plan}
-          teamMemberDiscountPct={teamMemberDiscountPct}
-          numMembers={numMembers}
-          requiresPaymentMethod={requiresPaymentMethod}
-          couponDurationInMonths={couponDurationInMonths}
-          isUpgrading={false}
-          teamManagedBy={teamManagedBy}
-        />
+    <div className="flex flex-col gap-4">
+      <PriceSummary
+        plan={plan}
+        teamMemberDiscountPct={teamMemberDiscountPct}
+        numMembers={numMembers}
+        requiresPaymentMethod={requiresPaymentMethod}
+        couponDurationInMonths={couponDurationInMonths}
+        isUpgrading={false}
+        teamManagedBy={teamManagedBy}
+      />
 
-        <Stepper activeStep={currentStep} onSelectStep={setCurrentStep}>
-          {steps.map((step, index) => (
-            <Stepper.Step key={step.label} label={step.label}>
-              {stepContent(index)}
-              {index === currentStep && navigationButtons}
-            </Stepper.Step>
-          ))}
-        </Stepper>
-      </div>
-    </>
+      <Stepper activeStep={currentStep} onSelectStep={setCurrentStep}>
+        {steps.map((step, index) => (
+          <Stepper.Step key={step.label} label={step.label}>
+            {stepContent(index)}
+            {index === currentStep && navigationButtons}
+          </Stepper.Step>
+        ))}
+      </Stepper>
+    </div>
   );
 }
 

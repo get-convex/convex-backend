@@ -54,8 +54,8 @@ class TextDecoder {
     }
 
     this.#encoding = encoding;
-    this.#fatal = options.fatal || false;
-    this.#ignoreBOM = options.ignoreBOM || false;
+    this.#fatal = Boolean(options.fatal);
+    this.#ignoreBOM = Boolean(options.ignoreBOM);
     this.#decoder = null;
   }
   get encoding() {
@@ -128,33 +128,34 @@ Object.defineProperty(TextDecoder.prototype, Symbol.toStringTag, {
   configurable: true,
 });
 
-function atob(encoded: string): string {
-  if (arguments.length === 0) {
-    throw new TypeError('The "input" argument must be specified');
-  }
-  const { decoded, error } = performOp("atob", String(encoded));
-  if (error) {
-    throw new DOMException(
-      `Failed to execute 'atob': ${error}`,
-      "InvalidCharacterError",
-    );
-  }
-  return decoded;
-}
-
-function btoa(text: string): string {
-  if (arguments.length === 0) {
-    throw new TypeError('The "input" argument must be specified');
-  }
-  const { encoded, error } = performOp("btoa", String(text));
-  if (error) {
-    throw new DOMException(
-      `Failed to execute 'btoa': ${error}`,
-      "InvalidCharacterError",
-    );
-  }
-  return encoded;
-}
+const { atob, btoa } = {
+  atob(encoded: string): string {
+    if (arguments.length === 0) {
+      throw new TypeError('The "input" argument must be specified');
+    }
+    const { decoded, error } = performOp("atob", String(encoded));
+    if (error) {
+      throw new DOMException(
+        `Failed to execute 'atob': ${error}`,
+        "InvalidCharacterError",
+      );
+    }
+    return decoded;
+  },
+  btoa(text: string): string {
+    if (arguments.length === 0) {
+      throw new TypeError('The "input" argument must be specified');
+    }
+    const { encoded, error } = performOp("btoa", String(text));
+    if (error) {
+      throw new DOMException(
+        `Failed to execute 'btoa': ${error}`,
+        "InvalidCharacterError",
+      );
+    }
+    return encoded;
+  },
+};
 
 class TextDecoderStream {
   /** @type {TextDecoder} */

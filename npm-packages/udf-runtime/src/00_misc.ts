@@ -8,6 +8,31 @@ import { performOp } from "udf-syscall-ffi";
  * libraries we bundle, which may then retain references to globals we modify.
  */
 export function setupMisc(global) {
+  // V8's deprecated RegExp statics expose mutable state from the last match.
+  for (const name of [
+    "$&",
+    "$'",
+    "$+",
+    "$1",
+    "$2",
+    "$3",
+    "$4",
+    "$5",
+    "$6",
+    "$7",
+    "$8",
+    "$9",
+    "$_",
+    "$`",
+    "input",
+    "lastMatch",
+    "lastParen",
+    "leftContext",
+    "rightContext",
+  ]) {
+    delete global.RegExp[name];
+  }
+
   delete global.Math.random;
   global.Math.random = function () {
     return performOp("random");
@@ -37,4 +62,7 @@ export function setupMisc(global) {
   // defined in browsers and required by the WinterCG Minimum Common Web Platform API draft
   // https://common-min-api.proposal.wintercg.org/
   global.self = global;
+
+  // Nonstandard and deprecated
+  delete global.Intl?.v8BreakIterator;
 }

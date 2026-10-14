@@ -57,8 +57,8 @@ JavaScript (steps 3–6 of the waterfall) takes 100–300 ms, on a desktop 30–
 SSR doesn't wait for it.
 
 **Server-to-Convex distance:** if your framework server runs in the same cloud
-region as Convex, a query from the server takes about 1–5 ms. Convex currently
-offers the US East (N. Virginia) and EU West (Ireland) regions.
+region as Convex, a query from the server takes about 1–5 ms. See
+[Regions](/production/regions.mdx) for the regions Convex offers.
 
 **Client-to-server distance:** both approaches need at least one round trip to
 the framework server. SSR sends the data in that response; client-side rendering
@@ -80,7 +80,7 @@ the largest effect on SSR speed.
 
 | Platform       | How to co-locate with Convex                                                                                                                             |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Vercel**     | Set the function region to `iad1` (US East) or `dub1` (Ireland) in the project settings (default `iad1`)                                                 |
+| **Vercel**     | Set the function region closest to your Convex region in the project settings, for example `iad1` (US East) or `dub1` (Ireland). The default is `iad1`   |
 | **Cloudflare** | Enable [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement/) or set explicit placement to match your Convex region |
 | **Netlify**    | Use [region selection](https://www.netlify.com/blog/netlify-functions-region-selection/) to match your Convex region                                     |
 

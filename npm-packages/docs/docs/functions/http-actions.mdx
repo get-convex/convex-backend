@@ -126,7 +126,10 @@ side-effects and will not be automatically retried by Convex when errors occur.
 It is a responsibility of the caller to handle errors and retry the request if
 appropriate.
 
-Request and response size is limited to 20MB.
+There is no specific limit on request size, except `multipart/form-data` bodies,
+which are limited to 20 MiB. Response size is limited to 100 MiB. HTTP actions
+in the Convex runtime have 64 MiB of memory, so to return a response larger than
+that, stream the body with a `ReadableStream` instead of building it in memory.
 
 HTTP actions support request and response body types of `.text()`, `.json()`,
 `.blob()`, and `.arrayBuffer()`.

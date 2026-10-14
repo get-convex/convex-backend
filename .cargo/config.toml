@@ -24,6 +24,10 @@ CHRONO_TZ_TIMEZONE_FILTER = "US/Pacific"
 # @ tag v149.2.11; pinned by rev via [patch.crates-io] so the mirror download URL
 # (…/v149.2.11/…) is content-stable and reproducible.
 RUSTY_V8_MIRROR = "https://github.com/get-convex/rusty_v8/releases/download"
+# ada-url's build script compiles Ada with the static CRT (/MT) under MSVC, but
+# V8 and the other C++ dependencies link the dynamic CRT (/MD), and the linker
+# rejects the mix. cc-rs passes CXXFLAGS after its own CRT flag, so this /MD wins.
+CXXFLAGS_x86_64_pc_windows_msvc = "-MD"
 
 [target.aarch64-unknown-linux-gnu]
 rustflags = ["-Cforce-frame-pointers=yes"]

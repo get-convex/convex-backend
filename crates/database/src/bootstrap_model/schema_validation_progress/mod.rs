@@ -1,4 +1,3 @@
-pub mod legacy;
 pub mod types;
 
 use std::sync::{

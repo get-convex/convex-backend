@@ -325,7 +325,10 @@ use model::{
     usage_limits::UsageLimitsModel,
 };
 use node_executor::NodeActions;
-use parking_lot::Mutex;
+use parking_lot::{
+    Mutex,
+    RwLock,
+};
 use rand::Rng;
 use roles::RequireDeploymentOp;
 use scheduled_jobs::ScheduledJobRunner;
@@ -419,6 +422,7 @@ use crate::{
         RedactedJsError,
         RedactedLogLines,
     },
+    s3_export_worker::S3ExportWorker,
     snapshot_import::{
         clear_tables,
         SnapshotImportWorker,
@@ -430,7 +434,9 @@ pub mod airbyte_import;
 pub mod api;
 pub mod app_metric_seed;
 pub mod application_function_runner;
+mod audit_log_config;
 pub mod audit_logging;
+mod backend_info;
 mod cache;
 pub mod cron_jobs;
 pub mod deploy_config;
@@ -442,6 +448,7 @@ pub mod log_streaming;
 pub mod log_visibility;
 mod metrics;
 pub mod redaction;
+mod s3_export_worker;
 pub mod scheduled_jobs;
 mod schema_worker;
 pub mod snapshot_import;
@@ -623,6 +630,10 @@ pub struct Application<RT: Runtime> {
     app_auth: Arc<ApplicationAuth<RT>>,
     log_manager_client: LogManagerClient,
     audit_log_client: AuditLogClient,
+    sentry_tags: Arc<RwLock<Vec<(&'static str, String)>>>,
+    // Serializes `_backend_info` writes together with the log-streaming permission
+    // and Sentry tag updates that follow them.
+    backend_info_write_lock: Arc<tokio::sync::Mutex<()>>,
     oidc_http_client: CachedHttpClient,
 }
 
@@ -910,6 +921,16 @@ impl<RT: Runtime> Application<RT> {
             runtime.spawn("cron_job_executor", cron_job_executor_fut),
         ));
 
+        let s3_export_worker = S3ExportWorker::new(
+            runtime.clone(),
+            database.clone(),
+            deployment_name.clone(),
+            export_provider.clone(),
+        );
+        let s3_export_worker = Arc::new(Mutex::new(Some(
+            runtime.spawn("s3_export_worker", s3_export_worker.run()),
+        )));
+
         let export_worker = ExportWorker::new(
             runtime.clone(),
             database.clone(),
@@ -964,6 +985,7 @@ impl<RT: Runtime> Application<RT> {
             schema_worker,
             snapshot_import_worker,
             export_worker,
+            s3_export_worker,
             system_table_cleanup_worker,
             migration_worker,
             usage_limit_worker,
@@ -988,6 +1010,8 @@ impl<RT: Runtime> Application<RT> {
             app_auth,
             log_manager_client,
             audit_log_client,
+            sentry_tags: Default::default(),
+            backend_info_write_lock: Default::default(),
             oidc_http_client,
         })
     }
@@ -1016,8 +1040,11 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: &Identity,
         claims: AttributionClaims,
+        request_id: &RequestId,
     ) -> anyhow::Result<String> {
-        self.runner.mint_ai_gateway_jwt(identity, claims).await
+        self.runner
+            .mint_ai_gateway_jwt(identity, claims, request_id)
+            .await
     }
 
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {

@@ -239,10 +239,14 @@ impl TransactionIndex {
             let result = try_anyhow!({
                 let (snapshot_result_vec, cursor) = snapshot_result?;
                 let mut snapshot_it = snapshot_result_vec.into_iter();
+                // Pending writes past `cursor` belong to later pages.
+                let (snapshot_interval, _) = range_request
+                    .interval
+                    .split(cursor.clone(), range_request.order);
                 let pending_it = self.pending_iter_for_interval(
                     &range_request.index_name,
                     &range_request.printable_index_name,
-                    &range_request.interval,
+                    &snapshot_interval,
                 )?;
                 let mut pending_it = range_request.order.apply(pending_it);
 
@@ -747,7 +751,7 @@ pub trait TransactionTextSnapshot: Send + Sync + 'static {
         // should be rare.
         // As a potential future optimization, we could try to make the caller much
         // more coupled with the search algorithm and require it to send bm25 statistics
-        // diff, top fuzzy search suggestions and other search specific properties derived
+        // diff, shortlisted query terms and other search specific properties derived
         // from the writes. Alternatively, we could only do subset of that and relax the
         // determinism requirement since we don't really need to have deterministic between
         // search calls in mutations and search calls in queries, and if anyone relies on

@@ -121,10 +121,15 @@ use crate::{
     },
     committer::table_dependency_sort_key,
     execution_size::{
-        FileStorageSize,
+        FileStorageReadSize,
         FunctionExecutionSize,
         ScheduledFunctionsSize,
         TransactionLimits,
+    },
+    file_uploads::{
+        FileUploads,
+        PendingFileUpload,
+        UploadedFileUpload,
     },
     metrics::{
         self,
@@ -176,7 +181,9 @@ pub struct Transaction<RT: Runtime> {
     pub scheduled_size: ScheduledFunctionsSize,
 
     // Size of the file storage accessed from this transaction.
-    pub file_storage_size: FileStorageSize,
+    pub file_storage_read_size: FileStorageReadSize,
+
+    pub(crate) file_uploads: NestedWrites<FileUploads>,
 
     // Transaction limits (reads, writes, scheduled). Defaults to global limits.
     pub(crate) limits: TransactionLimits,
@@ -216,9 +223,13 @@ pub struct SubtransactionToken {
     tables: NestedWriteToken,
     schema_registry: NestedWriteToken,
     component_registry: NestedWriteToken,
+    file_uploads: NestedWriteToken,
     /// Parent's transaction limits, restored when the subtransaction
     /// commits or rolls back.
     limits: TransactionLimits,
+    /// Parent's table count deltas, restored when the subtransaction rolls
+    /// back.
+    table_count_deltas: BTreeMap<TabletId, i64>,
 }
 
 impl<RT: Runtime> Transaction<RT> {
@@ -242,7 +253,8 @@ impl<RT: Runtime> Transaction<RT> {
             id_generator,
             next_creation_time: creation_time,
             scheduled_size: ScheduledFunctionsSize::default(),
-            file_storage_size: FileStorageSize::default(),
+            file_storage_read_size: FileStorageReadSize::default(),
+            file_uploads: NestedWrites::new(FileUploads::default()),
             limits: TransactionLimits::default(),
             index: NestedWrites::new(index),
             metadata: NestedWrites::new(metadata),
@@ -410,7 +422,9 @@ impl<RT: Runtime> Transaction<RT> {
             tables: self.metadata.begin_nested(),
             schema_registry: self.schema_registry.begin_nested(),
             component_registry: self.component_registry.begin_nested(),
+            file_uploads: self.file_uploads.begin_nested(),
             limits: self.limits.clone(),
+            table_count_deltas: self.table_count_deltas.clone(),
         }
     }
 
@@ -421,6 +435,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.schema_registry.commit_nested(tokens.schema_registry)?;
         self.component_registry
             .commit_nested(tokens.component_registry)?;
+        self.file_uploads.commit_nested(tokens.file_uploads)?;
         self.limits = tokens.limits;
         Ok(())
     }
@@ -433,7 +448,9 @@ impl<RT: Runtime> Transaction<RT> {
             .rollback_nested(tokens.schema_registry)?;
         self.component_registry
             .rollback_nested(tokens.component_registry)?;
+        self.file_uploads.rollback_nested(tokens.file_uploads)?;
         self.limits = tokens.limits;
+        self.table_count_deltas = tokens.table_count_deltas;
         Ok(())
     }
 
@@ -443,6 +460,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.metadata.require_not_nested()?;
         self.schema_registry.require_not_nested()?;
         self.component_registry.require_not_nested()?;
+        self.file_uploads.require_not_nested()?;
         Ok(())
     }
 
@@ -489,8 +507,64 @@ impl<RT: Runtime> Transaction<RT> {
             read_size: self.reads.user_tx_size().to_owned(),
             write_size: self.writes.user_size().to_owned(),
             scheduled_size: self.scheduled_size.clone(),
-            file_storage_size: self.file_storage_size.clone(),
+            file_storage_write_size: self.file_uploads.size(),
+            file_storage_read_size: self.file_storage_read_size.clone(),
         }
+    }
+
+    /// Records the contents of a file whose `_file_storage` row `id` this
+    /// transaction just wrote.
+    pub fn add_pending_file_upload(
+        &mut self,
+        id: ResolvedDocumentId,
+        upload: PendingFileUpload,
+    ) -> anyhow::Result<()> {
+        self.file_uploads.add_pending(id, upload)
+    }
+
+    /// Forgets the file whose `_file_storage` row `id` this transaction just
+    /// deleted, if it was one the transaction stored.
+    pub fn remove_pending_file_upload(&mut self, id: &ResolvedDocumentId) -> anyhow::Result<()> {
+        self.file_uploads.remove_pending(id)
+    }
+
+    pub fn get_pending_file_uploads(
+        &self,
+    ) -> anyhow::Result<Vec<(ResolvedDocumentId, PendingFileUpload)>> {
+        self.file_uploads.pending_files()
+    }
+
+    /// The contents of the file whose `_file_storage` document `id` this
+    /// transaction stored, if it stored one.
+    pub fn get_pending_file_upload(
+        &self,
+        id: &ResolvedDocumentId,
+    ) -> anyhow::Result<Option<PendingFileUpload>> {
+        Ok(self.file_uploads.pending_file(id)?.cloned())
+    }
+
+    pub fn add_file_storage_read(&mut self, size: usize) {
+        self.file_storage_read_size.num_reads += 1;
+        self.file_storage_read_size.size += size;
+    }
+
+    pub fn mark_files_uploaded(&mut self) -> anyhow::Result<()> {
+        self.file_uploads.require_not_nested()?;
+        self.file_uploads.mark_uploaded();
+        Ok(())
+    }
+
+    pub fn discard_pending_file_uploads(&mut self) -> anyhow::Result<()> {
+        self.file_uploads.require_not_nested()?;
+        self.file_uploads.discard_pending();
+        Ok(())
+    }
+
+    pub fn get_uploaded_files(
+        &self,
+    ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, UploadedFileUpload>> {
+        self.file_uploads.require_not_nested()?;
+        self.file_uploads.uploaded_files()
     }
 
     /// Returns the transaction limits.
@@ -523,6 +597,7 @@ impl<RT: Runtime> Transaction<RT> {
         system_tx_size: crate::reads::TransactionReadSize,
         updates: Vec<PendingDocumentUpdate>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
+        uploaded_files: BTreeMap<ResolvedDocumentId, UploadedFileUpload>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
             *self.begin_timestamp() == begin_timestamp,
@@ -533,6 +608,7 @@ impl<RT: Runtime> Transaction<RT> {
             .merge(reads, num_intervals, user_tx_size, system_tx_size);
 
         self.merge_writes(updates)?;
+        self.file_uploads.add_uploaded(uploaded_files)?;
 
         for (tablet_id, rows_read) in rows_read_by_tablet {
             self.stats.entry(tablet_id).or_default().rows_read += rows_read;
@@ -1387,7 +1463,8 @@ impl<RT: Runtime> Transaction<RT> {
             id_generator: self.id_generator.clone_for_snapshot_query(),
             next_creation_time: self.next_creation_time,
             scheduled_size: self.scheduled_size.clone(),
-            file_storage_size: self.file_storage_size.clone(),
+            file_storage_read_size: self.file_storage_read_size.clone(),
+            file_uploads: NestedWrites::new(FileUploads::default()),
             limits: self.limits.clone(),
             // Don't clone the read set because it is expensive and doesn't matter in a snapshot
             // query

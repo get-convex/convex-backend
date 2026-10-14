@@ -18,8 +18,10 @@
     "prepack": "node src/scripts/dont-publish-alpha-as-latest.mjs"
   },
   "dependencies": {
+    "@typescript-eslint/parser": "~8.58.0",
     "@typescript-eslint/types": "~8.58.0",
-    "@typescript-eslint/utils": "~8.58.0"
+    "@typescript-eslint/utils": "~8.58.0",
+    "typescript": "^5.9.2"
   },
   "peerDependencies": {
     "convex": "^1.43.0"
@@ -33,7 +35,6 @@
     "eslint": "^9.37.0",
     "globals": "~17.4.0",
     "tshy": "^3.0.0",
-    "typescript": "^5.9.2",
     "typescript-eslint": "^8.45.0",
     "vitest": "^4.1.0"
   },

@@ -135,7 +135,7 @@ impl SqlitePersistence {
     ) -> anyhow::Result<Vec<anyhow::Result<(IndexKeyBytes, LatestDocument)>>> {
         let interval = interval.clone();
         let index_id = &index_id.0[..];
-        let read_timestamp: u64 = read_timestamp.into();
+        let read_timestamp: i64 = read_timestamp.into();
 
         let mut params = params![index_id, read_timestamp].to_vec();
 
@@ -187,12 +187,12 @@ ORDER BY B.key {order}
         let mut stmt = connection.prepare(&query)?;
         let row_iter = stmt.query_map(&params[..], |row| {
             let key = IndexKeyBytes(row.get::<_, Vec<u8>>(0)?);
-            let ts = Timestamp::try_from(row.get::<_, u64>(1)?).expect("timestamp out of bounds");
+            let ts = Timestamp::try_from(row.get::<_, i64>(1)?).expect("timestamp out of bounds");
             let document_id = row.get::<_, Vec<u8>>(2)?;
             let table: Option<Vec<u8>> = row.get(3)?;
             let json_value: Option<String> = row.get(4)?;
             let prev_ts: Option<Timestamp> = row
-                .get::<_, Option<u64>>(5)?
+                .get::<_, Option<i64>>(5)?
                 .map(|ts| Timestamp::try_from(ts).expect("prev_ts out of bounds"));
 
             Ok((key, ts, document_id, table, json_value, prev_ts))
@@ -268,7 +268,7 @@ impl IndexRowPersistence for SqlitePersistence {
         {
             count_deleted +=
                 delete_index_query
-                    .execute(params![&index_id.0[..], &u64::from(ts), key_prefix,])?;
+                    .execute(params![&index_id.0[..], &i64::from(ts), key_prefix,])?;
         }
         drop(delete_index_query);
         tx.commit()?;
@@ -311,11 +311,11 @@ impl Persistence for SqlitePersistence {
             };
             insert_document_query.execute(params![
                 &update.id.internal_id()[..],
-                &u64::from(update.ts),
+                &i64::from(update.ts),
                 &update.id.table().0[..],
                 &json_value,
                 &deleted,
-                &update.prev_ts.map(u64::from),
+                &update.prev_ts.map(i64::from),
             ])?;
         }
         drop(insert_document_query);
@@ -332,7 +332,7 @@ impl Persistence for SqlitePersistence {
                 None => {
                     insert_index_query.execute(params![
                         &index_id.0[..],
-                        &u64::from(update.ts),
+                        &i64::from(update.ts),
                         key,
                         &1,
                         &Null,
@@ -342,7 +342,7 @@ impl Persistence for SqlitePersistence {
                 Some(doc_id) => {
                     insert_index_query.execute(params![
                         &index_id.0[..],
-                        &u64::from(update.ts),
+                        &i64::from(update.ts),
                         key,
                         &0,
                         &doc_id.table().0[..],
@@ -399,7 +399,7 @@ impl Persistence for SqlitePersistence {
             count_deleted += delete_document_query.execute(params![
                 &tablet_id.0[..],
                 &id[..],
-                &u64::from(ts),
+                &i64::from(ts),
             ])?;
         }
         drop(delete_document_query);
@@ -418,7 +418,7 @@ impl Persistence for SqlitePersistence {
         let count_deleted = delete_table_documents_query.execute(params![
             &tablet_id.0[..],
             &tablet_id.0[..],
-            chunk_size,
+            i64::try_from(chunk_size)?,
         ])?;
         drop(delete_table_documents_query);
         tx.commit()?;
@@ -509,7 +509,7 @@ impl PersistenceReader for SqlitePersistence {
                 min_ts = cmp::min(ts, min_ts);
                 let mut stmt = inner.connection.prepare(PREV_REV_QUERY)?;
                 let internal_id = id.internal_id();
-                let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
+                let params = params![&id.table().0[..], &internal_id[..], &i64::from(ts)];
                 let mut row_iter = stmt.query_map(params, load_document_row)?;
                 if let Some(row) = row_iter.next() {
                     let (document_id, prev_ts, document, prev_prev_ts) = row_to_document(row)?;
@@ -545,7 +545,7 @@ impl PersistenceReader for SqlitePersistence {
             for DocumentPrevTsQuery { id, ts, prev_ts } in ids {
                 let mut stmt = inner.connection.prepare(EXACT_REV_QUERY)?;
                 let internal_id = id.internal_id();
-                let params = params![&id.table().0[..], &internal_id[..], &u64::from(prev_ts)];
+                let params = params![&id.table().0[..], &internal_id[..], &i64::from(prev_ts)];
                 let mut row_iter = stmt.query_map(params, load_document_row)?;
                 if let Some(row) = row_iter.next() {
                     let (document_id, prev_ts, document, prev_prev_ts) = row_to_document(row)?;
@@ -648,7 +648,7 @@ CREATE TABLE IF NOT EXISTS persistence_globals (
 "#;
 
 fn row_to_document(
-    row: rusqlite::Result<(Vec<u8>, u64, Vec<u8>, Option<String>, bool, Option<u64>)>,
+    row: rusqlite::Result<(Vec<u8>, i64, Vec<u8>, Option<String>, bool, Option<i64>)>,
 ) -> anyhow::Result<(
     InternalDocumentId,
     Timestamp,
@@ -699,13 +699,13 @@ WHERE ts >= {} AND ts < {}
 
 fn load_document_row(
     row: &Row<'_>,
-) -> rusqlite::Result<(Vec<u8>, u64, Vec<u8>, Option<String>, bool, Option<u64>)> {
+) -> rusqlite::Result<(Vec<u8>, i64, Vec<u8>, Option<String>, bool, Option<i64>)> {
     let id = row.get::<_, Vec<u8>>(0)?;
-    let ts = row.get::<_, u64>(1)?;
+    let ts = row.get::<_, i64>(1)?;
     let table: Vec<u8> = row.get(2)?;
     let json_value: Option<String> = row.get(3)?;
     let deleted = row.get::<_, u32>(4)? != 0;
-    let prev_ts: Option<u64> = row.get(5)?;
+    let prev_ts: Option<i64> = row.get(5)?;
     Ok((id, ts, table, json_value, deleted, prev_ts))
 }
 

@@ -1,131 +1,42 @@
 ---
-title: ESLint rules
-sidebar_position: 30
-description: ESLint rules for Convex
+title: "Linting"
+sidebar_label: Overview
+sidebar_position: 0
+description: "Lint rules that catch common mistakes in Convex code"
+pagination_next: linting/eslint
 ---
 
-import oxlintConfig from "!!raw-loader!@site/../@convex-dev/eslint-plugin/oxlint-demo/oxlint.config.ts";
+The Convex lint plugin, `@convex-dev/eslint-plugin`, adds rules that catch
+common mistakes in your `convex` directory, like a missing argument validator, a
+`.filter()` that should use an index, or reading `process.env` instead of the
+typed `env` object. Let us know if there's a rule you would find helpful!
 
-The Convex ESLint plugin provides linter rules that enforce best practices for
-Convex functions. Let us know if there's a rule you would find helpful!
+Each rule explains what to do instead, and many can fix the problem
+automatically. This makes them a useful safety net for code written by AI coding
+agents: an agent that runs your linter can see and fix its own mistakes.
 
-## Setup
+## Choose your linter
 
-Install the plugin with:
+The plugin is an ESLint plugin, and it also runs in Oxlint.
 
-```sh
-npm i @convex-dev/eslint-plugin --save-dev
-```
-
-For **ESLint 9+** (flat config, using `eslint.config.js`), add this to your
-`eslint.config.js` file:
-
-```ts
-import { defineConfig } from "eslint/config";
-
-import convexPlugin from "@convex-dev/eslint-plugin";
-
-export default defineConfig([
-  // Other configurations
-
-  ...convexPlugin.configs.recommended,
-]);
-```
-
-<Details summary={<>If you’re using the deprecated <code>.eslintrc.js</code> format</>}>
-
-Install these two libraries:
-
-```sh
-npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin --save-dev
-```
-
-In `.eslintrc.js`, add:
-
-```js
-module.exports =
-  extends: [
-    // Other configurations
-    "plugin:@typescript-eslint/recommended",
-    "plugin:@convex-dev/recommended",
-  ],
-  ignorePatterns: ["node_modules/", "dist/", "build/"],
-};
-```
-
-</Details>
-
-<Details summary={<>If your Convex functions are in a directory other than <code>convex</code></>}>
-
-By default, the Convex ESLint plugin will only apply rules in the `convex`
-directory.
-
-If you’re
-[customizing the Convex directory location](/config/convex.json#changing-the-convex-folder-name-or-location),
-here’s how to adapt your ESLint configuration:
-
-```ts
-// eslint.config.js
-import { defineConfig } from "eslint/config";
-
-import convexPlugin from "@convex-dev/eslint-plugin";
-
-const recommendedConfig = convexPlugin.configs.recommended[0];
-const recommendedRules = recommendedConfig.rules;
-
-export default defineConfig([
-  // Other configurations go here...
-
-  // Custom configuration with modified directory pattern
-  {
-    files: ["**/src/convex/**/*.ts"],
-    plugins: {
-      "@convex-dev": convexPlugin,
-    },
-    rules: recommendedRules,
-  },
-]);
-```
-
-</Details>
-
-<Details summary={<>If you’re using the <code>next lint</code> command from Next.js</>}>
-
-For `next lint` to run ESLint on your `convex` directory you need to add that
-directory to the default set of directories. Add this section to your
-`next.config.ts`:
-
-```ts
-const nextConfig: NextConfig = {
-  /* other options here */
-
-  eslint: {
-    dirs: ["pages", "app", "components", "lib", "src", "convex"],
-  },
-};
-```
-
-</Details>
-
-You can also use the plugin **with Oxlint**. Add this to your `oxlint.config.ts`
-file:
-
-<Snippet source={oxlintConfig} title="oxlint.config.ts" />
-
-<Admonition type="warning" title="Oxlint limitations">
-
-Oxlint does not expose TypeScript type information to JS plugins, so type-aware
-rules and their autofixes (`explicit-table-ids`, `no-collect-in-query`) are
-unavailable when running the plugin through Oxlint.
-
-</Admonition>
+| Linter                    | Convex rules                                                                                                                                        |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ESLint](/linting/eslint) | Every rule and autofix.                                                                                                                             |
+| [Oxlint](/linting/oxlint) | Every rule. Oxlint doesn’t share type information with plugins, so `explicit-table-ids` can’t fill in table names and a few rules are less precise. |
+| [Biome](/linting/biome)   | Biome can’t load ESLint plugins, so run the Convex rules with Oxlint or ESLint alongside it.                                                        |
 
 ## Rules
+
+The setup on each linter’s page turns on the recommended rules. To turn on
+another rule, add it to the `rules` for your `convex` files, for example
+`"@convex-dev/no-collect-in-query": "error"`. See
+[Turning on more rules](/linting/eslint#turning-on-more-rules) for an ESLint
+example.
 
 | Rule                                                                                                                                    | Recommended | Auto-fixable |
 | --------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: |
 | [`@convex-dev/no-old-registered-function-syntax`](#no-old-registered-function-syntax)<br/>Prefer object syntax for registered functions |     ✅      |      🔧      |
-| [`@convex-dev/require-argument-validators`](#require-argument-validators)<br/>Require argument validators for Convex functions          |     ✅      |      🔧      |
+| [`@convex-dev/require-args-validator`](#require-args-validator)<br/>Require argument validators for Convex functions                    |     ✅      |      🔧      |
 | [`@convex-dev/explicit-table-ids`](#explicit-table-ids)<br/>Require explicit table names in database operations                         |     ✅      |      🔧      |
 | [`@convex-dev/no-filter-in-query`](#no-filter-in-query)<br/>Warn on `.filter()` in database queries (inefficient)                       |     ✅      |              |
 | [`@convex-dev/no-top-of-hour-crons`](#no-top-of-hour-crons)<br/>Warn on cron jobs scheduled exactly on the hour                         |     ✅      |              |
@@ -160,7 +71,9 @@ export const list = query(async (ctx) => {
 });
 ```
 
-### require-argument-validators
+<a id="require-argument-validators"></a>
+
+### require-args-validator
 
 Require argument validators for Convex functions.
 
@@ -263,14 +176,13 @@ await ctx.db.replace(messageId, { text: "replaced", author: "Alice" });
 await ctx.db.delete(messageId);
 ```
 
-<Admonition type="info" title="typescript-eslint required">
+<Admonition type="info" title="Works best with type-aware linting">
 
-In order for this rule to work,
-[typescript-eslint](https://typescript-eslint.io) must be set up in your ESLint
-configuration. If typescript-eslint is installed and the rule doesn’t seem to
-work, please make sure that
-[type-aware linting](https://typescript-eslint.io/troubleshooting/typed-linting/)
-is enabled.
+The autofix needs [type-aware linting](/linting/eslint#type-aware-linting) to
+read the table name from the `Id<"tableName">` type. Without it (for example in
+[Oxlint](/linting/oxlint)), the rule still reports `ctx.db` calls that are
+missing a table name, but can’t fill it in for you, and it may miss calls made
+through a different variable.
 
 </Admonition>
 
@@ -491,6 +403,8 @@ const app = defineApp({
 export default app;
 ```
 
+<a id="no-import-use-node"></a>
+
 ### import-wrong-runtime
 
 Prevent Convex runtime files from importing from Node runtime files (files with
@@ -512,14 +426,13 @@ import { someFunction } from "./someNodeFile"; // where someNodeFile uses `"use 
 
 Prefer `.take()` / `.paginate()` over `.collect()` in queries.
 
-<Admonition type="info" title="typescript-eslint required">
+<Admonition type="info" title="Works best with type-aware linting">
 
-In order for this rule to work,
-[typescript-eslint](https://typescript-eslint.io) must be set up in your ESLint
-configuration. If typescript-eslint is installed and the rule doesn’t seem to
-work, please make sure that
-[type-aware linting](https://typescript-eslint.io/troubleshooting/typed-linting/)
-is enabled.
+With [type-aware linting](/linting/eslint#type-aware-linting), this rule uses
+types to find `.collect()` calls on Convex queries, and suggests replacing them
+with `.take()` or `.paginate()`. Without it, the rule matches
+`db.query(...).collect()` chains by name instead, which is less precise and
+doesn’t offer suggestions.
 
 </Admonition>
 

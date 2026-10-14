@@ -65,6 +65,21 @@ The request and response format may change during alpha.
 
 </Admonition>
 
+### Speech and transcription
+
+| Endpoint                        | What it does          |
+| ------------------------------- | --------------------- |
+| `POST /v1/audio/transcriptions` | Transcribe audio      |
+| `POST /v1/audio/speech`         | Generate spoken audio |
+
+See [Voice](/ai-gateway/voice) for SDK examples and for audio chat models.
+
+<Admonition type="caution" title="Voice is in alpha">
+
+The request and response format may change during alpha.
+
+</Admonition>
+
 See [HTTP API](/ai-gateway/api.mdx) for the request and response shapes.
 
 ## Who can use it
@@ -77,11 +92,16 @@ and development deployments, and on
 If your team or deployment can't use the gateway, getting a token fails with one
 of these errors:
 
-| Situation                                   | Error                  | What to do                                                                                                      |
-| ------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Free plan, or gateway disabled for the team | `AiGatewayDisabled`    | Upgrade, or email [support@convex.dev](mailto:support@convex.dev) if this looks wrong                           |
-| Anonymous or outdated local deployment      | `AiGatewayUnavailable` | Log in, update the Convex CLI, then restart `npx convex dev` and accept the backend upgrade if prompted         |
-| [Self-hosted deployment](/self-hosting.mdx) | `AiGatewayUnavailable` | Call the provider with your own key, stored as an [environment variable](/production/environment-variables.mdx) |
+| Situation                                          | Error                   | What to do                                                                                                      |
+| -------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Free plan, or gateway disabled for the team        | `AiGatewayDisabled`     | Upgrade, or email [support@convex.dev](mailto:support@convex.dev) if this looks wrong                           |
+| Anonymous or outdated local deployment             | `AiGatewayUnavailable`  | Log in, update the Convex CLI, then restart `npx convex dev` and accept the backend upgrade if prompted         |
+| [Self-hosted deployment](/self-hosting.mdx)        | `AiGatewayUnavailable`  | Call the provider with your own key, stored as an [environment variable](/production/environment-variables.mdx) |
+| Local deployment of a team over its spending limit | `SpendingLimitExceeded` | Raise the limit in the dashboard, or wait for it to reset                                                       |
+| Local deployment of a suspended team               | `TeamSuspended`         | Email [support@convex.dev](mailto:support@convex.dev)                                                           |
+
+Calls made with a deploy key, or by a dashboard member, also need a role that
+allows the AI Gateway. End users of your app need no extra permission.
 
 ## Without the gateway
 

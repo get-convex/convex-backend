@@ -50,9 +50,11 @@ common = { workspace = true, features = ["testing"] }
 convex_macro = { workspace = true, features = ["testing"] }
 database = { workspace = true, features = ["testing"] }
 errors = { workspace = true, features = ["testing"] }
+indexing = { workspace = true }
 metrics = { workspace = true, features = ["testing"] }
 proptest = { workspace = true }
 runtime = { workspace = true }
+strum = { workspace = true }
 value = { workspace = true, features = ["testing"] }
 
 [lints]

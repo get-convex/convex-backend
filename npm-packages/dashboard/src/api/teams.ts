@@ -195,6 +195,8 @@ export function useDisableSSO(teamId: number) {
       team_id: teamId.toString(),
     },
     successToast: "SSO has been disabled for your team.",
+    // The disable confirmation dialog renders the failure inline.
+    toastOnError: false,
   });
 }
 
@@ -218,6 +220,8 @@ export function useUpdateSSO(teamId: number) {
       team_id: teamId.toString(),
     },
     successToast: "SSO settings updated.",
+    // The confirmation dialog renders the failure inline.
+    toastOnError: false,
   });
 }
 

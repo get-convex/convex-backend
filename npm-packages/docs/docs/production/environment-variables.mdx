@@ -42,7 +42,7 @@ Environment variables can also be viewed and modified from the
 [command line](/cli/reference/env.mdx).
 
 ```sh
-npx convex env list
+npx convex env list --names-only
 npx convex env get NAME
 npx convex env set NAME 'value'
 npx convex env set --from-file .env.convex
@@ -195,7 +195,7 @@ function giphyUrl(query) {
 If you've [declared your environment variables](#declaring) in
 `convex.config.ts`, prefer using the typed `env` import from `_generated/server`
 instead of `process.env` for better type safety. You can use the
-[`@convex-dev/no-process-env`](/eslint#no-process-env) ESLint rule to
+[`@convex-dev/no-process-env`](/linting/overview#no-process-env) lint rule to
 automatically flag `process.env` reads, and suggest using `env.*` instead.
 
 :::

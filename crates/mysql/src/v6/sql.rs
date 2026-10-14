@@ -2,6 +2,7 @@
 //! read-only and persistence-globals tables.
 
 use std::{
+    borrow::Cow,
     fmt::Write,
     iter,
     ops::Bound,
@@ -22,6 +23,7 @@ use common::{
     sha256::Sha256,
     types::{
         PersistenceIndexId,
+        PrevIndexEntry,
         Timestamp,
     },
     value::InternalDocumentId,
@@ -34,6 +36,7 @@ use mysql_async::{
 
 use super::{
     column,
+    reader::DocumentScope,
     PersistenceDeploymentId,
 };
 use crate::chunks::ApproxSize;
@@ -244,6 +247,34 @@ impl IndexRow {
     }
 }
 
+/// A live entry advancing to a new revision. The key is unchanged, so this is
+/// one row of `indexes_latest` moving from `prev` to `row`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct RowUpdate {
+    pub(crate) row: IndexRow,
+    pub(crate) prev: PrevIndexEntry,
+}
+
+impl RowUpdate {
+    /// Parameters for one `VALUES` row of `update_latest_chunk`: the key, then
+    /// the predecessor the update claims, then the revision replacing it.
+    pub(crate) fn params(&self) -> Vec<Value> {
+        vec![
+            self.row.index_id.value().into(),
+            Value::Bytes(self.row.key.key_prefix.clone()),
+            self.row.key.key_suffix_hash.as_bytes().into(),
+            self.row.key.key_suffix.clone().into(),
+            Value::Int(i64::from(self.prev.ts)),
+            Value::Bytes(self.prev.document_id.table().0.into()),
+            Value::Bytes(self.prev.document_id.internal_id().into()),
+            Value::Int(i64::from(self.row.ts)),
+            Value::Bytes(self.row.document_id.table().0.into()),
+            Value::Bytes(self.row.document_id.internal_id().into()),
+        ]
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct BackfillMarker {
     pub(crate) deployment_id: PersistenceDeploymentId,
     pub(crate) index_id: PersistenceIndexId,
@@ -281,12 +312,6 @@ fn backfill_marker_params(
     ]
 }
 
-impl ApproxSize for BackfillMarker {
-    fn approx_size(&self) -> usize {
-        self.key.key_prefix.len() + self.key.key_suffix.as_ref().map_or(0, Vec::len) + 28
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct LogRow {
     pub(crate) row: IndexRow,
@@ -302,6 +327,18 @@ impl LogRow {
 impl ApproxSize for IndexRow {
     fn approx_size(&self) -> usize {
         self.key.key_prefix.len() + self.key.key_suffix.as_ref().map_or(0, Vec::len) + 48
+    }
+}
+
+impl ApproxSize for RowUpdate {
+    fn approx_size(&self) -> usize {
+        self.row.approx_size() + 40
+    }
+}
+
+impl ApproxSize for BackfillMarker {
+    fn approx_size(&self) -> usize {
+        self.key.key_prefix.len() + self.key.key_suffix.as_ref().map_or(0, Vec::len) + 28
     }
 }
 
@@ -508,6 +545,12 @@ fn union_arms(
 /// past the prefix limit is not key order; the cursor follows that order, so
 /// pagination is consistent, and the index scan sorts each equal-prefix run by
 /// the reconstructed key.
+///
+/// Each result row ends with the `indexes_maintenance_state` columns of
+/// [`READ_LOG_BUCKET_BOUNDS`], read in the same statement as the page. The
+/// LEFT JOIN yields one row of NULL index columns when the page is empty, so
+/// the bounds are reported either way. The union is limited to one page before
+/// joining documents to bound document lookups by `batch_size`.
 pub(crate) fn index_query(
     deployment_id: PersistenceDeploymentId,
     index_id: PersistenceIndexId,
@@ -517,6 +560,7 @@ pub(crate) fn index_query(
     order: Order,
     batch_size: usize,
     log_buckets: &[LogBucket],
+    documents: &DocumentScope,
 ) -> (String, Vec<Value>) {
     let order = match order {
         Order::Asc => "ASC",
@@ -527,7 +571,7 @@ pub(crate) fn index_query(
     append_bound_clause(&mut where_clause, &mut bounds, &lower, BoundSide::Lower);
     append_bound_clause(&mut where_clause, &mut bounds, &upper, BoundSide::Upper);
 
-    let (arms, params) = union_arms(
+    let (arms, mut params) = union_arms(
         log_buckets,
         |table, successor_filter| {
             format!(
@@ -548,14 +592,27 @@ LIMIT {batch_size})"#
             )
         },
     );
+    let document_join = match documents {
+        DocumentScope::DeploymentId => Cow::Borrowed(DOCUMENT_JOIN),
+        DocumentScope::InstanceName(instance) => {
+            params.push(instance.clone().into());
+            Cow::Owned(
+                DOCUMENT_JOIN.replace("D.deployment_id = U.deployment_id", "D.instance_name = ?"),
+            )
+        },
+    };
     (
         format!(
             r#"
-SELECT U.index_id, U.key_prefix, U.key_suffix_hash, U.key_suffix, U.ts, U.table_id, U.document_id, D.json_value, D.prev_ts
-FROM (
+SELECT U.index_id, U.key_prefix, U.key_suffix_hash, U.key_suffix, U.ts, U.table_id, U.document_id, D.json_value, D.prev_ts, S.created_through_ts, S.oldest_kept_ts
+FROM @db_name.indexes_maintenance_state S
+LEFT JOIN (
 {arms}
-) U
-{DOCUMENT_JOIN}
+ORDER BY key_prefix {order}, key_suffix_hash {order}
+LIMIT {batch_size}
+) U ON TRUE
+{document_join}
+WHERE S.id = 1
 ORDER BY U.key_prefix {order}, U.key_suffix_hash {order}
 LIMIT {batch_size}
 "#
@@ -686,6 +743,27 @@ pub(crate) fn delete_latest_chunk(chunk_size: usize) -> String {
     )
     .join(" OR ");
     format!("DELETE FROM @db_name.indexes_latest WHERE {predicates}")
+}
+
+/// `STRAIGHT_JOIN` prevents MySQL from locking an entire deployment when it
+/// chooses the wrong join order. Binary casts prevent arbitrary key bytes
+/// from being interpreted as UTF-8.
+pub(crate) fn update_latest_chunk(chunk_size: usize) -> String {
+    let rows = iter::repeat_n(
+        "ROW(?, CAST(? AS BINARY), CAST(? AS BINARY), CAST(? AS BINARY), ?, CAST(? AS BINARY), \
+         CAST(? AS BINARY), ?, CAST(? AS BINARY), CAST(? AS BINARY))",
+        chunk_size,
+    )
+    .join(", ");
+    format!(
+        r#"UPDATE (VALUES {rows})
+    AS v(index_id, key_prefix, key_suffix_hash, key_suffix, prev_ts, prev_table_id, prev_document_id, ts, table_id, document_id)
+STRAIGHT_JOIN @db_name.indexes_latest t
+ON t.deployment_id = ? AND t.index_id = v.index_id AND t.key_prefix = v.key_prefix
+    AND t.key_suffix_hash = v.key_suffix_hash AND t.key_suffix <=> v.key_suffix
+    AND t.ts = v.prev_ts AND t.table_id = v.prev_table_id AND t.document_id = v.prev_document_id
+SET t.ts = v.ts, t.table_id = v.table_id, t.document_id = v.document_id"#
+    )
 }
 
 pub(crate) fn drop_log_ddl(bucket: LogBucket) -> String {

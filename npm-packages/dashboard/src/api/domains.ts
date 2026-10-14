@@ -31,6 +31,8 @@ export function useDeleteTeamDomain(teamId: number, domainId: string) {
       team_id: teamId.toString(),
     },
     successToast: "Domain deleted.",
+    // The delete confirmation dialog renders the failure inline.
+    toastOnError: false,
   });
 }
 

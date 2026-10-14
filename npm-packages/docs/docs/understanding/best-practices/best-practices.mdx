@@ -57,7 +57,8 @@ Search for `.filter` in your Convex codebase — a regex like `\.filter\(\(?q`
 will probably find all the ones on database queries.
 
 You can also check automatically that your functions don’t use `.filter` with
-the [`@convex-dev/no-filter-in-query` ESLint rule](/eslint#no-filter-in-query).
+the
+[`@convex-dev/no-filter-in-query` lint rule](/linting/overview#no-filter-in-query).
 
 Decide whether they should be replaced with a `.withIndex` condition — per
 [this section](/understanding/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results),
@@ -123,7 +124,7 @@ probably find these). And think through whether the number of results is small.
 This function health page in the dashboard can also help surface these.
 
 You can also check automatically that `.collect()` is avoided by enabling the
-[`@convex-dev/no-collect-in-query` ESLint rule](/eslint#no-collect-in-query).
+[`@convex-dev/no-collect-in-query` lint rule](/linting/overview#no-collect-in-query).
 
 The [aggregate component](https://www.npmjs.com/package/@convex-dev/aggregate)
 or [database triggers](https://stack.convex.dev/triggers) can be helpful
@@ -159,7 +160,7 @@ Look through your indexes, either in your `schema.ts` file or in the dashboard,
 and look for any indexes where one is a prefix of another.
 
 You can also check automatically that no index is a prefix of another with the
-[`@convex-dev/no-duplicate-indexes` ESLint rule](/eslint#no-duplicate-indexes).
+[`@convex-dev/no-duplicate-indexes` lint rule](/linting/overview#no-duplicate-indexes).
 
 ### Exceptions
 
@@ -199,7 +200,7 @@ validators).
 
 You can also check automatically that your functions have argument validators
 with the
-[`@convex-dev/require-argument-validators` ESLint rule](/eslint#require-argument-validators).
+[`@convex-dev/require-args-validator` lint rule](/linting/overview#require-args-validator).
 
 If you use HTTP actions, you may want to use an argument validation library like
 [Zod](https://zod.dev) to validate that the HTTP request is the shape you
@@ -259,7 +260,7 @@ e.g. `isTeamMember`, `isTeamAdmin`, `loadTeam` (which throws if the current user
 does not have access to the team).
 
 If you name these helpers consistently, the
-[`@convex-dev/require-access-control` ESLint rule](/eslint#require-access-control)
+[`@convex-dev/require-access-control` lint rule](/linting/overview#require-access-control)
 can check that every public function calls one of them, so that you don't forget
 a check as your app grows.
 
@@ -554,9 +555,9 @@ Convex codebase, and ensure that all of them pass a table name as the first
 argument.
 
 You can also check automatically that a table name argument is passed with the
-[`@convex-dev/explicit-table-ids` ESLint rule](/eslint#explicit-table-ids).
+[`@convex-dev/explicit-table-ids` lint rule](/linting/overview#explicit-table-ids).
 
-You can migrate existing code automatically by using the autofix in the ESLint
+You can migrate existing code automatically by using the autofix in the lint
 rule, or with the `@convex-dev/codemod` standalone tool.
 
 [Learn more on news.convex.dev →](https://news.convex.dev/db-table-name/)
@@ -635,5 +636,5 @@ environment variables (`CONVEX_CLOUD_URL` and `CONVEX_SITE_URL`) are
 automatically declared.
 
 You can also check this automatically with the
-[`@convex-dev/no-process-env` ESLint rule](/eslint#no-process-env), which
-autofixes reads of variables that are already declared.
+[`@convex-dev/no-process-env` lint rule](/linting/overview#no-process-env),
+which autofixes reads of variables that are already declared.

@@ -16,6 +16,7 @@ mod committer;
 mod database;
 mod database_index_workers;
 mod execution_size;
+mod file_uploads;
 mod metrics;
 pub mod patch;
 pub mod persistence_helpers;
@@ -61,9 +62,14 @@ pub use database_index_workers::{
     IndexWorker,
 };
 pub use execution_size::{
-    FileStorageSize,
+    FileStorageReadSize,
+    FileStorageWriteSize,
     FunctionExecutionSize,
     TransactionLimits,
+};
+pub use file_uploads::{
+    PendingFileUpload,
+    UploadedFileUpload,
 };
 pub use indexing::database_index_snapshot::{
     DatabaseIndexSnapshotCache,
@@ -89,6 +95,7 @@ pub use table_iteration::{
         DataSyncIterator,
         DataSyncStatus,
     },
+    LatestTableIterator,
     MultiTableIterator,
     TableIterator,
     TableScanCursor,
@@ -169,7 +176,6 @@ pub use self::{
             SCHEMA_STATE_FIELD,
         },
         schema_validation_progress::{
-            legacy::LegacySchemaValidationProgressMetadata,
             types::SchemaValidationProgress,
             SchemaValidationProgressModel,
             SchemaValidationProgressTable,
@@ -183,6 +189,8 @@ pub use self::{
             },
             SchemaValidationModel,
             SchemaValidationTable,
+            SchemaValidationWithProgress,
+            StagedValidationWithProgress,
             ValidationAttemptUpdate,
             SCHEMA_VALIDATIONS_BY_SCHEMA_ID_AND_TABLE_NAME,
             SCHEMA_VALIDATIONS_TABLE,
@@ -205,7 +213,6 @@ pub use self::{
         DocumentDeltas,
         OccRetryStats,
         SnapshotPage,
-        StreamingExportFilter,
         MAX_OCC_FAILURES,
     },
     database_index_workers::index_writer::IndexSelector,

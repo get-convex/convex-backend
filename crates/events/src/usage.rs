@@ -125,10 +125,13 @@ pub enum UsageEvent {
         ingress: u64,
         egress: u64,
     },
-    /// All database bandwidth a single function execution used.
+    /// Database bandwidth for a function execution or an aggregated interval.
     DatabaseBandwidth {
         id: String,
-        request_id: String,
+        /// Correlates an individual execution's bandwidth with its request.
+        /// Minute summaries span many requests and omit it.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        request_id: Option<String>,
         component_path: Option<String>,
         udf_id: String,
         /// Bandwidth is aggregated across tables, but the downstream pipeline
@@ -136,10 +139,8 @@ pub enum UsageEvent {
         /// [`UNKNOWN_TABLE_NAME`].
         #[serde(serialize_with = "serialize_unknown_table_name", skip_deserializing)]
         table_name: (),
-        ingress: u64,
         // Includes ingress for tables that have virtual tables
         ingress_v2: u64,
-        egress: u64,
         egress_rows: u64,
         // Includes egress for tables that have virtual tables
         egress_v2: u64,

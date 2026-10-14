@@ -208,7 +208,12 @@ fn deserialize_udf_custom_error_data(
 }
 
 pub fn format_uncaught_error(message: String, name: String) -> String {
-    if !name.is_empty() && !message.is_empty() {
+    // A failed `ctx.runQuery`/`runMutation`/`runAction` rejects with the
+    // callee's already-formatted error, so each level of nesting would
+    // otherwise add another "Uncaught Error: ".
+    if !name.is_empty() && message.starts_with(&format!("Uncaught {name}: ")) {
+        message
+    } else if !name.is_empty() && !message.is_empty() {
         format!("Uncaught {name}: {message}")
     } else if !name.is_empty() {
         format!("Uncaught {name}")

@@ -8,6 +8,8 @@ import {
   useReactFlow,
   useNodesState,
   useStoreApi,
+  useKeyPress,
+  PanOnScrollMode,
   getNodesBounds,
   getViewportForBounds,
 } from "@xyflow/react";
@@ -88,6 +90,9 @@ function SchemaFlowInner({
   const storeApi = useStoreApi();
 
   const isTouch = useMediaQuery("(pointer: coarse)");
+  // React Flow reads the pan direction per render rather than per wheel event,
+  // so track Shift to switch the wheel to horizontal panning.
+  const shiftPressed = useKeyPress("Shift");
 
   const sizes = useMemo<Record<string, NodeSize>>(() => {
     const result: Record<string, NodeSize> = {};
@@ -471,6 +476,10 @@ function SchemaFlowInner({
             }
           }
         }}
+        panOnScroll
+        panOnScrollMode={
+          shiftPressed ? PanOnScrollMode.Horizontal : PanOnScrollMode.Free
+        }
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
         nodesDraggable={!isTouch}

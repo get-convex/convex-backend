@@ -33,7 +33,6 @@ function integrationCategory(kind: IntegrationType): string {
     case "sentry":
     case "postHogErrorTracking":
       return "Exception Reporting";
-    case "managedAnalytics":
     case "s3Export":
     case "fivetran":
       return "Streaming Export";

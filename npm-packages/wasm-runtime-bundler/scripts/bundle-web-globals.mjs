@@ -35,6 +35,9 @@ async function main() {
     entryPoints: [path.join(packageRoot, "scripts", "web-globals.ts")],
     outfile: path.join(outDir, "web-globals.js"),
     format: "iife",
+    // esbuild renames colliding top-level declarations (`Date` -> `Date2`),
+    // which would show up as the `name` of the exported classes and functions.
+    keepNames: true,
   });
 
   const fixturesDir = path.join(packageRoot, "scripts", "fixtures");

@@ -19,6 +19,10 @@ type ModalProps = {
   // veto must happen here rather than in onClose because onClose only fires
   // after the modal has already animated shut.
   onBeforeClose?: () => boolean;
+  // Ignores overlay clicks and Escape so the modal only closes through the
+  // close button or controls in `children`. Use when accidentally dismissing
+  // would lose information the user can't get back.
+  requireExplicitClose?: boolean;
   title: string | ReactNode;
   description?: string | ReactNode;
   children: ReactNode;
@@ -29,6 +33,7 @@ type ModalProps = {
 export function Modal({
   onClose,
   onBeforeClose,
+  requireExplicitClose = false,
   title,
   description,
   children,
@@ -51,7 +56,7 @@ export function Modal({
         data-testid="modal"
         className="fixed inset-0 z-40 overflow-hidden"
         open // Real openness status is controlled by Transition above
-        onClose={handleClose}
+        onClose={requireExplicitClose ? () => {} : handleClose}
       >
         <div className="flex sm:min-h-screen sm:items-center sm:justify-center sm:px-4">
           <TransitionChild

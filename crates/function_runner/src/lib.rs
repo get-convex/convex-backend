@@ -38,6 +38,7 @@ use database::{
     Transaction,
     TransactionReadSet,
     TransactionReadSize,
+    UploadedFileUpload,
 };
 use keybroker::Identity;
 pub use metrics::record_module_sizes;
@@ -71,6 +72,7 @@ use udf::{
 use usage_tracking::FunctionUsageStats;
 use value::{
     identifier::Identifier,
+    ResolvedDocumentId,
     TabletId,
 };
 
@@ -153,6 +155,7 @@ pub struct FunctionFinalTransaction {
     pub reads: FunctionReads,
     pub writes: FunctionWrites,
     pub rows_read_by_tablet: BTreeMap<TabletId, u64>,
+    pub uploaded_files: BTreeMap<ResolvedDocumentId, UploadedFileUpload>,
 }
 
 impl<RT: Runtime> TryFrom<Transaction<RT>> for FunctionFinalTransaction {
@@ -166,6 +169,7 @@ impl<RT: Runtime> TryFrom<Transaction<RT>> for FunctionFinalTransaction {
             .iter()
             .map(|(table, stats)| (*table, stats.rows_read))
             .collect();
+        let uploaded_files = tx.get_uploaded_files()?;
         let (reads, writes) = tx.into_reads_and_writes();
         Ok(Self {
             begin_timestamp,
@@ -178,6 +182,7 @@ impl<RT: Runtime> TryFrom<Transaction<RT>> for FunctionFinalTransaction {
                     .collect(),
             },
             rows_read_by_tablet,
+            uploaded_files,
         })
     }
 }

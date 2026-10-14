@@ -3883,6 +3883,13 @@
         "properties": {
           "newPlanId": {
             "type": "string"
+          },
+          "promoCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The promo code the user entered. Redeemed if it's an Orb coupon; a\npromo plan's code is already reflected in `new_plan_id`."
           }
         },
         "additionalProperties": false
@@ -4145,6 +4152,13 @@
             ],
             "format": "int64",
             "minimum": 0
+          },
+          "promoCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The promo code the user entered. Redeemed if it's an Orb coupon; a\npromo plan's code is already reflected in `plan_id`."
           }
         },
         "additionalProperties": false

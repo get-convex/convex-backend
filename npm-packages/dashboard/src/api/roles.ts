@@ -214,6 +214,8 @@ export function useDeleteCustomRole(teamId?: number) {
       team_id: teamId ?? 0,
     },
     successToast: "Custom role deleted.",
+    // The delete confirmation dialog renders the failure inline.
+    toastOnError: false,
   });
 }
 

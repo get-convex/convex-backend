@@ -100,7 +100,10 @@ use fastrace::{
     local::LocalSpan,
     Event,
 };
-use file_storage::TransactionalFileStorage;
+use file_storage::{
+    FileDownloads,
+    TransactionalFileStorage,
+};
 use futures::{
     future::{
         self,
@@ -190,7 +193,7 @@ use crate::{
 
 pub const PAUSE_RECREATE_CLIENT: &str = "recreate_client";
 pub const PAUSE_REQUEST: &str = "pause_request";
-pub const NO_AVAILABLE_WORKERS: &str = "There are no available workers to process the request";
+pub const NO_AVAILABLE_WORKERS: &str = "There is no capacity available to run this function";
 
 #[derive(Clone)]
 pub struct IsolateConfig {
@@ -223,6 +226,7 @@ pub struct UdfRequest<RT: Runtime> {
     pub journal: QueryJournal,
     pub context: ExecutionContext,
     pub environment_data: EnvironmentData<RT>,
+    pub file_downloads: FileDownloads,
 }
 
 pub struct HttpActionRequest<RT: Runtime> {
@@ -648,6 +652,7 @@ impl<RT: Runtime> IsolateClient<RT> {
                 journal,
                 context,
                 environment_data,
+                file_downloads: FileDownloads::default(),
             },
             response: tx,
             queue_timer: queue_timer(),

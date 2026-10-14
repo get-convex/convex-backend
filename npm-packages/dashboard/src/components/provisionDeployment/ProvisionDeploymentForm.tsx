@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-  useId,
-  useCallback,
-} from "react";
+import { useEffect, useState, useRef, useId, useCallback } from "react";
 import { Button } from "@ui/Button";
 import { Checkbox } from "@ui/Checkbox";
 import { Tooltip } from "@ui/Tooltip";
@@ -27,7 +20,7 @@ import { RegionPricingWarning } from "elements/RegionPricingWarning";
 import {
   DEFAULT_GLOBE_COORDINATES,
   getRegionCoordinates,
-  useEnabledRegionCoordinates,
+  useEnabledRegionNames,
   useSelectableRegions,
 } from "lib/regions";
 
@@ -226,19 +219,23 @@ export function ProvisionDeploymentFormInner({
   );
 }
 
+// cobe renders into a canvas `devicePixelRatio` times the canvas's CSS size,
+// but positions the globe in a fixed `GLOBE_SIZE` coordinate space.
+const GLOBE_DEVICE_PIXEL_RATIO = 2;
+const GLOBE_SIZE = 900;
+// cobe draws the globe with this radius, in units of half `GLOBE_SIZE / scale`.
+const GLOBE_RADIUS = 0.8;
+
 function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const markerRefs = useRef(new Map<RegionName, HTMLDivElement>());
   const focusRef = useRef<[number, number]>([0, 0]);
   const currentTheme = useCurrentTheme();
   const isDark = currentTheme === "dark";
 
   // Derived from the launch flags rather than the fetched region list, so the
   // globe isn't torn down and rebuilt when that request lands.
-  const regionCoordinates = useEnabledRegionCoordinates();
-  const markers = useMemo(
-    () => regionCoordinates.map((location) => ({ location, size: 0.07 })),
-    [regionCoordinates],
-  );
+  const regionNames = useEnabledRegionNames();
 
   // Update focus when region changes
   useEffect(() => {
@@ -265,7 +262,7 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
     onResize();
 
     const globe = createGlobe(canvasRef.current, {
-      devicePixelRatio: 2,
+      devicePixelRatio: GLOBE_DEVICE_PIXEL_RATIO,
       width: 0,
       height: 0,
       scale: 0,
@@ -280,10 +277,40 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
       glowColor: isDark
         ? [42 / 255, 40 / 255, 37 / 255]
         : [253 / 255, 252 / 255, 250 / 255],
-      markers,
+      // The region markers are DOM elements laid over the canvas, so they can
+      // use the design system's colors and CSS transitions.
+      markers: [],
       onRender: (state) => {
         state.phi = currentPhi;
         state.theta = currentTheta;
+
+        const sm = windowWidth >= 640; // from Tailwind
+        const offset: [number, number] = sm ? [900, -320] : [500, -410];
+        const scale = sm ? 1.15 : 1.1;
+        state.width = GLOBE_SIZE;
+        state.height = GLOBE_SIZE;
+        state.offset = offset;
+        state.scale = scale;
+        state.mapSamples = sm ? 25000 : 20000;
+
+        const canvasHeight = canvasRef.current?.clientHeight ?? 0;
+        for (const name of regionNames) {
+          const marker = markerRefs.current.get(name);
+          const coordinates = getRegionCoordinates(name);
+          if (!marker || !coordinates) continue;
+          const { x, y, depth } = projectLocation(
+            coordinates,
+            currentPhi,
+            currentTheta,
+            scale,
+            offset,
+            canvasHeight,
+          );
+          marker.style.transform = `translate(${x}px, ${y}px)`;
+          // Fade markers out toward the edge of the globe, like its land dots.
+          marker.style.opacity = String(Math.min(Math.max(depth * 2, 0), 1));
+        }
+
         const [focusPhi, focusTheta] = focusRef.current;
         const distPositive = (focusPhi - currentPhi + doublePi) % doublePi;
         const distNegative = (currentPhi - focusPhi + doublePi) % doublePi;
@@ -296,14 +323,6 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
           currentPhi -= distNegative * speed;
         }
         currentTheta = currentTheta * (1 - speed) + focusTheta * speed;
-
-        const sm = windowWidth >= 640; // from Tailwind
-        state.width = sm ? 900 : 900;
-        state.height = sm ? 900 : 900;
-        state.offset = sm ? [900, -320] : [500, -410];
-        state.scale = sm ? 1.15 : 1.1;
-
-        state.mapSamples = sm ? 25000 : 20000;
       },
     });
 
@@ -317,18 +336,56 @@ function Globe({ selectedRegion }: { selectedRegion: RegionName | null }) {
       globe.destroy();
       window.removeEventListener("resize", onResize);
     };
-  }, [isDark, markers]);
+  }, [isDark, regionNames]);
 
   return (
-    <canvas
-      className="pointer-events-none absolute inset-0 size-full"
+    <div
+      className="pointer-events-none absolute inset-0 size-full overflow-hidden"
       aria-hidden
-      ref={canvasRef}
-      style={{
-        opacity: 0,
-        transition: "opacity 1s ease",
-      }}
-    />
+    >
+      <canvas
+        className="absolute inset-0 size-full"
+        ref={canvasRef}
+        style={{
+          opacity: 0,
+          transition: "opacity 1s ease",
+        }}
+      />
+      {regionNames.map((name) => {
+        const isSelected = name === selectedRegion;
+        return (
+          <div
+            key={name}
+            ref={(element) => {
+              if (element) {
+                markerRefs.current.set(name, element);
+              } else {
+                markerRefs.current.delete(name);
+              }
+            }}
+            className="absolute top-0 left-0"
+            style={{ opacity: 0 }}
+          >
+            <div className="relative flex -translate-1/2 items-center justify-center">
+              <span
+                className={cn(
+                  "absolute size-6 rounded-full bg-util-accent/30 transition-[scale,opacity] duration-500",
+                  isSelected ? "scale-100 opacity-100" : "scale-0 opacity-0",
+                )}
+              />
+              <span
+                className={cn(
+                  "relative rounded-full ring-2 ring-background-secondary transition-[width,height,background-color] duration-500",
+                  isSelected
+                    ? "size-3 bg-util-accent"
+                    : "size-2 bg-content-secondary",
+                )}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -337,4 +394,48 @@ function locationToAngles(lat: number, long: number): [number, number] {
     Math.PI - ((long * Math.PI) / 180 - Math.PI / 2),
     (lat * Math.PI) / 180,
   ];
+}
+
+/**
+ * Projects a location to CSS pixels from the top-left of the globe's canvas,
+ * matching cobe 0.6.5's shader. `depth` is positive on the visible hemisphere.
+ */
+function projectLocation(
+  [lat, long]: [number, number],
+  phi: number,
+  theta: number,
+  scale: number,
+  [offsetX, offsetY]: [number, number],
+  canvasHeight: number,
+): { x: number; y: number; depth: number } {
+  const latRad = (lat * Math.PI) / 180;
+  const longRad = (long * Math.PI) / 180 - Math.PI;
+  const cosLat = Math.cos(latRad);
+  const px = -cosLat * Math.cos(longRad);
+  const py = Math.sin(latRad);
+  const pz = cosLat * Math.sin(longRad);
+
+  const cosTheta = Math.cos(theta);
+  const sinTheta = Math.sin(theta);
+  const cosPhi = Math.cos(phi);
+  const sinPhi = Math.sin(phi);
+  const rotatedX = cosPhi * px + sinPhi * pz;
+  const rotatedY =
+    sinPhi * sinTheta * px + cosTheta * py - cosPhi * sinTheta * pz;
+  const depth =
+    -sinPhi * cosTheta * px + sinTheta * py + cosPhi * cosTheta * pz;
+
+  // Inverts the shader's mapping from fragment coordinates (device pixels,
+  // origin at the bottom left) to the globe's coordinate space.
+  const fragX =
+    (GLOBE_SIZE / 2) *
+    (scale * (GLOBE_RADIUS * rotatedX + offsetX / GLOBE_SIZE) + 1);
+  const fragY =
+    (GLOBE_SIZE / 2) *
+    (scale * (GLOBE_RADIUS * rotatedY - offsetY / GLOBE_SIZE) + 1);
+  return {
+    x: fragX / GLOBE_DEVICE_PIXEL_RATIO,
+    y: canvasHeight - fragY / GLOBE_DEVICE_PIXEL_RATIO,
+    depth,
+  };
 }

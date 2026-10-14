@@ -19,7 +19,7 @@ to date in real-time.
 Today, in about **10 lines of code,** we'll build a backend that reads and
 writes to the database and automatically updates all users in a chat app.
 
-After that we'll see how to connect to external services and setup your product
+After that we'll see how to connect to external services and set up your product
 for success and scale.
 
 <div className="center-image" style={{ maxWidth: "560px" }}>
@@ -95,7 +95,7 @@ of how Convex works.
 </div>
 
 **Database.** The Convex database is a document-relational database, which means
-you have tables with JSON like documents in them. All documents have an
+you have tables with JSON-like documents in them. All documents have an
 auto-generated `_id` that can be used to create relations between documents. You
 interact with the database through mutation and query functions that are written
 entirely in TypeScript.
@@ -148,7 +148,7 @@ export const sendMessage = mutation({
 Let's break this down:
 
 1. You've added a new backend `mutation` function called `sendMessage` and
-   exposed it as a public api.
+   exposed it as a public API.
 1. The whole function automatically runs as a transaction that will roll back if
    an exception is thrown.
 1. Since this is just a TypeScript function you can drop `console.log` lines to
@@ -209,7 +209,7 @@ There are two steps to call a mutation in your frontend:
 
 This is a good time to **open up the Convex dashboard**. Open a new browser
 window and go to [https://dashboard.convex.dev](https://dashboard.convex.dev)
-and find new `convex-tutorial` project.
+and find the new `convex-tutorial` project.
 
 **Go to the "Data" screen**. So far, there is no data in your database.
 
@@ -276,7 +276,7 @@ export const getMessages = query({
 Let's break this down:
 
 1. You've added a new backend `query` function called `getMessages` and exposed
-   it as a public api.
+   it as a public API.
 1. Since this is a query function, the `ctx.db` in this function only lets you
    read data.
 1. In the first line of the `handler` you are querying the most recent 50
@@ -334,8 +334,8 @@ With just a few lines of code you've built a live updating chat app.
 
 1. You created a `mutation` TypeScript function that, in a transaction, adds new
    chat messages to your database.
-1. You created a `query` TypeScript function updates your app with the latest
-   data.
+1. You created a `query` TypeScript function that updates your app with the
+   latest data.
 1. You used the client library that keeps your frontend in live sync with the
    backend.
 

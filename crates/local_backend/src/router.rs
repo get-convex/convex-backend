@@ -46,7 +46,6 @@ use tower_http::{
     },
     decompression::RequestDecompressionLayer,
 };
-use udf::HTTP_ACTION_BODY_LIMIT;
 use utoipa::{
     openapi::security::{
         ApiKey,
@@ -495,7 +494,6 @@ pub fn http_action_routes() -> Router<RouterState> {
     Router::new()
         .route("/{*rest}", http_action_handler())
         .route("/", http_action_handler())
-        .layer(DefaultBodyLimit::max(HTTP_ACTION_BODY_LIMIT))
 }
 
 pub fn app_metrics_routes<S>() -> Router<S>

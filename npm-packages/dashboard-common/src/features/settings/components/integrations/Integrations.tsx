@@ -38,13 +38,12 @@ export function Integrations({
   >["data"];
   onAddedIntegration?: (kind: string) => void;
 }) {
-  const {
-    workosIntegrationEnabled,
-    managedAnalyticsIntegrationEnabled,
-    s3ExportIntegrationEnabled,
-  } = useContext(DeploymentInfoContext);
+  const { workosIntegrationEnabled, s3ExportIntegrationEnabled } = useContext(
+    DeploymentInfoContext,
+  );
   const { useIsOperationAllowed } = useContext(PermissionsContext);
   const canWriteIntegrations = useIsOperationAllowed("WriteIntegrations");
+  const canViewData = useIsOperationAllowed("ViewData");
 
   const logStreamingEntitlementGranted = entitlements?.logStreamingEnabled;
   const streamingExportEntitlementGranted =
@@ -90,7 +89,6 @@ export function Integrations({
     AnalyticsIntegration["kind"],
     boolean
   > = {
-    managedAnalytics: managedAnalyticsIntegrationEnabled,
     s3Export: s3ExportIntegrationEnabled,
   };
   const analyticsIntegrations: AnalyticsIntegration[] =
@@ -185,7 +183,7 @@ export function Integrations({
               key={i.kind}
               integration={i}
               unavailableReason={
-                i.kind === "managedAnalytics" || i.kind === "s3Export"
+                i.kind === "s3Export"
                   ? streamingExportIntegrationUnavailableReason
                   : logIntegrationUnvaliableReason
               }
@@ -193,6 +191,13 @@ export function Integrations({
               onAddedIntegration={onAddedIntegration}
               writeDisabled={!canWriteIntegrations}
               writeDisabledTip={integrationWriteTip}
+              configureDisabled={i.kind === "s3Export" && !canViewData}
+              configureDisabledTip={
+                <PermissionDeniedTip
+                  message="You do not have permission to export data from this deployment."
+                  action="deployment:data:view"
+                />
+              }
             />
           ))}
           {EXPORT_INTEGRATIONS.map((i) => (

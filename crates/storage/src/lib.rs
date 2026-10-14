@@ -205,6 +205,9 @@ pub trait Storage: Send + Sync + Debug {
     async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()>;
 
     /// Upload `bytes` to `key`, overwriting any object already at that key.
+    ///
+    /// This uploads the object in a single request. Objects above a size limit
+    /// can fail. Use `start_upload` for large objects.
     async fn put_object(&self, key: ObjectKey, bytes: Bytes) -> anyhow::Result<()>;
 
     /// List all objects whose key begins with `key_prefix`.

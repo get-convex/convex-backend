@@ -68,6 +68,50 @@ different path for `convex/playground.ts` you can enter it. E.g. if you had
 `convex/foo/bar.ts` where you exported the playground API, you'd put in
 `foo/bar`.
 
+### Agents that need `"use node"`
+
+Queries and mutations must run in the Convex runtime, so `convex/playground.ts`
+cannot import an agents module that needs Node APIs. Split the API in two:
+queries in a Convex-runtime file, given the agents' metadata rather than the
+instances, and actions next to the agents.
+
+```ts
+// convex/playground.ts
+import { definePlaygroundQueries } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const {
+  isApiKeyValid,
+  listAgents,
+  listUsers,
+  listThreads,
+  listMessages,
+  createThread,
+} = definePlaygroundQueries(components.agent, {
+  agents: [{ name: "Weather Agent", tools: ["getWeather"] }],
+});
+```
+
+```ts
+// convex/playgroundNode.ts
+"use node";
+import { definePlaygroundActions } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+import { weatherAgent } from "./example";
+
+export const { generateText, fetchPromptContext } = definePlaygroundActions(
+  components.agent,
+  { agents: [weatherAgent] },
+);
+```
+
+In the playground, set the API path to `playground` and the actions path to
+`playgroundNode`. The `name` given to `definePlaygroundQueries` must match the
+agent's `name` option, since the actions look the agent up by it.
+`definePlaygroundAPI` composes `definePlaygroundQueries` and
+`definePlaygroundActions` for the common case where one file can hold
+everything.
+
 ## Running it locally
 
 You can run the playground locally with:

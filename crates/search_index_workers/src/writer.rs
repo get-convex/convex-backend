@@ -475,9 +475,13 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                 .collect_vec();
         }
         let mut index_backfill_model = IndexBackfillModel::new(&mut tx);
+        let existing_backfill_metadata = index_backfill_model
+            .existing_backfill_metadata_for_index(job.index_id)
+            .await?
+            .with_context(|| format!("Index backfill not found for index {}", job.index_id))?;
         index_backfill_model
             .update_search_index_backfill_progress(
-                job.index_id,
+                &existing_backfill_metadata,
                 *job.index_name.table(),
                 new_segment_num_docs,
             )

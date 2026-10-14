@@ -39,8 +39,6 @@ use database::{
         DbFixturesArgs,
     },
     Database,
-    IndexBackfillMetadata,
-    IndexBackfillModel,
     IndexModel,
     TestFacingModel,
     Transaction,
@@ -79,7 +77,6 @@ use usage_tracking::UsageCounter;
 use value::{
     assert_obj,
     ConvexValue,
-    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -243,16 +240,6 @@ impl VectorFixtures {
         Ok(result)
     }
 
-    pub async fn index_backfill_progress(
-        &self,
-        index_id: DeveloperDocumentId,
-    ) -> anyhow::Result<Option<Arc<ParsedDocument<IndexBackfillMetadata>>>> {
-        let mut tx = self.db.begin_system().await?;
-        IndexBackfillModel::new(&mut tx)
-            .existing_backfill_metadata(index_id)
-            .await
-    }
-
     pub async fn new_compactor(&self) -> anyhow::Result<VectorIndexCompactor<TestRuntime>> {
         self.new_compactor_with_searchlight(self.searcher.clone())
             .await
@@ -365,16 +352,6 @@ impl VectorFixtures {
         };
         must_let!(let VectorIndexSnapshotData::MultiSegment(segments) = &snapshot.data);
         Ok(segments.clone())
-    }
-
-    pub async fn get_segments_from_backfilling_index(
-        &self,
-        index_name: GenericIndexName<TableName>,
-    ) -> anyhow::Result<Vec<FragmentedVectorSegment>> {
-        let metadata = self.get_index_metadata(index_name).await?;
-        must_let!(let IndexConfig::Vector { on_disk_state, .. } = &metadata.config);
-        must_let!(let VectorIndexState::Backfilling(backfill_state) = on_disk_state);
-        Ok(backfill_state.segments.clone())
     }
 
     pub async fn load_segment(&self, segment: &FragmentedVectorSegment) -> anyhow::Result<Segment> {

@@ -14,7 +14,10 @@ Sentry.init({
   dsn: SENTRY_DSN,
   profilesSampleRate: 0.05,
   tracesSampleRate: 0.05,
-  tunnel: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/sentry`,
+  tunnel:
+    environment === "production"
+      ? `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/sentry`
+      : undefined,
   environment,
   integrations: [Sentry.browserTracingIntegration()],
   // Which outgoing requests get `sentry-trace`/`baggage` headers. Matched

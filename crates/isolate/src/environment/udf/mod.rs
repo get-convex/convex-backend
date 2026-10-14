@@ -96,6 +96,8 @@ use common::{
         DATABASE_UDF_USER_TIMEOUT,
         FUNCTION_MAX_ARGS_SIZE,
         FUNCTION_MAX_RESULT_SIZE,
+        TRANSACTION_MAX_FILE_WRITE_SIZE_BYTES,
+        TRANSACTION_MAX_NUM_FILES_WRITTEN,
         TRANSACTION_MAX_NUM_SCHEDULED,
         TRANSACTION_MAX_NUM_USER_WRITES,
         TRANSACTION_MAX_READ_SET_INTERVALS,
@@ -134,7 +136,10 @@ use deno_core::{
     },
 };
 use errors::ErrorMetadata;
-use file_storage::TransactionalFileStorage;
+use file_storage::{
+    FileDownloads,
+    TransactionalFileStorage,
+};
 use keybroker::FunctionRunnerKeyBroker;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
@@ -221,6 +226,7 @@ pub struct DatabaseUdfSyscallProvider<RT: Runtime> {
 
     phase: UdfPhase<RT>,
     file_storage: TransactionalFileStorage<RT>,
+    file_downloads: FileDownloads,
 
     query_manager: QueryManager<RT>,
 
@@ -432,22 +438,28 @@ impl<RT: Runtime> DatabaseUdfInnerProvider<RT> for DatabaseUdfSyscallProvider<RT
         let user_execution_time = execution_time.elapsed;
 
         let success_result_value = result.as_ref().ok();
-        let parsed_args =
-            parse_pending_udf_args(&self.path.udf_path, args.udf_args.clone().into_args()?)?;
         let mut log_lines = self.log_lines;
-        add_warnings_to_log_lines(
-            &self.path.clone().for_logging(),
-            &parsed_args,
-            execution_time,
-            self.phase.execution_size()?,
-            self.phase.biggest_document_writes()?,
-            success_result_value,
-            |warning| {
-                // Note: accessing the current time here is still deterministic since
-                // we don't externalize the time to the function.
-                log_lines.push(warning.into_log_line(self.rt.unix_timestamp()));
-            },
-        )?;
+        // System functions receive their arguments unparsed and check them in
+        // JS, so arguments that don't parse (e.g. an array over the length
+        // limit) have already failed the function before it did any work, and
+        // there's nothing to warn about.
+        if let Ok(parsed_args) =
+            parse_pending_udf_args(&self.path.udf_path, args.udf_args.clone().into_args()?)
+        {
+            add_warnings_to_log_lines(
+                &self.path.clone().for_logging(),
+                &parsed_args,
+                execution_time,
+                self.phase.execution_size()?,
+                self.phase.biggest_document_writes()?,
+                success_result_value,
+                |warning| {
+                    // Note: accessing the current time here is still deterministic since
+                    // we don't externalize the time to the function.
+                    log_lines.push(warning.into_log_line(self.rt.unix_timestamp()));
+                },
+            )?;
+        }
         let memory_in_mb = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
             .try_into()
             .unwrap();
@@ -642,6 +654,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             journal,
             context,
             environment_data,
+            file_downloads,
         }: UdfRequest<RT>,
         reactor_depth: usize,
         client_id: String,
@@ -674,6 +687,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                         component,
                     ),
                     file_storage,
+                    file_downloads,
 
                     query_manager: QueryManager::new(),
 
@@ -1480,6 +1494,28 @@ pub fn add_warnings_to_log_lines(
     if let Some(warning) = scheduled_arg_size_warning(
         execution_size.scheduled_size.max_args_size,
         &system_udf_path,
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.file_storage_write_size.num_writes,
+        *TRANSACTION_MAX_NUM_FILES_WRITTEN,
+        "TooManyFilesWritten",
+        || "Many files stored by this mutation".to_string(),
+        None,
+        None,
+        system_udf_path.as_ref(),
+    ) {
+        trace_system_warning(warning);
+    }
+    if let Some(warning) = approaching_limit_warning(
+        execution_size.file_storage_write_size.size,
+        *TRANSACTION_MAX_FILE_WRITE_SIZE_BYTES,
+        "FilesWrittenTooLarge",
+        || "Large total size of the files stored by this mutation".to_string(),
+        None,
+        Some(" bytes"),
+        system_udf_path.as_ref(),
     ) {
         trace_system_warning(warning);
     }

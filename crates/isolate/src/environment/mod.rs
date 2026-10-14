@@ -145,10 +145,12 @@ pub enum ModuleCodeCacheResult {
     /// The module isn't cached; it can be populated by calling the callback
     /// with the generated CachedData.
     Uncached(Box<dyn FnOnce(Arc<[u8]>)>),
+    /// The module isn't cached, and the cache shouldn't be populated.
+    Disabled,
 }
 
 impl ModuleCodeCacheResult {
     pub fn noop() -> Self {
-        ModuleCodeCacheResult::Uncached(Box::new(|_| ()))
+        ModuleCodeCacheResult::Disabled
     }
 }

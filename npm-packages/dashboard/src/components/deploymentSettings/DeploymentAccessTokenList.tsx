@@ -35,8 +35,6 @@ export function DeploymentAccessTokenList({
   headingLevel?: "h3" | "h4";
 }) {
   const HeadingTag = (headingLevel ?? "h4") as keyof JSX.IntrinsicElements;
-  // When set, the create-deploy-key flow opens in a right-hand side panel
-  // (`CreateDeployKeyForm` renders a `DetailPanel`) rather than a modal.
   const [showForm, setShowForm] = useState(false);
   return (
     <>

@@ -196,6 +196,7 @@ export const logTopic = v.union(
   v.literal("current_storage_usage"),
   v.literal("concurrency_stats"),
   v.literal("storage_api_bandwidth"),
+  v.literal("ai_gateway_usage"),
   v.literal("log_stream_egress"),
   v.literal("custom_audit"),
 );
@@ -288,12 +289,6 @@ const syncPeriod = v.union(
   v.literal("daily"),
 );
 
-export const managedAnalyticsConfig = v.object({
-  type: v.literal("managedAnalytics"),
-  selection: syncSelection,
-  period: syncPeriod,
-});
-
 export const s3ExportConfig = v.object({
   type: v.literal("s3Export"),
   bucket: v.string(),
@@ -303,6 +298,24 @@ export const s3ExportConfig = v.object({
   secretAccessKey: v.string(),
   selection: syncSelection,
   period: syncPeriod,
+  cursor: v.optional(v.string()),
+  progress: v.optional(
+    v.union(
+      v.object({
+        type: v.literal("snapshotting"),
+        numTablesSynced: v.int64(),
+        totalTables: v.int64(),
+        currentComponent: v.string(),
+        currentTable: v.string(),
+        numDocumentsInCurrentTable: v.int64(),
+        totalDocumentsInCurrentTable: v.union(v.int64(), v.null()),
+        numDocumentsSynced: v.int64(),
+        totalDocuments: v.union(v.int64(), v.null()),
+      }),
+      v.object({ type: v.literal("stale"), ts: v.int64() }),
+      v.object({ type: v.literal("upToDate"), ts: v.int64() }),
+    ),
+  ),
 });
 
 export const sinkConfig = v.union(
@@ -312,7 +325,6 @@ export const sinkConfig = v.union(
   sentryConfig,
   postHogLogsConfig,
   postHogErrorTrackingConfig,
-  managedAnalyticsConfig,
   s3ExportConfig,
 );
 
@@ -547,20 +559,11 @@ export default defineSchema({
       v.object({ state: v.literal("failed"), error: v.string() }),
     ),
   }).index("by_schema_id_and_table_name", ["schemaId", "tableName"]),
-  _schema_validation_progress: defineTable(
-    v.union(
-      v.object({
-        validationId: v.id("_schema_validations"),
-        numDocsValidated: v.int64(),
-        totalDocs: v.union(v.int64(), v.null()),
-      }),
-      v.object({
-        schemaId: v.id("_schemas"),
-        numDocsValidated: v.int64(),
-        totalDocs: v.union(v.int64(), v.null()),
-      }),
-    ),
-  ).index("by_validation_id", ["validationId"]),
+  _schema_validation_progress: defineTable({
+    validationId: v.id("_schema_validations"),
+    numDocsValidated: v.int64(),
+    totalDocs: v.union(v.int64(), v.null()),
+  }).index("by_validation_id", ["validationId"]),
   _log_sinks: logSinksTable,
   _backend_state: backendStateTable,
   _snapshot_imports: snapshotImportsTable,

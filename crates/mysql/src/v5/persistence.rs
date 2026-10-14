@@ -280,38 +280,19 @@ impl<RT: Runtime> Persistence<RT> {
             .is_none())
     }
 
-}
-
-#[async_trait]
-impl<RT: Runtime> IndexRowPersistence for Persistence<RT> {
-    async fn delete_index_rows(&self, expired_entries: Vec<IndexEntry>) -> anyhow::Result<usize> {
-        super::indexes::delete_index_rows(self, expired_entries).await
-    }
-}
-
-#[async_trait]
-impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
-    fn is_fresh(&self) -> bool {
-        self.newly_created.load(SeqCst)
-    }
-
-    fn reader(&self) -> Arc<dyn PersistenceReader> {
-        Arc::new(Reader {
-            db_name: self.db_name.clone(),
-            read_pool: self.read_pool.clone(),
-            db_should_be_leader: true,
-            instance_name: self.instance_name.clone(),
-            multitenant: self.multitenant,
-        })
-    }
-
+    /// Runs `f` in the transaction that writes the V5 rows, so an error from
+    /// either rolls back the other's writes as well.
     #[fastrace::trace]
-    async fn write<'a>(
+    pub(crate) async fn write_in_transaction<'a, F>(
         &self,
         documents: &'a [DocumentLogEntry],
         indexes: &'a [PersistenceIndexEntry],
         conflict_strategy: ConflictStrategy,
-    ) -> anyhow::Result<()> {
+        f: F,
+    ) -> anyhow::Result<()>
+    where
+        F: for<'tx> AsyncFnOnce(&'tx mut MySqlTransaction<'_>) -> anyhow::Result<()>,
+    {
         anyhow::ensure!(documents.len() <= crate::MAX_INSERT_SIZE);
         let mut write_size = 0;
         for update in documents {
@@ -427,8 +408,42 @@ impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
                         )
                         .await?;
                 }
-                Ok(())
+                f(tx).await
             })
+            .await
+    }
+}
+
+#[async_trait]
+impl<RT: Runtime> IndexRowPersistence for Persistence<RT> {
+    async fn delete_index_rows(&self, expired_entries: Vec<IndexEntry>) -> anyhow::Result<usize> {
+        super::indexes::delete_index_rows(self, expired_entries).await
+    }
+}
+
+#[async_trait]
+impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
+    fn is_fresh(&self) -> bool {
+        self.newly_created.load(SeqCst)
+    }
+
+    fn reader(&self) -> Arc<dyn PersistenceReader> {
+        Arc::new(Reader {
+            db_name: self.db_name.clone(),
+            read_pool: self.read_pool.clone(),
+            db_should_be_leader: true,
+            instance_name: self.instance_name.clone(),
+            multitenant: self.multitenant,
+        })
+    }
+
+    async fn write<'a>(
+        &self,
+        documents: &'a [DocumentLogEntry],
+        indexes: &'a [PersistenceIndexEntry],
+        conflict_strategy: ConflictStrategy,
+    ) -> anyhow::Result<()> {
+        self.write_in_transaction(documents, indexes, conflict_strategy, async |_| Ok(()))
             .await
     }
 

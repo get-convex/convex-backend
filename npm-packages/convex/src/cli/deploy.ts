@@ -329,7 +329,8 @@ async function deployToNewPreviewDeployment(
   });
 
   const pushOptions: PushOptions = {
-    deploymentName: null,
+    deploymentName: data.deploymentName,
+    deploymentType: "preview",
     adminKey: previewAdminKey,
     verbose: !!options.verbose,
     dryRun: false,

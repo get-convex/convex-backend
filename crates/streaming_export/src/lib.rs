@@ -1,8 +1,8 @@
 //! Public streaming-export ("data sync") API built on top of the low-level
-//! [`table_iteration::data_sync::DataSyncIterator`]. It resolves a table filter
-//! to concrete tablets, drives the iterator one page at a time, converts
-//! emitted revisions into name-addressed [`SyncEntry`]s, and (de)serializes the
-//! opaque cursor.
+//! [`table_iteration::data_sync::DataSyncIterator`]. It resolves a table
+//! selection to concrete tablets, drives the iterator one page at a time,
+//! converts emitted revisions into name-addressed [`SyncEntry`]s, and
+//! (de)serializes the opaque cursor.
 //!
 //! This is the forward-looking replacement for the `list_snapshot` /
 //! `document_deltas` APIs (still on `Database`). It lives in its own crate and
@@ -33,11 +33,13 @@ use common::{
     version::ClientType,
 };
 use database::{
-    streaming_export_selection::StreamingExportDocument,
+    streaming_export_selection::{
+        StreamingExportDocument,
+        StreamingExportSelection,
+    },
     unauthorized_error,
     DatabaseSnapshot,
     Snapshot,
-    StreamingExportFilter,
 };
 use errors::ErrorMetadata;
 use keybroker::{
@@ -207,6 +209,24 @@ impl SyncCursor {
         Self::from_proto(encryptor.decrypt_proto(DATA_SYNC_CURSOR_VERSION, token)?)
     }
 
+    /// Serializes the cursor without encryption, for a token that only
+    /// servers we run hold.
+    pub fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
+        Ok(prost::Message::encode_to_vec(&self.to_proto()?))
+    }
+
+    /// Deserializes a token previously produced by [`Self::to_bytes`].
+    pub fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
+        Self::from_proto(prost::Message::decode(bytes)?)
+    }
+
+    /// Tables the cursor has captured. At a consistent snapshot
+    /// ([`SyncStatus::Stale`] or [`SyncStatus::UpToDate`]) this is every
+    /// target table.
+    pub fn tables(&self) -> impl Iterator<Item = &(ComponentPath, TableName)> {
+        self.names.values()
+    }
+
     /// Unique id of the sync this cursor belongs to.
     pub fn sync_id(&self) -> &str {
         &self.sync_id
@@ -340,10 +360,12 @@ fn parse_named_tablet(
     Ok((tablet_id, component, table))
 }
 
-/// Whether `tablet_id` is included in the streaming export given `filter`.
-/// (Mirrors the equivalent check used by `list_snapshot`/`document_deltas`.)
+/// Whether `tablet_id` is included in the streaming export given `selection`.
+///
+/// Hidden tablets (i.e. tables that are still being imported) are excluded.
+/// We'll process them later when they are activated.
 fn table_included(
-    filter: &StreamingExportFilter,
+    selection: &StreamingExportSelection,
     tablet_id: TabletId,
     table_mapping: &TableMapping,
     component_paths: &BTreeMap<ComponentId, ComponentPath>,
@@ -352,10 +374,7 @@ fn table_included(
         // Always exclude deleted tablets.
         return Ok(false);
     }
-    if !filter.include_system && table_mapping.is_system_tablet(tablet_id) {
-        return Ok(false);
-    }
-    if !filter.include_hidden && !table_mapping.is_active(tablet_id) {
+    if table_mapping.is_system_tablet(tablet_id) || !table_mapping.is_active(tablet_id) {
         return Ok(false);
     }
     let (table_namespace, _, table_name) = table_mapping
@@ -365,28 +384,26 @@ fn table_included(
         tracing::warn!("Ignoring orphaned table in streaming export: {table_namespace:?}");
         return Ok(false);
     };
-    Ok(filter
-        .selection
-        .is_table_included(component_path, table_name))
+    Ok(selection.is_table_included(component_path, table_name))
 }
 
-/// The tablets a [`StreamingExportFilter`] selects, resolved against a snapshot
-/// to concrete tablet ids. Tablet ids are stable, so this stays valid for the
-/// iterator's own (possibly slightly newer) read snapshot.
-struct ResolvedStreamingExportFilter {
+/// The tablets a [`StreamingExportSelection`] selects, resolved against a
+/// snapshot to concrete tablet ids. Tablet ids are stable, so this stays valid
+/// for the iterator's own (possibly slightly newer) read snapshot.
+struct ResolvedStreamingExportSelection {
     /// The selected tablets, each mapped to its `by_id` index.
     target_tables: BTreeMap<TabletId, IndexRef>,
 }
 
-impl ResolvedStreamingExportFilter {
-    fn new(snapshot: &Snapshot, filter: &StreamingExportFilter) -> anyhow::Result<Self> {
+impl ResolvedStreamingExportSelection {
+    fn new(snapshot: &Snapshot, selection: &StreamingExportSelection) -> anyhow::Result<Self> {
         let table_mapping = snapshot.table_mapping();
         let component_paths = snapshot.component_ids_to_paths();
         let by_id_indexes = snapshot.index_registry.by_id_indexes()?;
 
         let mut target_tables: BTreeMap<TabletId, IndexRef> = BTreeMap::new();
         for (tablet_id, ..) in table_mapping.iter() {
-            if !table_included(filter, tablet_id, table_mapping, &component_paths)? {
+            if !table_included(selection, tablet_id, table_mapping, &component_paths)? {
                 continue;
             }
             let by_id = *by_id_indexes
@@ -415,6 +432,22 @@ fn resolve_name(
     Ok((component_path, table_name))
 }
 
+pub fn selected_tables<RT: Runtime>(
+    db_snapshot: &DatabaseSnapshot<RT>,
+    selection: &StreamingExportSelection,
+) -> anyhow::Result<Vec<(ComponentPath, TableName)>> {
+    let snapshot = &db_snapshot.snapshot;
+    let table_mapping = snapshot.table_mapping();
+    let component_paths = snapshot.component_ids_to_paths();
+    let mut tables = vec![];
+    for (tablet_id, ..) in table_mapping.iter() {
+        if table_included(selection, tablet_id, table_mapping, &component_paths)? {
+            tables.push(resolve_name(snapshot, &component_paths, tablet_id)?);
+        }
+    }
+    Ok(tables)
+}
+
 /// Mint a fresh sync id for a cold start, tagged with the integration that
 /// issued it so `/data/list_active_syncs` can tell syncs apart.
 fn new_sync_id<RT: Runtime>(runtime: &RT, sync_client: DataSyncClient) -> String {
@@ -423,7 +456,7 @@ fn new_sync_id<RT: Runtime>(runtime: &RT, sync_client: DataSyncClient) -> String
 
 /// Produce the next page of a streaming export ("data sync").
 ///
-/// `cursor: None` starts a fresh sync. `filter` selects the components, tables
+/// `cursor: None` starts a fresh sync. `selection` picks the components, tables
 /// and columns to export; it is compared against the cursor on every call so
 /// tables can be added or removed between pages. Any table that enters the
 /// export from scratch — newly selected, replaced (e.g. by `npx convex
@@ -435,7 +468,7 @@ pub async fn data_sync<RT: Runtime>(
     db_snapshot: &DatabaseSnapshot<RT>,
     identity: Identity,
     cursor: Option<SyncCursor>,
-    filter: StreamingExportFilter,
+    selection: StreamingExportSelection,
     // Integration issuing the sync, prepended to the freshly-minted sync id on
     // a cold start so callers can tell apart syncs from different sources.
     sync_client: DataSyncClient,
@@ -446,12 +479,12 @@ pub async fn data_sync<RT: Runtime>(
         unauthorized_error("data_sync")
     );
 
-    // Resolve the filter against `db_snapshot`'s consistent snapshot. Tablet ids
+    // Resolve the selection against `db_snapshot`'s consistent snapshot. Tablet ids
     // are stable, so the mapping stays valid for the iterator's own (possibly
     // slightly newer) read snapshot.
     let snapshot = &db_snapshot.snapshot;
     let component_paths = snapshot.component_ids_to_paths();
-    let target_tables = ResolvedStreamingExportFilter::new(snapshot, &filter)?.target_tables;
+    let target_tables = ResolvedStreamingExportSelection::new(snapshot, &selection)?.target_tables;
     let resolve_name = |tablet_id: TabletId| resolve_name(snapshot, &component_paths, tablet_id);
 
     // The tablets the cursor was tracking (synced plus in-progress) before this
@@ -485,7 +518,7 @@ pub async fn data_sync<RT: Runtime>(
         let (component, table) = resolve_name(tablet_id)?;
         match value {
             Some(doc) => {
-                let column_filter = filter.selection.column_filter(&component, &table)?;
+                let column_filter = selection.column_filter(&component, &table)?;
                 let document = column_filter.filter_document(doc.to_developer())?;
                 usage.track_database_egress_v2(
                     component.clone(),
@@ -592,7 +625,7 @@ pub async fn data_sync_cursor_from_deltas<RT: Runtime>(
     db_snapshot: &DatabaseSnapshot<RT>,
     identity: Identity,
     ts: Timestamp,
-    filter: StreamingExportFilter,
+    selection: StreamingExportSelection,
     sync_client: DataSyncClient,
 ) -> anyhow::Result<SyncCursor> {
     anyhow::ensure!(
@@ -617,7 +650,7 @@ pub async fn data_sync_cursor_from_deltas<RT: Runtime>(
 
     let snapshot = &db_snapshot.snapshot;
     let component_paths = snapshot.component_ids_to_paths();
-    let target_tables = ResolvedStreamingExportFilter::new(snapshot, &filter)?.target_tables;
+    let target_tables = ResolvedStreamingExportSelection::new(snapshot, &selection)?.target_tables;
     let names = target_tables
         .keys()
         .map(|tablet_id| {
