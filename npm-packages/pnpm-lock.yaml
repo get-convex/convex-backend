@@ -151,7 +151,7 @@ overrides:
   yaml@>=1.0.0 <1.10.3: ^1.10.3
   yaml@>=2.0.0 <2.8.3: ^2.8.3
 
-packageExtensionsChecksum: sha256-BU27jBVskKbU63KqLWxYsloa6vd+MQuO6OTf51BQBxg=
+packageExtensionsChecksum: sha256-zZ56fCQEyIIj3nll2DollGU6bFFiIgVendW2FdzpCJM=
 
 importers:
 
@@ -1716,12 +1716,15 @@ importers:
         specifier: workspace:*
         version: link:../../convex
     devDependencies:
+      '@convex-dev/workpool':
+        specifier: ^0.4.14
+        version: 0.4.14(convex-helpers@0.1.123(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.13.5)(react@19.2.4)(typescript@5.9.3)(zod@4.4.3))(convex-test@0.0.61(convex@convex))(convex@convex)(react@19.2.4)
       '@edge-runtime/vm':
         specifier: ^5.0.0
         version: 5.0.0
       convex-test:
-        specifier: ^0.0.60
-        version: 0.0.60(convex@convex)
+        specifier: ^0.0.61
+        version: 0.0.61(convex@convex)
       globals:
         specifier: ~17.4.0
         version: 17.4.0
@@ -7747,6 +7750,16 @@ packages:
       react:
         optional: true
 
+  '@convex-dev/batch-worker@0.2.2':
+    resolution: {integrity: sha512-3knigElzTVhWw1sN28EYkGBTdrJZ03vMj2PJPuFq3V0Tg41i7tcv/EWDBFQWcUaKzBWWVw693hcJtxCF3CRtEw==}
+    peerDependencies:
+      convex: ^1.36.1
+      convex-test: '*'
+      react: ^18.3.1 || ^19.0.0
+    peerDependenciesMeta:
+      convex-test:
+        optional: true
+
   '@convex-dev/docusaurus-plugin-typedoc@0.19.2':
     resolution: {integrity: sha512-i3N9mkWPfOevOJhmas3CoRMEgg7O+utcFwSQIQ0neW5PeR2oe45HplpXYD8Iew9l/g5gVrec4gsdTLWss1e3dg==}
     peerDependencies:
@@ -7787,6 +7800,16 @@ packages:
     peerDependencies:
       convex: ^1.24.8
       convex-helpers: ^0.1.94
+
+  '@convex-dev/workpool@0.4.14':
+    resolution: {integrity: sha512-uTgOlLo7/Sv5OYhb6jjQ/+COAgLhOd1sMfHtJbN5qB298SHJQGoUUab66f6kqfEb8ugD1FnkL0oNZmk6fMqkow==}
+    peerDependencies:
+      convex: ^1.36.1
+      convex-helpers: ^0.1.94
+      convex-test: ^0.0.61
+    peerDependenciesMeta:
+      convex-test:
+        optional: true
 
   '@convex-internal/web-analytics@2.2.2':
     resolution: {integrity: sha512-5zwW2ZG1KtchBSiZU3goGoQH4M5QudFB4P8YFiQAKIbXE5SM6jIPtyGHAvMLUDPxgfKcLocprcHU8Yehmgg1VQ==}
@@ -18028,8 +18051,8 @@ packages:
     peerDependencies:
       convex: ^1.16.4
 
-  convex-test@0.0.60:
-    resolution: {integrity: sha512-qCAFx+CO6bmpXNc9s1jZvw8NJPS4yM074ib87PUY675FsiaRRW4ALotEB+RbVCYDRMYxh623KMnYZBlrMJIv1Q==}
+  convex-test@0.0.61:
+    resolution: {integrity: sha512-uYKCFk9+iu8jJB7TW3BHm3EAM6yPoXERoLHGiomhgUwuTLdSUjOk9SYnnnDc1UA1MQrMPYfUFSp+0+GWyFREng==}
     peerDependencies:
       convex: ^1.43.0
 
@@ -31666,6 +31689,13 @@ snapshots:
     optionalDependencies:
       react: 19.2.4
 
+  '@convex-dev/batch-worker@0.2.2(convex-test@0.0.61(convex@convex))(convex@convex)(react@19.2.4)':
+    dependencies:
+      convex: link:convex
+      react: 19.2.4
+    optionalDependencies:
+      convex-test: 0.0.61(convex@convex)
+
   '@convex-dev/docusaurus-plugin-typedoc@0.19.2(typedoc@0.24.8(typescript@5.0.4))':
     dependencies:
       typedoc: 0.24.8(typescript@5.0.4)
@@ -31709,6 +31739,16 @@ snapshots:
     dependencies:
       convex: link:convex
       convex-helpers: 0.1.123(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.13.5)(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
+
+  '@convex-dev/workpool@0.4.14(convex-helpers@0.1.123(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.13.5)(react@19.2.4)(typescript@5.9.3)(zod@4.4.3))(convex-test@0.0.61(convex@convex))(convex@convex)(react@19.2.4)':
+    dependencies:
+      '@convex-dev/batch-worker': 0.2.2(convex-test@0.0.61(convex@convex))(convex@convex)(react@19.2.4)
+      convex: link:convex
+      convex-helpers: 0.1.123(@standard-schema/spec@1.1.0)(convex@convex)(hono@4.13.5)(react@19.2.4)(typescript@5.9.3)(zod@4.4.3)
+    optionalDependencies:
+      convex-test: 0.0.61(convex@convex)
+    transitivePeerDependencies:
+      - react
 
   '@convex-internal/web-analytics@2.2.2(react@18.3.1)(svelte@5.55.8)':
     dependencies:
@@ -45192,7 +45232,7 @@ snapshots:
     dependencies:
       convex: link:convex
 
-  convex-test@0.0.60(convex@convex):
+  convex-test@0.0.61(convex@convex):
     dependencies:
       convex: link:convex
 

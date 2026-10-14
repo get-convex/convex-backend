@@ -15,8 +15,9 @@
     "convex": "workspace:*"
   },
   "devDependencies": {
+    "@convex-dev/workpool": "^0.4.14",
     "@edge-runtime/vm": "^5.0.0",
-    "convex-test": "^0.0.60",
+    "convex-test": "^0.0.61",
     "globals": "~17.4.0",
     "typescript": "^5.9.2",
     "vitest": "^4.1.0",

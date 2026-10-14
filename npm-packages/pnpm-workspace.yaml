@@ -199,6 +199,7 @@ minimumReleaseAgeExclude:
   - adm-zip@0.6.1
   # First-party publish; the convex-test docs often reference new features
   - convex-test
+  - "@convex-dev/workpool@0.4.14"
   # First-party publish; the CLI can't use workspace:* because copy.bara.sky
   # mirrors it to convex-js.
   - "@convex-dev/platform"
@@ -223,6 +224,19 @@ hoistPattern:
 # Declaring @types/react as an optional peer links the consumer's own types
 # version next to each package instance instead.
 packageExtensions:
+  # These /test entrypoints need the consuming app's convex-test types.
+  "@convex-dev/workpool@0.4.14":
+    peerDependencies:
+      convex-test: "^0.0.61"
+    peerDependenciesMeta:
+      convex-test:
+        optional: true
+  "@convex-dev/batch-worker@0.2.2":
+    peerDependencies:
+      convex-test: "*"
+    peerDependenciesMeta:
+      convex-test:
+        optional: true
   "@headlessui/react":
     peerDependencies:
       "@types/react": "*"

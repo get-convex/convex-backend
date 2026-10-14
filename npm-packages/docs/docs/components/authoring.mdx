@@ -826,16 +826,78 @@ app that uses the component.
 The template component includes an example app in part for this purpose: to
 exercise the component's bundled code as it will be used by apps installing it.
 
+For focused tests, use
+[`defineTestApp`](/testing/convex-test.mdx#define-a-test-application) to define
+a small host app directly in the test. This is especially useful for testing
+client code that runs in the app's context and calls into the component. For
+example, combine exports from the
+[`makeCounterAPI` client above](#re-mounting-an-api) with a function defined in
+the test:
+
+```ts title="src/client/index.test.ts"
+import { defineSchema } from "convex/server";
+import { v } from "convex/values";
+import { defineTestApp } from "convex-test";
+import { expect, test } from "vitest";
+import componentTest from "../test.js";
+import { makeCounterAPI } from "./index.js";
+
+const app = defineTestApp({
+  schema: defineSchema({}),
+  components: {
+    counter: componentTest,
+  },
+});
+const { add, get } = makeCounterAPI(app.components.counter, {
+  auth: async () => "test-user",
+});
+
+const { api, createTest } = app.defineModules({
+  testModule: {
+    add,
+    get,
+    addAndGet: app.mutation({
+      args: { value: v.number() },
+      returns: v.number(),
+      handler: async (ctx, args): Promise<number> => {
+        await ctx.runMutation(api.testModule.add, args);
+        return await ctx.runQuery(api.testModule.get, {});
+      },
+    }),
+  },
+});
+
+test("adds to the counter through the client API", async () => {
+  const t = createTest();
+  expect(await t.mutation(api.testModule.addAndGet, { value: 3 })).toBe(3);
+  expect(await t.query(api.testModule.get, {})).toBe(3);
+});
+```
+
+Here, `componentTest` is the [test helper](#exporting-test-helpers) exported by
+your component. Each `createTest()` call registers a fresh component instance
+named `counter`. The `register` function's return type supplies the API type for
+`app.components.counter`.
+
+We recommend explicitly annotating handler return types, such as
+`Promise<number>` above, to break TypeScript inference cycles when handlers
+reference `api` inside its own definition.
+
 ### Exporting test helpers
 
 Most components export testing helpers to make it easy to register the component
-with the test instance. Here is an example from the
-[template component’s `/test` entrypoint](https://github.com/get-convex/templates/blob/main/template-component/src/test.ts):
+with the test instance. Returning the component's API also provides typed
+references for direct callers and lets `defineTestApp` infer the API:
 
 ```ts
 /// <reference types="vite/client" />
 import type { TestConvex } from "convex-test";
-import type { GenericSchema, SchemaDefinition } from "convex/server";
+import {
+  componentsGeneric,
+  type GenericSchema,
+  type SchemaDefinition,
+} from "convex/server";
+import type { ComponentApi } from "./component/_generated/component.js";
 import schema from "./component/schema.js";
 const modules = import.meta.glob("./component/**/*.ts");
 
@@ -844,11 +906,11 @@ const modules = import.meta.glob("./component/**/*.ts");
  * @param t - The test convex instance, e.g. from calling `convexTest`.
  * @param name - The name of the component, as registered in convex.config.ts.
  */
-export function register(
-  t: TestConvex<SchemaDefinition<GenericSchema, boolean>>,
-  name: string = "sampleComponent",
-) {
+export function register<
+  Schema extends SchemaDefinition<GenericSchema, boolean>,
+>(t: TestConvex<Schema>, name: string = "sampleComponent"): ComponentApi {
   t.registerComponent(name, schema, modules);
+  return componentsGeneric()[name] as unknown as ComponentApi;
 }
 export default { register, schema, modules };
 ```
