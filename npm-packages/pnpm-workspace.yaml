@@ -159,6 +159,8 @@ publishBranch: release
 minimumReleaseAge: 10080
 
 minimumReleaseAgeExclude:
+  # First-party package, thus the delay protects nothing here.
+  - convex-helpers
   # AI SDK's experimental evaluation interface for Jev.
   - ai@7.0.105
   - "@ai-sdk/gateway@4.0.85"
