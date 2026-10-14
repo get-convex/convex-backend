@@ -1,3 +1,4 @@
+import { syncSelection, syncPeriod } from "./streamingExport";
 import { defineTable } from "convex/server";
 import { GenericValidator, v } from "convex/values";
 import {
@@ -328,19 +329,108 @@ const setExportExpiration = auditLogEventValidator("set_export_expiration", {
   expiration_ts_ms: v.int64(),
 });
 
+const auditTopics = v.union(v.array(v.string()), v.null());
+const auditOptionalString = v.union(v.string(), v.null());
+
+export const integrationAuditConfig = v.union(
+  v.object({ type: v.literal("local"), path: v.string() }),
+  v.object({
+    type: v.literal("datadog"),
+    site: v.string(),
+    service: auditOptionalString,
+    tags: v.array(v.string()),
+    format_version: v.string(),
+    topics: auditTopics,
+  }),
+  v.object({
+    type: v.literal("axiom"),
+    dataset: v.string(),
+    ingest_origin: auditOptionalString,
+    attributes: v.array(v.object({ key: v.string(), value: v.string() })),
+    format_version: v.string(),
+    topics: auditTopics,
+  }),
+  v.object({
+    type: v.literal("webhook"),
+    url_origin: auditOptionalString,
+    format: v.union(v.literal("json"), v.literal("jsonl")),
+    topics: auditTopics,
+  }),
+  v.object({
+    type: v.literal("sentry"),
+    dsn_origin: auditOptionalString,
+    project_id: v.string(),
+    tags: v.union(v.record(v.string(), v.string()), v.null()),
+    format_version: v.string(),
+  }),
+  v.object({
+    type: v.literal("postHogLogs"),
+    host_origin: auditOptionalString,
+    service_name: auditOptionalString,
+    topics: auditTopics,
+  }),
+  v.object({
+    type: v.literal("postHogErrorTracking"),
+    host_origin: auditOptionalString,
+  }),
+  v.object({
+    type: v.literal("s3Export"),
+    bucket: v.string(),
+    region: v.string(),
+    prefix: auditOptionalString,
+    period: syncPeriod,
+    selection: syncSelection,
+  }),
+);
+
+export const integrationAuditCredentialChanges = v.union(
+  v.object({ type: v.literal("datadog"), api_key_changed: v.boolean() }),
+  v.object({
+    type: v.literal("axiom"),
+    api_key_changed: v.boolean(),
+    ingest_url_changed: v.boolean(),
+  }),
+  v.object({
+    type: v.literal("webhook"),
+    hmac_secret_changed: v.boolean(),
+    url_changed: v.boolean(),
+  }),
+  v.object({ type: v.literal("sentry"), dsn_changed: v.boolean() }),
+  v.object({
+    type: v.literal("postHogLogs"),
+    api_key_changed: v.boolean(),
+    host_changed: v.boolean(),
+  }),
+  v.object({
+    type: v.literal("postHogErrorTracking"),
+    api_key_changed: v.boolean(),
+    host_changed: v.boolean(),
+  }),
+  v.object({
+    type: v.literal("s3Export"),
+    access_key_id_changed: v.boolean(),
+    secret_access_key_changed: v.boolean(),
+  }),
+);
+
 const createIntegration = auditLogEventValidator("create_integration", {
   id: v.string(),
   type: v.string(),
+  config: v.optional(integrationAuditConfig),
 });
 
 const updateIntegration = auditLogEventValidator("update_integration", {
   id: v.string(),
   type: v.string(),
+  previous: v.optional(integrationAuditConfig),
+  current: v.optional(integrationAuditConfig),
+  credential_changes: v.optional(integrationAuditCredentialChanges),
 });
 
 const deleteIntegration = auditLogEventValidator("delete_integration", {
   id: v.string(),
   type: v.string(),
+  config: v.optional(integrationAuditConfig),
 });
 
 const addDocuments = auditLogEventValidator("add_documents", {

@@ -1,3 +1,5 @@
+import { syncSelection, syncPeriod } from "./tableDefs/streamingExport";
+export { syncSelection } from "./tableDefs/streamingExport";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import deploymentAuditLogTable, {
@@ -265,29 +267,6 @@ export const postHogErrorTrackingConfig = v.object({
   apiKey: v.string(),
   host: v.optional(v.string()),
 });
-
-const inclusionDefault = v.union(v.literal("included"), v.literal("excluded"));
-
-// The components, tables, and columns mirrored by an Analytics export, in the
-// streaming export `Selection` wire format: nested maps keyed by component,
-// then table, then column, where `_other` gives the default for entries that
-// aren't listed.
-export const syncSelection = v.record(
-  v.string(),
-  v.union(
-    inclusionDefault,
-    v.record(
-      v.string(),
-      v.union(inclusionDefault, v.record(v.string(), inclusionDefault)),
-    ),
-  ),
-);
-
-const syncPeriod = v.union(
-  v.literal("continuous"),
-  v.literal("hourly"),
-  v.literal("daily"),
-);
 
 export const s3ExportConfig = v.object({
   type: v.literal("s3Export"),

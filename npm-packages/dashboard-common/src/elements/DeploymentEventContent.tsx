@@ -1,3 +1,4 @@
+import { IntegrationAuditDetails } from "./IntegrationAuditDetails";
 import {
   ChevronUpIcon,
   ChevronDownIcon,
@@ -111,6 +112,24 @@ export function DeploymentEventContent({
       body = UsageLimitUpdateBody({ event });
       break;
 
+    case "create_integration":
+    case "delete_integration":
+      body = event.metadata.config ? (
+        <IntegrationAuditDetails config={event.metadata.config} />
+      ) : null;
+      break;
+
+    case "update_integration":
+      body =
+        event.metadata.current || event.metadata.credential_changes ? (
+          <IntegrationAuditDetails
+            config={event.metadata.current}
+            previous={event.metadata.previous}
+            credentialChanges={event.metadata.credential_changes}
+          />
+        ) : null;
+      break;
+
     case "create_environment_variable":
     case "delete_environment_variable":
     case "update_environment_variable":
@@ -131,9 +150,6 @@ export function DeploymentEventContent({
     case "request_export":
     case "cancel_export":
     case "set_export_expiration":
-    case "create_integration":
-    case "update_integration":
-    case "delete_integration":
     case "add_documents":
     case "delete_documents":
     case "update_documents":
