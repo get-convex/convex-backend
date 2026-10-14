@@ -491,6 +491,7 @@ async fn run_workload(
     // this point.
     let backend_version = wait_for_http_health(
         &backend_url.parse()?,
+        concat!("load-generator-", env!("CARGO_PKG_VERSION")),
         None,
         None,
         2,

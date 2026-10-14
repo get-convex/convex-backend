@@ -55,6 +55,7 @@ static SELF_HOSTED_DOCKER_COMPOSE: LazyLock<PathBuf> =
     LazyLock::new(|| REPO_ROOT.join("self-hosted/docker/docker-compose.yml"));
 
 const PROD_PROVISION_HOST: &str = "https://api.convex.dev";
+const BACKEND_HARNESS_CLIENT_ID: &str = concat!("backend-harness-", env!("CARGO_PKG_VERSION"));
 /// Port usher runs on locally
 const USHER_PORT: u16 = 8002;
 /// Port funrun runs on locally, overriding its default of 40994. Must stay
@@ -491,6 +492,7 @@ async fn provision(
             // Give it ~15 seconds to start up (5 retries with 500ms exponential backoff)
             wait_for_http_health(
                 &USHER_INSTANCE_URL.parse()?,
+                BACKEND_HARNESS_CLIENT_ID,
                 Some("0.0.0-backendharness"),
                 // We should include a random instance name here, but it would need to match our
                 // admin key. Right now the admin key is static, so either we use a static name
@@ -554,6 +556,7 @@ async fn provision(
             // Give it ~15 seconds to start up (5 retries with 500ms exponential backoff)
             wait_for_http_health(
                 &backend_url.parse()?,
+                BACKEND_HARNESS_CLIENT_ID,
                 Some("0.0.0-backendharness"),
                 // We should include a random instance name here, but it would need to match our
                 // admin key. Right now the admin key is static, so either we use a static name
@@ -607,6 +610,7 @@ async fn provision(
             // Give it ~15 seconds to start up (5 retries with 500ms exponential backoff)
             wait_for_http_health(
                 &backend_url.parse()?,
+                BACKEND_HARNESS_CLIENT_ID,
                 Some("0.0.0-backendharness"),
                 // We should include a random instance name here, but it would need to match our
                 // admin key. Right now the admin key is static, so either we use a static name
