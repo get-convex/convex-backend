@@ -280,6 +280,9 @@ pub static DATA_SYNC_PAGE_BYTES_LIMIT: LazyLock<usize> =
 /// computing a single page. A page can read many more rows than it emits when
 /// catching up the document log with a narrow table filter (lots of skipping).
 ///
+/// Note that `DataSyncIterator` never splits up transactions, so large
+/// transactions will still exceed this value.
+///
 /// Must be `>= DATA_SYNC_PAGE_SIZE_LIMIT`: the `by_id` dimension reads up to
 /// `page_size_limit` rows per page, so the row-read bound can't be smaller than
 /// the page-size bound. We clamp up to enforce this regardless of the env var.

@@ -429,6 +429,10 @@ export interface paths {
          *     periodically. It's recommended to sleep between `upToDate` pages to reduce
          *     overhead.
          *
+         *     The returned page should be applied atomically. In particular, it's
+         *     important to save the returned cursor atomically with any table updates to
+         *     ensure data consistency.
+         *
          *     The caller must have the `deployment:data:view` permission.
          */
         post: operations["data_sync"];
@@ -558,8 +562,8 @@ export interface components {
              */
             totalDocuments: number;
         };
-        /** @description The sync reached a consistent snapshot at `syncedTs`, but newer data is
-         *     already available; it is streaming later changes (CDC). */
+        /** @description The sync reached a consistent snapshot at `syncedTs`, but its timestamp is
+         *     stale; it is streaming later changes (CDC). Newer data may be available. */
         ActiveDataSyncStale: {
             /**
              * @description Always `stale`. (enum property replaced by openapi-typescript)

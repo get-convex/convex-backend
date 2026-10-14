@@ -644,8 +644,8 @@ impl<RT: Runtime> TableIteratorInner<RT> {
     }
 
     /// Load the revisions of documents visible at `self.snapshot_ts`.
-    /// Documents are yielded in the same order as input, skipping duplicates
-    /// and documents that didn't exist at the snapshot.
+    /// Documents are yielded in the same order as input, skipping documents
+    /// that didn't exist at the snapshot. Input ids must be unique.
     #[try_stream(ok = LatestDocument, error = anyhow::Error)]
     async fn load_revisions_at_snapshot_ts<'a>(
         &'a self,

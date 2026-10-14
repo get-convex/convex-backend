@@ -159,7 +159,8 @@ pub enum SyncStatus {
     /// `progress` describes how far the initial traversal has gotten.
     Snapshotting { progress: SyncProgress },
     /// The entries emitted so far represent a consistent snapshot at `ts`, but
-    /// newer data is already available to fetch immediately.
+    /// `ts` is behind the latest timestamp. The caller should fetch again
+    /// immediately in order to catch up. Note that the next page may be empty.
     Stale { ts: Timestamp },
     /// The entries emitted so far represent a consistent snapshot at `ts` that
     /// has caught up to the latest data; there is nothing more to fetch right

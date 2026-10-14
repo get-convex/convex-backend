@@ -418,8 +418,8 @@ pub struct ActiveDataSyncSnapshotting {
     pub total_documents: u64,
 }
 
-/// The sync reached a consistent snapshot at `syncedTs`, but newer data is
-/// already available; it is streaming later changes (CDC).
+/// The sync reached a consistent snapshot at `syncedTs`, but its timestamp is
+/// stale; it is streaming later changes (CDC). Newer data may be available.
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]

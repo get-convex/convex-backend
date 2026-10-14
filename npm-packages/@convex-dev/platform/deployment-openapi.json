@@ -832,7 +832,7 @@
           "pro"
         ],
         "summary": "Data sync",
-        "description": "Paginated streamable export of some or all of a deployment's data.\n\nCall this endpoint repeatedly, passing the opaque `pagination.nextCursor`\nfrom each response back in the next request as `cursor`. Omit `cursor` on\nthe first call.\n\nTo do a one time data sync, keep fetching pages until reaching an `upToDate`\npage. For a continuous streaming export, continue fetching pages\nperiodically. It's recommended to sleep between `upToDate` pages to reduce\noverhead.\n\nThe caller must have the `deployment:data:view` permission.",
+        "description": "Paginated streamable export of some or all of a deployment's data.\n\nCall this endpoint repeatedly, passing the opaque `pagination.nextCursor`\nfrom each response back in the next request as `cursor`. Omit `cursor` on\nthe first call.\n\nTo do a one time data sync, keep fetching pages until reaching an `upToDate`\npage. For a continuous streaming export, continue fetching pages\nperiodically. It's recommended to sleep between `upToDate` pages to reduce\noverhead.\n\nThe returned page should be applied atomically. In particular, it's\nimportant to save the returned cursor atomically with any table updates to\nensure data consistency.\n\nThe caller must have the `deployment:data:view` permission.",
         "operationId": "data_sync",
         "requestBody": {
           "content": {
@@ -1091,7 +1091,7 @@
       },
       "ActiveDataSyncStale": {
         "type": "object",
-        "description": "The sync reached a consistent snapshot at `syncedTs`, but newer data is\nalready available; it is streaming later changes (CDC).",
+        "description": "The sync reached a consistent snapshot at `syncedTs`, but its timestamp is\nstale; it is streaming later changes (CDC). Newer data may be available.",
         "required": [
           "type",
           "totalTables",

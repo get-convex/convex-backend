@@ -22,7 +22,9 @@
 //! - Transactions are not split across pages when advancing `synced_ts`
 //! - Each page reads at most `max_rows_read` rows and targets `page_size_limit`
 //!   emitted entries and `page_bytes_limit` bytes of emitted documents. May
-//!   occasionally go over these limits for a single large transaction.
+//!   occasionally go over these limits in the presence of large transaction: a
+//!   page's first transaction is always read in its entirety, plus the first
+//!   row of the next one.
 //! - Cursor + Page should be persisted atomically by caller
 //!
 //! # During Initial Sync phase
@@ -43,9 +45,9 @@
 //!   [`DataSyncStatus::UpToDate`] to continue a streaming sync to a newer
 //!   consistent snapshot.
 //! - Transactions are not split across pages.
-//! - May switch back to Initial Sync phase if a large operation occurs
-//!   (changing the set of synced tables, or an `npx convex import` replacing a
-//!   table).
+//! - May switch back to Initial Sync phase if a large operation occurs (adding
+//!   a table to the set of synced tables, or an `npx convex import` replacing a
+//!   table). Removing a table just stops syncing it.
 //!
 //! # Algorithm
 //!
@@ -272,8 +274,8 @@ pub enum DataSyncStatus {
     /// More pages are required before the entries form a consistent snapshot.
     Snapshotting { progress: ProgressStatus },
     /// The entries emitted so far represent a consistent snapshot at `ts`, but
-    /// `ts` is behind the latest timestamp — there are commits past the
-    /// snapshot still to sync.
+    /// `ts` is behind the latest timestamp. Note that the next page may be
+    /// empty.
     Stale { ts: Timestamp },
     /// The entries emitted so far represent a consistent snapshot at `ts` that
     /// has read all the way to the latest commit; the caller can take a break
@@ -330,8 +332,8 @@ impl<RT: Runtime> DataSyncIterator<RT> {
     ///
     /// `page_size_limit` bounds entries emitted per page and `page_bytes_limit`
     /// bounds their total byte size (both soft: a single transaction is never
-    /// split, so it may push a page over). `max_rows_read` bounds rows read
-    /// from persistence per page. `by_id_freshness` is how close
+    /// split, so it may push a page over). `max_rows_read` is a soft limit on
+    /// rows read from persistence per page. `by_id_freshness` is how close
     /// `synced_ts` must be to the latest timestamp before the iterator
     /// scans the `by_id` dimension (rather than catching up along `ts`).
     pub fn new(
@@ -346,7 +348,7 @@ impl<RT: Runtime> DataSyncIterator<RT> {
     ) -> anyhow::Result<Self> {
         // The `by_id` dimension reads up to `page_size_limit` rows in a single
         // page, so the row-read bound must be at least the page-size bound for
-        // the "each page reads at most `max_rows_read` rows" guarantee to hold.
+        // `by_id` pages to stay within `max_rows_read`.
         anyhow::ensure!(
             page_size_limit <= max_rows_read,
             "page_size_limit ({page_size_limit}) must be <= max_rows_read ({max_rows_read})"
@@ -405,7 +407,9 @@ impl<RT: Runtime> DataSyncIterator<RT> {
     /// 1. Repeatable, since the max of two repeatable timestamps is repeatable.
     /// 2. Weakly monotonically increasing across pages, since `min_ts` is fixed
     ///    and the persisted repeatable timestamp only increases — so any
-    ///    `synced_ts` produced by a prior page stays `<=` it.
+    ///    `synced_ts` produced by a prior page stays `<=` it. Callers that
+    ///    build a fresh iterator per page (e.g. `/data/sync`, once per request)
+    ///    also need each iterator's `min_ts` to be at least the previous one's.
     /// 3. Within retention, since the persisted repeatable timestamp is and the
     ///    max is at least as recent.
     async fn latest_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
@@ -507,7 +511,8 @@ impl<RT: Runtime> DataSyncIterator<RT> {
             .context("current_table missing from target_tables")?;
 
         // `synced_ts` was `<= latest` when written and `latest` only increases,
-        // so it remains repeatable; `read_snapshot` revalidates retention.
+        // so it remains repeatable. `read_snapshot` only checks retention
+        // optimistically; the index scan validates it after reading.
         let synced_ts = latest.prior_ts(cursor.synced_ts)?;
         let repeatable_persistence = RepeatablePersistence::new(
             self.persistence.clone(),
@@ -803,8 +808,9 @@ impl<RT: Runtime> DataSyncIterator<RT> {
 
 fn status(cursor: &DataSyncCursor, latest: Timestamp, total_tables: u64) -> DataSyncStatus {
     match &cursor.table_cursor {
-        // `synced_ts <= latest` always holds; if it's strictly behind there are
-        // commits past the snapshot still to sync.
+        // `synced_ts <= latest` always holds. Even if `cursor.synced_ts <
+        // latest`, there might be no commits to read, as `latest` also advances
+        // when the committer bumps the max repeatable timestamp.
         TableCursor::Synced if cursor.synced_ts < latest => DataSyncStatus::Stale {
             ts: cursor.synced_ts,
         },

@@ -275,6 +275,10 @@ pub async fn _document_deltas(
 /// periodically. It's recommended to sleep between `upToDate` pages to reduce
 /// overhead.
 ///
+/// The returned page should be applied atomically. In particular, it's
+/// important to save the returned cursor atomically with any table updates to
+/// ensure data consistency.
+///
 /// The caller must have the `deployment:data:view` permission.
 #[utoipa::path(
     post,
@@ -522,9 +526,9 @@ where
 }
 
 /// A cursor pointing at a snapshot that has aged out of the deployment's data
-/// retention window (see the endpoint docs: call at least once every 3 days)
-/// can't be resumed. Surface a 400 telling the caller to restart the sync from
-/// scratch; other errors pass through.
+/// retention window (`DOCUMENT_RETENTION_DELAY`) can't be resumed. Surface a
+/// 400 telling the caller to restart the sync from scratch; other errors pass
+/// through.
 fn cursor_expired_error(e: anyhow::Error) -> anyhow::Error {
     if e.is_out_of_retention() {
         e.context(ErrorMetadata::bad_request(
