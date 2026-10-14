@@ -34,11 +34,37 @@ pub struct S3ExportConfig {
     pub prefix: Option<String>,
     pub access_key_id: PII<String>,
     pub secret_access_key: PII<String>,
-    /// The components, tables, and columns to mirror.
+    /// The components and tables to export.
     pub selection: Selection,
     pub period: SyncPeriod,
     pub cursor: Option<String>,
     pub progress: Option<S3ExportProgress>,
+}
+
+impl S3ExportConfig {
+    /// Cursor progress belongs to the destination that received the exported
+    /// documents. Keep in sync with `requiresResync` in
+    /// `S3ExportConfigurationForm.tsx`.
+    pub fn requires_resync(&self, new: &S3ExportConfig) -> bool {
+        // Exhaustive destructuring makes new fields require a resync decision.
+        let Self {
+            bucket,
+            region,
+            prefix,
+            access_key_id,
+            secret_access_key: _,
+            selection: _,
+            period: _,
+            cursor: _,
+            progress: _,
+        } = self;
+        // `Some("")` and `None` both write at the bucket root.
+        let root_as_none = |prefix: &Option<String>| prefix.clone().filter(|p| !p.is_empty());
+        *bucket != new.bucket
+            || *region != new.region
+            || root_as_none(prefix) != root_as_none(&new.prefix)
+            || *access_key_id != new.access_key_id
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

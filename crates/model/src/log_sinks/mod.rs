@@ -171,12 +171,12 @@ impl<'a, RT: Runtime> LogSinksModel<'a, RT> {
     ) -> anyhow::Result<()> {
         let doc = self.must_get_including_tombstoned(id).await?;
         if let (SinkConfig::S3Export(old), SinkConfig::S3Export(new)) = (&doc.config, &mut config) {
-            if old.bucket == new.bucket && old.prefix == new.prefix {
-                new.cursor = old.cursor.clone();
-                new.progress = old.progress.clone();
-            } else {
+            if old.requires_resync(new) {
                 new.cursor = None;
                 new.progress = None;
+            } else {
+                new.cursor = old.cursor.clone();
+                new.progress = old.progress.clone();
             }
         }
         SystemMetadataModel::new_global(self.tx)

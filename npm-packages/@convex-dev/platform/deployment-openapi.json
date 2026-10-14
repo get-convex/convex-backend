@@ -1853,7 +1853,7 @@
               },
               {
                 "$ref": "#/components/schemas/Selection",
-                "description": "The components, tables, and columns to mirror. Defaults to everything."
+                "description": "The components and tables to export. Defaults to everything. Each table\nexports whole documents, so filtering fields within a table is rejected."
               }
             ]
           },
@@ -2924,7 +2924,7 @@
           },
           "selection": {
             "$ref": "#/components/schemas/Selection",
-            "description": "The components, tables, and columns being mirrored."
+            "description": "The components and tables being exported."
           },
           "period": {
             "$ref": "#/components/schemas/SyncPeriod",
@@ -3451,7 +3451,7 @@
               },
               {
                 "$ref": "#/components/schemas/Selection",
-                "description": "The components, tables, and columns to mirror."
+                "description": "The components and tables to export. Each table exports whole\ndocuments, so filtering fields within a table is rejected."
               }
             ]
           },

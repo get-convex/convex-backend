@@ -527,7 +527,7 @@ export const S3ExportComponentSelection: Story = {
     await userEvent.click(
       canvas.getByRole("checkbox", { name: "Include component tables" }),
     );
-    await canvas.findByText(/Saving this change restarts the export/);
+    await canvas.findByText(/keeps the progress of tables you already export/);
     await userEvent.click(
       canvas.getByRole("button", { name: "Choose specific tables Advanced" }),
     );

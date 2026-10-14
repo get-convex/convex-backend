@@ -1,4 +1,3 @@
-import { Callout } from "@ui/Callout";
 import { Checkbox } from "@ui/Checkbox";
 import isEqual from "lodash/isEqual";
 import { S3ExportTableSelector } from "./S3ExportTableSelector";
@@ -79,6 +78,23 @@ const STEP_FIELDS = [
   ["accessKeyId", "secretAccessKey"],
   ["period"],
 ] as const;
+
+type S3Destination = {
+  bucket: string;
+  region: string;
+  prefix?: string | null;
+  accessKeyId: string;
+};
+
+// Match `S3ExportConfig::requires_resync` so the save message reflects backend behavior.
+function requiresResync(old: S3Destination, next: S3Destination) {
+  return (
+    old.bucket !== next.bucket ||
+    old.region !== next.region ||
+    (old.prefix || null) !== (next.prefix || null) ||
+    old.accessKeyId !== next.accessKeyId
+  );
+}
 
 export function S3ExportConfigurationForm({
   onClose,
@@ -263,6 +279,8 @@ export function S3ExportConfigurationForm({
         deploymentName,
       }));
   const destinationChanged = !!appliedPolicy && appliedPolicy !== policy;
+  const restartsOnSave =
+    !!existingConfig && requiresResync(existingConfig, formState.values);
 
   return (
     <form
@@ -449,11 +467,13 @@ export function S3ExportConfigurationForm({
               </Disclosure>
             </div>
             {!isNewIntegration &&
+              !restartsOnSave &&
               !isEqual(formState.values.selection, initialSelection) && (
-                <Callout>
-                  Saving this change restarts the export from the beginning.
-                  Existing Glue tables are recreated for the new selection.
-                </Callout>
+                <p className="text-xs text-content-secondary" role="status">
+                  Saving keeps the progress of tables you already export. Tables
+                  you add sync from the start, and tables you remove stay in S3
+                  but stop updating.
+                </p>
               )}
             <SyncPeriodSelector
               value={formState.values.period}

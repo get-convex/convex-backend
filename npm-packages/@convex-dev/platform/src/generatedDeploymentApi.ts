@@ -1115,7 +1115,7 @@ export interface components {
             /** @description AWS access key ID used to write to the bucket. The matching secret
              *     access key is write-only and is never returned. */
             accessKeyId: string;
-            /** @description The components, tables, and columns being mirrored. */
+            /** @description The components and tables being exported. */
             selection: components["schemas"]["Selection"];
             /** @description How often the mirror is refreshed. */
             period: components["schemas"]["SyncPeriod"];
