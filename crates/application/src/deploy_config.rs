@@ -1024,7 +1024,7 @@ impl<RT: Runtime> Application<RT> {
             .upload_package(&modules, external_deps_id_and_pkg, node_version)
             .await?;
         let end_upload_source_package = Instant::now();
-        // Verify that we have not exceeded the max zipped or unzipped file size
+        // Verify that we have not exceeded the max unzipped file size
         let combined_pkg_size = source_package.package_size + external_deps_pkg_size;
         combined_pkg_size.verify_size()?;
 

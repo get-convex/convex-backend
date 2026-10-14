@@ -3,10 +3,7 @@ use std::{
     str::FromStr,
 };
 
-use common::{
-    knobs::MAX_ZIPPED_PACKAGES_SIZE,
-    types::ObjectKey,
-};
+use common::types::ObjectKey;
 use errors::ErrorMetadata;
 use humansize::{
     FormatSize,
@@ -157,16 +154,6 @@ const MAX_UNZIPPED_PACKAGES_SIZE: usize = 230_000_000; // 230 MB - Lambda gives 
 
 impl PackageSize {
     pub fn verify_size(&self) -> anyhow::Result<()> {
-        if self.zipped_size_bytes >= *MAX_ZIPPED_PACKAGES_SIZE {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "ModulesTooLarge",
-                format!(
-                    "Total module size exceeded the zipped maximum ({} > maximum size {})",
-                    self.zipped_size_bytes.format_size(BINARY),
-                    MAX_ZIPPED_PACKAGES_SIZE.format_size(BINARY)
-                ),
-            ),);
-        }
         if self.unzipped_size_bytes >= MAX_UNZIPPED_PACKAGES_SIZE {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "ModulesTooLarge",
