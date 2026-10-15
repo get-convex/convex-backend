@@ -2195,6 +2195,11 @@ pub static DEPLOYMENT_JWKS_MAX_AGE: LazyLock<Duration> =
 pub static MAX_LOG_LINES_V8_ACTIONS: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_LOG_LINES_V8_ACTIONS", 1024).max(1));
 
+/// Max number of log lines in a single Node action. Sent to the Node executor
+/// with each request.
+pub static MAX_LOG_LINES_NODE_ACTIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_LOG_LINES_NODE_ACTIONS", 1024).max(1));
+
 /// Max number of log lines in a single query or mutation
 pub static MAX_LOG_LINES_DATABASE_UDFS: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_LOG_LINES_DATABASE_UDFS", 256).max(1));
