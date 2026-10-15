@@ -51,6 +51,7 @@ lockfile = true
 [bootstrap.packages]
 "apt:build-essential" = "latest"
 "apt:pkg-config" = "latest"
+"apt:libclang-dev" = "latest"
 "apt:libssl-dev" = "latest"
 "apt:libsodium-dev" = "latest"
 # librocksdb-dev (not librocksdb8.9): the -dev package exists on every Ubuntu (8.x on
