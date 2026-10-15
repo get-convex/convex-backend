@@ -123,7 +123,6 @@ use crate::{
         write_persistence_global_timer,
         QueryIndexStats,
     },
-    ConnectError,
     ConvexMySqlPool,
     MySqlInstanceName,
     MySqlOptions,
@@ -147,14 +146,16 @@ impl<RT: Runtime> Persistence<RT> {
         db_name: String,
         options: MySqlOptions,
         lease_lost_shutdown: ShutdownSignal,
-    ) -> Result<Self, ConnectError> {
+    ) -> anyhow::Result<Self> {
         if options.version != PersistenceVersion::V5 {
-            return Err(anyhow::anyhow!("V5 persistence cannot open a non-V5 database").into());
+            return Err(anyhow::anyhow!(
+                "V5 persistence cannot open a non-V5 database"
+            ));
         }
         let expected_table_count = super::EXPECTED_TABLE_COUNT;
         let init_sql = super::init_sql(options.multitenant);
         let init_lease = super::init_lease(options.multitenant);
-        let newly_created = {
+        {
             let mut client = pool.acquire("init_sql", &db_name).await?;
             let table_count: usize = client
                 .query_optional(super::GET_TABLE_COUNT, vec![(&db_name).into()])
@@ -181,24 +182,22 @@ impl<RT: Runtime> Persistence<RT> {
                     },
                 )
                 .await?;
-            Self::check_newly_created(&mut client, options.multitenant, &options.instance_name)
-                .await?
         };
-        let mut client = pool.acquire("read_only", &db_name).await?;
-        if !options.allow_read_only
-            && Self::is_read_only(&mut client, options.multitenant, &options.instance_name).await?
-        {
-            return Err(ConnectError::ReadOnly);
-        }
 
         let lease = Lease::acquire(
             pool.clone(),
             db_name.clone(),
             options.instance_name.clone(),
             options.multitenant,
+            options.allow_read_only,
             lease_lost_shutdown,
         )
         .await?;
+        let newly_created = {
+            let mut client = pool.acquire("check_newly_created", &db_name).await?;
+            Self::check_newly_created(&mut client, options.multitenant, &options.instance_name)
+                .await?
+        };
         Ok(Self {
             newly_created: newly_created.into(),
             lease,
@@ -248,21 +247,6 @@ impl<RT: Runtime> Persistence<RT> {
             instance_name: options.instance_name,
             multitenant: options.multitenant,
         }
-    }
-
-    async fn is_read_only(
-        client: &mut MySqlConnection<'_, RT>,
-        multitenant: bool,
-        instance_name: &MySqlInstanceName,
-    ) -> anyhow::Result<bool> {
-        let mut params = vec![];
-        if multitenant {
-            params.push((&instance_name.raw).into());
-        }
-        Ok(client
-            .query_optional(super::check_is_read_only(multitenant), params)
-            .await?
-            .is_some())
     }
 
     async fn check_newly_created(
@@ -1564,6 +1548,7 @@ impl<RT: Runtime> Lease<RT> {
         db_name: String,
         instance_name: MySqlInstanceName,
         multitenant: bool,
+        allow_read_only: bool,
         lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer(pool.cluster_name());
@@ -1577,13 +1562,16 @@ impl<RT: Runtime> Lease<RT> {
         let mut params = vec![ts.into(), ts.into()];
         if multitenant {
             params.push((&instance_name.raw).into());
+            if !allow_read_only {
+                params.push((&instance_name.raw).into());
+            }
         }
         let rows_modified = client
-            .exec_iter(super::lease_acquire(multitenant), params)
+            .exec_iter(super::lease_acquire(multitenant, allow_read_only), params)
             .await?;
         anyhow::ensure!(
             rows_modified == 1,
-            "failed to acquire lease: Already acquired with higher timestamp"
+            "failed to acquire lease: already acquired with higher timestamp, or read-only"
         );
         tracing::info!("lease acquired with ts {}", ts);
 

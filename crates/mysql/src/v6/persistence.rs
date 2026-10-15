@@ -105,7 +105,6 @@ use crate::{
     },
     document_encoding,
     metrics,
-    ConnectError,
     ConvexMySqlPool,
     MySqlOptions,
     MySqlReaderOptions,
@@ -186,7 +185,7 @@ impl<RT: Runtime> Persistence<RT> {
         db_name: String,
         options: MySqlOptions,
         lease_lost_shutdown: ShutdownSignal,
-    ) -> Result<Self, ConnectError> {
+    ) -> anyhow::Result<Self> {
         let deployment_id = deployment_id_from_options(
             options.version,
             options.multitenant,
@@ -208,34 +207,30 @@ impl<RT: Runtime> Persistence<RT> {
         deployment_id: PersistenceDeploymentId,
         allow_read_only: bool,
         lease_lost_shutdown: ShutdownSignal,
-    ) -> Result<Self, ConnectError> {
+    ) -> anyhow::Result<Self> {
         Self::initialize_schema(&pool, &db_name).await?;
         let mut connection = pool.acquire("v6_init_deployment", &db_name).await?;
         connection
             .exec_iter(super::INIT_LEASE, vec![deployment_id.into()])
             .await?;
-        if !allow_read_only
-            && connection
-                .query_optional(super::CHECK_READ_ONLY, vec![deployment_id.into()])
-                .await?
-                .is_some()
-        {
-            return Err(ConnectError::ReadOnly);
-        }
-        let fresh = connection
-            .query_optional(documents::check_newly_created(), vec![deployment_id.into()])
-            .await?
-            .is_none();
         drop(connection);
         let lease = Arc::new(
             Lease::acquire(
                 pool.clone(),
                 db_name.clone(),
                 deployment_id,
+                allow_read_only,
                 lease_lost_shutdown,
             )
             .await?,
         );
+        // Check after acquiring the lease
+        let mut connection = pool.acquire("v6_check_newly_created", &db_name).await?;
+        let fresh = connection
+            .query_optional(documents::check_newly_created(), vec![deployment_id.into()])
+            .await?
+            .is_none();
+        drop(connection);
         Ok(Self {
             inner: Arc::new(Inner {
                 pool,
@@ -1081,6 +1076,7 @@ impl<RT: Runtime> Lease<RT> {
         pool: Arc<ConvexMySqlPool<RT>>,
         db_name: String,
         deployment_id: PersistenceDeploymentId,
+        allow_read_only: bool,
         lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer(pool.cluster_name());
@@ -1089,19 +1085,33 @@ impl<RT: Runtime> Lease<RT> {
             .duration_since(UNIX_EPOCH)
             .expect("system time is before 1970")
             .as_nanos() as i64;
-        let rows_modified = client
-            .exec_iter(
-                super::LEASE_ACQUIRE,
-                vec![
-                    Value::Int(lease_ts),
-                    Value::Int(lease_ts),
-                    deployment_id.into(),
-                ],
-            )
-            .await?;
+        let rows_modified = if allow_read_only {
+            client
+                .exec_iter(
+                    super::LEASE_ACQUIRE_ALLOW_READ_ONLY,
+                    vec![
+                        Value::Int(lease_ts),
+                        Value::Int(lease_ts),
+                        deployment_id.into(),
+                    ],
+                )
+                .await?
+        } else {
+            client
+                .exec_iter(
+                    super::LEASE_ACQUIRE,
+                    vec![
+                        Value::Int(lease_ts),
+                        Value::Int(lease_ts),
+                        deployment_id.into(),
+                        deployment_id.into(),
+                    ],
+                )
+                .await?
+        };
         anyhow::ensure!(
             rows_modified == 1,
-            "failed to acquire V6 lease: a higher lease timestamp already exists"
+            "failed to acquire V6 lease: already acquired with higher timestamp, or read-only"
         );
         timer.finish();
         Ok(Self {

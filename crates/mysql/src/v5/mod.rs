@@ -30,7 +30,6 @@ pub use persistence::{
     Reader,
 };
 pub(crate) use sql::{
-    check_is_read_only,
     get_persistence_global,
     lease_acquire,
     lease_precond,

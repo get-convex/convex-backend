@@ -76,14 +76,6 @@ impl MySqlInstanceName {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum ConnectError {
-    #[error("persistence is read-only, data migration in progress")]
-    ReadOnly,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
-
 #[derive(Clone, Debug)]
 pub struct MySqlOptions {
     pub allow_read_only: bool,

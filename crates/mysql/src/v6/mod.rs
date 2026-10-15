@@ -31,10 +31,10 @@ pub(crate) use persistence::Persistence;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 pub(crate) use sql::{
-    CHECK_READ_ONLY,
     FIND_TABLE,
     INIT_LEASE,
     LEASE_ACQUIRE,
+    LEASE_ACQUIRE_ALLOW_READ_ONLY,
     LEASE_PRECONDITION,
     READ_PERSISTENCE_GLOBAL,
     READ_V6_SCOPED_TABLES,

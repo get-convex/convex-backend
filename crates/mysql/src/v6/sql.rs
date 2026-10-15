@@ -811,8 +811,13 @@ AND TABLE_NAME IN ('documents', 'leases', 'read_only', 'persistence_globals', 'i
 AND COLUMN_NAME = 'deployment_id'
 "#;
 
+pub(crate) const LEASE_ACQUIRE_ALLOW_READ_ONLY: &str = r#"
+UPDATE @db_name.leases SET ts = ? WHERE ? > ts AND deployment_id = ?
+"#;
+
 pub(crate) const LEASE_ACQUIRE: &str = r#"
 UPDATE @db_name.leases SET ts = ? WHERE ? > ts AND deployment_id = ?
+AND NOT EXISTS (SELECT 1 FROM @db_name.read_only WHERE deployment_id = ?)
 "#;
 
 pub(crate) const LEASE_PRECONDITION: &str = r#"
@@ -824,8 +829,6 @@ SELECT json_value FROM @db_name.persistence_globals
 WHERE deployment_id = ? AND `key` = ?
 "#;
 
-pub(crate) const CHECK_READ_ONLY: &str =
-    "SELECT deployment_id FROM @db_name.read_only WHERE deployment_id = ?";
 pub(crate) const SET_READ_ONLY: &str =
     "INSERT IGNORE INTO @db_name.read_only (deployment_id) VALUES (?)";
 pub(crate) const UNSET_READ_ONLY: &str = "DELETE FROM @db_name.read_only WHERE deployment_id = ?";
