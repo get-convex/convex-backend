@@ -35,6 +35,7 @@ use common::{
     knobs::{
         FUNCTION_MAX_ARGS_SIZE,
         FUNCTION_MAX_RESULT_SIZE,
+        MAX_LOG_LINES_V8_ACTIONS,
         V8_ACTION_SYSTEM_TIMEOUT,
         V8_ACTION_USER_TIMEOUT,
     },
@@ -154,10 +155,10 @@ use crate::{
     context_cache::ContextCache,
     environment::{
         helpers::{
+            log_overflow_log_line,
             module_loader::module_specifier_from_path,
             resolve_promise,
             resolve_promise_allow_all_errors,
-            MAX_LOG_LINES,
         },
         AsyncOpRequest,
         JsEnvironment,
@@ -1370,9 +1371,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
 impl<RT: Runtime> OpProvider for ActionEnvironment<RT> {
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
+        let max_log_lines = *MAX_LOG_LINES_V8_ACTIONS;
         // - 1 to reserve for the [ERROR] log line
-
-        match self.total_log_lines.cmp(&(MAX_LOG_LINES - 1)) {
+        match self.total_log_lines.cmp(&(max_log_lines - 1)) {
             // We are explicitly dropping errors in actions in case the log line sender goes away.
             // We should throw errors again once we correctly handle clients going away in HTTP
             // actions.
@@ -1385,12 +1386,8 @@ impl<RT: Runtime> OpProvider for ActionEnvironment<RT> {
                 self.total_log_lines += 1;
             },
             Ordering::Equal => {
-                // Add a message about omitting log lines once
-                let _ = self.log_line_sender.send(LogLine::new_developer_log_line(
-                    LogLevel::Error,
-                    vec![format!(
-                        "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
-                    )],
+                let _ = self.log_line_sender.send(log_overflow_log_line(
+                    max_log_lines,
                     self.rt.unix_timestamp(),
                 ));
                 self.total_log_lines += 1;

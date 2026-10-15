@@ -2187,3 +2187,11 @@ pub static DEPLOYMENT_JWT_MAX_LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
         7 * 24 * 60 * 60,
     ))
 });
+
+/// Max number of log lines in a single V8 action
+pub static MAX_LOG_LINES_V8_ACTIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_LOG_LINES_V8_ACTIONS", 1024).max(1));
+
+/// Max number of log lines in a single query or mutation
+pub static MAX_LOG_LINES_DATABASE_UDFS: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_LOG_LINES_DATABASE_UDFS", 256).max(1));
