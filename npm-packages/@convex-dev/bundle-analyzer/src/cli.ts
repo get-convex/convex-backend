@@ -1,5 +1,6 @@
 import { Command } from "@commander-js/extra-typings";
 import { components } from "./commands/components.js";
+import { packages } from "./commands/packages.js";
 import { AnalyzerError } from "./lib/output.js";
 import { analyzerVersion } from "./version.js";
 
@@ -10,7 +11,8 @@ const program = new Command("bundle-analyzer")
     ].join("\n"),
   )
   .version(analyzerVersion)
-  .addCommand(components);
+  .addCommand(components)
+  .addCommand(packages);
 
 program.parseAsync(process.argv).catch((e: unknown) => {
   if (e instanceof AnalyzerError) {

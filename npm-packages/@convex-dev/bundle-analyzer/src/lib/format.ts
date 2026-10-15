@@ -11,6 +11,12 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 1_000_000_000).toFixed(2)} GB`;
 }
 
+export function formatPercent(fraction: number): string {
+  if (!Number.isFinite(fraction)) return "-";
+  const pct = fraction * 100;
+  return pct >= 10 ? `${pct.toFixed(0)}%` : `${pct.toFixed(1)}%`;
+}
+
 export function plural(n: number, noun: string): string {
   return `${n} ${noun}${n === 1 ? "" : "s"}`;
 }
@@ -68,6 +74,25 @@ export function colorFor(label: string): string {
     h = (h * 31 + label.charCodeAt(i)) >>> 0;
   }
   return PALETTE[h % PALETTE.length];
+}
+
+export function ownerColor(origin: SourceOrigin, name: string): string {
+  return origin === "npm" ? colorFor(name) : ORIGIN_COLORS[origin];
+}
+
+const EIGHTHS = ["", "▏", "▎", "▍", "▌", "▋", "▊", "▉"];
+
+/** A horizontal bar `width` cells wide with 1/8-cell resolution. */
+export function bar(fraction: number, width: number, color: string): string {
+  const clamped = Math.max(0, Math.min(1, fraction));
+  const eighths = Math.round(clamped * width * 8);
+  const full = Math.floor(eighths / 8);
+  const partial = EIGHTHS[eighths % 8];
+  const rest = Math.max(0, width - full - (partial ? 1 : 0));
+  return (
+    chalk.hex(color)("█".repeat(full) + partial) +
+    chalk.hex(TRACK_COLOR)("·".repeat(rest))
+  );
 }
 
 const MONOCHROME_GLYPHS = ["█", "▓", "▒", "░", "▞", "="];
