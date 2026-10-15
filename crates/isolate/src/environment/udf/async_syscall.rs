@@ -875,6 +875,7 @@ pub(super) async fn run_async_syscall_batch<RT: Runtime>(
                 "1.0/getRequestMetadata" => request_metadata(provider),
                 // Auth
                 "1.0/getUserIdentity" => Box::pin(get_user_identity(provider, args)).await,
+                "1.0/signJwt" => Box::pin(sign_deployment_jwt(provider, args)).await,
                 // Storage
                 "1.0/storageDelete" => Box::pin(storage_delete(provider, args)).await,
                 "1.0/storageGetMetadata" => Box::pin(storage_get_metadata(provider, args)).await,
@@ -1117,6 +1118,47 @@ async fn get_user_identity<RT: Runtime>(
     }
 
     Ok(RawValue::NULL.to_owned())
+}
+
+/// Syscall for JWT signing in mutations.
+///
+/// Not supported in queries (JWT creation involves the current time and query
+/// caching makes it too likely that an incorrect value would later be served).
+#[convex_macro::instrument_future]
+async fn sign_deployment_jwt<RT: Runtime>(
+    provider: &mut DatabaseUdfSyscallProvider<RT>,
+    args: JsonValue,
+) -> anyhow::Result<Box<RawValue>> {
+    if provider.udf_type != UdfType::Mutation {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "JwtSignInQuery",
+            "ctx.auth.signJwt() can't be called from a query. Call it from a mutation.",
+        ));
+    }
+    let default_system_env_vars = provider.phase.default_system_env_vars().clone();
+    let component = provider.phase.component()?;
+    let tx = provider.phase.tx()?;
+    let origin = udf::deployment_jwt::deployment_origin(tx, &default_system_env_vars).await?;
+    let signer = tx
+        .get_component_path(component)
+        .context("Calling component not found")?;
+    let keys =
+        provider
+            .key_broker
+            .deployment_jwt_keys
+            .as_ref()
+            .context(ErrorMetadata::bad_request(
+                "JwtNoSigningKey",
+                "Caller didn't send the deployment JWT signing key",
+            ))?;
+    let token = udf::deployment_jwt::mint(
+        keys,
+        &origin,
+        signer,
+        args,
+        provider.phase.unix_timestamp()?.as_system_time(),
+    )?;
+    Ok(serde_json::value::to_raw_value(&token)?)
 }
 
 #[convex_macro::instrument_future]

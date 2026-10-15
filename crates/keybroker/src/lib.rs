@@ -1,6 +1,7 @@
 #![feature(impl_trait_in_assoc_type)]
 
 mod broker;
+mod deployment_jwt;
 mod encryptor;
 mod legacy_encryptor;
 mod metrics;
@@ -24,6 +25,12 @@ pub use self::{
         StoreFileAuthorization,
         SystemKey,
         UserIdentity,
+    },
+    deployment_jwt::{
+        deployment_jwt_issuer,
+        DeploymentJwtKey,
+        DeploymentJwtKeys,
+        DeploymentJwtRequest,
     },
     encryptor::{
         Encryptor,

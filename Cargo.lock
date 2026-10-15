@@ -6375,6 +6375,7 @@ dependencies = [
  "errors",
  "metrics",
  "openidconnect",
+ "parking_lot",
  "pb",
  "pretty_assertions",
  "proptest",

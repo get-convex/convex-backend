@@ -99,6 +99,7 @@ use sync_types::{
 };
 
 use crate::{
+    deployment_jwt::DeploymentJwtKeys,
     encryptor::{
         DeterministicEncryptor,
         Purpose,
@@ -138,6 +139,7 @@ pub struct KeyBroker {
     export_download_encryptor: RandomEncryptor,
     journal_encryptor: RandomEncryptor,
     store_file_encryptor: RandomEncryptor,
+    deployment_jwt_keys: DeploymentJwtKeys,
 }
 
 // This enum encodes a successful authentication decision, and its nontrivial
@@ -944,6 +946,7 @@ impl KeyBroker {
                 &deployment_secret,
                 Purpose::STORE_FILE_AUTHORIZATION,
             )?,
+            deployment_jwt_keys: DeploymentJwtKeys::derive_from_secret(&deployment_secret)?,
         })
     }
 
@@ -968,11 +971,16 @@ impl KeyBroker {
         &self.data_sync_encryptor
     }
 
+    pub fn deployment_jwt_keys(&self) -> &DeploymentJwtKeys {
+        &self.deployment_jwt_keys
+    }
+
     pub fn function_runner_keybroker(&self) -> FunctionRunnerKeyBroker {
         FunctionRunnerKeyBroker {
             instance_name: self.deployment_name.clone(),
             cursor_encryptor: self.cursor_encryptor.clone(),
             store_file_encryptor: self.store_file_encryptor.clone(),
+            deployment_jwt_keys: Some(self.deployment_jwt_keys.clone()),
         }
     }
 
@@ -1351,6 +1359,9 @@ pub struct FunctionRunnerKeyBroker {
     pub instance_name: String,
     pub cursor_encryptor: DeterministicEncryptor,
     pub store_file_encryptor: RandomEncryptor,
+    /// `None` only in a function runner whose caller predates the key: old
+    /// callers can run everything but `ctx.auth.signJwt`.
+    pub deployment_jwt_keys: Option<DeploymentJwtKeys>,
 }
 
 impl FunctionRunnerKeyBroker {

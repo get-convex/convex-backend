@@ -53,19 +53,19 @@ impl<const DETERMINISTIC: bool> Purpose<DETERMINISTIC> {
 const KDF_ALGORITHM: &kdf::KbkdfCtrHmacAlgorithm =
     kdf::get_kbkdf_ctr_hmac_algorithm(kdf::KbkdfCtrHmacAlgorithmId::Sha256).unwrap();
 
+/// Derives `out.len()` bytes from `secret` for the context `label`. Distinct
+/// labels yield independent keys.
+pub(crate) fn derive_bytes(secret: &Secret, label: &[u8], out: &mut [u8]) -> anyhow::Result<()> {
+    kdf::kbkdf_ctr_hmac(KDF_ALGORITHM, secret.as_bytes(), label, out).context("KBKDF failed")
+}
+
 impl<const DETERMINISTIC: bool> Encryptor<DETERMINISTIC> {
     pub fn derive_from_secret(
         secret: &Secret,
         purpose: Purpose<DETERMINISTIC>,
     ) -> anyhow::Result<Self> {
         let mut derived_key = [0; KEY_LEN];
-        kdf::kbkdf_ctr_hmac(
-            KDF_ALGORITHM,
-            secret.as_bytes(),
-            purpose.as_bytes(),
-            &mut derived_key,
-        )
-        .context("KBKDF failed")?;
+        derive_bytes(secret, purpose.as_bytes(), &mut derived_key)?;
         Ok(Self { derived_key })
     }
 
