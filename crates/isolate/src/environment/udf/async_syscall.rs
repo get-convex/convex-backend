@@ -685,7 +685,7 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
             nested_tx.set_transaction_limits(limits);
         }
 
-        let query_journal = if self.is_system() && nested_udf_type == NestedUdfType::Query {
+        let query_journal = if nested_udf_type == NestedUdfType::Query {
             self.prev_journal.clone()
         } else {
             QueryJournal::new()
@@ -776,7 +776,16 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
 
         self.syscall_trace.merge(&syscall_trace);
 
-        if self.is_system() && nested_udf_type == NestedUdfType::Query && result.is_ok() {
+        if nested_udf_type == NestedUdfType::Query && result.is_ok() && journal.end_cursor.is_some()
+        {
+            anyhow::ensure!(
+                self.next_journal.end_cursor.is_none(),
+                ErrorMetadata::bad_request(
+                    "MultiplePaginatedDatabaseQueries",
+                    "This query or mutation function ran multiple paginated queries. Convex only \
+                     supports a single paginated query in each function.",
+                )
+            );
             self.next_journal = journal;
         }
 
@@ -2176,13 +2185,6 @@ async fn query_page<RT: Runtime>(
     };
 
     let component = provider.phase.component()?;
-    if !component.is_root() && !provider.is_system() {
-        anyhow::bail!(ErrorMetadata::bad_request(
-                "PaginationUnsupportedInComponents",
-                "paginate() is only supported in the app. Learn more at https://docs.convex.dev/components/authoring#pagination",
-            ));
-    }
-
     let tx = provider.phase.tx()?;
 
     let (
