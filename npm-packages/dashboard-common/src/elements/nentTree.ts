@@ -30,7 +30,8 @@ function parentPathOf(path: string): string | null {
  * top-level components rather than their parent, matching how the rest of the
  * dashboard presents it. A component whose parent isn't in the list becomes a
  * root labeled with its full path, so it can't be mistaken for a top-level one.
- * Among siblings, mounted components come before unmounted ones.
+ * Among siblings, the app comes first and mounted components come before
+ * unmounted ones, each group sorted by label.
  */
 export function buildNentTree(nents: Nent[]): NentTreeNode[] {
   const byPath = new Map<string, NentTreeNode>();
@@ -56,10 +57,13 @@ export function buildNentTree(nents: Nent[]): NentTreeNode[] {
     }
   }
 
+  const isApp = (node: NentTreeNode) => node.nent.path === NENT_APP_PLACEHOLDER;
   const sortSiblings = (nodes: NentTreeNode[]) => {
-    // Array.prototype.sort is stable, so each group keeps the server's order.
     nodes.sort(
-      (a, b) => Number(isUnmounted(a.nent)) - Number(isUnmounted(b.nent)),
+      (a, b) =>
+        Number(isApp(b)) - Number(isApp(a)) ||
+        Number(isUnmounted(a.nent)) - Number(isUnmounted(b.nent)) ||
+        a.label.localeCompare(b.label),
     );
     nodes.forEach((n) => sortSiblings(n.children));
   };

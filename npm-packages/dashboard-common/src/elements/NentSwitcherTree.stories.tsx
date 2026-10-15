@@ -173,8 +173,8 @@ export const ExpandAndOpen: Story = {
     const tree = await openTree(canvasElement);
     await expect(treeItems(tree)).toEqual([
       "app",
-      "resend",
       "aggregate",
+      "resend",
       "legacyCrons* (unmounted)",
     ]);
 
@@ -182,11 +182,11 @@ export const ExpandAndOpen: Story = {
     await expect(args.onChange).not.toHaveBeenCalled();
     await expect(treeItems(tree)).toEqual([
       "app",
-      "resend",
-      "  rateLimiter",
-      "  emailWorkpool",
-      "  callbackWorkpool",
       "aggregate",
+      "resend",
+      "  callbackWorkpool",
+      "  emailWorkpool",
+      "  rateLimiter",
       "legacyCrons* (unmounted)",
     ]);
 
@@ -209,12 +209,12 @@ export const NestedComponentSelected: Story = {
     const tree = await openTree(canvasElement);
     await expect(treeItems(tree)).toEqual([
       "app",
+      "aggregate",
       "resend",
-      "  rateLimiter",
+      "  callbackWorkpool",
       "  emailWorkpool",
       "    batchWorker",
-      "  callbackWorkpool",
-      "aggregate",
+      "  rateLimiter",
       "legacyCrons* (unmounted)",
     ]);
     await expect(treeItem("batchWorker")).toHaveAttribute(
@@ -238,9 +238,9 @@ export const Search: Story = {
     await userEvent.type(searchInput(), "batch");
     await expect(treeItems(tree)).toEqual([
       "resend",
-      "  emailWorkpool",
-      "    batchWorker",
       "  callbackWorkpool",
+      "    batchWorker",
+      "  emailWorkpool",
       "    batchWorker",
     ]);
     await expect(
@@ -297,9 +297,9 @@ export const TopLevelOnly: Story = {
     const tree = await openTree(canvasElement);
     await expect(treeItems(tree)).toEqual([
       "app",
-      "resend",
       "aggregate",
       "rateLimiter",
+      "resend",
       "workpool",
       "legacyCrons* (unmounted)",
     ]);
@@ -320,17 +320,17 @@ export const KeyboardNavigation: Story = {
     await expect(searchInput()).toHaveFocus();
     // The selected component starts out active.
     await expect(activeItem()).toBe(treeItem("app"));
-    await userEvent.keyboard(" {ArrowDown}{ArrowRight}");
+    await userEvent.keyboard(" {ArrowDown}{ArrowDown}{ArrowRight}");
     await expect(treeItem("resend")).toHaveAttribute("aria-expanded", "true");
     await userEvent.keyboard("{ArrowRight}");
-    await expect(activeItem()).toBe(treeItem("rateLimiter"));
+    await expect(activeItem()).toBe(treeItem("callbackWorkpool"));
     await userEvent.keyboard("{ArrowLeft}");
     await expect(activeItem()).toBe(treeItem("resend"));
     await userEvent.keyboard("{ArrowLeft}");
     await expect(treeItem("resend")).toHaveAttribute("aria-expanded", "false");
     await userEvent.keyboard("{End}");
     await expect(activeItem()).toBe(treeItem("legacyCrons"));
-    await userEvent.keyboard("{Home}{ArrowDown}{Enter}");
+    await userEvent.keyboard("{Home}{ArrowDown}{ArrowDown}{Enter}");
     await expect(args.onChange).toHaveBeenCalledWith("component_resend");
   },
 };
@@ -347,7 +347,7 @@ export const KeyboardNavigationWhileSearching: Story = {
     await expect(activeItem()).toHaveAttribute("aria-level", "3");
     await userEvent.keyboard("{ArrowDown}{ArrowDown}{Enter}");
     await expect(args.onChange).toHaveBeenCalledWith(
-      "component_resend_callbackWorkpool_batchWorker",
+      "component_resend_emailWorkpool_batchWorker",
     );
   },
 };
