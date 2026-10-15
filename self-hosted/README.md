@@ -84,9 +84,9 @@ that you'll need to set up persistent storage on whatever cloud hosting platform
 you choose to run the Docker container on (e.g. AWS EBS). By default the
 database is stored locally in SQLite but you may also point it to a SQL database
 either locally or on a cloud service of your choice following
-[these instructions](#running-the-database-on-postgres-or-mysql). You can also
-configure the backend to use S3 storage for exports, snapshots, modules, files,
-and search indexes following [these instructions](#using-s3-storage).
+[these instructions](./advanced/postgres_or_mysql.md). You can also configure
+the backend to use S3 storage for exports, snapshots, modules, files, and search
+indexes following [these instructions](./advanced/s3_storage.md).
 
 You should now be able to use the self-hosted backend. Read on for alternative
 hosting options for production workloads.
