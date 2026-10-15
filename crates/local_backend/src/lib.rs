@@ -96,6 +96,7 @@ pub mod deploy_config;
 pub mod deploy_config2;
 pub mod deployment_audit_log;
 pub mod deployment_info;
+pub mod deployment_jwks;
 pub mod deployment_state;
 pub mod environment_variables;
 pub mod http_actions;

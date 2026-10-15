@@ -1,7 +1,11 @@
 //! ES256 JWTs signed by a key derived from the deployment's secret.
 //!
-//! Every token's `iss` names its signer: the app signs under the deployment's
-//! origin and a component under `{origin}/components/{path}`.
+//! Every token's `iss` identifies its signer. The app signs under the
+//! deployment's origin and a component under `{origin}/components/{path}`.
+//!
+//! The deployment publishes the public keys at `/.well-known/jwks.json`.
+//! `customJwt` auth providers as well as third-parties may use it to verify
+//! the signatures of issued JWTs.
 
 use std::{
     collections::BTreeMap,
@@ -73,7 +77,7 @@ const KEY_LABEL: &[u8] = b"deployment jwt signing key";
 /// case-insensitively so no casing of them can be squatted.
 const RESERVED_CLAIM_PREFIXES: &[&str] = &["convex", "cvx"];
 
-/// The generation that signs tokens.
+/// The generation that signs tokens and that the JWKS publishes.
 const SIGNING_GENERATION: u32 = 0;
 
 /// Largest encoded token, in bytes, that `ctx.auth.signJwt` may produce. Keeps
@@ -137,6 +141,12 @@ impl DeploymentJwtKeys {
 
     pub fn mint(&self, request: DeploymentJwtRequest, now: SystemTime) -> anyhow::Result<String> {
         self.generation(SIGNING_GENERATION)?.mint(request, now)
+    }
+
+    /// Public keys that verifiers, including the deployment's own `customJwt`
+    /// providers, check tokens against.
+    pub fn jwks(&self) -> anyhow::Result<JWKSet<Empty>> {
+        Ok((*self.generation(SIGNING_GENERATION)?.jwks).clone())
     }
 }
 

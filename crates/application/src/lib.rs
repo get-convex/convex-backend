@@ -1047,6 +1047,13 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
+    /// Served at `/.well-known/jwks.json`.
+    pub async fn deployment_jwks(&self) -> anyhow::Result<serde_json::Value> {
+        Ok(serde_json::to_value(
+            self.key_broker.deployment_jwt_keys().jwks()?,
+        )?)
+    }
+
     pub fn metrics_log(&self, identity: &Identity) -> anyhow::Result<FunctionMetricsLog<'_, RT>> {
         identity.require_operation(DeploymentOp::ViewMetrics)?;
         Ok(FunctionMetricsLog::new(&self.function_log))

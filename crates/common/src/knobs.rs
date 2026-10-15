@@ -2188,6 +2188,11 @@ pub static DEPLOYMENT_JWT_MAX_LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
     ))
 });
 
+/// How long verifiers may cache the deployment JWKS served at
+/// `/.well-known/jwks.json`.
+pub static DEPLOYMENT_JWKS_MAX_AGE: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("DEPLOYMENT_JWKS_MAX_AGE_SECONDS", 300)));
+
 /// Max number of log lines in a single V8 action
 pub static MAX_LOG_LINES_V8_ACTIONS: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_LOG_LINES_V8_ACTIONS", 1024).max(1));
