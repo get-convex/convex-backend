@@ -1,4 +1,5 @@
 import { Command } from "@commander-js/extra-typings";
+import { components } from "./commands/components.js";
 import { AnalyzerError } from "./lib/output.js";
 import { analyzerVersion } from "./version.js";
 
@@ -8,7 +9,8 @@ const program = new Command("bundle-analyzer")
       "Analyze the code bundle for the Convex project in the current directory.",
     ].join("\n"),
   )
-  .version(analyzerVersion);
+  .version(analyzerVersion)
+  .addCommand(components);
 
 program.parseAsync(process.argv).catch((e: unknown) => {
   if (e instanceof AnalyzerError) {
