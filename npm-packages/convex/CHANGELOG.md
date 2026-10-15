@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.47.0 (unreleased)
+## 1.47.0
 
 - Fixed the next step printed by `npx convex project create`. It suggested
   `npx convex deployment create <team>:<project>:dev --type dev`, which always
