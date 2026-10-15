@@ -906,8 +906,6 @@ impl TryFrom<TokenQuery> for pb::searchlight::TokenQuery {
     fn try_from(value: TokenQuery) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::TokenQuery {
             term: Some(value.term.as_slice().to_vec()),
-            // Older searchlight nodes reject requests without this field.
-            max_distance: Some(0),
             prefix: Some(value.prefix),
         })
     }
