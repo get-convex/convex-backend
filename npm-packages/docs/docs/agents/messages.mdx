@@ -95,9 +95,8 @@ metadata for rendering messages.
 
 The core UIMessage type from the AI SDK is:
 
-- `parts` is an array of parts (e.g. "text", "file", "image", "toolCall",
-  "toolResult")
-- `content` is a string of the message content.
+- `parts` is an array of parts (e.g. "text", "file", "reasoning",
+  `tool-${toolName}`, "dynamic-tool")
 - `role` is the role of the message (e.g. "user", "assistant", "system").
 
 The helper adds these additional fields:

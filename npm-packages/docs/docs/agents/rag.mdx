@@ -122,8 +122,8 @@ for the code. The simplest version is:
 ```ts
 searchContext: createTool({
   description: "Search for context related to this user prompt",
-  args: z.object({ query: z.string().describe("Describe the context you're looking for") }),
-  handler: async (ctx, { query }) => {
+  inputSchema: z.object({ query: z.string().describe("Describe the context you're looking for") }),
+  execute: async (ctx, { query }) => {
     const context = await rag.search(ctx, { namespace: userId, query });
     return context.text;
   },
