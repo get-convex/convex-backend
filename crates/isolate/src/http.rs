@@ -1,4 +1,5 @@
 use std::{
+    mem,
     pin::Pin,
     str::FromStr,
 };
@@ -33,6 +34,7 @@ use serde::{
 };
 use udf::HttpActionRequestHead;
 use url::Url;
+use value::heap_size::HeapSize;
 
 use crate::{
     ops::V8OpProvider,
@@ -117,7 +119,7 @@ impl HttpRequestV8 {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HttpResponseV8 {
     stream_id: Option<uuid::Uuid>,
@@ -125,6 +127,19 @@ pub struct HttpResponseV8 {
     status_text: Option<String>,
     header_pairs: Vec<(String, String)>,
     url: Option<String>,
+}
+
+impl HeapSize for HttpResponseV8 {
+    fn heap_size(&self) -> usize {
+        self.status_text.heap_size()
+            + self.header_pairs.capacity() * mem::size_of::<(String, String)>()
+            + self
+                .header_pairs
+                .iter()
+                .map(|(name, value)| name.heap_size() + value.heap_size())
+                .sum::<usize>()
+            + self.url.heap_size()
+    }
 }
 
 impl HttpResponseV8 {

@@ -252,6 +252,26 @@ pub enum AsyncRead {
     QueryStreamNext(JsonValue),
 }
 
+impl HeapSize for AsyncSyscallBatch {
+    fn heap_size(&self) -> usize {
+        match self {
+            Self::Reads(reads) => reads.iter().map(HeapSize::heap_size).sum(),
+            Self::StorageGetUrls(args) | Self::StorageGets(args) => {
+                args.iter().map(HeapSize::heap_size).sum()
+            },
+            Self::Unbatched { name, args } => name.heap_size() + args.heap_size(),
+        }
+    }
+}
+
+impl HeapSize for AsyncRead {
+    fn heap_size(&self) -> usize {
+        match self {
+            Self::Get(args) | Self::QueryStreamNext(args) => args.heap_size(),
+        }
+    }
+}
+
 impl AsyncSyscallBatch {
     pub fn new(name: String, args: JsonValue) -> Self {
         match &*name {
