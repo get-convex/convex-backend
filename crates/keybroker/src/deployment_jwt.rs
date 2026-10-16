@@ -88,8 +88,9 @@ const DEPLOYMENT_JWT_MAX_SIZE: usize = 8000;
 ///
 /// The `claims` and `expirse_in` values come from user code.
 ///
-/// Convex sets `iss`, `iat` and `exp`, so `claims` must not contain them, and
-/// claim names starting with `convex` or `cvx` are reserved for the framework.
+/// Convex sets `iss`, `iat` and `exp` and reserves `jti` and `nbf`, so `claims`
+/// must not contain them, and claim names starting with `convex` or `cvx` are
+/// reserved for the framework.
 /// Both get enforced at runtime and user-facing APIs should discourage/prevent
 /// them from being passed in.
 pub struct DeploymentJwtRequest {
@@ -242,10 +243,20 @@ impl DeploymentJwtKey {
             mut claims,
             expires_in,
         } = request;
-        for reserved in ["iss", "iat", "exp", "nbf"] {
+        for reserved in ["iss", "iat", "exp"] {
             if claims.contains_key(reserved) {
                 anyhow::bail!(invalid_request(format!(
                     "The '{reserved}' claim is set by Convex and can't be provided"
+                )));
+            }
+        }
+        // Reserved so that Convex can set them later without breaking callers:
+        // `jti` to name tokens in audit logs, `nbf` for tokens that only become
+        // valid later.
+        for reserved in ["jti", "nbf"] {
+            if claims.contains_key(reserved) {
+                anyhow::bail!(invalid_request(format!(
+                    "The '{reserved}' claim is reserved by Convex and can't be provided"
                 )));
             }
         }
