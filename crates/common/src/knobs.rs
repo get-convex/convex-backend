@@ -1827,6 +1827,10 @@ pub static HTTP_SERVER_TIMEOUT_DURATION: LazyLock<Duration> =
 pub static MAX_PUSH_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_PUSH_BYTES", 200_000_000));
 
+/// Maximum buffered size, in bytes, of one client-driven snapshot import part.
+pub static MAX_IMPORT_UPLOAD_PART_BYTES: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_IMPORT_UPLOAD_PART_BYTES", 64 * 1024 * 1024));
+
 /// The limit on the request size to /echo. Limits requests to 128MiB to help
 /// mitigate DDoS attacks.
 pub static MAX_ECHO_BYTES: LazyLock<usize> =
