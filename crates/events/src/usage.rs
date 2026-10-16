@@ -111,10 +111,8 @@ pub enum UsageEvent {
     StorageCall {
         id: String,
         component_path: Option<String>,
-        storage_id: String,
         call: String,
         content_type: Option<String>,
-        sha256: String,
     },
     /// Bandwidth from a storage call outside of a user function (e.g. snapshot
     /// import/export).

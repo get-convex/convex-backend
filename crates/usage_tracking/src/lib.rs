@@ -21,7 +21,6 @@ use common::{
     types::{
         IndexName,
         ModuleEnvironment,
-        StorageUuid,
         UdfIdentifier,
     },
     RequestId,
@@ -574,9 +573,7 @@ pub trait StorageUsageTracker: Send + Sync {
         &self,
         component_path: ComponentPath,
         storage_api: &'static str,
-        storage_id: StorageUuid,
         content_type: Option<ContentType>,
-        sha256: Sha256Digest,
     ) -> Box<dyn StorageCallTracker>;
 }
 
@@ -640,9 +637,7 @@ impl StorageUsageTracker for UsageCounter {
         &self,
         component_path: ComponentPath,
         storage_api: &'static str,
-        storage_id: StorageUuid,
         content_type: Option<ContentType>,
-        sha256: Sha256Digest,
     ) -> Box<dyn StorageCallTracker> {
         let execution_id = ExecutionId::new();
         metrics::storage::log_storage_call();
@@ -650,12 +645,8 @@ impl StorageUsageTracker for UsageCounter {
             .record_async(vec![UsageEvent::StorageCall {
                 id: execution_id.to_string(),
                 component_path: component_path.serialize(),
-                // Ideally we would track the Id<_storage> instead of the StorageUuid
-                // but it's a bit annoying for now, so just going with this.
-                storage_id: storage_id.to_string(),
                 call: storage_api.to_string(),
                 content_type: content_type.map(|c| c.to_string()),
-                sha256: sha256.as_hex(),
             }])
             .await;
 
@@ -1013,9 +1004,7 @@ impl StorageUsageTracker for FunctionUsageTracker {
         &self,
         component_path: ComponentPath,
         storage_api: &'static str,
-        _storage_id: StorageUuid,
         _content_type: Option<ContentType>,
-        _sha256: Sha256Digest,
     ) -> Box<dyn StorageCallTracker> {
         let mut state = self.state.lock();
         metrics::storage::log_storage_call();

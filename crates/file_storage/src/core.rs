@@ -296,11 +296,10 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         get_file_type: GetFileType,
     ) -> anyhow::Result<FileStream> {
         let FileStorageEntry {
-            storage_id,
             storage_key,
-            sha256,
             size,
             content_type,
+            ..
         } = file;
 
         let content_type = content_type.as_ref().map(|ct| ct.parse()).transpose()?;
@@ -317,13 +316,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 
         let call_tracker = usage_tracker
-            .track_storage_call(
-                component_path.clone(),
-                "get range",
-                storage_id,
-                content_type.clone(),
-                sha256,
-            )
+            .track_storage_call(component_path.clone(), "get range", content_type.clone())
             .await;
 
         Ok(FileStream {
@@ -515,13 +508,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
             .map(|ct| ct.parse())
             .transpose()?;
         usage_tracker
-            .track_storage_call(
-                component_path.clone(),
-                "store",
-                entry.storage_id,
-                content_type,
-                entry.sha256,
-            )
+            .track_storage_call(component_path.clone(), "store", content_type)
             .await
             .track_storage_ingress(component_path, "store".to_string(), entry.size as u64)
             .await;
@@ -627,14 +614,12 @@ impl<RT: Runtime> FileStorage<RT> {
         entry: FileStorageEntry,
         usage_tracker: &dyn StorageUsageTracker,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        let storage_id = entry.storage_id.clone();
         let size = entry.size;
         let content_type = entry
             .content_type
             .as_ref()
             .map(|ct| ct.parse())
             .transpose()?;
-        let sha256 = entry.sha256.clone();
 
         // Start/Complete transaction after the slow upload process
         // to avoid OCC risk.
@@ -649,13 +634,7 @@ impl<RT: Runtime> FileStorage<RT> {
             .await?;
 
         usage_tracker
-            .track_storage_call(
-                component_path.clone(),
-                "store",
-                storage_id,
-                content_type,
-                sha256,
-            )
+            .track_storage_call(component_path.clone(), "store", content_type)
             .await
             .track_storage_ingress(component_path, "store".to_string(), size as u64)
             .await;
