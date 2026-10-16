@@ -685,7 +685,9 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
             nested_tx.set_transaction_limits(limits);
         }
 
-        let query_journal = if nested_udf_type == NestedUdfType::Query {
+        let share_query_journal =
+            self.udf_type == UdfType::Query && nested_udf_type == NestedUdfType::Query;
+        let query_journal = if share_query_journal {
             self.prev_journal.clone()
         } else {
             QueryJournal::new()
@@ -776,14 +778,13 @@ impl<RT: Runtime> DatabaseUdfSyscallProvider<RT> {
 
         self.syscall_trace.merge(&syscall_trace);
 
-        if nested_udf_type == NestedUdfType::Query && result.is_ok() && journal.end_cursor.is_some()
-        {
+        if share_query_journal && result.is_ok() && journal.end_cursor.is_some() {
             anyhow::ensure!(
                 self.next_journal.end_cursor.is_none(),
                 ErrorMetadata::bad_request(
                     "MultiplePaginatedDatabaseQueries",
-                    "This query or mutation function ran multiple paginated queries. Convex only \
-                     supports a single paginated query in each function.",
+                    "This query function ran multiple paginated queries. Convex only supports a \
+                     single paginated query in each query function.",
                 )
             );
             self.next_journal = journal;
@@ -2273,15 +2274,17 @@ async fn query_page<RT: Runtime>(
         }
     );
 
-    anyhow::ensure!(
-        provider.next_journal.end_cursor.is_none(),
-        ErrorMetadata::bad_request(
-            "MultiplePaginatedDatabaseQueries",
-            "This query or mutation function ran multiple paginated queries. Convex only supports \
-             a single paginated query in each function.",
-        )
-    );
-    provider.next_journal.end_cursor = Some(cursor);
+    if provider.udf_type == UdfType::Query {
+        anyhow::ensure!(
+            provider.next_journal.end_cursor.is_none(),
+            ErrorMetadata::bad_request(
+                "MultiplePaginatedDatabaseQueries",
+                "This query function ran multiple paginated queries. Convex only supports a \
+                 single paginated query in each query function.",
+            )
+        );
+        provider.next_journal.end_cursor = Some(cursor);
+    }
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
