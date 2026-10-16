@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.48.0 (unreleased)
+
+- `npx convex dev --verbose` and `npx convex deploy --verbose` no longer print
+  environment variable values. The logged list of environment variables shows
+  every value as `<redacted>`, and values of 8 or more characters are also
+  redacted wherever else they appear in the logged push response and diff, such
+  as auth providers that `auth.config.ts` builds from `process.env`.
+
 ## 1.47.0
 
 - Fixed the next step printed by `npx convex project create`. It suggested

@@ -43,7 +43,12 @@ import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
 import { withTmpDir } from "../../bundler/fs.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 import { chalkStderr } from "chalk";
-import { StartPushRequest, StartPushResponse } from "./deployApi/startPush.js";
+import {
+  startPushResponseForLogging,
+  redactEnvironmentVariableValues,
+  StartPushRequest,
+  StartPushResponse,
+} from "./deployApi/startPush.js";
 import { DetailedDeploymentCredentials } from "./api.js";
 import { FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
@@ -548,7 +553,10 @@ async function startComponentsPushAndCodegen(
   );
 
   if (options.verbose) {
-    logMessage("startPush: " + JSON.stringify(startPushResponse, null, 2));
+    logMessage(
+      "startPush: " +
+        JSON.stringify(startPushResponseForLogging(startPushResponse), null, 2),
+    );
   }
 
   if (options.codegen) {
@@ -734,7 +742,14 @@ function printDiff(
   opts: { verbose: boolean; dryRun: boolean; deploymentName: string | null },
 ) {
   if (opts.verbose) {
-    const diffString = JSON.stringify(finishPushResponse, null, 2);
+    const diffString = JSON.stringify(
+      redactEnvironmentVariableValues(
+        finishPushResponse,
+        startPushResponse.environmentVariables,
+      ),
+      null,
+      2,
+    );
     logMessage(diffString);
     return;
   }
