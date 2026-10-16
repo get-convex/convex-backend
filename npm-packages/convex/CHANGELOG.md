@@ -8,6 +8,11 @@
   redacted wherever else they appear in the logged push response and diff, such
   as auth providers that `auth.config.ts` builds from `process.env`.
 
+- Fixed `npx convex ai-files install` and `npx convex ai-files update` reporting
+  success and exiting 0 when the guidelines download or the agent skills
+  install failed. They now exit with code 1.
+
+
 ## 1.47.0
 
 - Fixed the next step printed by `npx convex project create`. It suggested
