@@ -3,7 +3,6 @@
 use std::{
     collections::BTreeMap,
     fmt::Debug,
-    ops::Add,
     sync::Arc,
     time::Duration,
 };
@@ -526,7 +525,6 @@ impl UsageCounter {
             VectorIndexQueryUsage {
                 num_searches,
                 bytes_searched,
-                dimensions,
             },
         ) in stats.vector_query_usage
         {
@@ -538,7 +536,6 @@ impl UsageCounter {
                 index_name: index_name.to_string(),
                 num_searches,
                 bytes_searched,
-                dimensions,
             })
         }
 
@@ -904,14 +901,12 @@ impl FunctionUsageTracker {
         component_path: ComponentPath,
         index_name: IndexName,
         index_size: u64,
-        dimensions: u64,
     ) {
         let mut state = self.state.lock();
         let key = (component_path, index_name);
         *state.vector_query_usage.entry(key).or_default() += VectorIndexQueryUsage {
             num_searches: 1,
             bytes_searched: index_size,
-            dimensions,
         };
     }
 
@@ -1030,27 +1025,10 @@ pub struct TextIndexQueryUsage {
     pub filtered_bytes_searched: u64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default, AddAssign)]
+#[derive(Debug, Clone, PartialEq, Eq, Add, Default, AddAssign)]
 pub struct VectorIndexQueryUsage {
     pub num_searches: u64,
     pub bytes_searched: u64,
-    pub dimensions: u64,
-}
-
-impl Add for VectorIndexQueryUsage {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self {
-            num_searches: self.num_searches + other.num_searches,
-            // Take the max of the index_size
-            bytes_searched: self.bytes_searched + other.bytes_searched,
-            // Take the max of the num_dimensions. num_dimensions shouldn't usually change, but if
-            // there is some change to the index that commits in the middle of an action
-            // between two vector searches, just take the max dimensions.
-            dimensions: self.dimensions.max(other.dimensions),
-        }
-    }
 }
 
 /// User-facing UDF stats, built
@@ -1311,7 +1289,8 @@ fn to_vector_query_usage(
                 index_name: Some(index_name.to_string()),
                 num_searches: Some(usage.num_searches),
                 bytes_searched: Some(usage.bytes_searched),
-                dimensions: Some(usage.dimensions),
+                // Older readers require field 6 to be present during rolling upgrades.
+                dimensions: Some(0),
             },
         )
         .collect()
@@ -1362,13 +1341,11 @@ fn from_vector_query_usage(
             let bytes_searched = u
                 .bytes_searched
                 .context("Missing `num_segment_searches` field")?;
-            let dimensions = u.dimensions.context("Missing `num_dimensions` field")?;
             Ok((
                 (component_path, index_name),
                 VectorIndexQueryUsage {
                     num_searches,
                     bytes_searched,
-                    dimensions,
                 },
             ))
         })

@@ -2697,7 +2697,6 @@ impl<RT: Runtime> Database<RT> {
         let index_name = query.index_name.clone();
         let index_size = index.metadata().config.estimate_pricing_size_bytes()?;
         let resolved: vector::InternalVectorSearch = query.resolve(&table_mapping)?;
-        let dimensions = resolved.vector.len() as u64;
         let search_storage = self.search_storage();
         let results: Vec<_> = snapshot
             .vector_indexes
@@ -2716,7 +2715,7 @@ impl<RT: Runtime> Database<RT> {
             .component_registry
             .must_component_path(component_id, &mut TransactionReadSet::new())?;
         usage.track_vector_egress(component_path.clone(), index_name.table(), size);
-        usage.track_vector_query(component_path, index_name, index_size, dimensions);
+        usage.track_vector_query(component_path, index_name, index_size);
         timer.finish();
         Ok((results, usage.gather_user_stats()))
     }

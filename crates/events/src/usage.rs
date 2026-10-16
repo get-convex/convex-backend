@@ -200,7 +200,6 @@ pub enum UsageEvent {
         index_name: String,
         num_searches: u64,
         bytes_searched: u64,
-        dimensions: u64,
     },
     AuditLogBandwidth {
         id: String,

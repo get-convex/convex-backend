@@ -63,5 +63,6 @@ message VectorQueryUsage {
   optional string index_name = 3;
   optional uint64 num_searches = 4;
   optional uint64 bytes_searched = 5;
+  // Field presence supports older readers during rolling upgrades; writers use zero.
   optional uint64 dimensions = 6;
 }
