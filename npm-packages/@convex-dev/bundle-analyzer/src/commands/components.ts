@@ -18,7 +18,7 @@ import {
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { jsonOption } from "../lib/command.js";
+import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
 
 export const components = new Command("components")
   .summary("Size of each component's bundle for each runtime")
@@ -27,7 +27,12 @@ export const components = new Command("components")
       "\n",
     ),
   )
-  .option("--top <n>", "Number of rows to show", parsePositiveInteger, 30)
+  .option(
+    "--top <n>",
+    "Number of rows to show",
+    parsePositiveInteger,
+    DEFAULT_TOP,
+  )
   .addOption(jsonOption())
   .action(async (options) => {
     const { builds } = await loadAnalysis();

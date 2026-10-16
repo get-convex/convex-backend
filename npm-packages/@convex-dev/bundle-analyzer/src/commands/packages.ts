@@ -12,7 +12,7 @@ import {
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { jsonOption } from "../lib/command.js";
+import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
 import {
   ChainTarget,
   chainTargets,
@@ -42,7 +42,7 @@ export const packages = new Command("packages")
     "--top <n>",
     "Number of packages (or of a package's files) to show",
     parsePositiveInteger,
-    30,
+    DEFAULT_TOP,
   )
   .option(
     "--limit <n>",
@@ -88,6 +88,9 @@ export function packagesReport(
     ),
     "",
     packagesTable(builds, top, width),
+    ...(all.length > top
+      ? [dim(`… ${all.length - top} more (use --top)`)]
+      : []),
     "",
     dim(
       prose(

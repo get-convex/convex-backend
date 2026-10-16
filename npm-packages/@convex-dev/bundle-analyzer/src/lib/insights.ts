@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { AnalyzedBuild, BuildKind, inputBytes, ownerLabel } from "./model.js";
 import {
   bold,
@@ -5,6 +7,7 @@ import {
   dim,
   formatBytes,
   terminalWidth,
+  truncate,
   wrapItems,
 } from "./format.js";
 import { FunctionRuntime, isFunctionRuntime, moduleLoads } from "./modules.js";
@@ -32,6 +35,40 @@ export function insightsReport(
       return `  ${colored(color, icon)} ${bold(title)}\n${dim(detail)}`;
     })
     .join("\n");
+}
+
+/** One line per insight, title only, for the summary. */
+export function insightTitles(
+  found: Insight[],
+  width = terminalWidth(),
+): string {
+  return found
+    .map((i) => {
+      const [color, icon] = LEVEL_ICONS[i.level];
+      const title = wrapItems(
+        i.title.split(" "),
+        " ",
+        width,
+        "    ",
+      ).trimStart();
+      return `  ${colored(color, icon)} ${title}`
+        .split("\n")
+        .map((line) => truncate(line, width, "middle"))
+        .join("\n");
+    })
+    .join("\n");
+}
+
+/** Names in the project's package.json `devDependencies`. */
+export function readDevDependencies(projectRoot: string): Set<string> {
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"),
+    );
+    return new Set(Object.keys(pkg.devDependencies ?? {}));
+  } catch {
+    return new Set();
+  }
 }
 
 export type InsightKind =

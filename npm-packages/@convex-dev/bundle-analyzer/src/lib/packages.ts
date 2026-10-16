@@ -41,22 +41,19 @@ export function packagesTable(
       bar(p.bytes / max, cells, color),
     ];
   });
-  const hidden = all.length - rows.length;
-  return (
-    table(
-      [
-        { header: "#", align: "right" },
-        { header: "Package", flexible: true, truncate: "end" },
-        { header: "Size", align: "right" },
-        { header: "Code", align: "right", optional: true },
-        { header: "Source maps", align: "right", optional: true },
-        { header: "Share", align: "right" },
-        { header: "Files", align: "right" },
-        { header: "", optional: true },
-      ],
-      rows,
-      width,
-    ) + (hidden > 0 ? `\n${dim(`… ${hidden} more (use --top)`)}` : "")
+  return table(
+    [
+      { header: "#", align: "right" },
+      { header: "Package", flexible: true, truncate: "end" },
+      { header: "Size", align: "right" },
+      { header: "Code", align: "right", optional: true },
+      { header: "Source maps", align: "right", optional: true },
+      { header: "Share", align: "right" },
+      { header: "Files", align: "right" },
+      { header: "", optional: true },
+    ],
+    rows,
+    width,
   );
 }
 

@@ -24,7 +24,7 @@ import {
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { jsonOption } from "../lib/command.js";
+import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
 import {
   ChainTarget,
   chainTargets,
@@ -51,7 +51,7 @@ export const files = new Command("files")
     "--top <n>",
     "Number of files to show, or of matching files and each one's copies",
     parsePositiveInteger,
-    30,
+    DEFAULT_TOP,
   )
   .option(
     "--limit <n>",

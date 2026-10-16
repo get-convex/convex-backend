@@ -21,7 +21,7 @@ import {
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { jsonOption } from "../lib/command.js";
+import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
 import {
   FUNCTION_RUNTIMES,
   FunctionRuntime,
@@ -63,7 +63,7 @@ export const modules = new Command("modules")
     "--top <n>",
     "Number of modules to show, or of a module's imports or a chunk's files",
     parsePositiveInteger,
-    30,
+    DEFAULT_TOP,
   )
   .addOption(jsonOption())
   .action(async (module, options) => {

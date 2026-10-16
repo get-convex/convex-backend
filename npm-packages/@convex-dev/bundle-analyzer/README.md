@@ -10,7 +10,7 @@ Analyze your Convex project to identify ways to optimize your bundle size.
 Run the analyzer from the root directory of your project:
 
 ```sh
-npx @convex-dev/bundle-analyzer components
+npx @convex-dev/bundle-analyzer summary
 ```
 
 ## Requirements

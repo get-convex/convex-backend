@@ -5,6 +5,7 @@ import { files } from "./commands/files.js";
 import { insights } from "./commands/insights.js";
 import { modules } from "./commands/modules.js";
 import { packages } from "./commands/packages.js";
+import { summary } from "./commands/summary.js";
 import { AnalyzerError } from "./lib/output.js";
 import { analyzerVersion } from "./version.js";
 
@@ -15,6 +16,7 @@ const program = new Command("bundle-analyzer")
     ].join("\n"),
   )
   .version(analyzerVersion)
+  .addCommand(summary)
   .addCommand(components)
   .addCommand(packages)
   .addCommand(files)

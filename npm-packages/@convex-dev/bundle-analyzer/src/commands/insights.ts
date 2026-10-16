@@ -1,10 +1,12 @@
-import fs from "node:fs";
-import path from "node:path";
 import { Command } from "@commander-js/extra-typings";
 import { logOutput, printJson } from "../lib/output.js";
 import { loadAnalysis } from "../lib/analysis.js";
 import { jsonOption } from "../lib/command.js";
-import { insightsReport, findInsights } from "../lib/insights.js";
+import {
+  findInsights,
+  insightsReport,
+  readDevDependencies,
+} from "../lib/insights.js";
 
 export const insights = new Command("insights")
   .summary("Suggestions for making your bundles smaller")
@@ -20,7 +22,7 @@ export const insights = new Command("insights")
     const { analysis, builds } = await loadAnalysis();
     const found = findInsights(
       builds,
-      devDependencies(analysis.bundle.projectRoot),
+      readDevDependencies(analysis.bundle.projectRoot),
     );
     if (options.json) {
       printJson({ insights: found });
@@ -30,14 +32,3 @@ export const insights = new Command("insights")
       );
     }
   });
-
-function devDependencies(projectRoot: string): Set<string> {
-  try {
-    const pkg = JSON.parse(
-      fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"),
-    );
-    return new Set(Object.keys(pkg.devDependencies ?? {}));
-  } catch {
-    return new Set();
-  }
-}
