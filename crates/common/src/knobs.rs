@@ -2180,10 +2180,7 @@ pub static HTTP2_CLIENT_KEEPALIVE_TIMEOUT: LazyLock<Duration> =
 
 /// Longest lifetime `ctx.auth.signJwt` may give a token.
 pub static DEPLOYMENT_JWT_MAX_LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config(
-        "DEPLOYMENT_JWT_MAX_LIFETIME_SECONDS",
-        7 * 24 * 60 * 60,
-    ))
+    Duration::from_secs(env_config("DEPLOYMENT_JWT_MAX_LIFETIME_SECONDS", 60 * 60))
 });
 
 /// How long verifiers may cache the deployment JWKS served at
