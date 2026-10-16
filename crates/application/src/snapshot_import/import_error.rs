@@ -37,6 +37,9 @@ pub enum ImportError {
     )]
     JsonArrayTooLarge(usize),
 
+    #[error("JSONL line {line_number} exceeds the maximum length of {limit} bytes")]
+    JsonLineTooLarge { line_number: u64, limit: usize },
+
     #[error("CSV file doesn't have headers")]
     CsvMissingHeaders,
 
