@@ -13,7 +13,7 @@ Make sure you have Git and Cargo installed. We recommend installing Cargo via
 [rustup](https://rustup.rs/).
 
 ```
-git clone https://github.com/get-convex/convex-backend.git
+git clone https://github.com/convex/convex-backend.git
 cd convex-backend
 cargo build --release -p fivetran_source
 ```

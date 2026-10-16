@@ -4,7 +4,8 @@ slug: "local-deployments"
 sidebar_position: 10
 sidebar_label: "Local Deployments"
 sidebar_class_name: "convex-sidebar-beta-badge"
-description: "Develop with Convex using deployments running locally on your machine"
+description:
+  "Develop with Convex using deployments running locally on your machine"
 ---
 
 Instead of syncing code to a Convex dev deployment hosted in the cloud, you can
@@ -59,15 +60,14 @@ To use a local deployment for an existing project, run:
 npx convex deployment select local
 ```
 
-The CLI commands you run next (for instance `npx convex dev`)
-will target your local deployment.
+The CLI commands you run next (for instance `npx convex dev`) will target your
+local deployment.
 
 If you want to go back to your personal cloud dev deployment, run:
 
 ```sh
 npx convex deployment select dev
 ```
-
 
 ## Local deployments vs. production
 
@@ -80,7 +80,7 @@ on the Convex cloud. Learn more about deploying to production
 [here](/production/overview.mdx).
 
 Alternatively, you can self-host a production deployment using the
-[open source convex-backend repo](https://github.com/get-convex/convex-backend).
+[open source convex-backend repo](https://github.com/convex/convex-backend).
 
 ## Limitations
 
@@ -94,8 +94,8 @@ Alternatively, you can self-host a production deployment using the
 - **Node actions require specific Node.js versions** - Running Node.js actions
   (actions defined in files with `"use node;"`) requires having the same version
   of Node.js as your project is
-  [configured for](/config/convex.json#configuring-the-nodejs-version).
-  By default this is Node.js 20 today, though this may change in the future. To
+  [configured for](/config/convex.json#configuring-the-nodejs-version). By
+  default this is Node.js 20 today, though this may change in the future. To
   resolve this you can install and set up [nvm](https://github.com/nvm-sh/nvm)
   and then install the required Node.js version. You don't need to use this
   version for the rest of your project.
@@ -120,7 +120,12 @@ Alternatively, you can self-host a production deployment using the
   - Go to `brave://flags/`
   - Enable the `#brave-localhost-access-permission` flag
   - Go back to the Convex dashboard
-  - Click on **View Site Information**
-    (<img src="/screenshots/brave-site-information.png" alt="View Site Information icon" width={24} style={{ verticalAlign: "middle" }} />)
-    in the URL bar, then on **Site settings**
+  - Click on **View Site Information** (
+    <img
+      src="/screenshots/brave-site-information.png"
+      alt="View Site Information icon"
+      width={24}
+      style={{ verticalAlign: "middle" }}
+    />
+    ) in the URL bar, then on **Site settings**
   - Change the setting for **Localhost access** to **Allow**

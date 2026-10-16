@@ -549,7 +549,7 @@
 ## 1.31.4
 
 - Fix
-  [`window.addEventListener is not a function`](https://github.com/get-convex/convex-backend/issues/304)
+  [`window.addEventListener is not a function`](https://github.com/convex/convex-backend/issues/304)
   bug in React Native.
 
 ## 1.31.3
@@ -997,10 +997,10 @@ To upgrade to this release you'll need to upgrade any Convex components you use.
 - `npx convex dev` tails logs by default. See the `--tail-logs` option for more.
 
 - Improvement to the `.unique()` error message to print `_id`s
-  [PR](https://github.com/get-convex/convex-backend/pull/59)
+  [PR](https://github.com/convex/convex-backend/pull/59)
 
 - Fixes to avoid race conditions in auth
-  [PR](https://github.com/get-convex/convex-js/pull/29)
+  [PR](https://github.com/convex/convex-js/pull/29)
 
 ## 1.20.0
 
@@ -1033,7 +1033,7 @@ To upgrade to this release you'll need to upgrade any Convex components you use.
   The environment variables `CONVEX_SELF_HOSTED_URL` and
   `CONVEX_SELF_HOSTED_ADMIN_KEY` are now used to identity self-hosted
   deployments.
-  <https://github.com/get-convex/convex-backend/tree/main/self-hosted#self-hosting-convex>
+  <https://github.com/convex/convex-backend/tree/main/self-hosted#self-hosting-convex>
   for more.
 
 - export the `ValidatorJSON` record types.

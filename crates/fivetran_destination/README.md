@@ -12,7 +12,7 @@ Make sure you have Git and Cargo installed. We recommend installing Cargo via
 [rustup](https://rustup.rs/).
 
 ```
-git clone https://github.com/get-convex/convex-backend.git
+git clone https://github.com/convex/convex-backend.git
 cd convex-backend
 cargo build --release -p fivetran_destination
 ```
@@ -39,7 +39,7 @@ $ ./fivetran_destination --port 1337
 ## Implementation
 
 Unlike the
-[Fivetran source connector](https://github.com/get-convex/convex-backend/tree/main/crates/fivetran_source),
+[Fivetran source connector](https://github.com/convex/convex-backend/tree/main/crates/fivetran_source),
 the destination connector does not manage the state of the synchronization
 mechanism. This is done by Fivetran, which will call the relevant gRPC API
 endpoints depending on the state of the data source.

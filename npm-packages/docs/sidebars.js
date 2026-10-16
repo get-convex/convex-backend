@@ -52,7 +52,7 @@ const sidebars = {
     },
     {
       type: "link",
-      href: "https://github.com/get-convex",
+      href: "https://github.com/convex",
       label: "GitHub",
       className:
         "convex-sidebar-github convex-sidebar-mobile-only convex-sidebar-external-link",

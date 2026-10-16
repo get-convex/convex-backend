@@ -67,5 +67,5 @@ lockfile = true
 # GNU diff3 for copybara pull merges (Apple's diff3 silently corrupts them)
 "brew:diffutils" = { version = "latest", os = "macos" }
 # rocksdb (+ gflags) can't live here: they need pinning to match the librocksdb-sys
-# bindings, which brew can't do for core formulae. setup_env.py installs them from
-# the get-convex/tap tap instead.
+# bindings, which brew can't do for core formulae. setup_env.py installs pinned
+# versions from our Homebrew tap instead.

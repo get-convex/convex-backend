@@ -17,7 +17,7 @@ This can be used to build components with "Load More" buttons or "infinite
 scroll" UIs where more results are loaded as the user scrolls.
 
 **Example:**
-[Paginated Messaging App](https://github.com/get-convex/convex-demos/tree/main/pagination)
+[Paginated Messaging App](https://github.com/convex/convex-demos/tree/main/pagination)
 
 Using pagination in Convex is as simple as:
 
@@ -39,7 +39,6 @@ To build this in Convex, define a query function that:
 
 1. Takes in a single arguments object with a `paginationOpts` property of type
    [`PaginationOptions`](/api/interfaces/server.PaginationOptions).
-
    - Use `paginationOptsValidator` exported from `"convex/server"` to
      [validate](/functions/validation.mdx) this argument. It includes fields
      used by the client to manage the gap-less pagination.

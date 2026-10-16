@@ -6,7 +6,7 @@ authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2024"
 resolver = "2"
 license = "Apache-2.0"
-repository = "https://github.com/get-convex/convex-fivetran-source"
+repository = "https://github.com/convex/convex-fivetran-source"
 homepage = "https://www.convex.dev/"
 
 [package.metadata.cargo-machete]

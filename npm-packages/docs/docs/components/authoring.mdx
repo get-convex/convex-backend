@@ -92,7 +92,7 @@ share solutions to common problems with the broader developer community via the
 [Convex Components directory](https://convex.dev/components).
 
 Get started with a new project using the
-[component template](https://github.com/get-convex/templates/tree/main/template-component):
+[component template](https://github.com/convex/templates/tree/main/template-component):
 
 ```sh
 npx create-convex@latest --component
@@ -369,7 +369,7 @@ app’s environment variables. If an HTTP handler needs to authenticate users or
 access data from the application, define the HTTP action handler in the
 component’s client code and mount it in the app’s `convex/http.ts` instead.
 There’s an example of this pattern in the
-[Twilio component](https://github.com/get-convex/twilio/blob/0bdf7fd4ee7dd46d442be3693280564eea597b68/src/client/index.ts#L71).
+[Twilio component](https://github.com/convex/twilio/blob/0bdf7fd4ee7dd46d442be3693280564eea597b68/src/client/index.ts#L71).
 
 ### Authentication via ctx.auth
 
@@ -434,7 +434,7 @@ const result = await ctx.runMutation(handle, args);
 await ctx.scheduler.runAfter(0, handle, args);
 ```
 
-[Here](https://github.com/get-convex/workpool/blob/aebe2db49fc3ec50ded6892ed27f464450b3d31e/src/component/worker.ts#L26-L28)
+[Here](https://github.com/convex/workpool/blob/aebe2db49fc3ec50ded6892ed27f464450b3d31e/src/component/worker.ts#L26-L28)
 is an example of using function handles in the
 [Workpool](https://www.convex.dev/components/workpool) component.
 
@@ -451,7 +451,7 @@ the default one from `convex/react`. It will have a fixed first page size until
 you hit “load more,” at which point the first page will grow if anything before
 the second page is added.
 
-[Here](https://github.com/get-convex/rag/blob/23fb22d593682e23d9134304e823f7532cbc7e67/src/component/chunks.ts#L437-L462)
+[Here](https://github.com/convex/rag/blob/23fb22d593682e23d9134304e823f7532cbc7e67/src/component/chunks.ts#L437-L462)
 is an example of pagination in the [RAG](https://www.convex.dev/components/rag)
 component.
 
@@ -637,7 +637,7 @@ This pattern is also useful for components that need to provide functions with
 specific signatures for integration purposes.
 
 Here's a real-world
-[example](https://github.com/get-convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)
+[example](https://github.com/convex/prosemirror-sync/blob/91e19d5e5a2a272d44f3a31c9171e111dc98676c/src/client/index.ts#L171C4-L173C6)
 from the
 [ProseMirror component](https://www.convex.dev/components/prosemirror-sync) that
 exports ready-made functions.
@@ -715,7 +715,7 @@ run a separate build process to generate the component's `_generated` directory.
 
 The component authoring template will automatically generate the code for the
 component when running `npm run dev`. You can see the setup in the
-[template's `package.json` scripts](https://github.com/get-convex/templates/blob/main/template-component/package.json).
+[template's `package.json` scripts](https://github.com/convex/templates/blob/main/template-component/package.json).
 
 If you're setting up your own build process, you'll need to run the following
 commands with their own file watchers:
@@ -756,7 +756,7 @@ entry points to be used in your project:
   describes the component's types from the point of view of app it's used in.
 - `@your/package/test` for utilities to use the component with `convex-test`.
 
-[The template’s package.json](https://github.com/get-convex/templates/blob/main/template-component/package.json)
+[The template’s package.json](https://github.com/convex/templates/blob/main/template-component/package.json)
 does this for you, but if you're setting up your own build process, you'll need
 to set this up in your package.json.
 
@@ -782,7 +782,7 @@ package from NPM in the example app, follow the template's project structure:
 ### Publishing to NPM
 
 To publish a component on NPM, check out
-[PUBLISHING.md](https://github.com/get-convex/templates/blob/main/template-component/PUBLISHING.md).
+[PUBLISHING.md](https://github.com/convex/templates/blob/main/template-component/PUBLISHING.md).
 
 ## Testing
 

@@ -6,7 +6,7 @@
   "homepage": "https://convex.dev",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/get-convex/convex-backend.git",
+    "url": "git+https://github.com/convex/convex-backend.git",
     "directory": "npm-packages/convex"
   },
   "main": "./dist/cjs/index.js",

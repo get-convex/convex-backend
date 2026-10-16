@@ -460,7 +460,7 @@ impl<T: Clone + Ord> SearchTermTries<T> {
 #[derive(Debug, Clone)]
 struct Tries<T: Clone> {
     // TODO: Allow ART to store N values:
-    // https://github.com/get-convex/convex/pull/20030/files#r1427222221
+    // https://github.com/convex/convex/pull/20030/files#r1427222221
     tries: BTreeMap<bool, ART<String, BTreeMap<T, usize>>>,
 }
 

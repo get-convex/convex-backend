@@ -72,8 +72,8 @@ See [here](/ops/services/docs/release.md#preview-deployment).
 ## Updating the Component docs
 
 The Component docs are in the /docs folder of the Components that we keep in
-sync. For example, https://github.com/get-convex/component/tree/main/docs To
-update them, run the following command in this directory:
+sync. For example, https://github.com/convex/component/tree/main/docs To update
+them, run the following command in this directory:
 
 ```sh
 node scripts/pull-component-docs.js
@@ -92,7 +92,7 @@ These typedoc plugins are forked because they didn't work when the monorepo used
 Rush. FIXME: they might work unforked now that this is a plain pnpm workspace.
 
 We needed to update a couple, so we forked them at
-https://github.com/get-convex/typedoc-plugin-markdown
+https://github.com/convex/typedoc-plugin-markdown
 
 Iterating on typedoc plugins is rough, typedoc implements their own module
 resolution such that our pnpm workspace setup doesn't work. So to iterate I

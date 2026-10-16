@@ -131,7 +131,7 @@ impl FetchClient for ProxiedFetchClient {
         // by `streaming_body`) reports `is_end_stream() == false`, so hyper omits
         // END_STREAM from the HTTP/2 HEADERS frame and closes the stream with a
         // trailing empty DATA frame -- which strict servers reject for a body-less
-        // GET (https://github.com/get-convex/convex-backend/issues/497). Omitting
+        // GET (https://github.com/convex/convex-backend/issues/497). Omitting
         // the body uses `Body::empty()` (`is_end_stream() == true`), so hyper sets
         // END_STREAM on HEADERS and sends no DATA frame.
         if let Some(body) = request.body {
