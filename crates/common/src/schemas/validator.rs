@@ -40,6 +40,7 @@ use value::{
 
 use super::DocumentSchema;
 use crate::{
+    bootstrap_model::components::handles::FunctionHandle,
     document::{
         CREATION_TIME_FIELD,
         ID_FIELD,
@@ -66,6 +67,7 @@ pub enum Validator {
     Boolean,
     String,
     Bytes,
+    Function,
     Literal(LiteralValidator),
     Array(Box<Validator>),
     Record(Box<Validator>, Box<Validator>),
@@ -82,6 +84,7 @@ impl Display for Validator {
             Validator::Float64 => write!(f, "v.float64()"),
             Validator::Int64 => write!(f, "v.int64()"),
             Validator::CommitTs => write!(f, "v.commitTs()"),
+            Validator::Function => write!(f, "v.function()"),
             Validator::Boolean => write!(f, "v.boolean()"),
             Validator::String => write!(f, "v.string()"),
             Validator::Bytes => write!(f, "v.bytes()"),
@@ -150,6 +153,16 @@ impl Validator {
             | (Validator::Boolean, ConvexValue::Boolean(_))
             | (Validator::String, ConvexValue::String(_))
             | (Validator::Bytes, ConvexValue::Bytes(_)) => return Ok(()),
+            (Validator::Function, ConvexValue::String(s)) => {
+                if s.parse::<FunctionHandle>().is_err() {
+                    return Err(ValidationError::NoMatch {
+                        value: value.clone(),
+                        validator: self.clone(),
+                        context: ValidationContext::new(),
+                    });
+                }
+                return Ok(());
+            },
             (Validator::Literal(literal), value) => {
                 let literal_as_value: ConvexValue = literal.clone().into();
                 if value != &literal_as_value {
@@ -363,7 +376,8 @@ impl Validator {
             | (Validator::Literal(LiteralValidator::Int64(_)), Validator::CommitTs)
             | (Validator::Literal(LiteralValidator::Float64(_)), Validator::Float64)
             | (Validator::Literal(LiteralValidator::Boolean(_)), Validator::Boolean)
-            | (Validator::Id(_), Validator::String) => true,
+            | (Validator::Id(_), Validator::String)
+            | (Validator::Function, Validator::String) => true,
 
             // Unions
             (Validator::Union(left_cases), _) => left_cases
@@ -411,6 +425,7 @@ impl Validator {
             | Validator::Boolean
             | Validator::String
             | Validator::Bytes
+            | Validator::Function
             | Validator::Array(_)
             | Validator::Record(..)
             | Validator::Object(_)
@@ -511,6 +526,7 @@ impl Validator {
             | Validator::Boolean
             | Validator::String
             | Validator::Bytes
+            | Validator::Function
             | Validator::Literal(_)
             // Values that map to `any`
             | Validator::Record(_, _)
@@ -555,6 +571,7 @@ impl Validator {
             Validator::Boolean => json_schemas::boolean(),
             Validator::String => json_schemas::string(),
             Validator::Bytes => json_schemas::bytes(value_format),
+            Validator::Function => json_schemas::string(),
             Validator::Literal(literal_validator) => match literal_validator {
                 LiteralValidator::Float64(_) => json_schemas::float64(true, value_format),
                 LiteralValidator::Int64(_) => json_schemas::int64(value_format),
@@ -618,7 +635,8 @@ impl Validator {
                 | Self::Null
                 | Self::Float64
                 | Self::Int64
-                | Self::CommitTs => {},
+                | Self::CommitTs
+                | Self::Function => {},
             },
         ))
     }
@@ -634,6 +652,7 @@ impl Validator {
             | Validator::Boolean
             | Validator::String
             | Validator::Bytes
+            | Validator::Function
             | Validator::Literal(_)
             | Validator::Array(_)
             | Validator::Record(..)

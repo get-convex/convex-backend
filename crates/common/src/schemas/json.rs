@@ -663,6 +663,7 @@ pub enum ValidatorJson {
     Boolean,
     String,
     Bytes,
+    Function,
     #[serde(alias = "map")]
     #[serde(alias = "set")]
     Any,
@@ -704,6 +705,7 @@ impl TryFrom<ValidatorJson> for Validator {
             ValidatorJson::Boolean => Ok(Validator::Boolean),
             ValidatorJson::String => Ok(Validator::String),
             ValidatorJson::Bytes => Ok(Validator::Bytes),
+            ValidatorJson::Function => Ok(Validator::Function),
             ValidatorJson::Any => Ok(Validator::Any),
             ValidatorJson::Literal { value } => Ok(Validator::Literal(value.try_into()?)),
             ValidatorJson::Id { table_name } => Ok(Validator::Id(table_name.parse()?)),
@@ -766,6 +768,7 @@ impl TryFrom<Validator> for ValidatorJson {
             Validator::Boolean => ValidatorJson::Boolean,
             Validator::String => ValidatorJson::String,
             Validator::Bytes => ValidatorJson::Bytes,
+            Validator::Function => ValidatorJson::Function,
             Validator::Literal(literal) => ValidatorJson::Literal {
                 value: literal.try_into()?,
             },
