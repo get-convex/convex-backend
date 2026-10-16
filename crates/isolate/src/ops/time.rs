@@ -22,7 +22,8 @@ pub fn async_op_sleep<'b, P: V8OpProvider<'b>>(
     // NOTE: name is only used for error messages.
     let name: String = serde_v8::from_v8(&mut provider.scope(), args.get(1))?;
     let mut millis: f64 = serde_v8::from_v8(&mut provider.scope(), args.get(2))?;
-    if millis < 0.0 {
+    // Negative, infinite and NaN delays fire immediately, as in browsers.
+    if millis < 0.0 || !millis.is_finite() {
         millis = 0.0;
     }
     let duration = Duration::from_millis(millis as u64);
