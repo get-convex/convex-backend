@@ -341,7 +341,7 @@ export const FivetranSyncProgressFlagOff: Story = {
 
 type S3Integration = Extract<AnalyticsIntegration, { kind: "s3Export" }>;
 type S3Progress = NonNullable<
-  NonNullable<S3Integration["existing"]>["config"]["progress"]
+  NonNullable<S3Integration["existing"]>["exportProgress"]
 >;
 
 const connectedDeployment = {
@@ -360,6 +360,7 @@ function s3Export(progress: S3Progress | undefined): S3Integration {
       _id: "s3export" as never,
       _creationTime: minutesAgo(60 * 24),
       status: { type: "active" },
+      exportProgress: progress,
       config: {
         type: "s3Export",
         bucket: "acme-analytics",
@@ -368,7 +369,6 @@ function s3Export(progress: S3Progress | undefined): S3Integration {
         accessKeyId: "AKIAIOSFODNN7EXAMPLE",
         selection: {},
         period: "daily",
-        progress,
       },
     },
   };

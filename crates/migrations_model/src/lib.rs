@@ -35,7 +35,7 @@ pub type DatabaseVersion = i64;
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 133; // ayush
+pub const DATABASE_VERSION: DatabaseVersion = 134; // nipunn
 
 pub struct MigrationExecutor<RT: Runtime> {
     pub db: Database<RT>,
@@ -165,6 +165,10 @@ impl<RT: Runtime> MigrationExecutor<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_133")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
+            134 => {
+                // Bootstrap creates _s3_export_state and its index before migration runs.
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             _ => anyhow::bail!("Version did not define a migration! {}", to_version),

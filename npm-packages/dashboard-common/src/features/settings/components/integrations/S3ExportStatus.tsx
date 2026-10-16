@@ -212,7 +212,7 @@ function S3ExportDetails({ existing }: { existing: S3Export }) {
 // No page has landed yet, and nothing has gone wrong.
 function isStarting(existing: S3Export) {
   return (
-    !existing.config.progress &&
+    !existing.exportProgress &&
     existing.status.type !== "failed" &&
     existing.status.type !== "deleting"
   );
@@ -224,7 +224,7 @@ function isStarting(existing: S3Export) {
  * export has failed or is being deleted.
  */
 export function syncStatus(existing: S3Export): SyncStatus | undefined {
-  const { progress } = existing.config;
+  const progress = existing.exportProgress;
   if (
     !progress ||
     existing.status.type === "failed" ||

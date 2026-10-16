@@ -26,10 +26,6 @@ use crate::{
 
 pub mod types;
 use types::{
-    s3_export::{
-        S3ExportConfig,
-        S3ExportProgress,
-    },
     LogSinksRow,
     SinkConfig,
     SinkState,
@@ -167,18 +163,9 @@ impl<'a, RT: Runtime> LogSinksModel<'a, RT> {
     pub async fn patch_config(
         &mut self,
         id: DeveloperDocumentId,
-        mut config: SinkConfig,
+        config: SinkConfig,
     ) -> anyhow::Result<()> {
-        let doc = self.must_get_including_tombstoned(id).await?;
-        if let (SinkConfig::S3Export(old), SinkConfig::S3Export(new)) = (&doc.config, &mut config) {
-            if old.requires_resync(new) {
-                new.cursor = None;
-                new.progress = None;
-            } else {
-                new.cursor = old.cursor.clone();
-                new.progress = old.progress.clone();
-            }
-        }
+        let doc = self.must_get(id).await?;
         SystemMetadataModel::new_global(self.tx)
             .patch(
                 doc.id(),
@@ -189,33 +176,7 @@ impl<'a, RT: Runtime> LogSinksModel<'a, RT> {
     }
 
     pub async fn mark_for_removal(&mut self, id: DeveloperDocumentId) -> anyhow::Result<()> {
-        self.patch_status(id, SinkState::Tombstoned).await?;
-        Ok(())
-    }
-
-    pub async fn advance_s3_export(
-        &mut self,
-        id: DeveloperDocumentId,
-        config: &S3ExportConfig,
-        cursor: String,
-        progress: S3ExportProgress,
-    ) -> anyhow::Result<bool> {
-        let Some(doc) = self.get_by_provider(SinkType::S3Export).await? else {
-            return Ok(false);
-        };
-        if doc.developer_id() != id || doc.config != SinkConfig::S3Export(config.clone()) {
-            return Ok(false);
-        }
-        let mut updated = config.clone();
-        updated.cursor = Some(cursor);
-        updated.progress = Some(progress);
-        if &updated != config {
-            SystemMetadataModel::new_global(self.tx).patch(
-                doc.id(),
-                patch_value!("config" => Some(ConvexValue::Object(SinkConfig::S3Export(updated).try_into()?)))?,
-            ).await?;
-        }
-        Ok(true)
+        self.patch_status(id, SinkState::Tombstoned).await
     }
 
     pub async fn add_or_update(
@@ -283,8 +244,7 @@ impl<'a, RT: Runtime> LogSinksModel<'a, RT> {
         let providers = self.get_all().await?;
 
         for sink in providers {
-            self.patch_status(sink.developer_id(), SinkState::Tombstoned)
-                .await?;
+            self.mark_for_removal(sink.developer_id()).await?;
         }
         Ok(())
     }

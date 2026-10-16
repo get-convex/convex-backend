@@ -13,7 +13,6 @@ use serde::{
     Serialize,
 };
 use utoipa::ToSchema;
-use value::codegen_convex_serialization;
 
 /// How often the mirror is refreshed from the deployment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -37,8 +36,6 @@ pub struct S3ExportConfig {
     /// The components and tables to export.
     pub selection: Selection,
     pub period: SyncPeriod,
-    pub cursor: Option<String>,
-    pub progress: Option<S3ExportProgress>,
 }
 
 impl S3ExportConfig {
@@ -55,8 +52,6 @@ impl S3ExportConfig {
             secret_access_key: _,
             selection: _,
             period: _,
-            cursor: _,
-            progress: _,
         } = self;
         // `Some("")` and `None` both write at the bucket root.
         let root_as_none = |prefix: &Option<String>| prefix.clone().filter(|p| !p.is_empty());
@@ -66,30 +61,6 @@ impl S3ExportConfig {
             || *access_key_id != new.access_key_id
     }
 }
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum S3ExportProgress {
-    #[serde(rename_all = "camelCase")]
-    Snapshotting {
-        num_tables_synced: i64,
-        total_tables: i64,
-        current_component: String,
-        current_table: String,
-        num_documents_in_current_table: i64,
-        total_documents_in_current_table: Option<i64>,
-        num_documents_synced: i64,
-        total_documents: Option<i64>,
-    },
-    Stale {
-        ts: i64,
-    },
-    UpToDate {
-        ts: i64,
-    },
-}
-
-codegen_convex_serialization!(S3ExportProgress, S3ExportProgress);
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -101,10 +72,6 @@ pub struct SerializedS3ExportConfig {
     pub secret_access_key: String,
     pub selection: Selection,
     pub period: SyncPeriod,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cursor: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub progress: Option<S3ExportProgress>,
 }
 
 impl From<S3ExportConfig> for SerializedS3ExportConfig {
@@ -117,8 +84,6 @@ impl From<S3ExportConfig> for SerializedS3ExportConfig {
             secret_access_key: value.secret_access_key.0,
             selection: value.selection,
             period: value.period,
-            cursor: value.cursor,
-            progress: value.progress,
         }
     }
 }
@@ -133,8 +98,6 @@ impl From<SerializedS3ExportConfig> for S3ExportConfig {
             secret_access_key: PII(value.secret_access_key),
             selection: value.selection,
             period: value.period,
-            cursor: value.cursor,
-            progress: value.progress,
         }
     }
 }

@@ -3410,34 +3410,8 @@
       },
       "UpdateS3ExportSinkArgs": {
         "type": "object",
+        "description": "Destination and AWS access key ID are fixed at creation.",
         "properties": {
-          "bucket": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Name of the S3 bucket to mirror into."
-          },
-          "region": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "AWS region the bucket lives in, e.g. `us-east-1`."
-          },
-          "prefix": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Key prefix within the bucket."
-          },
-          "accessKeyId": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "secretAccessKey": {
             "type": [
               "string",
@@ -3466,7 +3440,8 @@
               }
             ]
           }
-        }
+        },
+        "additionalProperties": false
       },
       "UpdateSentrySinkArgs": {
         "type": "object",

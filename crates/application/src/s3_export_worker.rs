@@ -11,16 +11,22 @@ use common::{
 use database::Database;
 use exports::interface::ExportProvider;
 use keybroker::Identity;
-use model::log_sinks::{
-    types::{
-        s3_export::{
-            S3ExportProgress,
-            SyncPeriod,
+use model::{
+    log_sinks::{
+        types::{
+            s3_export::SyncPeriod,
+            SinkConfig,
+            SinkType,
         },
-        SinkConfig,
-        SinkType,
+        LogSinksModel,
     },
-    LogSinksModel,
+    s3_export_state::{
+        types::{
+            S3ExportCheckpoint,
+            S3ExportProgress,
+        },
+        S3ExportStateModel,
+    },
 };
 use streaming_export::{
     managed::{
@@ -81,8 +87,8 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         let export = LogSinksModel::new(&mut tx)
             .get_by_provider(SinkType::S3Export)
             .await?;
-        let token = tx.into_token()?;
         let Some(export) = export else {
+            let token = tx.into_token()?;
             self.database
                 .subscribe_and_wait_for_invalidation(token)
                 .await?;
@@ -91,7 +97,13 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         let SinkConfig::S3Export(config) = &export.config else {
             anyhow::bail!("S3 export document has a different configuration type");
         };
-        let previous_cursor = config.cursor.as_deref();
+        let state = S3ExportStateModel::new(&mut tx)
+            .get(export.developer_id())
+            .await?;
+        let previous_checkpoint = state.as_ref().map(|state| &state.checkpoint);
+        let previous_cursor = previous_checkpoint.map(|checkpoint| checkpoint.cursor.as_str());
+        // Keep the configuration read in the checkpoint transaction: OCC also
+        // detects edits that restore the original values while the page is in flight.
         let page = {
             let database_snapshot = self.database.latest_database_snapshot()?;
             let timer = s3_export_sync_timer();
@@ -110,7 +122,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
                     },
                     SyncFormat::Iceberg,
                     &config.selection,
-                    config.cursor.clone(),
+                    previous_cursor.map(str::to_owned),
                 )
                 .await?;
             timer.finish();
@@ -128,25 +140,26 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             );
         }
 
-        let mut tx = self.database.begin(Identity::system()).await?;
-        let progress = export_progress(&page.status)?;
-        if !LogSinksModel::new(&mut tx)
-            .advance_s3_export(
+        let checkpoint = S3ExportCheckpoint {
+            cursor: page.cursor,
+            progress: export_progress(&page.status)?,
+        };
+        if !S3ExportStateModel::new(&mut tx)
+            .advance(
                 export.developer_id(),
-                config,
-                page.cursor.clone(),
-                progress.clone(),
+                previous_checkpoint,
+                checkpoint.clone(),
             )
             .await?
         {
             return Ok(());
         }
-        if page.cursor != previous_cursor.unwrap_or_default()
-            || config.progress.as_ref() != Some(&progress)
-        {
+        if previous_checkpoint != Some(&checkpoint) {
             self.database
                 .commit_with_write_source(tx, "s3_export_worker_advance_cursor")
                 .await?;
+        } else {
+            drop(tx);
         }
 
         if matches!(&page.status, SyncStatus::UpToDate { .. }) {
@@ -154,14 +167,15 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             let current = LogSinksModel::new(&mut tx)
                 .get_by_provider(SinkType::S3Export)
                 .await?;
-            let mut updated_config = config.clone();
-            updated_config.cursor = Some(page.cursor.clone());
-            updated_config.progress = Some(progress);
-            let current_is_same_export = current.is_some_and(|current| {
-                current.developer_id() == export.developer_id()
-                    && current.config == SinkConfig::S3Export(updated_config)
-            });
-            if !current_is_same_export {
+            if current.is_none_or(|current| {
+                current.developer_id() != export.developer_id() || current.config != export.config
+            }) {
+                return Ok(());
+            }
+            let current_state = S3ExportStateModel::new(&mut tx)
+                .get(export.developer_id())
+                .await?;
+            if current_state.is_none_or(|current| current.checkpoint != checkpoint) {
                 return Ok(());
             }
             let next_write_ts = (*self.database.now_ts_for_reads()).succ()?;

@@ -566,8 +566,6 @@ impl TryFrom<CreateS3ExportLogStreamArgs> for S3ExportConfig {
             secret_access_key: value.secret_access_key.into(),
             selection,
             period: value.period,
-            cursor: None,
-            progress: None,
         })
     }
 }
@@ -1272,20 +1270,10 @@ pub struct UpdatePostHogErrorTrackingSinkArgs {
     host: Option<Option<String>>,
 }
 
+/// Destination and AWS access key ID are fixed at creation.
 #[derive(Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct UpdateS3ExportSinkArgs {
-    /// Name of the S3 bucket to mirror into.
-    #[serde(default)]
-    bucket: Option<String>,
-    /// AWS region the bucket lives in, e.g. `us-east-1`.
-    #[serde(default)]
-    region: Option<String>,
-    /// Key prefix within the bucket.
-    #[serde(default, with = "::serde_with::rust::double_option")]
-    prefix: Option<Option<String>>,
-    #[serde(default)]
-    access_key_id: Option<String>,
     #[serde(default)]
     secret_access_key: Option<String>,
     /// The components and tables to export. Each table exports whole
@@ -1598,13 +1586,6 @@ pub async fn update_log_stream(
                 validate_s3_selection(selection)?;
             }
             let config = S3ExportConfig {
-                bucket: update_args.bucket.unwrap_or(existing_config.bucket.clone()),
-                region: update_args.region.unwrap_or(existing_config.region.clone()),
-                prefix: update_args.prefix.unwrap_or(existing_config.prefix.clone()),
-                access_key_id: update_args
-                    .access_key_id
-                    .map(|k| k.into())
-                    .unwrap_or(existing_config.access_key_id.clone()),
                 secret_access_key: update_args
                     .secret_access_key
                     .map(|k| k.into())
@@ -1613,8 +1594,7 @@ pub async fn update_log_stream(
                     .selection
                     .unwrap_or(existing_config.selection.clone()),
                 period: update_args.period.unwrap_or(existing_config.period),
-                cursor: None,
-                progress: None,
+                ..existing_config.clone()
             };
             let config = ensure_same_s3_destination(&existing_config, config)?;
 

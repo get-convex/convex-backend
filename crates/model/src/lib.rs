@@ -216,6 +216,11 @@ use crate::{
     exports::ExportsTable,
     external_packages::EXTERNAL_PACKAGES_TABLE,
     log_sinks::LOG_SINKS_TABLE,
+    s3_export_state::{
+        S3ExportStateTable,
+        S3_EXPORT_STATE_BY_CONFIG_ID,
+        S3_EXPORT_STATE_TABLE,
+    },
     scheduled_jobs::args::{
         ScheduledJobArgsTable,
         SCHEDULED_JOBS_ARGS_TABLE,
@@ -249,6 +254,7 @@ pub mod log_sinks;
 mod metrics;
 pub mod migrations;
 pub mod modules;
+pub mod s3_export_state;
 pub mod scheduled_jobs;
 pub mod session_requests;
 pub mod snapshot_imports;
@@ -298,9 +304,10 @@ enum DefaultTableNumber {
     DataSyncProgress = 41,
     NextPersistenceIndexId = 42,
     SchemaValidations = 43,
+    S3ExportState = 44,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 44 - ayush
+    // Next Number - 45 - nipunn
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -331,6 +338,7 @@ impl From<DefaultTableNumber> for &'static dyn ErasedSystemTable {
             DefaultTableNumber::Schemas => &SchemasTable,
             DefaultTableNumber::CronJobLogs => &CronJobLogsTable,
             DefaultTableNumber::LogSinks => &LogSinksTable,
+            DefaultTableNumber::S3ExportState => &S3ExportStateTable,
             DefaultTableNumber::BackendState => &BackendStateTable,
             DefaultTableNumber::ExternalPackages => &ExternalPackagesTable,
             DefaultTableNumber::ScheduledJobs => &ScheduledJobsTable,
@@ -598,6 +606,7 @@ pub fn app_system_tables() -> Vec<&'static dyn ErasedSystemTable> {
         &FunctionHandlesTable,
         &CanonicalUrlsTable,
         &LogSinksTable,
+        &S3ExportStateTable,
         &AuditLogConfigTable,
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
@@ -677,6 +686,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         BACKEND_INFO_TABLE.clone() => 44,
         EXPORTS_TABLE.clone() => 44,
         LOG_SINKS_TABLE.clone() => 68,
+        S3_EXPORT_STATE_TABLE.clone() => 134,
         TABLES_TABLE.clone() => 44,
         INDEX_TABLE.clone() => 44,
         SCHEMAS_TABLE.clone() => 50,
@@ -722,6 +732,7 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         SCHEMA_VALIDATIONS_BY_SCHEMA_ID_AND_TABLE_NAME.name() => 131,
         USAGE_LIMITS_INDEX_BY_SELECTOR.name() => 126,
         DATA_SYNC_PROGRESS_INDEX_BY_SYNC_ID.name() => 127,
+        S3_EXPORT_STATE_BY_CONFIG_ID.name() => 134,
         DATA_SYNC_PROGRESS_INDEX_BY_LAST_UPDATED.name() => 127,
         AUDIT_LOG_INDEX_BY_ACTION.name() => 128,
     }

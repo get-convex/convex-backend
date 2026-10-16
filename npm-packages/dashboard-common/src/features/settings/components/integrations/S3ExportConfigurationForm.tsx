@@ -175,7 +175,8 @@ export function S3ExportConfigurationForm({
           // Omitting the secret keeps the one already stored.
           await updateLogStream(logStreamId, {
             logStreamType: "s3Export",
-            ...config,
+            period: values.period,
+            ...(selection ? { selection: selection as Selection } : {}),
             ...(values.secretAccessKey
               ? { secretAccessKey: values.secretAccessKey }
               : {}),

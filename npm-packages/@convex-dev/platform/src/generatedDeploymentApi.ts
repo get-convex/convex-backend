@@ -1258,14 +1258,8 @@ export interface components {
              *     added in the future). */
             topics?: components["schemas"]["LogTopic"][] | null;
         };
+        /** @description Destination and AWS access key ID are fixed at creation. */
         UpdateS3ExportSinkArgs: {
-            /** @description Name of the S3 bucket to mirror into. */
-            bucket?: string | null;
-            /** @description AWS region the bucket lives in, e.g. `us-east-1`. */
-            region?: string | null;
-            /** @description Key prefix within the bucket. */
-            prefix?: string | null;
-            accessKeyId?: string | null;
             secretAccessKey?: string | null;
             selection?: null | components["schemas"]["Selection"];
             period?: null | components["schemas"]["SyncPeriod"];

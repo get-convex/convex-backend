@@ -268,6 +268,22 @@ export const postHogErrorTrackingConfig = v.object({
   host: v.optional(v.string()),
 });
 
+const s3ExportProgress = v.union(
+  v.object({
+    type: v.literal("snapshotting"),
+    numTablesSynced: v.int64(),
+    totalTables: v.int64(),
+    currentComponent: v.string(),
+    currentTable: v.string(),
+    numDocumentsInCurrentTable: v.int64(),
+    totalDocumentsInCurrentTable: v.union(v.int64(), v.null()),
+    numDocumentsSynced: v.int64(),
+    totalDocuments: v.union(v.int64(), v.null()),
+  }),
+  v.object({ type: v.literal("stale"), ts: v.int64() }),
+  v.object({ type: v.literal("upToDate"), ts: v.int64() }),
+);
+
 export const s3ExportConfig = v.object({
   type: v.literal("s3Export"),
   bucket: v.string(),
@@ -277,24 +293,6 @@ export const s3ExportConfig = v.object({
   secretAccessKey: v.string(),
   selection: syncSelection,
   period: syncPeriod,
-  cursor: v.optional(v.string()),
-  progress: v.optional(
-    v.union(
-      v.object({
-        type: v.literal("snapshotting"),
-        numTablesSynced: v.int64(),
-        totalTables: v.int64(),
-        currentComponent: v.string(),
-        currentTable: v.string(),
-        numDocumentsInCurrentTable: v.int64(),
-        totalDocumentsInCurrentTable: v.union(v.int64(), v.null()),
-        numDocumentsSynced: v.int64(),
-        totalDocuments: v.union(v.int64(), v.null()),
-      }),
-      v.object({ type: v.literal("stale"), ts: v.int64() }),
-      v.object({ type: v.literal("upToDate"), ts: v.int64() }),
-    ),
-  ),
 });
 
 export const sinkConfig = v.union(
@@ -544,6 +542,13 @@ export default defineSchema({
     totalDocs: v.union(v.int64(), v.null()),
   }).index("by_validation_id", ["validationId"]),
   _log_sinks: logSinksTable,
+  _s3_export_state: defineTable({
+    configId: v.id("_log_sinks"),
+    checkpoint: v.object({
+      cursor: v.string(),
+      progress: s3ExportProgress,
+    }),
+  }).index("by_config_id", ["configId"]),
   _backend_state: backendStateTable,
   _snapshot_imports: snapshotImportsTable,
   _aws_lambda_versions: awsLambdaVersionsTable,
