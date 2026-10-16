@@ -259,7 +259,7 @@ function getDownloadPath() {
 }
 
 function getGithubDownloadUrl(version: string, filename: string) {
-  return `https://github.com/get-convex/convex-backend/releases/download/${version}/${filename}`;
+  return `https://github.com/convex/convex-backend/releases/download/${version}/${filename}`;
 }
 
 async function downloadZipFile(

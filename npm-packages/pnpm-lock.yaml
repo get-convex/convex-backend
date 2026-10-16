@@ -1326,8 +1326,8 @@ importers:
         specifier: 3.7.0
         version: 3.7.0(@types/react@19.2.8)(react-dom@19.2.4(react@19.2.4))(react-is@19.2.5)(react@19.2.4)(redux@5.0.1)
       saffron:
-        specifier: get-convex/saffron#af61963a3840ddd6e72f44cf320f56ff4b8d0b39
-        version: '@cloudflare/saffron@https://codeload.github.com/get-convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39'
+        specifier: convex/saffron#af61963a3840ddd6e72f44cf320f56ff4b8d0b39
+        version: '@cloudflare/saffron@https://codeload.github.com/convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39'
       semver:
         specifier: ^7.6.0
         version: 7.7.3
@@ -7740,8 +7740,8 @@ packages:
     resolution: {integrity: sha512-SIOD2DxrRRwQ+jgzlXCqoEFiKOFqaPjhnNTGKXSRLvp1HiOvapLaFG2kEr9dYQTYe8rKrd9uvDUzmAITeNyaHQ==}
     engines: {node: '>=18.0.0'}
 
-  '@cloudflare/saffron@https://codeload.github.com/get-convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39':
-    resolution: {gitHosted: true, integrity: sha512-VP49+xC671TertpT+75AcP+P69CqPEajuWjMYC3rVBBM4GR1ZhIqp3KYz390U28Vad9kK2MpGI1hmMEizRNkHQ==, tarball: https://codeload.github.com/get-convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39}
+  '@cloudflare/saffron@https://codeload.github.com/convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39':
+    resolution: {gitHosted: true, integrity: sha512-VP49+xC671TertpT+75AcP+P69CqPEajuWjMYC3rVBBM4GR1ZhIqp3KYz390U28Vad9kK2MpGI1hmMEizRNkHQ==, tarball: https://codeload.github.com/convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39}
     version: 0.1.0
 
   '@colordx/core@5.4.3':
@@ -31653,7 +31653,7 @@ snapshots:
 
   '@cloudflare/kv-asset-handler@0.4.2': {}
 
-  '@cloudflare/saffron@https://codeload.github.com/get-convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39': {}
+  '@cloudflare/saffron@https://codeload.github.com/convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39': {}
 
   '@colordx/core@5.4.3': {}
 
@@ -49828,11 +49828,11 @@ snapshots:
     dependencies:
       call-bound: 1.0.4
 
+  is-fullwidth-code-point@3.0.0: {}
+
   is-fullwidth-code-point@5.1.0:
     dependencies:
       get-east-asian-width: 1.4.0
-
-  is-fullwidth-code-point@3.0.0: {}
 
   is-generator-fn@2.1.0: {}
 

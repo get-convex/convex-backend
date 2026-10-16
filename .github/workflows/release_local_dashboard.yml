@@ -45,7 +45,7 @@ jobs:
           context: .
           file: self-hosted/docker-build/Dockerfile.dashboard
           tags: |
-            ghcr.io/get-convex/convex-dashboard
+            ghcr.io/convex/convex-dashboard
           # This workflow does not use a build cache.
           # A shared cache is not safe for a release build. A bad cache entry
           # from a cache poisoning attack can put incorrect content into the

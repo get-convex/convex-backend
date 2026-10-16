@@ -37,7 +37,7 @@ const config: Config = {
     },
   },
   favicon: "img/favicon.ico",
-  organizationName: "get-convex", // Usually your GitHub org/user name.
+  organizationName: "convex", // Usually your GitHub org/user name.
   projectName: "Convex", // Usually your repo name.
 
   // Even if you don't use internalization, you can use this field to set useful
@@ -108,7 +108,7 @@ const config: Config = {
           className: "convex-blog-button",
         },
         {
-          href: "https://github.com/get-convex",
+          href: "https://github.com/convex",
           label: "GitHub",
           position: "right",
           className: "convex-github-logo convex-icon-link",
@@ -129,7 +129,7 @@ const config: Config = {
         },
         {
           label: "GitHub",
-          href: "https://github.com/get-convex",
+          href: "https://github.com/convex",
           className: "convex-github-logo convex-icon-link",
         },
         {
@@ -332,8 +332,8 @@ const config: Config = {
         // source isn't public.
         disableSources: false,
         sourceLinkTemplate:
-          "https://github.com/get-convex/convex-js/blob/main/{path}#L{line}",
-        gitRemote: "https://github.com/get-convex/convex-js",
+          "https://github.com/convex/convex-js/blob/main/{path}#L{line}",
+        gitRemote: "https://github.com/convex/convex-js",
         basePath: "../convex/src",
         // Keep everything in source order so we can be intentional about our
         // ordering. This seems to only work for functions, variables and type

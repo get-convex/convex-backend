@@ -1859,7 +1859,7 @@ checksum = "288c7b1c00556959bb7dc822d8adad4a30edd0d3a1fcc6839515792b8f300e5f"
 [[package]]
 name = "biscuit"
 version = "0.7.0"
-source = "git+https://github.com/get-convex/biscuit?rev=05bdaab2f43d144aedc9ef2dfcdb87d304540afd#05bdaab2f43d144aedc9ef2dfcdb87d304540afd"
+source = "git+https://github.com/convex/biscuit?rev=05bdaab2f43d144aedc9ef2dfcdb87d304540afd#05bdaab2f43d144aedc9ef2dfcdb87d304540afd"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -4240,7 +4240,7 @@ checksum = "25c7df09945d65ea8d70b3321547ed414bbc540aad5bac6883d021b970f35b04"
 [[package]]
 name = "fastfield_codecs"
 version = "0.3.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "fastdivide",
  "itertools 0.10.5",
@@ -5981,7 +5981,7 @@ dependencies = [
 [[package]]
 name = "io"
 version = "0.0.0"
-source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
+source = "git+https://github.com/convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "atomicwrites",
  "bincode",
@@ -7083,7 +7083,7 @@ dependencies = [
 [[package]]
 name = "memory"
 version = "0.0.0"
-source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
+source = "git+https://github.com/convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "log",
  "memmap2 0.9.4",
@@ -7288,7 +7288,7 @@ dependencies = [
 [[package]]
 name = "moka"
 version = "0.12.15"
-source = "git+https://github.com/get-convex/moka?rev=abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04#abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04"
+source = "git+https://github.com/convex/moka?rev=abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04#abd1f71cfe4bd4ee21ffd772ed33ce9f9329fe04"
 dependencies = [
  "async-lock",
  "crossbeam-channel",
@@ -7967,7 +7967,7 @@ dependencies = [
 [[package]]
 name = "openidconnect"
 version = "4.0.1"
-source = "git+https://github.com/get-convex/openidconnect-rs?rev=15a9c551eafcf3b60d307feb94332352ac56c099#15a9c551eafcf3b60d307feb94332352ac56c099"
+source = "git+https://github.com/convex/openidconnect-rs?rev=15a9c551eafcf3b60d307feb94332352ac56c099#15a9c551eafcf3b60d307feb94332352ac56c099"
 dependencies = [
  "aws-lc-rs",
  "base64 0.21.7",
@@ -8007,14 +8007,14 @@ dependencies = [
 [[package]]
 name = "openssl"
 version = "0.10.81"
-source = "git+https://github.com/get-convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659#03caf5bc9775242f4b02daa978f86fafbd0e7659"
+source = "git+https://github.com/convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659#03caf5bc9775242f4b02daa978f86fafbd0e7659"
 dependencies = [
  "aws-lc-sys",
  "bitflags 2.13.1",
  "cfg-if",
  "foreign-types",
  "libc",
- "openssl-macros 0.1.1 (git+https://github.com/get-convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659)",
+ "openssl-macros 0.1.1 (git+https://github.com/convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659)",
 ]
 
 [[package]]
@@ -8031,7 +8031,7 @@ dependencies = [
 [[package]]
 name = "openssl-macros"
 version = "0.1.1"
-source = "git+https://github.com/get-convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659#03caf5bc9775242f4b02daa978f86fafbd0e7659"
+source = "git+https://github.com/convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659#03caf5bc9775242f4b02daa978f86fafbd0e7659"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8156,7 +8156,7 @@ dependencies = [
 [[package]]
 name = "ownedbytes"
 version = "0.5.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "stable_deref_trait",
 ]
@@ -8855,7 +8855,7 @@ dependencies = [
 [[package]]
 name = "prometheus"
 version = "0.14.0"
-source = "git+https://github.com/get-convex/rust-prometheus?rev=367f80d0d3678ed7989814fd5864598746a3b946#367f80d0d3678ed7989814fd5864598746a3b946"
+source = "git+https://github.com/convex/rust-prometheus?rev=367f80d0d3678ed7989814fd5864598746a3b946#367f80d0d3678ed7989814fd5864598746a3b946"
 dependencies = [
  "cfg-if",
  "fnv",
@@ -9037,7 +9037,7 @@ dependencies = [
 [[package]]
 name = "qdrant_common"
 version = "0.0.0"
-source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
+source = "git+https://github.com/convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "lazy_static",
  "num_cpus",
@@ -10020,7 +10020,7 @@ dependencies = [
 [[package]]
 name = "saffron"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/saffron?rev=1d842379919fb5c1988ac127cebd6167b1eb9bec#1d842379919fb5c1988ac127cebd6167b1eb9bec"
+source = "git+https://github.com/convex/saffron?rev=1d842379919fb5c1988ac127cebd6167b1eb9bec#1d842379919fb5c1988ac127cebd6167b1eb9bec"
 dependencies = [
  "chrono",
  "nom",
@@ -10273,7 +10273,7 @@ dependencies = [
 [[package]]
 name = "segment"
 version = "0.6.0"
-source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
+source = "git+https://github.com/convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "ahash",
  "atomic_refcell",
@@ -11036,7 +11036,7 @@ dependencies = [
 [[package]]
 name = "sparse"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
+source = "git+https://github.com/convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "io",
  "itertools 0.12.1",
@@ -11455,7 +11455,7 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 [[package]]
 name = "tantivy"
 version = "0.19.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "aho-corasick 0.7.20",
  "arc-swap",
@@ -11507,12 +11507,12 @@ dependencies = [
 [[package]]
 name = "tantivy-bitpacker"
 version = "0.3.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 
 [[package]]
 name = "tantivy-columnar"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "fastdivide",
  "fnv",
@@ -11527,7 +11527,7 @@ dependencies = [
 [[package]]
 name = "tantivy-common"
 version = "0.5.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "async-trait",
  "byteorder",
@@ -11548,7 +11548,7 @@ dependencies = [
 [[package]]
 name = "tantivy-query-grammar"
 version = "0.19.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "combine",
  "once_cell",
@@ -11558,7 +11558,7 @@ dependencies = [
 [[package]]
 name = "tantivy-sstable"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "ciborium",
  "serde",
@@ -11569,7 +11569,7 @@ dependencies = [
 [[package]]
 name = "tantivy-stacker"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "byteorder",
  "murmurhash32",
@@ -11579,7 +11579,7 @@ dependencies = [
 [[package]]
 name = "tantivy-tokenizer-api"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
+source = "git+https://github.com/convex/tantivy?rev=2bb95afa29cc2ac94e303ea68ca4e16222d8e777#2bb95afa29cc2ac94e303ea68ca4e16222d8e777"
 dependencies = [
  "serde",
 ]
@@ -11790,7 +11790,7 @@ dependencies = [
 [[package]]
 name = "tikv-jemalloc-sys"
 version = "0.7.0+5.3.1-0-g81034ce1f1373e37dc865038e1bc8eeecf559ce8"
-source = "git+https://github.com/get-convex/jemallocator?rev=d6f82852479c9962239a634688e60a3d1e873ffb#d6f82852479c9962239a634688e60a3d1e873ffb"
+source = "git+https://github.com/convex/jemallocator?rev=d6f82852479c9962239a634688e60a3d1e873ffb#d6f82852479c9962239a634688e60a3d1e873ffb"
 dependencies = [
  "cc",
  "libc",
@@ -12852,7 +12852,7 @@ dependencies = [
 [[package]]
 name = "v8"
 version = "149.2.11"
-source = "git+https://github.com/get-convex/rusty_v8?rev=105b32c50433c4cf6eb77fe6a79e93b8637b20e2#105b32c50433c4cf6eb77fe6a79e93b8637b20e2"
+source = "git+https://github.com/convex/rusty_v8?rev=105b32c50433c4cf6eb77fe6a79e93b8637b20e2#105b32c50433c4cf6eb77fe6a79e93b8637b20e2"
 dependencies = [
  "bindgen 0.72.1",
  "bitflags 2.13.1",
@@ -13214,7 +13214,7 @@ dependencies = [
  "const-oid 0.9.6",
  "indexmap 2.14.0",
  "itertools 0.14.0",
- "openssl 0.10.81 (git+https://github.com/get-convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659)",
+ "openssl 0.10.81 (git+https://github.com/convex/rust-openssl?rev=03caf5bc9775242f4b02daa978f86fafbd0e7659)",
  "pkcs8",
  "serde",
  "serde_bytes",
