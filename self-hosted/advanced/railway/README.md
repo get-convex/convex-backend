@@ -101,7 +101,7 @@ You can run the dashboard locally with Docker, or deploy it to Railway.
 ### Running the dashboard locally
 
 ```sh
-docker run -e 'NEXT_PUBLIC_DEPLOYMENT_URL=<backend-url>' -p '6791:6791' 'ghcr.io/get-convex/convex-dashboard:latest'
+docker run -e 'NEXT_PUBLIC_DEPLOYMENT_URL=<backend-url>' -p '6791:6791' 'ghcr.io/convex/convex-dashboard:latest'
 ```
 
 ## Deploying your frontend app
