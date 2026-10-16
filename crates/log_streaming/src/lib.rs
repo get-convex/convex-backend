@@ -74,6 +74,7 @@ use parking_lot::{
     Mutex,
     RwLock,
 };
+use sentry::TransportFactory;
 use serde::Serialize;
 use sinks::{
     local_sink::LocalSink,
@@ -228,6 +229,7 @@ pub struct LogManager<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
     fetch_client: Arc<dyn FetchClient>,
+    sentry_transport: Arc<dyn TransportFactory>,
     sinks: Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
     event_receiver: mpsc::Receiver<Arc<LogEvent>>,
     /// Cloned sender for feeding log events back into the pipeline (e.g.,
@@ -256,6 +258,7 @@ impl<RT: Runtime> LogManager<RT> {
         runtime: RT,
         database: Database<RT>,
         fetch_client: Arc<dyn FetchClient>,
+        sentry_transport: Arc<dyn TransportFactory>,
         instance_name: String,
         deployment_region: Option<String>,
         entitlement_enabled: bool,
@@ -269,6 +272,7 @@ impl<RT: Runtime> LogManager<RT> {
             runtime: runtime.clone(),
             database,
             fetch_client,
+            sentry_transport,
             // Sinks are populated from the `_log_sinks` system table on startup
             sinks: Arc::new(RwLock::new(BTreeMap::new())),
             event_receiver: req_rx,
@@ -312,6 +316,7 @@ impl<RT: Runtime> LogManager<RT> {
             &self.runtime,
             &self.database,
             self.fetch_client.clone(),
+            self.sentry_transport.clone(),
             &self.sinks,
             self.instance_name.clone(),
             self.deployment_region.clone(),
@@ -436,6 +441,7 @@ impl<RT: Runtime> LogManager<RT> {
         runtime: &RT,
         database: &Database<RT>,
         fetch_client: Arc<dyn FetchClient>,
+        sentry_transport: Arc<dyn TransportFactory>,
         sinks: &Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
         instance_name: String,
         deployment_region: Option<String>,
@@ -472,6 +478,7 @@ impl<RT: Runtime> LogManager<RT> {
                 runtime,
                 database,
                 fetch_client.clone(),
+                sentry_transport.clone(),
                 sink_rows,
                 sinks,
                 active_sinks_count.clone(),
@@ -490,6 +497,7 @@ impl<RT: Runtime> LogManager<RT> {
         runtime: &RT,
         database: &Database<RT>,
         fetch_client: Arc<dyn FetchClient>,
+        sentry_transport: Arc<dyn TransportFactory>,
         sink_rows: Vec<ParsedDocument<LogSinksRow>>,
         sinks: &Arc<RwLock<BTreeMap<SinkType, LogSinkClient>>>,
         active_sinks_count: Arc<AtomicUsize>,
@@ -573,6 +581,7 @@ impl<RT: Runtime> LogManager<RT> {
                     Self::config_to_log_sink_client(
                         runtime,
                         fetch_client.clone(),
+                        sentry_transport.clone(),
                         sink_config,
                         metadata.clone(),
                         sink_status,
@@ -645,6 +654,7 @@ impl<RT: Runtime> LogManager<RT> {
     async fn config_to_log_sink_client(
         runtime: &RT,
         fetch_client: Arc<dyn FetchClient>,
+        sentry_transport: Arc<dyn TransportFactory>,
         config: SinkConfig,
         metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
         status: SinkState,
@@ -702,7 +712,7 @@ impl<RT: Runtime> LogManager<RT> {
                 SentrySink::start(
                     runtime.clone(),
                     config,
-                    None,
+                    sentry_transport,
                     metadata.clone(),
                     should_verify,
                 )

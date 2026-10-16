@@ -40,6 +40,7 @@ use common::{
         new_rate_limiter,
         Runtime,
     },
+    sentry::proxied_sentry_transport_factory,
     shutdown::ShutdownSignal,
     types::{
         ConvexOrigin,
@@ -273,6 +274,7 @@ pub async fn make_app(
         )),
         QueryCache::new(*UDF_CACHE_MAX_SIZE),
         fetch_client,
+        proxied_sentry_transport_factory(config.convex_http_proxy.clone(), config.name()),
         config.local_log_sink.clone(),
         preempt_tx.clone(),
         Arc::new(InProcessExportProvider),

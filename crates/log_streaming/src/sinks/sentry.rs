@@ -29,7 +29,6 @@ use sentry::{
         Frame,
         Stacktrace,
     },
-    transports::DefaultTransportFactory,
     ClientOptions,
     Envelope,
     Level,
@@ -61,7 +60,7 @@ impl SentrySink {
     pub async fn start<RT: Runtime>(
         runtime: RT,
         config: SentryConfig,
-        transport_override: Option<Arc<dyn TransportFactory>>,
+        transport: Arc<dyn TransportFactory>,
         deployment_metadata: Arc<Mutex<LoggingDeploymentMetadata>>,
         should_verify: bool,
     ) -> anyhow::Result<LogSinkClient> {
@@ -70,7 +69,7 @@ impl SentrySink {
 
         let sentry_client = sentry::Client::with_options(ClientOptions {
             dsn: Some(config.dsn.clone().into_value()),
-            transport: transport_override.or(Some(Arc::new(DefaultTransportFactory))),
+            transport: Some(transport),
             ..Default::default()
         });
         anyhow::ensure!(sentry_client.is_enabled());
