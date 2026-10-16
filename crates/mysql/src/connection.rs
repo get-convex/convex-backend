@@ -1,5 +1,6 @@
 use std::{
     env,
+    io::ErrorKind,
     mem,
     path::PathBuf,
     str::FromStr,
@@ -57,6 +58,7 @@ use mysql_async::{
     prelude::Queryable,
     Conn,
     DriverError,
+    IoError,
     IsolationLevel,
     Opts,
     OptsBuilder,
@@ -91,7 +93,6 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
         mysql_async::Error::Driver(
             DriverError::PoolDisconnected | DriverError::ConnectionClosed,
         )
-        | mysql_async::Error::Io(_)
         | mysql_async::Error::Server(mysql_async::ServerError {
             // Expected operational Vitess errors:
             code:
@@ -101,6 +102,9 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
             | 1040 // ERConCount "Too many connections"
             , ..
         }) => {
+            database_operational_error(e.into())
+        },
+        mysql_async::Error::Io(ref io_error) if is_operational_mysql_io_error(io_error) => {
             database_operational_error(e.into())
         },
         mysql_async::Error::Server(mysql_async::ServerError {
@@ -121,6 +125,20 @@ fn classify_mysql_error(e: mysql_async::Error) -> anyhow::Error {
         }) => database_deadlock_error(e.into()),
         _ => e.into(),
     }
+}
+
+fn is_operational_mysql_io_error(error: &IoError) -> bool {
+    let IoError::Io(error) = error else {
+        return false;
+    };
+    matches!(
+        error.kind(),
+        ErrorKind::ConnectionRefused | ErrorKind::ConnectionReset | ErrorKind::UnexpectedEof
+    ) ||
+        // This DNS failure shares an ErrorKind with unrelated errors; match
+        // its exact message to identify temporary resolution failures.
+        error.to_string()
+            == "failed to lookup address information: Temporary failure in name resolution"
 }
 
 const ER_LOCK_DEADLOCK: u16 = 1213;
