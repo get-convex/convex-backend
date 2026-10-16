@@ -71,9 +71,9 @@ export function chunkDescription(build: AnalyzedBuild, path: string): string {
 function glueDescription(name: string): string {
   switch (name) {
     case CODE_GLUE_NAME:
-      return "Code esbuild emitted that no input file accounts for: runtime helpers and module wrappers.";
+      return "Code esbuild emitted that no input file accounts for (e.g. runtime helpers and module wrappers)";
     case MAP_OVERHEAD_NAME:
-      return "Source map bytes that belong to no single file: the names list, JSON syntax and unmapped segments.";
+      return "Source map bytes that belong to no single file (e.g. the names list, JSON syntax, and unmapped segments)";
     case UNMATCHED_SOURCES_NAME:
       return "Source map bytes for original files the analyzer couldn't match to a bundled input.";
     default:

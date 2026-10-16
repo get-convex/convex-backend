@@ -12,9 +12,9 @@ export const insights = new Command("insights")
   .summary("Suggestions for making your bundles smaller")
   .description(
     [
-      'Suggestions for making your bundles smaller: duplicated packages, "use node" files bundled into the Convex runtime, heavy modules, devDependencies and test files that functions import, and large packages that could be external or imported lazily.',
+      "Suggestions for making your bundles smaller.",
       "",
-      "Package and duplicate sizes count code plus source maps, since both are uploaded. Module load sizes count code, since that's what's evaluated.",
+      "Package and duplicate sizes count code plus source maps, since both are uploaded. Module load sizes only count code.",
     ].join("\n"),
   )
   .addOption(jsonOption())
@@ -27,8 +27,6 @@ export const insights = new Command("insights")
     if (options.json) {
       printJson({ insights: found });
     } else {
-      logOutput(
-        found.length > 0 ? insightsReport(found) : "Nothing stands out.",
-      );
+      logOutput(found.length > 0 ? insightsReport(found) : "No insights.");
     }
   });

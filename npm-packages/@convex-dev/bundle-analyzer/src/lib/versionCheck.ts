@@ -41,5 +41,5 @@ export function versionMismatchWarning(
   if (projectConvexVersion === analyzerConvexVersion) {
     return null;
   }
-  return `Warning: this project uses convex ${projectConvexVersion}, but this analyzer bundles the way convex ${analyzerConvexVersion} does. Sizes may differ from what \`npx convex deploy\` uploads.`;
+  return `Warning: this project uses convex ${projectConvexVersion}, but this analyzer uses the convex ${analyzerConvexVersion} bundler. Sizes may differ from what \`npx convex deploy\` uploads.`;
 }

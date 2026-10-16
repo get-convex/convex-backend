@@ -29,9 +29,9 @@ export const packages = new Command("packages")
     [
       "Largest npm packages (and your own code) across your bundles.",
       "",
-      "Each version of a package is a separate row. Packages are ranked by code plus source maps, since both are uploaded and count toward the deployment size limits.",
+      "Each version of a package is a separate row. Packages are sorted by code plus source maps.",
       "",
-      "Pass a package to see its largest files and the entry points that import each copy of it, each with its shortest import chain. `--limit` sets how many entry points to show. Copies installed in different directories are listed separately, even at the same version.",
+      "Pass a package to see its largest files and the entry points that import each copy of it, each with its shortest import chain. `--limit` sets how many entry points to show. Copies installed in different directories are listed separately.",
     ].join("\n"),
   )
   .argument(
@@ -162,7 +162,7 @@ export function packageDetailReport(
   if (detail.copies.length === 0) {
     if (externalIn.length > 0) {
       return prose(
-        `${name} isn't bundled: it's an external package in ${externalIn.join(", ")}, installed on the server instead of uploaded.`,
+        `${name} isn't bundled because it is an external package in ${externalIn.join(", ")}.`,
         width,
       );
     }
@@ -222,7 +222,7 @@ export function packageDetailReport(
       "",
       dim(
         prose(
-          `It's also an external package in ${externalIn.join(", ")}, installed on the server instead of uploaded.`,
+          `It is also an external package in ${externalIn.join(", ")}.`,
           width,
         ),
       ),

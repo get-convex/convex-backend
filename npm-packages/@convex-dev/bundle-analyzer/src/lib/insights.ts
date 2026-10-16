@@ -142,7 +142,7 @@ function duplicateInsights(builds: AnalyzedBuild[]) {
       kind: "duplicate-package",
       level: "warn",
       title: `${d.name} is bundled ${d.copies.length} times in ${d.buildId}`,
-      detail: `Copies: ${copies}. Aligning the versions your dependencies need, or deduplicating (e.g. \`npm dedupe\`), would save ${formatBytes(extra)}. \`npx @convex-dev/bundle-analyzer packages ${d.name}\` shows what imports each copy.`,
+      detail: `Copies: ${copies}. Aligning the versions your dependencies need, or deduplicating (e.g. \`npm dedupe\`), would save ${formatBytes(extra)}. Use \`npx @convex-dev/bundle-analyzer packages ${d.name}\` to see what imports each copy.`,
       bytes: extra,
       buildIds: [d.buildId],
       subject: d.name,
@@ -157,11 +157,11 @@ const HEAVY_MODULE_COST: Record<FunctionRuntime, string> = {
   node: "A Node instance evaluates this much bundled code, plus its external packages, the first time it runs a function in it.",
 };
 
-const HEAVY_MODULE_FIX: Record<FunctionRuntime, string> = {
-  convex:
-    "Moving rarely used dependencies into another module keeps them off this path. Actions can also load them with `await import()`; queries and mutations can't.",
-  node: "Moving rarely used dependencies behind `await import()` or into another module keeps them off this path.",
-};
+const HEAVY_MODULE_FIX =
+  "Moving rarely used dependencies into another module keeps them off this path.";
+
+const EXTERNAL_PACKAGES_DOCS =
+  "https://docs.convex.dev/functions/bundling#external-packages";
 
 const MAX_HEAVY_MODULE_OWNERS = 3;
 
@@ -181,7 +181,7 @@ function heavyModuleInsights(builds: AnalyzedBuild[]): Insight[] {
         .map((o) => `${o.owner} ${formatBytes(o.bytes)}`)
         .join(
           ", ",
-        )}. ${HEAVY_MODULE_FIX[m.kind as FunctionRuntime]} \`npx @convex-dev/bundle-analyzer modules ${m.path}\` shows what it loads.`,
+        )}. ${HEAVY_MODULE_FIX} Use \`npx @convex-dev/bundle-analyzer modules ${m.path}\` to see what it loads.`,
       bytes: m.loadBytes,
       buildIds: [m.buildId],
       subject: m.path,
@@ -240,7 +240,7 @@ function nodeFileInsights(builds: AnalyzedBuild[]): Insight[] {
           kind: "use-node-file-in-convex-runtime",
           level: "warn",
           title: `${path} has "use node" but is bundled into ${b.id}`,
-          detail: `A file without "use node" imports it, so it and everything it imports are bundled for the Convex runtime too. Moving what both need into a file without "use node" keeps Node-only code out. \`npx @convex-dev/bundle-analyzer files ${path}\` shows what imports it.`,
+          detail: `A file without "use node" imports it, so it and everything it imports are bundled for the Convex runtime too. Moving what both need into a file without "use node" keeps Node-only code out. Use \`npx @convex-dev/bundle-analyzer files ${path}\` to see what imports it.`,
           bytes,
           buildIds: [b.id],
           subject: path,
@@ -270,7 +270,7 @@ function devCodeInsights(
       kind: "dev-dependency-bundled",
       level: "info",
       title: `${pkg.key}, a devDependency, is bundled into ${buildIds.join(", ")}`,
-      detail: `Deployed functions import it, adding ${formatBytes(pkg.codeBytes)} of code. If only tests or scripts need it, \`npx @convex-dev/bundle-analyzer packages ${pkg.name}\` shows which files import it; if functions need it, it belongs in dependencies.`,
+      detail: `Deployed functions import it, adding ${formatBytes(pkg.codeBytes)} of code. If only tests or scripts need it, use \`npx @convex-dev/bundle-analyzer packages ${pkg.name}\` to see which files import it and refactor it out.`,
       bytes: pkg.codeBytes,
       buildIds,
       subject: pkg.key,
@@ -297,7 +297,7 @@ function devCodeInsights(
       kind: "test-file-bundled",
       level: "info",
       title: `Test file ${path} is bundled into ${[...buildIds].join(", ")}`,
-      detail: `A deployed function imports it, along with anything it imports. \`npx @convex-dev/bundle-analyzer files ${path}\` shows what imports it.`,
+      detail: `A deployed function imports it, along with anything it imports. Use \`npx @convex-dev/bundle-analyzer files ${path}\` to see what imports it.`,
       bytes,
       buildIds: [...buildIds],
       subject: path,
@@ -332,7 +332,7 @@ function packageInsights(builds: AnalyzedBuild[]): Insight[] {
         kind: "large-node-package",
         level: "info",
         title: `${pkg.key} adds ${formatBytes(nodeBytes)} to "use node" bundles`,
-        detail: `Adding "${pkg.name}" to \`node.externalPackages\` in convex.json installs it on the server instead of bundling it.`,
+        detail: `Marking it as an external package installs it on the server instead of bundling it: ${EXTERNAL_PACKAGES_DOCS}`,
         bytes: nodeBytes,
         buildIds: nodeIds,
         subject: pkg.key,

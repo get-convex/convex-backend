@@ -35,7 +35,7 @@ import {
 } from "../lib/insights.js";
 
 export const summary = new Command("summary")
-  .summary("Overview of what's in your bundles and how big they are")
+  .summary("Overview of your bundle")
   .option(
     "--top <n>",
     "Number of insights, packages and modules to show",
@@ -114,7 +114,7 @@ export function summaryReport(
           `Code and source maps are uploaded on every push: ${formatBytes(uploadedBytes)}.`,
           ...(t.externalPackageBytes > 0
             ? [
-                "External packages are installed on the server instead; their size is measured from your local node_modules.",
+                "External packages size is measured from your local node_modules and may differ when installed on the server.",
               ]
             : []),
           ...(t.unmeasuredExternalPackages > 0

@@ -2,7 +2,6 @@ import { Command } from "@commander-js/extra-typings";
 import { runExplorer } from "../lib/tui.js";
 import { AnalyzerError } from "../lib/output.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { jsonOption } from "../lib/command.js";
 
 export const explore = new Command("explore")
   .summary("Browse your bundles interactively in the terminal")
@@ -13,15 +12,10 @@ export const explore = new Command("explore")
       "Sizes count code plus source maps. Press t to switch layouts, g to group by component or by package, / to filter, and ? for all keys.",
     ].join("\n"),
   )
-  // Accepted only so it can be refused with a pointer to the commands
-  // that have JSON output.
-  .addOption(jsonOption().hideHelp())
-  .action(async (options) => {
-    if (options.json || !process.stdin.isTTY || !process.stdout.isTTY) {
+  .action(async () => {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
       throw new AnalyzerError(
-        options.json
-          ? "`explore` is interactive and has no JSON output. Every other command supports --json."
-          : "`explore` needs an interactive terminal. Every other command prints a report instead, and supports --json.",
+        "`explore` requires an interactive terminal. To print a report, use the other commands with --json for JSON output.",
       );
     }
     const { builds } = await loadAnalysis();

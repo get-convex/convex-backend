@@ -1,6 +1,7 @@
 import { collectBundle } from "./collect.js";
 import { bundle, analyzerConvexVersion } from "./bundle.js";
 import { Analysis, AnalyzedBuild, analyze } from "./model.js";
+import { dim } from "./format.js";
 import { AnalyzerError, logWarning } from "./output.js";
 import {
   findProjectConvexVersion,
@@ -22,7 +23,7 @@ export async function loadAnalysis(): Promise<{
     analyzerConvexVersion,
   );
   if (warning !== null) {
-    logWarning(warning);
+    logWarning(dim(warning));
   }
   const collected = collectBundle(await bundle());
   const analysis = analyze(collected);

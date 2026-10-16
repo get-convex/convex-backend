@@ -38,9 +38,9 @@ export const files = new Command("files")
     [
       "Largest individual source files across your bundles.",
       "",
-      "A file bundled into several modules or builds counts once for each copy, since each copy is uploaded. Files are ranked by code plus source maps.",
+      "Files are sorted by size (code and source maps).",
       "",
-      "Pass a file to see each module it's bundled into and the entry points that import it, each with its shortest import chain. `--limit` sets how many entry points to show.",
+      "Pass a file to see each module the file is bundled into and the entry points that import it, each with its shortest import chain. Use `--limit` to set how many entry points to output.",
     ].join("\n"),
   )
   .argument(

@@ -36,17 +36,17 @@ import {
 
 export const modules = new Command("modules")
   .summary(
-    "Load size of each module: the module plus the shared chunks it imports",
+    "Load size of each module: the module and the shared chunks it imports",
   )
   .description(
     [
       "Load size of each function module: what the runtime loads to run a function in it.",
       "",
-      "Own is the module's own file. Imports is every shared chunk it imports statically, directly or indirectly. Modules are ranked by the two together, which is what the runtime loads: the Convex runtime compiles and evaluates exactly this code on every call. Node evaluates each module once per warm instance, and loads packages left external from node_modules on top of it.",
+      "Own is the module's own file. Imports is every shared chunk it imports statically, directly or indirectly. Modules are sorted by the sum of the imports and the module.",
       "",
-      "Pass a module, either a function module (e.g. `convex/messages.ts`) or a chunk esbuild split out (e.g. `_deps/3565P6XD.js`), to see the files in it, the modules it imports and what dynamic `import()`s would add, and which function modules load it. Actions can use `import()`; queries and mutations can't.",
+      "Pass a module, either a function module (e.g. `convex/messages.ts`) or a chunk esbuild split out (e.g. `_deps/3565P6XD.js`), to see the files in it, the modules it imports and what dynamic `import()`s would add, and which function modules load it.",
       "",
-      "Sizes count code only. Source maps are stored and downloaded with the code but aren't compiled or evaluated.",
+      "Sizes count code only.",
     ].join("\n"),
   )
   .argument(
@@ -199,7 +199,7 @@ function moduleSection(d: ModuleDetail, top: number, width: number): string[] {
       "",
       dim(
         prose(
-          `Its source, ${d.hoisted.source}, is hoisted into ${d.hoisted.chunk}: other modules import it too, so esbuild moved it into a shared chunk and left only glue code here. Run \`npx @convex-dev/bundle-analyzer modules ${d.hoisted.chunk}\` to see its files.`,
+          `The module source, ${d.hoisted.source}, is hoisted into a shared chunk, ${d.hoisted.chunk}, because other modules import it. Run \`npx @convex-dev/bundle-analyzer modules ${d.hoisted.chunk}\` to see its files.`,
           width,
         ),
       ),
