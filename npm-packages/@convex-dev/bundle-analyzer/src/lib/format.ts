@@ -95,6 +95,32 @@ export function bar(fraction: number, width: number, color: string): string {
   );
 }
 
+/**
+ * One step of a waterfall: a bar `width` cells wide with `value` drawn after
+ * `before`, both out of `total`, on a track. A nonzero `value` gets at least
+ * one cell, so small steps stay visible.
+ */
+export function waterfallBar(
+  before: number,
+  value: number,
+  total: number,
+  width: number,
+  color: string,
+): string {
+  const scale = width / Math.max(1, total);
+  let start = Math.min(width, Math.round(before * scale));
+  let end = Math.min(width, Math.round((before + value) * scale));
+  if (value > 0 && end === start) {
+    if (end < width) end += 1;
+    else start -= 1;
+  }
+  return (
+    chalk.hex(TRACK_COLOR)("·".repeat(start)) +
+    chalk.hex(color)("█".repeat(end - start)) +
+    chalk.hex(TRACK_COLOR)("·".repeat(width - end))
+  );
+}
+
 const MONOCHROME_GLYPHS = ["█", "▓", "▒", "░", "▞", "="];
 
 /**
@@ -259,6 +285,11 @@ export function colored(color: string, text: string): string {
 
 export function bold(text: string): string {
   return chalk.bold(text);
+}
+
+/** Word-wraps `text` to `width` columns. */
+export function prose(text: string, width: number): string {
+  return wrapItems(text.split(" "), " ", width);
 }
 
 /**
