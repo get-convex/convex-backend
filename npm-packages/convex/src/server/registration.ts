@@ -1,6 +1,5 @@
 import {
   Auth,
-  MutationAuth,
   GenericDatabaseReader,
   GenericDatabaseReaderWithTable,
   GenericDatabaseWriter,
@@ -88,14 +87,12 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
   db: GenericDatabaseWriter<DataModel>;
 
   /**
-   * Auth functionality for mutations.
+   * Information about the currently authenticated user.
    *
    * Call `await ctx.auth.getUserIdentity()` to get the current user's identity,
    * or `null` if the user is not authenticated.
-   *
-   * `ctx.auth.signJwt` is available for creating deployment issued JWTs.
    */
-  auth: MutationAuth;
+  auth: Auth;
 
   /**
    * A utility for reading and writing files in storage.

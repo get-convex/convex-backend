@@ -55,12 +55,7 @@ export type {
   Auth,
   AuthConfig,
   AuthProvider,
-  MutationAuth,
   UserIdentity,
-  ReservedJwtClaim,
-  ReservedJwtClaimPrefix,
-  SignJwtClaims,
-  SignJwtOptions,
   UserIdentityAttributes,
 } from "./authentication.js";
 export * from "./database.js";
