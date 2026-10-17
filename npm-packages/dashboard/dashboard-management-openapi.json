@@ -1605,6 +1605,34 @@
         }
       }
     },
+    "/teams/{team_id}/get_prices": {
+      "get": {
+        "tags": [
+          "alpha"
+        ],
+        "operationId": "get_prices",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "Team ID",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetPricesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/list_active_plans": {
       "get": {
         "operationId": "list_active_plans",
@@ -4221,6 +4249,24 @@
           }
         }
       },
+      "CurrentPlanPriceResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/MetricPriceRate"
+          },
+          {
+            "type": "object",
+            "required": [
+              "includedUnits"
+            ],
+            "properties": {
+              "includedUnits": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
       "CustomRoleId": {
         "type": "integer",
         "format": "int64",
@@ -4818,6 +4864,81 @@
           }
         }
       },
+      "GetPricesPeriodResponse": {
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "plan",
+          "metrics"
+        ],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "end": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/GetPricesPlanResponse"
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CurrentPlanPriceResponse"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GetPricesPlanResponse": {
+        "type": "object",
+        "required": [
+          "planType",
+          "planVersion"
+        ],
+        "properties": {
+          "planType": {
+            "type": "string"
+          },
+          "planVersion": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "activePhase": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "GetPricesResponse": {
+        "type": "object",
+        "required": [
+          "currency",
+          "periods"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "periods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GetPricesPeriodResponse"
+            }
+          }
+        }
+      },
       "GetProjectEnvironmentResponse": {
         "type": "object",
         "description": "Response for getting a project WorkOS environment with credentials - matches\nProvisionProjectEnvironmentResponse pattern with workos_ prefix",
@@ -5363,6 +5484,70 @@
             ]
           }
         }
+      },
+      "MetricPriceAmount": {
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string"
+          }
+        }
+      },
+      "MetricPriceRate": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "rate"
+            ],
+            "properties": {
+              "rate": {
+                "$ref": "#/components/schemas/MetricPriceAmount"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/RegionalRates"
+          },
+          {
+            "type": "object",
+            "required": [
+              "deploymentClassRate"
+            ],
+            "properties": {
+              "deploymentClassRate": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": [
+                    "regionRate"
+                  ],
+                  "properties": {
+                    "regionRate": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "amount"
+                        ],
+                        "properties": {
+                          "amount": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "minProperties": 1
+                    }
+                  }
+                },
+                "minProperties": 1
+              }
+            }
+          }
+        ]
       },
       "MfaStatusResponse": {
         "type": "object",
@@ -6246,6 +6431,29 @@
           "aws-ca-central-1",
           "aws-ap-southeast-2"
         ]
+      },
+      "RegionalRates": {
+        "type": "object",
+        "required": [
+          "regionRate"
+        ],
+        "properties": {
+          "regionRate": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "amount"
+              ],
+              "properties": {
+                "amount": {
+                  "type": "string"
+                }
+              }
+            },
+            "minProperties": 1
+          }
+        }
       },
       "RegisterOauthAppArgs": {
         "type": "object",

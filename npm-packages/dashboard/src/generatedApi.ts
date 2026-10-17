@@ -966,6 +966,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/get_prices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_prices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/list_active_plans": {
         parameters: {
             query?: never;
@@ -2108,6 +2124,9 @@ export interface components {
              */
             expiryDate?: number | null;
         };
+        CurrentPlanPriceResponse: components["schemas"]["MetricPriceRate"] & {
+            includedUnits: string;
+        };
         /** Format: int64 */
         CustomRoleId: number;
         CustomRoleResponse: {
@@ -2269,6 +2288,27 @@ export interface components {
             environmentName?: string | null;
             isProduction?: boolean | null;
         };
+        GetPricesPeriodResponse: {
+            /** Format: int64 */
+            start: number;
+            /** Format: int64 */
+            end: number | null;
+            plan: components["schemas"]["GetPricesPlanResponse"];
+            metrics: {
+                [key: string]: components["schemas"]["CurrentPlanPriceResponse"];
+            };
+        };
+        GetPricesPlanResponse: {
+            planType: string;
+            /** Format: int64 */
+            planVersion: number;
+            /** Format: int64 */
+            activePhase?: number | null;
+        };
+        GetPricesResponse: {
+            currency: string;
+            periods: components["schemas"]["GetPricesPeriodResponse"][];
+        };
         /** @description Response for getting a project WorkOS environment with credentials - matches
          *     ProvisionProjectEnvironmentResponse pattern with workos_ prefix */
         GetProjectEnvironmentResponse: {
@@ -2420,6 +2460,22 @@ export interface components {
             id: components["schemas"]["MemberId"];
             email: string;
             name?: string | null;
+        };
+        MetricPriceAmount: {
+            amount: string;
+        };
+        MetricPriceRate: {
+            rate: components["schemas"]["MetricPriceAmount"];
+        } | components["schemas"]["RegionalRates"] | {
+            deploymentClassRate: {
+                [key: string]: {
+                    regionRate: {
+                        [key: string]: {
+                            amount: string;
+                        };
+                    };
+                };
+            };
         };
         MfaStatusResponse: {
             enabled: boolean;
@@ -2702,6 +2758,13 @@ export interface components {
         };
         /** @enum {string} */
         RegionName: "aws-us-east-1" | "aws-eu-west-1" | "aws-ca-central-1" | "aws-ap-southeast-2";
+        RegionalRates: {
+            regionRate: {
+                [key: string]: {
+                    amount: string;
+                };
+            };
+        };
         RegisterOauthAppArgs: {
             appName: components["schemas"]["AppName"];
             redirectUris: string[];
@@ -3036,6 +3099,7 @@ export type CreateProjectResponse = components['schemas']['CreateProjectResponse
 export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionArgs'];
 export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
 export type CreditResponse = components['schemas']['CreditResponse'];
+export type CurrentPlanPriceResponse = components['schemas']['CurrentPlanPriceResponse'];
 export type CustomRoleId = components['schemas']['CustomRoleId'];
 export type CustomRoleResponse = components['schemas']['CustomRoleResponse'];
 export type DeleteAccessTokenArgs = components['schemas']['DeleteAccessTokenArgs'];
@@ -3072,6 +3136,9 @@ export type GenerateSsoConfigurationLinkResponse = components['schemas']['Genera
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
 export type GetOrProvisionEnvironmentRequest = components['schemas']['GetOrProvisionEnvironmentRequest'];
+export type GetPricesPeriodResponse = components['schemas']['GetPricesPeriodResponse'];
+export type GetPricesPlanResponse = components['schemas']['GetPricesPlanResponse'];
+export type GetPricesResponse = components['schemas']['GetPricesResponse'];
 export type GetProjectEnvironmentResponse = components['schemas']['GetProjectEnvironmentResponse'];
 export type GetProjectEnvironmentsResponse = components['schemas']['GetProjectEnvironmentsResponse'];
 export type GetSpendingLimitsResponse = components['schemas']['GetSpendingLimitsResponse'];
@@ -3099,6 +3166,8 @@ export type MemberEmailResponse = components['schemas']['MemberEmailResponse'];
 export type MemberId = components['schemas']['MemberId'];
 export type MemberPreferences = components['schemas']['MemberPreferences'];
 export type MemberResponse = components['schemas']['MemberResponse'];
+export type MetricPriceAmount = components['schemas']['MetricPriceAmount'];
+export type MetricPriceRate = components['schemas']['MetricPriceRate'];
 export type MfaStatusResponse = components['schemas']['MfaStatusResponse'];
 export type OauthAppResponse = components['schemas']['OauthAppResponse'];
 export type OptIn = components['schemas']['OptIn'];
@@ -3136,6 +3205,7 @@ export type ProvisionWorkOsTeamResponse = components['schemas']['ProvisionWorkOS
 export type ReferralCode = components['schemas']['ReferralCode'];
 export type ReferralState = components['schemas']['ReferralState'];
 export type RegionName = components['schemas']['RegionName'];
+export type RegionalRates = components['schemas']['RegionalRates'];
 export type RegisterOauthAppArgs = components['schemas']['RegisterOauthAppArgs'];
 export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
 export type RequestCloudBackupArgs = components['schemas']['RequestCloudBackupArgs'];
@@ -4530,6 +4600,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": null | components["schemas"]["OrbSubscriptionResponse"];
+                };
+            };
+        };
+    };
+    get_prices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Team ID */
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetPricesResponse"];
                 };
             };
         };
