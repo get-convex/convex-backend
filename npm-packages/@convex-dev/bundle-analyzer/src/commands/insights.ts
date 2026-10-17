@@ -14,7 +14,7 @@ export const insights = new Command("insights")
     [
       "Suggestions for making your bundles smaller.",
       "",
-      "Package and duplicate sizes count code plus source maps, since both are uploaded. Module load sizes only count code.",
+      "Insights are sorted by how much code following them would save. Sizes include code and source maps, shown separately.",
     ].join("\n"),
   )
   .addOption(jsonOption())
@@ -23,6 +23,7 @@ export const insights = new Command("insights")
     const found = findInsights(
       builds,
       readDevDependencies(analysis.bundle.projectRoot),
+      analysis.bundle.projectRoot,
     );
     if (options.json) {
       printJson({ insights: found });

@@ -1,11 +1,13 @@
 import {
   AnalyzedBuild,
   AnalyzedInput,
+  AnalyzedOutput,
   CODE_GLUE_NAME,
   MAP_OVERHEAD_NAME,
   SourceOrigin,
   UNMATCHED_SOURCES_NAME,
   displayInputPath,
+  distinctExternalPackages,
   inputBytes,
   ownerLabel,
   unmatchedSourceMapBytes,
@@ -16,6 +18,8 @@ export type TreeNode = {
   bytes: number;
   kind:
     | "root"
+    | "external"
+    | "overhead"
     | "component"
     | "build"
     | "module"
@@ -35,15 +39,33 @@ export type TreeNode = {
 export type Grouping = "component" | "package";
 
 /**
- * A size hierarchy for visualizations, sized by code plus source maps. `component` groups
+ * Code, source maps, and distinct installed external packages. `component` groups
  * component → build → module → package → file, with unattributed bytes as
  * `glue` nodes under each module (unmatched source map sources as children of
- * one of them); `package` groups package → build → file and leaves
- * unattributed bytes out. Zero-byte nodes are dropped.
+ * one of them); `package` groups package → build → file with unattributed
+ * bytes in a separate branch. External package sizes are installed estimates.
+ * Zero-byte nodes are dropped.
  */
 export function tree(builds: AnalyzedBuild[], grouping: Grouping): TreeNode {
   const root =
     grouping === "component" ? componentTree(builds) : packageTree(builds);
+  const external = distinctExternalPackages(builds).filter(
+    (pkg) => pkg.diskBytes !== null && pkg.diskBytes > 0,
+  );
+  if (external.length > 0) {
+    root.children.push({
+      name: "external packages (installed estimate)",
+      kind: "external",
+      bytes: 0,
+      children: external.map((pkg) => ({
+        name: `${pkg.name}@${pkg.version}`,
+        kind: "external",
+        bytes: pkg.diskBytes!,
+        ownerName: pkg.name,
+        children: [],
+      })),
+    });
+  }
   finalize(root);
   return root;
 }
@@ -142,39 +164,41 @@ function componentTree(builds: AnalyzedBuild[]): TreeNode {
         }
         insertFile(owner, i, bytes, b.id);
       }
-      const glue: [string, number, TreeNode[]][] = [
-        [CODE_GLUE_NAME, o.unattributedBytes, []],
-        [MAP_OVERHEAD_NAME, o.sourceMapOverheadBytes, []],
-        [
-          UNMATCHED_SOURCES_NAME,
-          unmatchedSourceMapBytes(o),
-          [...o.sourceMapUnmatchedBytesBySource]
-            .filter(([, bytes]) => bytes > 0)
-            .map(([source, bytes]) => ({
-              name: source,
-              bytes,
-              kind: "glue",
-              origin: "virtual",
-              buildId: b.id,
-              children: [],
-            })),
-        ],
-      ];
-      for (const [name, bytes, children] of glue) {
-        if (bytes > 0) {
-          moduleNode.children.push({
-            name,
-            bytes,
-            kind: "glue",
-            origin: "virtual",
-            buildId: b.id,
-            children,
-          });
-        }
-      }
+      moduleNode.children.push(...outputGlue(o, b.id));
     }
   }
   return root;
+}
+
+function outputGlue(o: AnalyzedOutput, buildId: string): TreeNode[] {
+  const entries: [string, number, TreeNode[]][] = [
+    [CODE_GLUE_NAME, o.unattributedBytes, []],
+    [MAP_OVERHEAD_NAME, o.sourceMapOverheadBytes, []],
+    [
+      UNMATCHED_SOURCES_NAME,
+      unmatchedSourceMapBytes(o),
+      [...o.sourceMapUnmatchedBytesBySource]
+        .filter(([, bytes]) => bytes > 0)
+        .map(([source, bytes]) => ({
+          name: source,
+          bytes,
+          kind: "glue",
+          origin: "virtual",
+          buildId,
+          children: [],
+        })),
+    ],
+  ];
+  return entries
+    .filter(([, bytes]) => bytes > 0)
+    .map(([name, bytes, children]) => ({
+      name,
+      bytes,
+      children,
+      kind: "glue",
+      origin: "virtual",
+      buildId,
+    }));
 }
 
 function packageTree(builds: AnalyzedBuild[]): TreeNode {
@@ -185,9 +209,25 @@ function packageTree(builds: AnalyzedBuild[]): TreeNode {
     kind: "root",
     children: [],
   };
+  const overhead: TreeNode = {
+    name: "unattributed bytes",
+    bytes: 0,
+    kind: "overhead",
+    children: [],
+  };
   const owners = new Map<string, TreeNode>();
   for (const b of builds) {
     for (const o of b.outputs) {
+      const glue = outputGlue(o, b.id);
+      if (glue.length > 0) {
+        overhead.children.push({
+          name: `${b.id} / ${o.path}`,
+          bytes: 0,
+          kind: "overhead",
+          children: glue,
+        });
+      }
+
       for (const i of o.inputs) {
         const bytes = inputBytes(i);
         if (bytes === 0) continue;
@@ -221,6 +261,7 @@ function packageTree(builds: AnalyzedBuild[]): TreeNode {
       }
     }
   }
+  if (overhead.children.length > 0) root.children.push(overhead);
   return root;
 }
 

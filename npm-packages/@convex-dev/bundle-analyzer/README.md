@@ -21,7 +21,7 @@ Start with `summary` or `insights`, then drill into whatever stands out with
 ### `summary`
 
 An overview of your bundle: its total size, the top insights, and its largest
-packages and modules.
+components, packages and modules.
 
 ```sh
 npx @convex-dev/bundle-analyzer summary
@@ -29,9 +29,7 @@ npx @convex-dev/bundle-analyzer summary
 
 ### `insights`
 
-Suggestions for making your bundle smaller, such as duplicated packages, "use
-node" files bundled into the Convex runtime, and devDependencies that deployed
-functions import.
+Suggestions for making your bundle smaller.
 
 ```sh
 npx @convex-dev/bundle-analyzer insights
@@ -48,8 +46,8 @@ npx @convex-dev/bundle-analyzer components
 
 ### `packages`
 
-The largest npm packages across your bundles. Pass a package to see its largest
-files and which of your entry points import it.
+The largest npm packages across your bundles. Pass a package to see which of
+your entry points import it.
 
 ```sh
 npx @convex-dev/bundle-analyzer packages
@@ -59,7 +57,8 @@ npx @convex-dev/bundle-analyzer packages zod
 ### `files`
 
 The largest individual files across your bundles. Pass a file path, or part of
-one, to see which modules it's bundled into and what imports it.
+one, such as `zod@3.25.76/` for a package's files, to see which modules it's
+bundled into and what imports it.
 
 ```sh
 npx @convex-dev/bundle-analyzer files
@@ -79,18 +78,24 @@ npx @convex-dev/bundle-analyzer modules convex/messages.ts
 
 ### `explore`
 
-Browse your bundle in an interactive treemap in the terminal.
+Browse your bundle in an interactive treemap in the terminal. Total size
+includes code, source maps, and external packages estimated from your local
+node_modules, matching `summary`.
 
 ```sh
 npx @convex-dev/bundle-analyzer explore
 ```
 
-Run any command with `--help` to see its options.
+Run any command with `--help` to see its options. `--limit` sets how many rows
+each list shows. In `files` and `packages` details, it also limits entry points
+per copy. Those commands default to 30 list entries and 3 import chains per
+copy.
 
 ### JSON output
 
 Every command except `explore` takes `--json` to print JSON to stdout instead of
-a report, for scripts and AI agents.
+a report, for scripts and AI agents. Insights expose `savedCodeBytes` and
+`savedSourceMapBytes`; `savedBytes` is their combined estimated saving.
 
 ```sh
 npx @convex-dev/bundle-analyzer packages zod --json

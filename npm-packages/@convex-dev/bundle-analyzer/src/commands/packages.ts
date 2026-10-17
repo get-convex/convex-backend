@@ -1,18 +1,22 @@
 import { Command } from "@commander-js/extra-typings";
 import { logOutput, parsePositiveInteger, printJson } from "../lib/output.js";
-import { AnalyzedBuild } from "../lib/model.js";
+import { AnalyzedBuild, ownerLabel } from "../lib/model.js";
 import {
   bold,
   dim,
   formatBytes,
   plural,
   prose,
-  table,
   terminalWidth,
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
+import {
+  DEFAULT_CHAINS,
+  DEFAULT_LIMIT,
+  EXTERNAL_PACKAGES_DOCS,
+  jsonOption,
+} from "../lib/command.js";
 import {
   ChainTarget,
   chainTargets,
@@ -20,8 +24,9 @@ import {
   importedBySection,
   matchesPackage,
 } from "../lib/importChains.js";
+import { Sizes, sizes, sumSizes } from "../lib/sizes.js";
+import { inputGraph, reachable, sizesByInput } from "../lib/graph.js";
 import { packagesTable, packagesJson, packageUsage } from "../lib/packages.js";
-import { FileUsage, fileUsage } from "./files.js";
 
 export const packages = new Command("packages")
   .summary("Largest npm packages (and your own code) across your bundles")
@@ -31,7 +36,7 @@ export const packages = new Command("packages")
       "",
       "Each version of a package is a separate row. Packages are sorted by code plus source maps.",
       "",
-      "Pass a package to see its largest files and the entry points that import each copy of it, each with its shortest import chain. `--limit` sets how many entry points to show. Copies installed in different directories are listed separately.",
+      "Pass a package to see the entry points that import each copy of it, each with its shortest import chain. Copies installed in different directories are listed separately.",
     ].join("\n"),
   )
   .argument(
@@ -39,40 +44,34 @@ export const packages = new Command("packages")
     "Package name, optionally with a version (e.g. `zod` or `zod@3.25.76`)",
   )
   .option(
-    "--top <n>",
-    "Number of packages (or of a package's files) to show",
-    parsePositiveInteger,
-    DEFAULT_TOP,
-  )
-  .option(
     "--limit <n>",
-    "Entry points to show per package copy, each with its import chain",
+    `Number of packages, or of entry points per copy of a package (default: ${DEFAULT_LIMIT} packages, ${DEFAULT_CHAINS} entry points)`,
     parsePositiveInteger,
-    3,
   )
   .addOption(jsonOption())
   .action(async (name, options) => {
     const { builds } = await loadAnalysis();
-    const { top, limit } = options;
+    const limit = options.limit ?? DEFAULT_LIMIT;
+    const chains = options.limit ?? DEFAULT_CHAINS;
     if (name !== undefined) {
       const detail = packageDetail(builds, name);
       if (options.json) {
-        printJson(packageDetailJson(detail, { top, limit }));
+        printJson(packageDetailJson(detail, { chains }));
       } else {
-        logOutput(packageDetailReport(detail, { top, limit }));
+        logOutput(packageDetailReport(detail, { chains }));
       }
     } else if (options.json) {
-      printJson(packagesJson(builds, top));
+      printJson(packagesJson(builds, limit));
     } else {
-      logOutput(packagesReport(builds, { top }));
+      logOutput(packagesReport(builds, { limit }));
     }
   });
 
 export function packagesReport(
   builds: AnalyzedBuild[],
-  options: { top: number },
+  options: { limit: number },
 ): string {
-  const { top } = options;
+  const { limit } = options;
   const all = packageUsage(builds).filter((p) => p.bytes > 0);
   const total = all.reduce((n, p) => n + p.bytes, 0);
   const width = terminalWidth();
@@ -87,14 +86,14 @@ export function packagesReport(
       width,
     ),
     "",
-    packagesTable(builds, top, width),
-    ...(all.length > top
-      ? [dim(`… ${all.length - top} more (use --top)`)]
+    packagesTable(builds, limit, width),
+    ...(all.length > limit
+      ? [dim(`… ${all.length - limit} more (use --limit)`)]
       : []),
     "",
     dim(
       prose(
-        "Run `npx @convex-dev/bundle-analyzer packages <package>` to see a package's files and what imports it.",
+        "Run `npx @convex-dev/bundle-analyzer packages <package>` to see what imports a package.",
         width,
       ),
     ),
@@ -105,8 +104,11 @@ export type PackageDetail = {
   name: string;
   /** Each copy of the package in each build, with its import chains. */
   copies: ChainTarget[];
-  /** The package's nonempty files, summed over every build, largest first. */
-  files: FileUsage[];
+  /**
+   * Directly imported packages, with code and source map bytes reachable
+   * through those imports, largest first.
+   */
+  imports: (Sizes & { package: string })[];
   /** External node packages with this name, which aren't bundled. */
   external: { buildId: string; name: string; version: string }[];
 };
@@ -118,9 +120,7 @@ export function packageDetail(
   return {
     name,
     copies: chainTargets(builds, { kind: "package", name }),
-    files: fileUsage(builds).filter(
-      (f) => f.bytes > 0 && matchesPackage(f, name),
-    ),
+    imports: packageImports(builds, name),
     external: builds.flatMap((b) =>
       b.externalPackages
         .filter((e) => e.name === name || `${e.name}@${e.version}` === name)
@@ -131,18 +131,12 @@ export function packageDetail(
 
 export function packageDetailJson(
   detail: PackageDetail,
-  options: { top: number; limit: number },
+  options: { chains: number },
 ) {
   return {
     name: detail.name,
-    copies: chainTargetsJson(detail.copies, options.limit),
-    files: detail.files.slice(0, options.top).map((f) => ({
-      path: f.path,
-      display: f.display,
-      bytes: f.bytes,
-      codeBytes: f.codeBytes,
-      sourceMapBytes: f.sourceMapBytes,
-    })),
+    copies: chainTargetsJson(detail.copies, options.chains),
+    imports: detail.imports,
     external: detail.external.map((e) => ({
       build: e.buildId,
       name: e.name,
@@ -153,16 +147,16 @@ export function packageDetailJson(
 
 export function packageDetailReport(
   detail: PackageDetail,
-  options: { top: number; limit: number },
+  options: { chains: number },
 ): string {
-  const { top, limit } = options;
+  const { chains } = options;
   const width = terminalWidth();
   const name = bold(detail.name);
   const externalIn = [...new Set(detail.external.map((e) => e.buildId))];
   if (detail.copies.length === 0) {
     if (externalIn.length > 0) {
       return prose(
-        `${name} isn't bundled because it is an external package in ${externalIn.join(", ")}.`,
+        `${name} isn't bundled because it is an external package in ${externalIn.join(", ")}: ${EXTERNAL_PACKAGES_DOCS}`,
         width,
       );
     }
@@ -182,8 +176,7 @@ export function packageDetailReport(
   ).size;
   const builds = new Set(detail.copies.map((c) => c.buildId)).size;
   const total = detail.copies.reduce((n, c) => n + c.bytes, 0);
-  const rows = detail.files.slice(0, top);
-  const hidden = detail.files.length - rows.length;
+  const codeBytes = detail.copies.reduce((n, c) => n + c.codeBytes, 0);
   const out = [
     wrapItems(
       [
@@ -195,47 +188,94 @@ export function packageDetailReport(
       dim(" · "),
       width,
     ),
-    "",
-    bold("Largest files"),
-    "",
-    table(
-      [
-        { header: "File", flexible: true },
-        { header: "Size", align: "right" },
-        { header: "Code", align: "right", optional: true },
-        { header: "Source maps", align: "right", optional: true },
-      ],
-      rows.map((f) => [
-        f.display,
-        formatBytes(f.bytes),
-        dim(formatBytes(f.codeBytes)),
-        dim(formatBytes(f.sourceMapBytes)),
-      ]),
-      width,
-    ),
-    ...(hidden > 0 ? [dim(`… ${hidden} more (use --top)`)] : []),
-    "",
-    ...importedBySection(detail.copies, { limit, width, showTargets: true }),
   ];
-  if (externalIn.length > 0) {
+  if (codeBytes === 0) {
+    const bundled = detail.imports.filter((i) => i.bytes > 0);
     out.push(
       "",
-      dim(
-        prose(
-          `It is also an external package in ${externalIn.join(", ")}.`,
-          width,
-        ),
+      prose(
+        `It adds no code of its own to this bundle.${
+          bundled.length > 0
+            ? ` Its imports reach: ${bundled
+                .map(
+                  (i) =>
+                    `${i.package} (${formatBytes(i.codeBytes)} of code and ${formatBytes(i.sourceMapBytes)} of source maps)`,
+                )
+                .join(", ")}.`
+            : ""
+        }`,
+        width,
       ),
     );
   }
   out.push(
     "",
+    ...importedBySection(detail.copies, { chains, width, showTargets: true }),
+  );
+  if (externalIn.length > 0) {
+    out.push(
+      "",
+      dim(
+        prose(
+          `It is also an external package in ${externalIn.join(", ")}: ${EXTERNAL_PACKAGES_DOCS}`,
+          width,
+        ),
+      ),
+    );
+  }
+  const labels = [...new Set(detail.copies.map((c) => c.label))];
+  const commands = labels.map(
+    (label) => `\`npx @convex-dev/bundle-analyzer files ${label}/\``,
+  );
+  out.push(
+    "",
     dim(
       prose(
-        "Run `npx @convex-dev/bundle-analyzer files <path>` to see where a file ends up.",
+        `Use ${commands.join(" or ")} to see ${labels.length === 1 ? "its" : "each version's"} largest files.`,
         width,
       ),
     ),
   );
   return out.join("\n");
+}
+
+/** Sizes reachable through direct imports, scoped to each build and package. */
+function packageImports(
+  builds: AnalyzedBuild[],
+  name: string,
+): PackageDetail["imports"] {
+  const result = new Map<string, Sizes>();
+  for (const b of builds) {
+    const imported = new Map<string, Set<string>>();
+    for (const [file, input] of Object.entries(b.metafile.inputs)) {
+      if (!matchesPackage(b.attribution.get(file), name)) continue;
+      for (const imp of input.imports) {
+        if (imp.external) continue;
+        const a = b.attribution.get(imp.path);
+        if (!a?.packageName || matchesPackage(a, name)) continue;
+        const label = ownerLabel(a);
+        const paths = imported.get(label) ?? new Set<string>();
+        paths.add(imp.path);
+        imported.set(label, paths);
+      }
+    }
+    if (imported.size === 0) continue;
+    const graph = inputGraph(b);
+    const bytes = sizesByInput(b.outputs);
+    for (const [label, paths] of imported) {
+      const contributions = [...reachable(graph, paths)]
+        .filter((file) => {
+          const a = b.attribution.get(file);
+          return a && ownerLabel(a) === label;
+        })
+        .map((file) => bytes.get(file) ?? sizes());
+      result.set(
+        label,
+        sumSizes([result.get(label) ?? sizes(), ...contributions]),
+      );
+    }
+  }
+  return [...result]
+    .map(([label, value]) => ({ package: label, ...value }))
+    .sort((a, b) => b.bytes - a.bytes || a.package.localeCompare(b.package));
 }

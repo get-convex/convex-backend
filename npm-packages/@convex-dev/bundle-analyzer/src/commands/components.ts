@@ -18,7 +18,7 @@ import {
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
+import { DEFAULT_LIMIT, jsonOption } from "../lib/command.js";
 
 export const components = new Command("components")
   .summary("Size of each component's bundle for each runtime")
@@ -28,33 +28,30 @@ export const components = new Command("components")
     ),
   )
   .option(
-    "--top <n>",
+    "--limit <n>",
     "Number of rows to show",
     parsePositiveInteger,
-    DEFAULT_TOP,
+    DEFAULT_LIMIT,
   )
   .addOption(jsonOption())
   .action(async (options) => {
     const { builds } = await loadAnalysis();
     if (options.json) {
-      printJson(componentsJson(builds, options.top));
+      printJson(componentsJson(builds, options.limit));
     } else {
-      logOutput(componentsReport(builds, { top: options.top }));
+      logOutput(componentsReport(builds, { limit: options.limit }));
     }
   });
 
 export function componentsReport(
   builds: AnalyzedBuild[],
-  options: { top: number },
+  options: { limit: number },
 ): string {
   const width = terminalWidth();
   const all = componentSizes(builds);
-  const rows = all.slice(0, options.top);
-  const max = Math.max(1, ...rows.map((r) => r.bytes));
-  const cells = barCells(width, 70, 24);
   const count = new Set(all.map((r) => r.component)).size;
   const total = all.reduce((n, r) => n + r.bytes, 0);
-  const hidden = all.length - rows.length;
+  const hidden = all.length - Math.min(all.length, options.limit);
   return [
     wrapItems(
       [
@@ -66,44 +63,56 @@ export function componentsReport(
       width,
     ),
     "",
-    table(
-      [
-        { header: "Component", flexible: true },
-        { header: "Runtime" },
-        { header: "Modules", align: "right" },
-        { header: "Size", align: "right" },
-        { header: "Code", align: "right", optional: true },
-        { header: "Source maps", align: "right", optional: true },
-        {
-          header: legend(
-            [
-              { label: "code", color: CODE_COLOR },
-              { label: "source maps", color: MAP_COLOR },
-            ],
-            Number.POSITIVE_INFINITY,
-          ),
-          optional: true,
-        },
-      ],
-      rows.map((r) => [
-        colored(colorFor(r.component), r.component),
-        r.kind,
-        String(r.modules),
-        formatBytes(r.bytes),
-        dim(formatBytes(r.codeBytes)),
-        dim(formatBytes(r.sourceMapBytes)),
-        stackedBar(
-          [
-            { value: r.codeBytes, color: CODE_COLOR },
-            { value: r.sourceMapBytes, color: MAP_COLOR },
-          ],
-          Math.max(1, Math.round((r.bytes / max) * cells)),
-        ),
-      ]),
-      width,
-    ),
-    ...(hidden > 0 ? [dim(`… ${hidden} more (use --top)`)] : []),
+    componentsTable(builds, options.limit, width),
+    ...(hidden > 0 ? [dim(`… ${hidden} more (use --limit)`)] : []),
   ].join("\n");
+}
+
+/** The largest component and runtime bundles. */
+export function componentsTable(
+  builds: AnalyzedBuild[],
+  limit: number,
+  width = terminalWidth(),
+): string {
+  const rows = componentSizes(builds).slice(0, limit);
+  const max = Math.max(1, ...rows.map((r) => r.bytes));
+  const cells = barCells(width, 70, 24);
+  return table(
+    [
+      { header: "Component", flexible: true },
+      { header: "Runtime" },
+      { header: "Modules", align: "right" },
+      { header: "Size", align: "right" },
+      { header: "Code", align: "right", optional: true },
+      { header: "Source maps", align: "right", optional: true },
+      {
+        header: legend(
+          [
+            { label: "code", color: CODE_COLOR },
+            { label: "source maps", color: MAP_COLOR },
+          ],
+          Number.POSITIVE_INFINITY,
+        ),
+        optional: true,
+      },
+    ],
+    rows.map((r) => [
+      colored(colorFor(r.component), r.component),
+      r.kind,
+      String(r.modules),
+      formatBytes(r.bytes),
+      dim(formatBytes(r.codeBytes)),
+      dim(formatBytes(r.sourceMapBytes)),
+      stackedBar(
+        [
+          { value: r.codeBytes, color: CODE_COLOR },
+          { value: r.sourceMapBytes, color: MAP_COLOR },
+        ],
+        Math.max(1, Math.round((r.bytes / max) * cells)),
+      ),
+    ]),
+    width,
+  );
 }
 
 export function componentsJson(builds: AnalyzedBuild[], limit: number) {

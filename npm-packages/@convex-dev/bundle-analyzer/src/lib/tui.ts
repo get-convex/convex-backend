@@ -8,6 +8,7 @@ import {
   MAP_OVERHEAD_NAME,
   UNMATCHED_SOURCES_NAME,
   displayPath,
+  distinctExternalPackages,
 } from "./model.js";
 import { moduleLoads } from "./modules.js";
 import { Grouping, TreeNode, tree } from "./tree.js";
@@ -20,6 +21,7 @@ import {
   padStart,
   plural,
   truncate,
+  wrapItems,
 } from "./format.js";
 import { nodeColor, renderTreemap } from "./treemap.js";
 
@@ -95,9 +97,11 @@ export class Explorer {
   /** Rows PgUp/PgDn move by, from the last rendered frame. */
   private pageSize = 10;
   private moduleLoadByKey = new Map<string, number>();
+  private externals: ReturnType<typeof distinctExternalPackages>;
   private chainCache = new Map<string, Chain | null>();
 
   constructor(private builds: AnalyzedBuild[]) {
+    this.externals = distinctExternalPackages(builds);
     this.rebuild([]);
   }
 
@@ -271,13 +275,14 @@ export class Explorer {
   }
 
   private titleBar(width: number): string {
-    const right = ` ${formatBytes(this.stack[0].node.bytes)} `;
+    let right = ` Total size ${formatBytes(this.stack[0].node.bytes)} `;
     let left = " ◆ Convex bundle explorer ";
-    let middle = ` ${this.grouping === "component" ? "by component" : "by package"} · code + maps `;
+    let middle = ` ${this.grouping === "component" ? "by component" : "by package"} · code + maps${this.externals.some((pkg) => pkg.diskBytes !== null && pkg.diskBytes > 0) ? " + externals (est.)" : ""} `;
     const room = () =>
       width - stringWidth(left) - stringWidth(middle) - stringWidth(right);
     if (room() < 0) middle = "";
     if (room() < 0) left = " ◆ ";
+    if (room() < 0) right = ` ${formatBytes(this.stack[0].node.bytes)} `;
     return (
       chalk.bgHex(ACCENT).hex("#111111").bold(left) +
       chalk.bgHex(CHROME_BG).hex("#dddddd")(
@@ -438,6 +443,32 @@ export class Explorer {
         ),
       ),
     ];
+    if (node.kind === "external") {
+      lines.push(
+        ...wrapItems(
+          "Installed size estimated from local node_modules; server size may differ. Counted once per package version.".split(
+            " ",
+          ),
+          " ",
+          width,
+        )
+          .split("\n")
+          .map((line) => chalk.hex(MUTED)(line)),
+      );
+    }
+    if (node.kind === "overhead") {
+      lines.push(
+        ...wrapItems(
+          "Code and source map bytes that cannot be attributed to a package.".split(
+            " ",
+          ),
+          " ",
+          width,
+        )
+          .split("\n")
+          .map((line) => chalk.hex(MUTED)(line)),
+      );
+    }
     if (node.kind === "glue") {
       lines.push(chalk.hex(MUTED)(glueDescription(node.name)));
     }
@@ -542,7 +573,7 @@ export class Explorer {
     lines.push(
       "",
       chalk.hex(MUTED)(
-        "  Sizes are code plus source maps. Code is the minified bytes esbuild attributes to each file.",
+        "  Total size includes code, source maps, and installed external package estimates.",
       ),
       chalk.hex(MUTED)(
         "  Source map sizes are the bytes of each file's mappings, source and path.",
@@ -554,7 +585,7 @@ export class Explorer {
         `  ${UNMATCHED_SOURCES_NAME} are source map bytes for files the analyzer couldn't match to an input.`,
       ),
       chalk.hex(MUTED)(
-        "  Grouping by package leaves all three out, so its total is a little smaller.",
+        "  Package grouping puts those bytes in a separate unattributed branch. Both groupings have the same total.",
       ),
       "",
       chalk.hex(FAINT)("  Press any key to go back."),
@@ -567,8 +598,15 @@ export class Explorer {
     const text = child
       ? ` ${child.name} · ${formatBytes(child.bytes)}${child.children.length > 0 ? ` · ${plural(child.children.length, "item")}` : ""}`
       : " ";
+    const missing = this.externals.filter(
+      (pkg) => pkg.diskBytes === null,
+    ).length;
+    const estimate =
+      missing > 0
+        ? ` ${plural(missing, "external package")} unmeasured; excluded from total ·`
+        : "";
     return chalk.bgHex(CHROME_BG).hex("#cccccc")(
-      padEnd(truncate(text, width, "middle"), width),
+      padEnd(truncate(estimate + text, width, "middle"), width),
     );
   }
 
@@ -603,6 +641,8 @@ type Chain = { entryPoints: number; steps: string[] };
 
 const KIND_LABELS: Record<TreeNode["kind"], string> = {
   root: "bundle",
+  external: "installed external estimate",
+  overhead: "unattributed bytes",
   component: "component",
   build: "build",
   module: "module",

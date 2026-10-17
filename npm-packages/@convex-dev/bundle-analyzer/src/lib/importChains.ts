@@ -6,6 +6,7 @@ import {
   inputBytes,
   ownerLabel,
 } from "./model.js";
+import { targetUse } from "./usage.js";
 import {
   CODE_COLOR,
   bold,
@@ -173,6 +174,21 @@ export type ChainTarget = {
   sourceMapBytes: number;
   /** Shortest first. */
   chains: ImportChain[];
+  /**
+   * What imports the copy or file itself: a package (`name@version`) or one
+   * of your files. Entry points can reach it without importing it directly.
+   */
+  directImporters: string[];
+  /** Entry points that reach it through imports. */
+  reachedBy: number;
+  /**
+   * Entry points whose code includes its code. esbuild splits chunks after
+   * tree-shaking, so these are the ones that use what they import. `chains`
+   * only runs from these, unless there are none.
+   */
+  usedBy: string[];
+  /** Your files whose imports keep its code; see `targetUse`. */
+  usedThrough: string[];
 };
 
 type Sizes = Pick<ChainTarget, "bytes" | "codeBytes" | "sourceMapBytes">;
@@ -224,6 +240,41 @@ export function chainTargets(
     return sizes;
   };
 
+  // Each build's importers of each input, as display labels.
+  const importersByBuild = new Map<string, Map<string, Set<string>>>();
+  const importersIn = (b: AnalyzedBuild) => {
+    let importers = importersByBuild.get(b.id);
+    if (importers === undefined) {
+      importers = new Map();
+      for (const [from, input] of Object.entries(b.metafile.inputs)) {
+        const a = b.attribution.get(from);
+        const label =
+          a?.packageName && (a.origin === "npm" || a.origin === "convex")
+            ? ownerLabel(a)
+            : displayPath(from, a);
+        for (const imp of input.imports) {
+          if (imp.external) continue;
+          let set = importers.get(imp.path);
+          if (!set) importers.set(imp.path, (set = new Set()));
+          set.add(`${label}\0${from}`);
+        }
+      }
+      importersByBuild.set(b.id, importers);
+    }
+    return importers;
+  };
+  const directImporters = (b: AnalyzedBuild, files: Set<string>) => {
+    const importers = importersIn(b);
+    const labels = new Set<string>();
+    for (const f of files) {
+      for (const entry of importers.get(f) ?? []) {
+        const [label, from] = entry.split("\0");
+        if (!files.has(from)) labels.add(label);
+      }
+    }
+    return [...labels].sort();
+  };
+
   const targets = new Map<string, ChainTarget>();
   for (const r of results) {
     const b = byId.get(r.buildId)!;
@@ -238,6 +289,18 @@ export function chainTargets(
       const sizes = sizesFor(b).get(
         isPackageMatch ? copyKey(r.targetGroup, packageDir) : r.target,
       );
+      const files = isPackageMatch
+        ? new Set(
+            Object.keys(b.metafile.inputs).filter((p) => {
+              const a = b.attribution.get(p);
+              return (
+                matchesPackage(a, r.targetGroup) &&
+                (a.packageDir ?? null) === packageDir
+              );
+            }),
+          )
+        : new Set([r.target]);
+      const use = targetUse(b, (p) => files.has(p));
       target = {
         buildId: r.buildId,
         label: r.targetGroup,
@@ -247,10 +310,19 @@ export function chainTargets(
         codeBytes: sizes?.codeBytes ?? 0,
         sourceMapBytes: sizes?.sourceMapBytes ?? 0,
         chains: [],
+        directImporters: directImporters(b, files),
+        reachedBy: 0,
+        usedBy: use.usedBy,
+        usedThrough: [...use.files.keys()],
       };
       targets.set(key, target);
     }
-    target.chains.push(r);
+    target.reachedBy += 1;
+    // Chains from modules tree-shaking leaves it out of mislead, unless no
+    // module keeps any of its code.
+    if (target.usedBy.length === 0 || target.usedBy.includes(r.entryPoint)) {
+      target.chains.push(r);
+    }
   }
 
   const buildOrder = new Map(builds.map((b, idx) => [b.id, idx]));
@@ -271,7 +343,10 @@ export function chainTargetsJson(targets: ChainTarget[], limit: number) {
     bytes: t.bytes,
     codeBytes: t.codeBytes,
     sourceMapBytes: t.sourceMapBytes,
-    entryPoints: t.chains.length,
+    entryPoints: t.reachedBy,
+    usedBy: t.usedBy,
+    usedThrough: t.usedThrough,
+    directImporters: t.directImporters,
     chains: t.chains.slice(0, limit).map((c) => ({
       entryPoint: c.entryPoint,
       steps: c.chain.map((s) => ({
@@ -292,9 +367,9 @@ const TARGET_COLOR = "#ef6f6c";
  */
 export function importedBySection(
   targets: ChainTarget[],
-  options: { limit: number; width: number; showTargets: boolean },
+  options: { chains: number; width: number; showTargets: boolean },
 ): string[] {
-  const { limit, width, showTargets } = options;
+  const { chains, width, showTargets } = options;
   const fit = (line: string) => truncate(line, width, "middle");
   const out = [bold("Imported by")];
   if (targets.length === 0) {
@@ -313,12 +388,53 @@ export function importedBySection(
         if (inBuild.filter((other) => other.label === t.label).length > 1) {
           out.push(fit(dim(`    installed at ${t.packageDir ?? t.inputPath}`)));
         }
+        const unused = t.reachedBy - t.usedBy.length;
+        if (t.usedBy.length > 0 && unused > 0) {
+          out.push(
+            fit(
+              dim(
+                `    ${plural(unused, "more entry point")} import${unused === 1 ? "s" : ""} it without using its code`,
+              ),
+            ),
+          );
+        }
+        if (t.usedBy.length > 0 && t.usedThrough.length > 0) {
+          const shown = t.usedThrough.slice(0, 3);
+          const more = t.usedThrough.length - shown.length;
+          out.push(
+            fit(
+              dim(
+                `    used by your files ${shown.join(", ")}${more > 0 ? ` and ${more} more` : ""}`,
+              ),
+            ),
+          );
+        }
+        if (t.directImporters.length > 0) {
+          const shown = t.directImporters.slice(0, 3);
+          const more = t.directImporters.length - shown.length;
+          out.push(
+            fit(
+              dim(
+                `    imported directly by ${shown.join(", ")}${more > 0 ? ` and ${more} more` : ""}`,
+              ),
+            ),
+          );
+        }
       }
-      for (const c of t.chains.slice(0, limit)) {
+      if (!showTargets) {
+        out.push(
+          fit(
+            dim(
+              `    reached from ${plural(t.reachedBy, "entry point")}; used by ${plural(t.usedBy.length, "entry point")}`,
+            ),
+          ),
+        );
+      }
+      for (const c of t.chains.slice(0, chains)) {
         out.push(...chainLines(c.chain).map(fit));
       }
-      if (t.chains.length > limit) {
-        const hidden = t.chains.length - limit;
+      if (t.chains.length > chains) {
+        const hidden = t.chains.length - chains;
         out.push(
           fit(
             dim(
@@ -338,7 +454,11 @@ const MIN_LABEL_WIDTH = 12;
 function targetLine(t: ChainTarget, width: number): string {
   const prefix = `  ${colored(TARGET_COLOR, "◆")} `;
   const size = `  ${formatBytes(t.bytes)}`;
-  const from = `  ${dim(`from ${plural(t.chains.length, "entry point")}`)}`;
+  const from = `  ${dim(
+    t.usedBy.length > 0
+      ? `used by ${plural(t.usedBy.length, "entry point")}`
+      : `reached from ${plural(t.reachedBy, "entry point")}`,
+  )}`;
   const fixed = stringWidth(prefix + size);
   const suffix =
     width - fixed - stringWidth(from) >= MIN_LABEL_WIDTH ? size + from : size;

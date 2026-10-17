@@ -1,3 +1,4 @@
+import { Sizes } from "./sizes.js";
 import {
   AnalyzedBuild,
   SourceOrigin,
@@ -28,14 +29,22 @@ export function packagesTable(
   );
   const max = Math.max(1, ...all.map((p) => p.bytes));
   const cells = barCells(width, 70, 16);
+  const kinds = new Map(builds.map((b) => [b.id, b.kind]));
+  const inRuntime = (p: PackageUsage, kind: AnalyzedBuild["kind"]) => {
+    let n = 0;
+    for (const [id, sizes] of p.builds) {
+      if (kinds.get(id) === kind) n += sizes.bytes;
+    }
+    return n > 0 ? formatBytes(n) : dim("-");
+  };
   const rows = all.slice(0, top).map((p, idx) => {
     const color = ownerColor(p.origin, p.name);
     return [
       dim(String(idx + 1)),
       colored(color, p.key),
       formatBytes(p.bytes),
-      dim(formatBytes(p.codeBytes)),
-      dim(formatBytes(p.sourceMapBytes)),
+      inRuntime(p, "convex"),
+      inRuntime(p, "node"),
       formatPercent(p.bytes / grand),
       String(p.files),
       bar(p.bytes / max, cells, color),
@@ -46,8 +55,8 @@ export function packagesTable(
       { header: "#", align: "right" },
       { header: "Package", flexible: true, truncate: "end" },
       { header: "Size", align: "right" },
-      { header: "Code", align: "right", optional: true },
-      { header: "Source maps", align: "right", optional: true },
+      { header: "Convex (incl. maps)", align: "right", optional: true },
+      { header: "Node (incl. maps)", align: "right", optional: true },
       { header: "Share", align: "right" },
       { header: "Files", align: "right" },
       { header: "", optional: true },
@@ -70,7 +79,7 @@ export function packagesJson(builds: AnalyzedBuild[], limit: number) {
       codeBytes: p.codeBytes,
       sourceMapBytes: p.sourceMapBytes,
       files: p.files,
-      bytesByBuild: Object.fromEntries(p.builds),
+      byBuild: Object.fromEntries(p.builds),
       packageDirs: [...p.packageDirs],
     }));
 }
@@ -84,14 +93,16 @@ export type PackageUsage = {
   bytes: number;
   codeBytes: number;
   sourceMapBytes: number;
+  /** Distinct files, counting a file bundled into several builds once. */
   files: number;
-  /** `bytes` in each build the package appears in, by build id. */
-  builds: Map<string, number>;
+  /** Sizes in each build the package appears in, by build id. */
+  builds: Map<string, Sizes>;
   packageDirs: Set<string>;
 };
 
 export function packageUsage(builds: AnalyzedBuild[]): PackageUsage[] {
   const byKey = new Map<string, PackageUsage>();
+  const filesByKey = new Map<string, Set<string>>();
   for (const b of builds) {
     for (const o of b.outputs) {
       for (const i of o.inputs) {
@@ -116,8 +127,19 @@ export function packageUsage(builds: AnalyzedBuild[]): PackageUsage[] {
         usage.bytes += bytes;
         usage.codeBytes += i.bytesInOutput;
         usage.sourceMapBytes += i.sourceMapBytes;
-        usage.files += 1;
-        usage.builds.set(b.id, (usage.builds.get(b.id) ?? 0) + bytes);
+        const seen = filesByKey.get(key) ?? new Set();
+        seen.add(i.path);
+        filesByKey.set(key, seen);
+        usage.files = seen.size;
+        const inBuild = usage.builds.get(b.id) ?? {
+          bytes: 0,
+          codeBytes: 0,
+          sourceMapBytes: 0,
+        };
+        inBuild.bytes += bytes;
+        inBuild.codeBytes += i.bytesInOutput;
+        inBuild.sourceMapBytes += i.sourceMapBytes;
+        usage.builds.set(b.id, inBuild);
         if (i.packageDir) usage.packageDirs.add(i.packageDir);
       }
     }

@@ -4,6 +4,7 @@ import stringWidth from "string-width";
 import { TreeNode } from "./tree.js";
 import {
   ORIGIN_COLORS,
+  EXTERNAL_COLOR,
   formatBytes,
   formatPercent,
   ownerColor,
@@ -40,6 +41,8 @@ export function layout(values: number[], rect: Rect): Rect[] {
  * directories inherit the color of the package they're in.
  */
 export function nodeColor(node: TreeNode, parentColor?: string): string {
+  if (node.kind === "external") return EXTERNAL_COLOR;
+  if (node.kind === "overhead") return ORIGIN_COLORS.virtual;
   if (node.kind === "glue") return ORIGIN_COLORS.virtual;
   if (node.kind === "owner" && node.origin) {
     return ownerColor(node.origin, node.name);

@@ -5,6 +5,7 @@ import {
   AnalyzedBuild,
   SourceOrigin,
   inputBytes,
+  distinctExternalPackages,
   unmatchedSourceMapBytes,
 } from "../lib/model.js";
 import {
@@ -25,9 +26,23 @@ import {
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { moduleLoads, modulesTable } from "../lib/modules.js";
+import {
+  groupBySharedChunks,
+  moduleLoads,
+  modulesTable,
+} from "../lib/modules.js";
 import { packageUsage, packagesJson, packagesTable } from "../lib/packages.js";
-import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
+import {
+  CODE_SIZE_LIMITS_DOCS,
+  DEFAULT_LIMIT,
+  EXTERNAL_PACKAGES_DOCS,
+  jsonOption,
+} from "../lib/command.js";
+import {
+  componentSizes,
+  componentsJson,
+  componentsTable,
+} from "./components.js";
 import {
   findInsights,
   insightTitles,
@@ -37,8 +52,8 @@ import {
 export const summary = new Command("summary")
   .summary("Overview of your bundle")
   .option(
-    "--top <n>",
-    "Number of insights, packages and modules to show",
+    "--limit <n>",
+    "Number of insights, components, packages and modules to show",
     parsePositiveInteger,
     10,
   )
@@ -48,11 +63,17 @@ export const summary = new Command("summary")
     const devDependencies = readDevDependencies(analysis.bundle.projectRoot);
     if (options.json) {
       printJson(
-        summaryJson(analysis, builds, { top: options.top, devDependencies }),
+        summaryJson(analysis, builds, {
+          limit: options.limit,
+          devDependencies,
+        }),
       );
     } else {
       logOutput(
-        summaryReport(analysis, builds, { top: options.top, devDependencies }),
+        summaryReport(analysis, builds, {
+          limit: options.limit,
+          devDependencies,
+        }),
       );
     }
   });
@@ -60,9 +81,9 @@ export const summary = new Command("summary")
 export function summaryReport(
   analysis: Analysis,
   builds: AnalyzedBuild[],
-  options: { top: number; devDependencies?: ReadonlySet<string> },
+  options: { limit: number; devDependencies?: ReadonlySet<string> },
 ): string {
-  const { top } = options;
+  const { limit } = options;
   const width = terminalWidth();
   const barWidth = Math.max(10, layoutWidth() - 4);
   const t = totals(builds);
@@ -84,10 +105,18 @@ export function summaryReport(
   out.push("");
 
   const uploadedBytes = t.codeBytes + t.sourceMapBytes;
+  const size = uploadedBytes + t.externalPackageBytes;
+  out.push(truncate(`  ${bold("Total size")} ${formatBytes(size)}`, width));
   out.push(
-    truncate(
-      `  ${bold("Size")} ${formatBytes(uploadedBytes + t.externalPackageBytes)}`,
-      width,
+    dim(
+      wrapItems(
+        `Code + source maps${t.externalPackageBytes > 0 ? " + external packages (installed estimate)" : ""}`.split(
+          " ",
+        ),
+        " ",
+        width,
+        "  ",
+      ),
     ),
   );
   const sizeSegments = [
@@ -111,12 +140,13 @@ export function summaryReport(
     dim(
       wrapItems(
         [
-          `Code and source maps are uploaded on every push: ${formatBytes(uploadedBytes)}.`,
+          `Code and source maps total ${formatBytes(uploadedBytes)}.`,
           ...(t.externalPackageBytes > 0
             ? [
-                "External packages size is measured from your local node_modules and may differ when installed on the server.",
+                `External package sizes are estimated from your node_modules and may differ in size when installed on the server. For more information, see: ${EXTERNAL_PACKAGES_DOCS}`,
               ]
             : []),
+          `For code size limits, see: ${CODE_SIZE_LIMITS_DOCS}`,
           ...(t.unmeasuredExternalPackages > 0
             ? [
                 `${plural(t.unmeasuredExternalPackages, "external package")} couldn't be found in your local node_modules, so ${t.unmeasuredExternalPackages === 1 ? "its size isn't" : "their sizes aren't"} included.`,
@@ -132,18 +162,19 @@ export function summaryReport(
     ),
   );
 
-  // Each list shows `top` entries, then how many more there are and the
-  // command that lists them all, with `--top` when they're more than that
-  // command shows by default.
+  // Each list shows `limit` of its `total` rows, then how many more there are
+  // and the command that lists them all, with `--limit` when the command's
+  // `commandRows` are more than it shows by default. Commands without
+  // `--limit` pass null.
   const seeAll = (
     total: number,
     command: string,
     what: string,
-    limited = true,
+    commandRows: number | null = total,
   ) =>
     dim(
       wrapItems(
-        `${total > top ? `… ${total - top} more. ` : ""}Run \`npx @convex-dev/bundle-analyzer ${command}${limited && total > DEFAULT_TOP ? ` --top ${total}` : ""}\` to see ${what}.`.split(
+        `${total > limit ? `… ${total - limit} more. ` : ""}Run \`npx @convex-dev/bundle-analyzer ${command}${commandRows !== null && commandRows > DEFAULT_LIMIT ? ` --limit ${commandRows}` : ""}\` to see ${what}.`.split(
           " ",
         ),
         " ",
@@ -152,19 +183,29 @@ export function summaryReport(
       ),
     );
 
-  const found = findInsights(builds, options.devDependencies);
+  const found = findInsights(
+    builds,
+    options.devDependencies,
+    analysis.bundle.projectRoot,
+  );
   out.push(heading("Insights"));
   if (found.length === 0) {
     out.push(dim("  No insights."));
   } else {
-    out.push(insightTitles(found.slice(0, top), width));
+    out.push(insightTitles(found.slice(0, limit), width));
     out.push(
-      seeAll(found.length, "insights", "every insight with details", false),
+      seeAll(found.length, "insights", "every insight with details", null),
     );
   }
 
+  out.push(heading(`Components ${dim("(code and source maps)")}`));
+  out.push(indent(componentsTable(builds, limit, width - 2)));
+  out.push(
+    seeAll(componentSizes(builds).length, "components", "every component"),
+  );
+
   out.push(heading(`Largest packages ${dim("(code and source maps)")}`));
-  out.push(indent(packagesTable(builds, top, width - 2)));
+  out.push(indent(packagesTable(builds, limit, width - 2)));
   out.push(
     seeAll(
       packageUsage(builds).filter((p) => p.bytes > 0).length,
@@ -178,8 +219,16 @@ export function summaryReport(
       `Heaviest modules ${dim("(code in each entry point plus the shared chunks it imports)")}`,
     ),
   );
-  out.push(indent(modulesTable(builds, top, width - 2)));
-  out.push(seeAll(moduleLoads(builds).length, "modules", "every module"));
+  out.push(indent(modulesTable(builds, limit, width - 2, { grouped: true })));
+  const loads = moduleLoads(builds);
+  out.push(
+    seeAll(
+      groupBySharedChunks(loads).length,
+      "modules",
+      "every module",
+      loads.length,
+    ),
+  );
 
   return out.join("\n");
 }
@@ -187,9 +236,9 @@ export function summaryReport(
 export function summaryJson(
   analysis: Analysis,
   builds: AnalyzedBuild[],
-  options: { top: number; devDependencies?: ReadonlySet<string> },
+  options: { limit: number; devDependencies?: ReadonlySet<string> },
 ) {
-  const { top } = options;
+  const { limit } = options;
   const t = totals(builds);
   return {
     convexVersion: analysis.bundle.convexVersion,
@@ -198,9 +247,19 @@ export function summaryJson(
       ...t,
       bytes: t.codeBytes + t.sourceMapBytes,
     },
-    topPackages: packagesJson(builds, top),
-    heaviestModules: moduleLoads(builds).slice(0, top),
-    insights: findInsights(builds, options.devDependencies).slice(0, top),
+    components: componentsJson(builds, limit),
+    topPackages: packagesJson(builds, limit),
+    heaviestModules: groupBySharedChunks(moduleLoads(builds))
+      .slice(0, limit)
+      .map(([heaviest, ...rest]) => ({
+        ...heaviest,
+        sameChunks: rest.map((m) => m.path),
+      })),
+    insights: findInsights(
+      builds,
+      options.devDependencies,
+      analysis.bundle.projectRoot,
+    ).slice(0, limit),
   };
 }
 
@@ -244,7 +303,6 @@ export function totals(builds: AnalyzedBuild[]): Totals {
     sourceMapOverheadBytes: 0,
     sourceMapUnmatchedBytes: 0,
   };
-  const seenExternal = new Set<string>();
   for (const b of builds) {
     for (const o of b.outputs) {
       t.modules += 1;
@@ -255,16 +313,10 @@ export function totals(builds: AnalyzedBuild[]): Totals {
       t.sourceMapOverheadBytes += o.sourceMapOverheadBytes;
       t.sourceMapUnmatchedBytes += unmatchedSourceMapBytes(o);
     }
-    for (const e of b.externalPackages) {
-      const key = `${e.name}@${e.version}`;
-      if (seenExternal.has(key)) continue;
-      seenExternal.add(key);
-      if (e.diskBytes === null) {
-        t.unmeasuredExternalPackages += 1;
-      } else {
-        t.externalPackageBytes += e.diskBytes;
-      }
-    }
+  }
+  for (const e of distinctExternalPackages(builds)) {
+    if (e.diskBytes === null) t.unmeasuredExternalPackages += 1;
+    else t.externalPackageBytes += e.diskBytes;
   }
   return t;
 }

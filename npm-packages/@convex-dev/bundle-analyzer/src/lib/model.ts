@@ -111,6 +111,26 @@ export type AnalyzedBuild = BuildRecord & {
   outputs: AnalyzedOutput[];
 };
 
+/** Installed packages count once per name and version across all builds. */
+export function distinctExternalPackages(
+  builds: AnalyzedBuild[],
+): ExternalPackageInfo[] {
+  const packages = new Map<string, ExternalPackageInfo>();
+  for (const b of builds) {
+    for (const pkg of b.externalPackages) {
+      const key = `${pkg.name}@${pkg.version}`;
+      const previous = packages.get(key);
+      if (
+        !previous ||
+        (previous.diskBytes === null && pkg.diskBytes !== null)
+      ) {
+        packages.set(key, pkg);
+      }
+    }
+  }
+  return [...packages.values()];
+}
+
 export type Analysis = {
   bundle: CollectedBundle;
   builds: AnalyzedBuild[];

@@ -95,12 +95,12 @@ function measureModules(
 type PackageJsonInfo = { dir: string; name: string; version: string | null };
 
 /**
- * Attributes bundled files to packages by finding the nearest package.json
- * with a `name`. esbuild reports symlink-resolved paths, so pnpm and workspace
- * installs don't reliably contain a `node_modules/<name>` segment.
+ * esbuild resolves symlinks, so package ownership follows package.json files
+ * rather than node_modules path segments. Versionless manifests named after
+ * an enclosing package's subpath belong to that enclosing package.
  */
 class PackageAttributor {
-  private packageJsonByDir = new Map<string, PackageJsonInfo | null>();
+  private packagesByDir = new Map<string, PackageJsonInfo | null>();
   private projectPackage: PackageJsonInfo | null;
 
   constructor(private root: string) {
@@ -149,26 +149,30 @@ class PackageAttributor {
   }
 
   private nearestPackage(file: string): PackageJsonInfo | null {
-    const visited: string[] = [];
-    let dir = path.dirname(file);
-    let found: PackageJsonInfo | null = null;
-    while (true) {
-      const cached = this.packageJsonByDir.get(dir);
-      if (cached !== undefined) {
-        found = cached;
-        break;
+    return this.packageAbove(path.dirname(file));
+  }
+
+  private packageAbove(dir: string): PackageJsonInfo | null {
+    const cached = this.packagesByDir.get(dir);
+    if (cached !== undefined) return cached;
+    const pkg = readNamedPackageJson(dir);
+    const parent = path.dirname(dir);
+    const installationRoot =
+      path.basename(parent) === "node_modules" ||
+      (path.basename(parent).startsWith("@") &&
+        path.basename(path.dirname(parent)) === "node_modules");
+    let found = pkg;
+    if (!pkg || (!pkg.version && !installationRoot)) {
+      const above = parent === dir ? null : this.packageAbove(parent);
+      if (
+        !pkg ||
+        (above &&
+          (pkg.name === above.name || pkg.name.startsWith(`${above.name}/`)))
+      ) {
+        found = above;
       }
-      visited.push(dir);
-      const pkg = readNamedPackageJson(dir);
-      if (pkg) {
-        found = pkg;
-        break;
-      }
-      const parent = path.dirname(dir);
-      if (parent === dir) break;
-      dir = parent;
     }
-    for (const v of visited) this.packageJsonByDir.set(v, found);
+    this.packagesByDir.set(dir, found);
     return found;
   }
 }
@@ -193,7 +197,7 @@ function readNamedPackageJson(dir: string): PackageJsonInfo | null {
  * Sums file sizes under `dir`, following `dir` itself if it's a symlink but
  * not symlinks inside it, which in pnpm installs point at other packages.
  */
-function directorySize(dir: string): number {
+export function directorySize(dir: string): number {
   let total = 0;
   const stack = [dir];
   while (stack.length > 0) {

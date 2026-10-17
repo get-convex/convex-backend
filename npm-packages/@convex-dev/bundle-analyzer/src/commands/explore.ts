@@ -9,7 +9,7 @@ export const explore = new Command("explore")
     [
       "Browse your bundles in an interactive terminal UI: drill down from components and runtimes to modules, packages and files, with a live treemap of the current level and the import chain that pulls in each file.",
       "",
-      "Sizes count code plus source maps. Press t to switch layouts, g to group by component or by package, / to filter, and ? for all keys.",
+      "Total size includes code, source maps, and installed external package estimates. Press t to switch layouts, g to group by component or by package, / to filter, and ? for all keys.",
     ].join("\n"),
   )
   .action(async () => {

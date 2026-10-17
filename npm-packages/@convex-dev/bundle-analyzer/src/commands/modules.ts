@@ -21,7 +21,7 @@ import {
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
+import { DEFAULT_LIMIT, jsonOption } from "../lib/command.js";
 import {
   FUNCTION_RUNTIMES,
   FunctionRuntime,
@@ -60,28 +60,28 @@ export const modules = new Command("modules")
     ).choices(FUNCTION_RUNTIMES),
   )
   .option(
-    "--top <n>",
+    "--limit <n>",
     "Number of modules to show, or of a module's imports or a chunk's files",
     parsePositiveInteger,
-    DEFAULT_TOP,
+    DEFAULT_LIMIT,
   )
   .addOption(jsonOption())
   .action(async (module, options) => {
     const { builds } = await loadAnalysis();
-    const { runtime, top } = options;
+    const { runtime, limit } = options;
     if (module !== undefined) {
       const found = lookupModules(builds, module).filter(
         (d) => runtime === undefined || d.kind === runtime,
       );
       if (options.json) {
-        printJson(lookupJson(found, top));
+        printJson(lookupJson(found, limit));
       } else {
-        logOutput(lookupReport(found, module, top));
+        logOutput(lookupReport(found, module, limit));
       }
     } else if (options.json) {
-      printJson(modulesJson(builds, top, runtime));
+      printJson(modulesJson(builds, limit, runtime));
     } else {
-      logOutput(modulesReport(builds, { top, runtime }));
+      logOutput(modulesReport(builds, { limit, runtime }));
     }
   });
 
@@ -92,9 +92,9 @@ const LAZY_NOTES: Record<FunctionRuntime, string> = {
 
 export function modulesReport(
   builds: AnalyzedBuild[],
-  options: { top: number; runtime?: FunctionRuntime | undefined },
+  options: { limit: number; runtime?: FunctionRuntime | undefined },
 ): string {
-  const { top, runtime } = options;
+  const { limit, runtime } = options;
   const width = terminalWidth();
   const loads = moduleLoads(builds).filter(
     (m) => runtime === undefined || m.kind === runtime,
@@ -111,11 +111,11 @@ export function modulesReport(
     ),
   ];
   if (loads.length > 0) {
-    const hidden = loads.length - Math.min(loads.length, top);
+    const hidden = loads.length - Math.min(loads.length, limit);
     out.push(
       "",
-      modulesTable(builds, top, width, runtime),
-      ...(hidden > 0 ? [dim(`… ${hidden} more (use --top)`)] : []),
+      modulesTable(builds, limit, width, { runtime }),
+      ...(hidden > 0 ? [dim(`… ${hidden} more (use --limit)`)] : []),
       "",
       dim(
         prose(
@@ -128,30 +128,30 @@ export function modulesReport(
   return out.join("\n");
 }
 
-/** Each module with its lists cut to `top` entries, as the report shows them. */
-export function lookupJson(found: ModuleDetail[], top: number) {
+/** Each module with its lists cut to `limit` entries, as the report shows them. */
+export function lookupJson(found: ModuleDetail[], limit: number) {
   return found.map((d) => ({
     ...d,
     loadedByCount: d.loadedBy.length,
     lazilyLoadedByCount: d.lazilyLoadedBy.length,
-    files: d.files.slice(0, top),
-    imports: d.imports.slice(0, top),
-    lazy: d.lazy.slice(0, top),
-    loadedBy: d.loadedBy.slice(0, top),
-    lazilyLoadedBy: d.lazilyLoadedBy.slice(0, top),
+    files: d.files.slice(0, limit),
+    imports: d.imports.slice(0, limit),
+    lazy: d.lazy.slice(0, limit),
+    loadedBy: d.loadedBy.slice(0, limit),
+    lazilyLoadedBy: d.lazilyLoadedBy.slice(0, limit),
   }));
 }
 
 export function lookupReport(
   found: ModuleDetail[],
   query: string,
-  top: number,
+  limit: number,
 ): string {
   const width = terminalWidth();
   if (found.length === 0) {
     return dim(prose(`No function module or chunk matches ${query}.`, width));
   }
-  const out = found.flatMap((d) => moduleSection(d, top, width));
+  const out = found.flatMap((d) => moduleSection(d, limit, width));
   if (found.some((d) => d.imports.length + d.lazy.length > 0)) {
     out.push(
       "",
@@ -166,7 +166,11 @@ export function lookupReport(
   return out.join("\n").trimStart();
 }
 
-function moduleSection(d: ModuleDetail, top: number, width: number): string[] {
+function moduleSection(
+  d: ModuleDetail,
+  limit: number,
+  width: number,
+): string[] {
   const out = [
     heading(`${d.path} · ${d.buildId}`).trimEnd(),
     dim(
@@ -222,13 +226,13 @@ function moduleSection(d: ModuleDetail, top: number, width: number): string[] {
             waterfallBar(before, f.bytes, d.codeBytes, cells(width), color),
           ];
         }),
-        top,
+        limit,
         width,
       ),
     );
   }
   if (d.imports.length > 0) {
-    out.push("", ...importsTable("Imports", d.imports, top, width));
+    out.push("", ...importsTable("Imports", d.imports, limit, width));
   } else if (d.role === "function module") {
     out.push("", dim("It imports no other modules."));
   }
@@ -237,14 +241,14 @@ function moduleSection(d: ModuleDetail, top: number, width: number): string[] {
       "",
       dim(prose(`Lazy imports are only loaded ${LAZY_NOTES[d.kind]}.`, width)),
       "",
-      ...importsTable("Lazy imports", d.lazy, top, width),
+      ...importsTable("Lazy imports", d.lazy, limit, width),
     );
   }
   if (d.loadedBy.length > 0) {
-    out.push("", ...importerTable(d, d.loadedBy, false, top, width));
+    out.push("", ...importerTable(d, d.loadedBy, false, limit, width));
   }
   if (d.lazilyLoadedBy.length > 0) {
-    out.push("", ...importerTable(d, d.lazilyLoadedBy, true, top, width));
+    out.push("", ...importerTable(d, d.lazilyLoadedBy, true, limit, width));
   }
   return out;
 }
@@ -252,13 +256,13 @@ function moduleSection(d: ModuleDetail, top: number, width: number): string[] {
 function limitedTable(
   columns: Parameters<typeof table>[0],
   rows: string[][],
-  top: number,
+  limit: number,
   width: number,
 ): string[] {
-  const hidden = rows.length - Math.min(rows.length, top);
+  const hidden = rows.length - Math.min(rows.length, limit);
   return [
-    table(columns, rows.slice(0, top), width),
-    ...(hidden > 0 ? [dim(`… ${hidden} more (use --top)`)] : []),
+    table(columns, rows.slice(0, limit), width),
+    ...(hidden > 0 ? [dim(`… ${hidden} more (use --limit)`)] : []),
   ];
 }
 
@@ -270,7 +274,7 @@ function importerTable(
   d: ModuleDetail,
   importers: ModuleLoader[],
   lazy: boolean,
-  top: number,
+  limit: number,
   width: number,
 ): string[] {
   const header = lazy ? "Lazily imported by" : "Imported by";
@@ -305,7 +309,7 @@ function importerTable(
         Math.max(1, Math.round((totals[idx] / max) * cells)),
       ),
     ]),
-    top,
+    limit,
     width,
   );
 }
@@ -313,7 +317,7 @@ function importerTable(
 function importsTable(
   header: string,
   modules: ImportedModule[],
-  top: number,
+  limit: number,
   width: number,
 ): string[] {
   const total = modules.reduce((n, m) => n + m.codeBytes, 0);
@@ -328,7 +332,7 @@ function importsTable(
       formatBytes(m.codeBytes),
       waterfallBar(before, m.codeBytes, total, cells(width), CODE_COLOR),
     ]),
-    top,
+    limit,
     width,
   );
 }

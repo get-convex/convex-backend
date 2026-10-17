@@ -24,7 +24,7 @@ import {
   wrapItems,
 } from "../lib/format.js";
 import { loadAnalysis } from "../lib/analysis.js";
-import { DEFAULT_TOP, jsonOption } from "../lib/command.js";
+import { DEFAULT_CHAINS, DEFAULT_LIMIT, jsonOption } from "../lib/command.js";
 import {
   ChainTarget,
   chainTargets,
@@ -40,7 +40,7 @@ export const files = new Command("files")
       "",
       "Files are sorted by size (code and source maps).",
       "",
-      "Pass a file to see each module the file is bundled into and the entry points that import it, each with its shortest import chain. Use `--limit` to set how many entry points to output.",
+      "Pass a file to see each module the file is bundled into and the entry points that import it, each with its shortest import chain.",
     ].join("\n"),
   )
   .argument(
@@ -48,45 +48,39 @@ export const files = new Command("files")
     "File path, or part of one (e.g. `convex/lib/` or `zod@3.25.76/index.js`)",
   )
   .option(
-    "--top <n>",
-    "Number of files to show, or of matching files and each one's copies",
-    parsePositiveInteger,
-    DEFAULT_TOP,
-  )
-  .option(
     "--limit <n>",
-    "Entry points to show per build, each with its import chain",
+    `Number of rows in each list: files, matching files and their copies, and entry points per build (default: ${DEFAULT_LIMIT}, ${DEFAULT_CHAINS} entry points)`,
     parsePositiveInteger,
-    3,
   )
   .addOption(jsonOption())
   .action(async (file, options) => {
     const { builds } = await loadAnalysis();
-    const { top, limit } = options;
+    const limit = options.limit ?? DEFAULT_LIMIT;
+    const chains = options.limit ?? DEFAULT_CHAINS;
     if (file !== undefined) {
-      const found = fileDetails(builds, file, top);
+      const found = fileDetails(builds, file, limit);
       if (options.json) {
-        printJson(fileDetailsJson(found, { top, limit }));
+        printJson(fileDetailsJson(found, { limit, chains }));
       } else {
-        logOutput(fileDetailsReport(found, file, { top, limit }));
+        logOutput(fileDetailsReport(found, file, { limit, chains }));
       }
     } else if (options.json) {
-      printJson(filesJson(builds, top));
+      printJson(filesJson(builds, limit));
     } else {
-      logOutput(filesReport(builds, { top }));
+      logOutput(filesReport(builds, { limit }));
     }
   });
 
 export function filesReport(
   builds: AnalyzedBuild[],
-  options: { top: number },
+  options: { limit: number },
 ): string {
-  const { top } = options;
+  const { limit } = options;
   const width = terminalWidth();
   const all = fileUsage(builds).filter((f) => f.bytes > 0);
   const max = Math.max(1, ...all.map((f) => f.bytes));
   const cells = barCells(width, 50, 16);
-  const rows = all.slice(0, top).map((f) => {
+  const rows = all.slice(0, limit).map((f) => {
     const color = ownerColor(f.origin, f.packageName ?? ownerLabel(f));
     return [
       colored(color, f.display),
@@ -115,7 +109,7 @@ export function filesReport(
       rows,
       width,
     ),
-    ...(hidden > 0 ? [dim(`… ${hidden} more (use --top)`)] : []),
+    ...(hidden > 0 ? [dim(`… ${hidden} more (use --limit)`)] : []),
   ].join("\n");
 }
 
@@ -219,13 +213,13 @@ export type FileDetail = FileUsage & {
 /**
  * Files whose display path (e.g. `zod@3.25.76/index.js`) or input path
  * matches `query`, with their import chains. An exact match wins; otherwise
- * `query` matches part of the path. Only the `top` largest matches are
+ * `query` matches part of the path. Only the `limit` largest matches are
  * returned, with the number of matches.
  */
 export function fileDetails(
   builds: AnalyzedBuild[],
   query: string,
-  top: number,
+  limit: number,
 ): { files: FileDetail[]; matches: number } {
   const all = fileUsage(builds).filter((f) => f.bytes > 0);
   const exact = all.filter((f) => f.display === query || f.path === query);
@@ -233,7 +227,7 @@ export function fileDetails(
     exact.length > 0
       ? exact
       : all.filter((f) => f.display.includes(query) || f.path.includes(query));
-  const shown = matches.slice(0, top);
+  const shown = matches.slice(0, limit);
   const targets = chainTargets(builds, {
     kind: "files",
     inputPaths: new Set(shown.map((f) => f.path)),
@@ -255,7 +249,7 @@ export function fileDetails(
 
 export function fileDetailsJson(
   found: { files: FileDetail[]; matches: number },
-  options: { top: number; limit: number },
+  options: { limit: number; chains: number },
 ) {
   return {
     matches: found.matches,
@@ -268,9 +262,9 @@ export function fileDetailsJson(
       bytes: f.bytes,
       codeBytes: f.codeBytes,
       sourceMapBytes: f.sourceMapBytes,
-      copies: f.copies.slice(0, options.top),
+      copies: f.copies.slice(0, options.limit),
       copyCount: f.copies.length,
-      chains: chainTargetsJson(f.chains, options.limit),
+      chains: chainTargetsJson(f.chains, options.chains),
     })),
   };
 }
@@ -278,9 +272,9 @@ export function fileDetailsJson(
 export function fileDetailsReport(
   found: { files: FileDetail[]; matches: number },
   query: string,
-  options: { top: number; limit: number },
+  options: { limit: number; chains: number },
 ): string {
-  const { top, limit } = options;
+  const { limit, chains } = options;
   const width = terminalWidth();
   if (found.files.length === 0) {
     return [
@@ -323,7 +317,7 @@ export function fileDetailsReport(
           { header: "Source maps", align: "right", optional: true },
         ],
         f.copies
-          .slice(0, top)
+          .slice(0, limit)
           .map((c) => [
             dim(c.buildId),
             c.module,
@@ -333,16 +327,19 @@ export function fileDetailsReport(
           ]),
         width,
       ),
-      ...(f.copies.length > top
-        ? [dim(`… ${f.copies.length - top} more (use --top)`)]
+      ...(f.copies.length > limit
+        ? [dim(`… ${f.copies.length - limit} more (use --limit)`)]
         : []),
       "",
-      ...importedBySection(f.chains, { limit, width, showTargets: false }),
+      ...importedBySection(f.chains, { chains, width, showTargets: false }),
     );
   }
   const hidden = found.matches - found.files.length;
   if (hidden > 0) {
-    out.push("", dim(`… ${plural(hidden, "more matching file")} (use --top)`));
+    out.push(
+      "",
+      dim(`… ${plural(hidden, "more matching file")} (use --limit)`),
+    );
   }
   out.push(
     "",

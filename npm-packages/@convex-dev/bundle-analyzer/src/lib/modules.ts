@@ -23,20 +23,26 @@ export const SHARED_CHUNK_COLOR = "#6f7680";
 export const FUNCTION_RUNTIMES = ["convex", "node"] as const;
 export type FunctionRuntime = (typeof FUNCTION_RUNTIMES)[number];
 
-/** The heaviest modules by load size, optionally only one runtime's. */
+/**
+ * The heaviest modules by load size, optionally only one runtime's. With
+ * `grouped`, modules that load the same shared chunks share a row, showing
+ * the heaviest of them.
+ */
 export function modulesTable(
   builds: AnalyzedBuild[],
-  top: number,
+  limit: number,
   width = terminalWidth(),
-  runtime?: FunctionRuntime,
+  options: { runtime?: FunctionRuntime | undefined; grouped?: boolean } = {},
 ): string {
-  const all = moduleLoads(builds).filter(
+  const { runtime, grouped = false } = options;
+  const loads = moduleLoads(builds).filter(
     (m) => runtime === undefined || m.kind === runtime,
   );
-  const max = Math.max(1, ...all.map((m) => m.loadBytes));
+  const all = grouped ? groupBySharedChunks(loads) : loads.map((m) => [m]);
+  const max = Math.max(1, ...loads.map((m) => m.loadBytes));
   const cells = barCells(width, 70, 16);
-  const rows = all.slice(0, top).map((m) => [
-    m.path,
+  const rows = all.slice(0, limit).map(([m, ...rest]) => [
+    rest.length > 0 ? `${m.path} ${dim(`+${rest.length} more`)}` : m.path,
     dim(m.buildId),
     formatBytes(m.ownBytes),
     formatBytes(m.loadBytes - m.ownBytes),
@@ -61,6 +67,23 @@ export function modulesTable(
     rows,
     width,
   );
+}
+
+/**
+ * `loads` grouped by build and the exact set of shared chunks they load, in
+ * the order of each group's heaviest module. Modules without chunks are
+ * alone in their group.
+ */
+export function groupBySharedChunks(loads: ModuleLoad[]): ModuleLoad[][] {
+  const groups = new Map<string, ModuleLoad[]>();
+  for (const m of loads) {
+    const key =
+      m.chunks.length > 0
+        ? [m.buildId, ...[...m.chunks].sort()].join("\0")
+        : `${m.buildId}\0${m.path}\0own`;
+    groups.set(key, [...(groups.get(key) ?? []), m]);
+  }
+  return [...groups.values()];
 }
 
 export type ModuleLoad = {
