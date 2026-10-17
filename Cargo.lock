@@ -6985,6 +6985,7 @@ dependencies = [
  "anyhow",
  "arrow-array",
  "async-trait",
+ "fastrace",
  "futures",
  "iceberg",
  "iceberg-catalog-glue",

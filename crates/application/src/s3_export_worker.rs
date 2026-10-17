@@ -6,10 +6,12 @@ use std::{
 use common::{
     backoff::Backoff,
     errors::report_error,
+    fastrace_helpers::get_sampled_span,
     runtime::Runtime,
 };
 use database::Database;
 use exports::interface::ExportProvider;
+use fastrace::future::FutureExt as _;
 use keybroker::Identity;
 use model::{
     log_sinks::{
@@ -107,6 +109,11 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         let page = {
             let database_snapshot = self.database.latest_database_snapshot()?;
             let timer = s3_export_sync_timer();
+            let span = get_sampled_span(
+                &self.instance_name,
+                "s3_export_worker/sync",
+                &mut self.runtime.rng(),
+            );
             let page = self
                 .export_provider
                 .sync(
@@ -124,6 +131,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
                     &config.selection,
                     previous_cursor.map(str::to_owned),
                 )
+                .in_span(span)
                 .await?;
             timer.finish();
             page

@@ -84,6 +84,7 @@ impl IcebergChangeWriter {
     /// here before anything is dropped. When `fresh`, drops the database's
     /// tables first; dropping touches only Glue, so it works after the export
     /// moves to a bucket the credentials can no longer read.
+    #[fastrace::trace]
     pub async fn for_s3(
         namespace: &str,
         warehouse_uri: &str,
@@ -118,6 +119,7 @@ impl IcebergChangeWriter {
         Self::open(Arc::new(catalog), namespace, warehouse_uri, selected, fresh).await
     }
 
+    #[fastrace::trace]
     async fn open(
         catalog: Arc<dyn Catalog>,
         namespace: &str,
@@ -230,6 +232,7 @@ impl IcebergChangeWriter {
         Ok(())
     }
 
+    #[fastrace::trace]
     async fn load_existing(&self, ident: &TableIdent) -> Result<Option<Table>> {
         // Glue's `load_table` reports a missing table as `Unexpected`, but its
         // `table_exists` recognizes one.
@@ -241,6 +244,7 @@ impl IcebergChangeWriter {
         Ok(Some(table))
     }
 
+    #[fastrace::trace]
     async fn create(&mut self, source: &SourceTable) -> Result<()> {
         let name = Self::table_name(source)?;
         let creation = TableCreation::builder()
@@ -274,6 +278,7 @@ impl IcebergChangeWriter {
     /// Requires one writer per namespace at a time. An `iceberg` commit rebases
     /// onto the table it reloads by name, so an append that overlaps another
     /// writer's drop and recreate would land in the new table.
+    #[fastrace::trace]
     pub async fn apply(
         &mut self,
         truncated: &[SourceTable],
@@ -325,6 +330,7 @@ impl IcebergChangeWriter {
     /// Sets `convex.porter.retired` on owned tables absent from `selected` and
     /// clears it on the rest. Call this only at a consistent snapshot, when
     /// `selected` lists every source table.
+    #[fastrace::trace]
     pub async fn retire_unselected(&mut self, selected: &[SourceTable]) -> Result<()> {
         // Retirement needs the full catalog, including tables untouched by this page.
         for ident in self.catalog.list_tables(&self.namespace).await? {
