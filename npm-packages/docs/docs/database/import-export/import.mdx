@@ -56,9 +56,10 @@ file.
 
 ## Limits
 
-Each line in a JSONLines import has a maximum length of 16 MiB, including its
-line ending. For ZIP imports, this limit applies to decompressed lines in
-`documents.jsonl` and `generated_schema.jsonl` files.
+CSV and JSONLines imports have a 16 MiB line limit, including line endings and
+CSV headers. Quoted multiline CSV values count as a single logical line. For ZIP
+imports, the limit applies to decompressed lines in `documents.jsonl` and
+`generated_schema.jsonl` files.
 
 Imported documents must also meet the
 [1 MiB document size limit](/database/types#limits).

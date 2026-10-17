@@ -17,7 +17,7 @@ use common::{
         ComponentPath,
     },
     knobs::{
-        SNAPSHOT_IMPORT_MAX_JSONL_LINE_SIZE_BYTES,
+        SNAPSHOT_IMPORT_MAX_LINE_SIZE_BYTES,
         TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
     types::{
@@ -136,9 +136,17 @@ fn map_csv_error(e: csv_async::Error) -> anyhow::Error {
         csv_async::ErrorKind::UnequalLengths { pos, .. } => {
             ImportError::CsvRowMissingFields(pos_line(pos)).into()
         },
-        // IO and Seek are errors from the underlying stream.
-        csv_async::ErrorKind::Io(_)
-        | csv_async::ErrorKind::Seek
+        csv_async::ErrorKind::Io(source) => {
+            let metadata = source
+                .get_ref()
+                .and_then(|source| source.downcast_ref::<ImportError>())
+                .map(ImportError::error_metadata);
+            match metadata {
+                Some(metadata) => anyhow::Error::from(e).context(metadata),
+                None => e.into(),
+            }
+        },
+        csv_async::ErrorKind::Seek
         // We're not using serde for CSV parsing, so these errors are unexpected
         | csv_async::ErrorKind::Serialize(_)
         | csv_async::ErrorKind::Deserialize { .. }
@@ -178,7 +186,7 @@ pub async fn parse_import_file(
                     while let Some(line) = read_bounded_line(
                         &mut reader,
                         &mut line,
-                        *SNAPSHOT_IMPORT_MAX_JSONL_LINE_SIZE_BYTES,
+                        *SNAPSHOT_IMPORT_MAX_LINE_SIZE_BYTES,
                         lineno,
                         |e| ImportError::NotUtf8(e).into(),
                     )
@@ -288,9 +296,84 @@ pub async fn parse_import_file(
     }
 }
 
+#[try_stream(ok = Vec<u8>, error = io::Error)]
+async fn limit_csv_records(mut reader: impl AsyncRead + Unpin, max_record_bytes: usize) {
+    // Match csv-async's default parser settings so validation observes the same
+    // record boundaries and escapes before csv-async grows its record buffers.
+    let mut parser = csv_core::Reader::new();
+    let mut chunk = [0; 8192];
+    let mut decoded = [0; 8192];
+    let mut ends = [0; 128];
+    let mut record_bytes = 0;
+    let mut record_number = 1;
+    let mut pending_cr = None;
+    loop {
+        let len = reader.read(&mut chunk).await?;
+        let mut input = &chunk[..len];
+        // An empty input flushes the final field and record at EOF.
+        while !input.is_empty() || len == 0 {
+            // csv-core reports a record at CR; the optional LF can arrive in
+            // the next read and contributes to the preceding record's length.
+            if let Some(previous_bytes) = pending_cr.take()
+                && input.first() == Some(&b'\n')
+            {
+                if previous_bytes >= max_record_bytes {
+                    Err(io::Error::other(ImportError::CsvRecordTooLarge {
+                        record_number: record_number - 1,
+                        limit: max_record_bytes,
+                    }))?;
+                }
+                let _ = parser.read_record(&input[..1], &mut decoded, &mut ends);
+                input = &input[1..];
+                continue;
+            }
+            // Empty physical lines are skipped by the CSV parser.
+            if record_bytes == 0 {
+                let blank_bytes = input
+                    .iter()
+                    .take_while(|&&b| b == b'\r' || b == b'\n')
+                    .count();
+                if blank_bytes > 0 {
+                    let _ = parser.read_record(&input[..blank_bytes], &mut decoded, &mut ends);
+                    input = &input[blank_bytes..];
+                    continue;
+                }
+            }
+            let (result, consumed, ..) = parser.read_record(input, &mut decoded, &mut ends);
+            let ended_with_cr = input[..consumed].last() == Some(&b'\r');
+            input = &input[consumed..];
+            record_bytes += consumed;
+            if record_bytes > max_record_bytes {
+                Err(io::Error::other(ImportError::CsvRecordTooLarge {
+                    record_number,
+                    limit: max_record_bytes,
+                }))?;
+            }
+            match result {
+                csv_core::ReadRecordResult::End => return Ok(()),
+                csv_core::ReadRecordResult::Record => {
+                    pending_cr = ended_with_cr.then_some(record_bytes);
+                    record_bytes = 0;
+                    record_number += 1;
+                },
+                csv_core::ReadRecordResult::InputEmpty => break,
+                csv_core::ReadRecordResult::OutputFull
+                | csv_core::ReadRecordResult::OutputEndsFull => {},
+            }
+        }
+        yield chunk[..len].to_vec();
+    }
+}
+
 #[try_stream(ok = JsonValue, error = anyhow::Error)]
 async fn parse_csv_import(reader: storage::StorageGetStream) {
-    let mut reader = csv_async::AsyncReader::from_reader(reader.into_reader());
+    let reader = limit_csv_records(
+        reader.into_tokio_reader(),
+        *SNAPSHOT_IMPORT_MAX_LINE_SIZE_BYTES,
+    )
+    .boxed()
+    .into_async_read();
+    let mut reader = csv_async::AsyncReader::from_reader(reader);
     if !reader.has_headers() {
         // TODO: this will never happen.
         anyhow::bail!(ImportError::CsvMissingHeaders);
@@ -447,7 +530,7 @@ async fn parse_documents_jsonl(reader: impl AsyncRead + Unpin) {
     while let Some(line) = read_bounded_line(
         &mut reader,
         &mut line,
-        *SNAPSHOT_IMPORT_MAX_JSONL_LINE_SIZE_BYTES,
+        *SNAPSHOT_IMPORT_MAX_LINE_SIZE_BYTES,
         lineno,
         map_zip_io_error,
     )
@@ -470,7 +553,7 @@ async fn parse_generated_schema<T: ShapeConfig>(
     let first_line = read_bounded_line(
         &mut entry_reader,
         &mut line,
-        *SNAPSHOT_IMPORT_MAX_JSONL_LINE_SIZE_BYTES,
+        *SNAPSHOT_IMPORT_MAX_LINE_SIZE_BYTES,
         lineno,
         |e| ImportError::NotUtf8(e).into(),
     )
@@ -499,7 +582,7 @@ async fn parse_generated_schema<T: ShapeConfig>(
     while let Some(line) = read_bounded_line(
         &mut entry_reader,
         &mut line,
-        *SNAPSHOT_IMPORT_MAX_JSONL_LINE_SIZE_BYTES,
+        *SNAPSHOT_IMPORT_MAX_LINE_SIZE_BYTES,
         lineno,
         |e| ImportError::NotUtf8(e).into(),
     )

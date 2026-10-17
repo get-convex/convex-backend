@@ -1954,10 +1954,10 @@ pub static SYNC_WORKER_UPDATE_QUERIES_RETRY_MAX_BACKOFF_SECS: LazyLock<Duration>
 pub static MAX_IMPORT_AGE: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("MAX_IMPORT_AGE_SECONDS", 7 * 24 * 60 * 60)));
 
-/// Maximum bytes in a snapshot import JSONL line, including the line ending.
-/// JSON escaping can expand a 1 MiB document to roughly 6 MiB.
-pub static SNAPSHOT_IMPORT_MAX_JSONL_LINE_SIZE_BYTES: LazyLock<usize> =
-    LazyLock::new(|| env_config("SNAPSHOT_IMPORT_MAX_JSONL_LINE_SIZE_BYTES", 16 << 20));
+/// Maximum bytes in an imported JSONL or logical CSV line, including line
+/// endings. Quoted CSV fields can span physical lines.
+pub static SNAPSHOT_IMPORT_MAX_LINE_SIZE_BYTES: LazyLock<usize> =
+    LazyLock::new(|| env_config("SNAPSHOT_IMPORT_MAX_LINE_SIZE_BYTES", 16 << 20));
 
 /// Max staleness in seconds of a partition loader result before we allow
 /// refreshing. If a request tries to update the partition loader and this

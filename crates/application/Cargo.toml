@@ -61,6 +61,7 @@ const-hex = { workspace = true }
 const_format = { workspace = true }
 convex_macro = { workspace = true }
 csv-async = { workspace = true }
+csv-core = { workspace = true }
 database = { workspace = true }
 either = { workspace = true }
 errors = { workspace = true }
