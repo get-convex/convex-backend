@@ -112,6 +112,7 @@ use self::{
         op_now_call,
         op_performance_now_call,
         op_performance_time_origin_call,
+        sleep_request,
     },
     validate_args::op_validate_args_call,
 };
@@ -446,6 +447,32 @@ op_table! {
         "crypto/subtle/verify" => subtle_crypto::op_crypto_subtle_verify,
         "crypto/subtle/wrapKey" => subtle_crypto::op_crypto_subtle_wrap_key,
     },
+}
+
+/// `start_async_op`, but with JSON inputs. `args` is the text of the positional
+/// argument array `performAsyncOp` sends. Returns the parsed request.
+pub fn wasm_async_op_request<P: OpProvider>(
+    provider: &mut P,
+    op_name: &str,
+    args: &str,
+) -> anyhow::Result<AsyncOpRequest> {
+    match op_name {
+        "sleep" => {
+            // JSON.stringify converts NaN/Infinity to `null`; convert that back to NaN
+            let (name, millis): (String, Option<f64>) = serde_json::from_str(args)?;
+            sleep_request(provider, name, millis.unwrap_or(f64::NAN))
+        },
+        "fetch" | "form/parseMultiPart" | "storage/store" | "storage/get" | "stream/readPart" => {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "OperationNotImplemented",
+                format!("The async op `{op_name}` is not implemented in the wasm runtime yet")
+            ))
+        },
+        _ => anyhow::bail!(ErrorMetadata::bad_request(
+            "UnknownAsyncOperation",
+            format!("Unknown async operation {op_name}")
+        )),
+    }
 }
 
 pub fn start_async_op<'b, P: V8OpProvider<'b>>(

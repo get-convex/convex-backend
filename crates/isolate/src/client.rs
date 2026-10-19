@@ -216,6 +216,10 @@ impl IsolateConfig {
         }
     }
 
+    pub fn max_user_timeout(&self) -> Option<Duration> {
+        self.max_user_timeout
+    }
+
 }
 
 pub struct UdfRequest<RT: Runtime> {

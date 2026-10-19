@@ -257,6 +257,10 @@ pub struct DatabaseUdfEnvironment<RT: Runtime, S = DatabaseUdfSyscallProvider<RT
     pub _phantom: PhantomData<RT>,
 }
 
+pub fn async_op_not_allowed_in_udf(request: &AsyncOpRequest) -> ErrorMetadata {
+    not_allowed_in_udf(request.name_for_error(), &request.description_for_error())
+}
+
 fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
     ErrorMetadata::bad_request(
         format!("No{name}InQueriesOrMutations"),
@@ -367,10 +371,7 @@ impl<RT: Runtime, S: DatabaseUdfInnerProvider<RT>> JsEnvironment<RT>
         request: AsyncOpRequest,
         _resolver: Self::AsyncResolver,
     ) -> anyhow::Result<()> {
-        anyhow::bail!(not_allowed_in_udf(
-            request.name_for_error(),
-            &request.description_for_error(),
-        ))
+        anyhow::bail!(async_op_not_allowed_in_udf(&request))
     }
 
     fn environment_heap_size(&self) -> usize {

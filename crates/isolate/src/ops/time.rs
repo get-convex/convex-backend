@@ -21,7 +21,16 @@ pub fn async_op_sleep<'b, P: V8OpProvider<'b>>(
 ) -> anyhow::Result<()> {
     // NOTE: name is only used for error messages.
     let name: String = serde_v8::from_v8(&mut provider.scope(), args.get(1))?;
-    let mut millis: f64 = serde_v8::from_v8(&mut provider.scope(), args.get(2))?;
+    let millis: f64 = serde_v8::from_v8(&mut provider.scope(), args.get(2))?;
+    let request = sleep_request(provider, name, millis)?;
+    provider.start_async_op(request, resolver)
+}
+
+pub(super) fn sleep_request<P: OpProvider>(
+    provider: &mut P,
+    name: String,
+    mut millis: f64,
+) -> anyhow::Result<AsyncOpRequest> {
     // Negative, infinite and NaN delays fire immediately, as in browsers.
     if millis < 0.0 || !millis.is_finite() {
         millis = 0.0;
@@ -29,7 +38,7 @@ pub fn async_op_sleep<'b, P: V8OpProvider<'b>>(
     let duration = Duration::from_millis(millis as u64);
 
     let until = provider.unix_timestamp()? + duration;
-    provider.start_async_op(AsyncOpRequest::Sleep { name, until }, resolver)
+    Ok(AsyncOpRequest::Sleep { name, until })
 }
 
 #[convex_macro::op]

@@ -139,15 +139,13 @@ pub use self::{
         TaskRequestEnum,
         TaskResponse,
         TaskResponseEnum,
+        TaskType,
     },
 };
 use self::{
     phase::ActionPhase,
     service_token::ServiceTokenCache,
-    task::{
-        TaskRequest,
-        TaskType,
-    },
+    task::TaskRequest,
     task_executor::TaskExecutor,
 };
 use super::{
@@ -404,6 +402,14 @@ impl<RT: Runtime, S: ActionInnerProvider<RT>> ActionEnvironment<RT, S> {
         }
     }
 
+    pub fn provider(&self) -> &S {
+        &self.provider
+    }
+
+    pub fn into_provider(self) -> S {
+        self.provider
+    }
+
     /// Replaces the syscall provider, e.g. to wrap it in one that records the
     /// action's inputs.
     pub fn map_provider<S2: ActionInnerProvider<RT>>(
@@ -490,7 +496,8 @@ impl<RT: Runtime, S: ActionInnerProvider<RT>> ActionEnvironment<RT, S> {
         }
         let user_execution_time = execution_time.elapsed;
         self.provider.add_http_response_size_warning()?;
-        self.add_warnings_to_log_lines(execution_time)?;
+        let dangling_task_counts = self.dangling_task_counts();
+        add_warnings_to_log_lines(&mut self.provider, dangling_task_counts, execution_time)?;
         let (route, result) = result?;
         let outcome = HttpActionOutcome::new(
             route,
@@ -735,31 +742,15 @@ impl<RT: Runtime, S: ActionInnerProvider<RT>> ActionEnvironment<RT, S> {
         }
         self = isolate_context.take_environment();
         let execution_time = timeout.into_function_execution_time(UdfType::Action);
-        let user_execution_time = execution_time.elapsed;
-        let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
-        // Arguments that don't parse have already failed the action before it did
-        // any work, so there's nothing to warn about.
-        if let Ok(udf_args) = parse_udf_args(&path.udf_path, arguments.clone().into_args()?) {
-            self.add_warnings_to_log_lines_action(
-                execution_time,
-                &udf_args,
-                result.as_ref().ok().and_then(|r| r.as_ref().ok()),
-            )?;
-        }
-        let outcome = ActionOutcome {
-            path: path.for_logging(),
-            arguments,
-            unix_timestamp: start_unix_timestamp,
-            identity: self.provider.identity().clone().into(),
-            result: match result? {
-                Ok(v) => Ok(JsonPackedValue::pack(v)),
-                Err(e) => Err(e),
-            },
-            syscall_trace: self.provider.syscall_trace(),
-            udf_server_version,
-            user_execution_time: Some(user_execution_time),
-        };
-        Ok(self.provider.into_outcome(outcome))
+        let dangling_task_counts = self.dangling_task_counts();
+        finish_action(
+            self.provider,
+            dangling_task_counts,
+            request_params,
+            start_unix_timestamp,
+            execution_time,
+            result,
+        )
     }
 
     #[fastrace::trace]
@@ -1219,87 +1210,8 @@ impl<RT: Runtime, S: ActionInnerProvider<RT>> ActionEnvironment<RT, S> {
         Ok(result)
     }
 
-    fn add_warnings_to_log_lines_action(
-        &mut self,
-        execution_time: FunctionExecutionTime,
-        arguments: &ConvexArray,
-        result: Option<&ConvexValue>,
-    ) -> anyhow::Result<()> {
-        if let Some(warning) = approaching_limit_warning(
-            arguments.size(),
-            *FUNCTION_MAX_ARGS_SIZE,
-            "FunctionArgumentsTooLarge",
-            || "Large size of the action arguments".to_string(),
-            None,
-            Some(" bytes"),
-            None,
-        ) {
-            self.provider.trace_system(warning)?;
-        }
-        self.add_warnings_to_log_lines(execution_time)?;
-
-        if let Some(result) = result
-            && let Some(warning) = approaching_limit_warning(
-                result.size(),
-                *FUNCTION_MAX_RESULT_SIZE,
-                "TooLargeFunctionResult",
-                || "Large size of the action return value".to_string(),
-                None,
-                Some(" bytes"),
-                None,
-            )
-        {
-            self.provider.trace_system(warning)?;
-        };
-        Ok(())
-    }
-
-    fn add_warnings_to_log_lines(
-        &mut self,
-        execution_time: FunctionExecutionTime,
-    ) -> anyhow::Result<()> {
-        let dangling_task_counts = self.dangling_task_counts();
-        if !dangling_task_counts.is_empty() {
-            let total_dangling_tasks = dangling_task_counts.values().sum();
-            let task_names = dangling_task_counts.keys().join(", ");
-            log_unawaited_pending_op(total_dangling_tasks, "action");
-            let message = format!(
-                "{total_dangling_tasks} unawaited operation{}: [{task_names}]. Async operations should be awaited or they might not run. \
-                 See https://docs.convex.dev/functions/actions#dangling-promises for more information.",
-                if total_dangling_tasks == 1 { "" } else { "s" },
-            );
-            let warning = SystemWarning {
-                level: LogLevel::Warn,
-                messages: vec![message],
-                system_log_metadata: SystemLogMetadata {
-                    code: "UnawaitedOperations".to_string(),
-                },
-            };
-            self.provider.trace_system(warning)?;
-        }
-        if let Some(warning) = approaching_duration_limit_warning(
-            execution_time.elapsed,
-            execution_time.limit,
-            "UserTimeout",
-            "Function execution took a long time",
-            None,
-        )? {
-            self.provider.trace_system(warning)?;
-        }
-        Ok(())
-    }
-
     fn dangling_task_counts(&self) -> BTreeMap<String, usize> {
-        let mut counts = BTreeMap::new();
-        for (_, req) in self
-            .task_promise_resolvers
-            .values()
-            .filter(|(_, req)| !matches!(req, TaskType::Sleep))
-        {
-            let req_name = req.name_when_dangling();
-            *counts.entry(req_name).or_default() += 1;
-        }
-        counts
+        dangling_task_counts(self.task_promise_resolvers.values().map(|(_, task)| task))
     }
 
     fn start_task(
@@ -1313,6 +1225,127 @@ impl<RT: Runtime, S: ActionInnerProvider<RT>> ActionEnvironment<RT, S> {
             .insert(task_id, (resolver, task_type));
         Ok(())
     }
+}
+
+pub fn finish_action<RT: Runtime, S: ActionInnerProvider<RT>>(
+    mut provider: S,
+    dangling_task_counts: BTreeMap<String, usize>,
+    request_params: ActionRequestParams,
+    start_unix_timestamp: UnixTimestamp,
+    execution_time: FunctionExecutionTime,
+    result: anyhow::Result<Result<ConvexValue, JsError>>,
+) -> anyhow::Result<S::Outcome> {
+    let user_execution_time = execution_time.elapsed;
+    let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
+    // Arguments that don't parse have already failed the action before it did
+    // any work, so there's nothing to warn about.
+    if let Ok(udf_args) = parse_udf_args(&path.udf_path, arguments.clone().into_args()?) {
+        add_warnings_to_log_lines_action(
+            &mut provider,
+            dangling_task_counts,
+            execution_time,
+            &udf_args,
+            result.as_ref().ok().and_then(|r| r.as_ref().ok()),
+        )?;
+    }
+    let outcome = ActionOutcome {
+        path: path.for_logging(),
+        arguments,
+        unix_timestamp: start_unix_timestamp,
+        identity: provider.identity().clone().into(),
+        result: match result? {
+            Ok(v) => Ok(JsonPackedValue::pack(v)),
+            Err(e) => Err(e),
+        },
+        syscall_trace: provider.syscall_trace(),
+        udf_server_version,
+        user_execution_time: Some(user_execution_time),
+    };
+    Ok(provider.into_outcome(outcome))
+}
+
+fn add_warnings_to_log_lines_action<RT: Runtime, S: ActionInnerProvider<RT>>(
+    provider: &mut S,
+    dangling_task_counts: BTreeMap<String, usize>,
+    execution_time: FunctionExecutionTime,
+    arguments: &ConvexArray,
+    result: Option<&ConvexValue>,
+) -> anyhow::Result<()> {
+    if let Some(warning) = approaching_limit_warning(
+        arguments.size(),
+        *FUNCTION_MAX_ARGS_SIZE,
+        "FunctionArgumentsTooLarge",
+        || "Large size of the action arguments".to_string(),
+        None,
+        Some(" bytes"),
+        None,
+    ) {
+        provider.trace_system(warning)?;
+    }
+    add_warnings_to_log_lines(provider, dangling_task_counts, execution_time)?;
+
+    if let Some(result) = result
+        && let Some(warning) = approaching_limit_warning(
+            result.size(),
+            *FUNCTION_MAX_RESULT_SIZE,
+            "TooLargeFunctionResult",
+            || "Large size of the action return value".to_string(),
+            None,
+            Some(" bytes"),
+            None,
+        )
+    {
+        provider.trace_system(warning)?;
+    };
+    Ok(())
+}
+
+fn add_warnings_to_log_lines<RT: Runtime, S: ActionInnerProvider<RT>>(
+    provider: &mut S,
+    dangling_task_counts: BTreeMap<String, usize>,
+    execution_time: FunctionExecutionTime,
+) -> anyhow::Result<()> {
+    if !dangling_task_counts.is_empty() {
+        let total_dangling_tasks = dangling_task_counts.values().sum();
+        let task_names = dangling_task_counts.keys().join(", ");
+        log_unawaited_pending_op(total_dangling_tasks, "action");
+        let message = format!(
+            "{total_dangling_tasks} unawaited operation{}: [{task_names}]. Async operations should be awaited or they might not run. \
+             See https://docs.convex.dev/functions/actions#dangling-promises for more information.",
+            if total_dangling_tasks == 1 { "" } else { "s" },
+        );
+        let warning = SystemWarning {
+            level: LogLevel::Warn,
+            messages: vec![message],
+            system_log_metadata: SystemLogMetadata {
+                code: "UnawaitedOperations".to_string(),
+            },
+        };
+        provider.trace_system(warning)?;
+    }
+    if let Some(warning) = approaching_duration_limit_warning(
+        execution_time.elapsed,
+        execution_time.limit,
+        "UserTimeout",
+        "Function execution took a long time",
+        None,
+    )? {
+        provider.trace_system(warning)?;
+    }
+    Ok(())
+}
+
+pub fn dangling_task_counts<'a>(
+    tasks: impl IntoIterator<Item = &'a TaskType>,
+) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for task in tasks
+        .into_iter()
+        .filter(|task| !matches!(task, TaskType::Sleep))
+    {
+        *counts.entry(task.name_when_dangling()).or_default() += 1;
+    }
+    counts
 }
 
 impl<RT: Runtime> ActionInnerProvider<RT> for ActionSyscallProvider<RT> {
