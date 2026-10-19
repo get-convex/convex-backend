@@ -461,7 +461,7 @@ export const S3ExportDetailModal: Story = {
     );
     const dialog = within(await screen.findByTestId("modal"));
     await dialog.findByText(
-      "s3://acme-analytics/convex/wandering-fish-513/tables/",
+      "s3://acme-analytics/convex/wandering-fish-513/data-lake/",
     );
     await dialog.findByText("wandering_fish_513");
   },

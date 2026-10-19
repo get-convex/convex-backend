@@ -34,14 +34,6 @@ use iceberg::{
     TableCreation,
     TableIdent,
 };
-use iceberg_catalog_glue::{
-    GlueCatalogBuilder,
-    AWS_ACCESS_KEY_ID,
-    AWS_REGION_NAME,
-    AWS_SECRET_ACCESS_KEY,
-    GLUE_CATALOG_PROP_URI,
-    GLUE_CATALOG_PROP_WAREHOUSE,
-};
 use iceberg_storage_opendal::OpenDalStorageFactory;
 
 use super::{
@@ -89,48 +81,6 @@ pub struct IcebergChangeWriter {
 }
 
 impl IcebergChangeWriter {
-    /// Registers the tables in the Glue Data Catalog of the destination's
-    /// account and region, with the same credentials. The caller owns the
-    /// whole database. `selected` lists every source table the sync selects;
-    /// a name that is too long or shared, such as `Users` and `users`, fails
-    /// here before anything is dropped. When `fresh`, drops the database's
-    /// tables first; dropping touches only Glue, so it works after the export
-    /// moves to a bucket the credentials can no longer read.
-    #[fastrace::trace]
-    pub async fn for_s3(
-        namespace: &str,
-        warehouse_uri: &str,
-        destination: S3Destination,
-        selected: Vec<SourceTable>,
-        fresh: bool,
-    ) -> Result<Self> {
-        ensure!(
-            warehouse_uri.starts_with(&format!("s3://{}/", destination.bucket)),
-            "Warehouse does not belong to destination bucket"
-        );
-        let mut props = HashMap::from([
-            (
-                GLUE_CATALOG_PROP_WAREHOUSE.to_owned(),
-                warehouse_uri.to_owned(),
-            ),
-            (AWS_REGION_NAME.to_owned(), destination.region),
-            (AWS_ACCESS_KEY_ID.to_owned(), destination.access_key_id),
-            (
-                AWS_SECRET_ACCESS_KEY.to_owned(),
-                destination.secret_access_key,
-            ),
-        ]);
-        // Glue exists only in AWS, so a custom endpoint is a local mock serving
-        // both S3 and Glue.
-        if let Some(endpoint) = destination.endpoint_url {
-            props.insert(GLUE_CATALOG_PROP_URI.to_owned(), endpoint.clone());
-            props.insert(S3_ENDPOINT.to_owned(), endpoint);
-            props.insert(S3_PATH_STYLE_ACCESS.to_owned(), "true".to_owned());
-        }
-        let catalog = GlueCatalogBuilder::default().load("porter", props).await?;
-        Self::open(Arc::new(catalog), namespace, warehouse_uri, selected, fresh).await
-    }
-
     /// Writes Iceberg data and metadata to S3 without touching Glue. Table
     /// pointers start at `locations` and live in memory; the caller commits
     /// [`Self::locations`] once the page succeeds. Each append records
@@ -181,8 +131,7 @@ impl IcebergChangeWriter {
                 )
                 .await?;
         }
-        let mut writer =
-            Self::open(Arc::new(catalog), namespace, warehouse_uri, selected, false).await?;
+        let mut writer = Self::open(Arc::new(catalog), namespace, warehouse_uri, selected).await?;
         writer.locations = locations.clone();
         writer.snapshot_properties = snapshot_properties;
         Ok(writer)
@@ -207,7 +156,6 @@ impl IcebergChangeWriter {
         namespace: &str,
         warehouse_uri: &str,
         selected: Vec<SourceTable>,
-        fresh: bool,
     ) -> Result<Self> {
         ensure!(
             is_glue_name(namespace),
@@ -215,14 +163,8 @@ impl IcebergChangeWriter {
         );
         Self::check_names(warehouse_uri, &selected)?;
         let namespace = NamespaceIdent::new(namespace.to_owned());
-        if !catalog.namespace_exists(&namespace).await?
-            && let Err(error) = catalog.create_namespace(&namespace, HashMap::new()).await
-        {
-            // A concurrent attempt may have created it first.
-            ensure!(
-                catalog.namespace_exists(&namespace).await?,
-                "Cannot create Glue database: {error}"
-            );
+        if !catalog.namespace_exists(&namespace).await? {
+            catalog.create_namespace(&namespace, HashMap::new()).await?;
         }
         let writer = Self {
             catalog,
@@ -233,11 +175,6 @@ impl IcebergChangeWriter {
             locations: BTreeMap::new(),
             snapshot_properties: HashMap::new(),
         };
-        if fresh {
-            for ident in writer.catalog.list_tables(&writer.namespace).await? {
-                writer.catalog.drop_table(&ident).await?;
-            }
-        }
         Ok(writer)
     }
 
@@ -318,8 +255,6 @@ impl IcebergChangeWriter {
 
     #[fastrace::trace]
     async fn load_existing(&self, ident: &TableIdent) -> Result<Option<Table>> {
-        // Glue's `load_table` reports a missing table as `Unexpected`, but its
-        // `table_exists` recognizes one.
         if !self.catalog.table_exists(ident).await? {
             return Ok(None);
         }
@@ -341,20 +276,7 @@ impl IcebergChangeWriter {
                 (TABLE_PROPERTY.to_owned(), source.table.clone()),
             ]))
             .build();
-        let table = match self.catalog.create_table(&self.namespace, creation).await {
-            Ok(table) => table,
-            // A concurrent attempt may have created it first.
-            Err(error) => self
-                .catalog
-                .load_table(&TableIdent::new(self.namespace.clone(), name.clone()))
-                .await
-                .with_context(|| format!("Cannot create Iceberg table: {error}"))?,
-        };
-        ensure!(
-            source_of(&table)? == *source,
-            "Glue table {name} belongs to another source table"
-        );
-        self.validate(source, &table)?;
+        let table = self.catalog.create_table(&self.namespace, creation).await?;
         self.record(&table)?;
         self.tables.insert(source.clone(), table);
         Ok(())

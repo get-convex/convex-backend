@@ -311,7 +311,7 @@ export function S3ExportConfigurationForm({
               <p className="text-xs text-content-secondary">
                 Convex writes Apache Iceberg tables to{" "}
                 <code>
-                  s3://{bucket}/{exportRoot(prefix, deploymentName)}/tables/
+                  s3://{bucket}/{exportRoot(prefix, deploymentName)}/data-lake/
                 </code>{" "}
                 and registers them in the AWS Glue database{" "}
                 <code>{glueDatabaseName(deploymentName)}</code>, which Convex

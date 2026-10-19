@@ -149,7 +149,7 @@ export function S3ExportStatus({ existing }: { existing: S3Export }) {
 function S3ExportDetails({ existing }: { existing: S3Export }) {
   const deploymentName = useDeploymentName();
   const { bucket, region, prefix } = existing.config;
-  const tablesPath = `${exportRoot(prefix, deploymentName)}/tables/`;
+  const dataLakePath = `${exportRoot(prefix, deploymentName)}/data-lake/`;
   const database = glueDatabaseName(deploymentName);
   const status = syncStatus(existing);
   const components = componentTablesIncluded(existing.config.selection);
@@ -185,11 +185,11 @@ function S3ExportDetails({ existing }: { existing: S3Export }) {
         <dt className="text-content-secondary">S3 location</dt>
         <dd className="min-w-0 break-all">
           <Link
-            href={`https://s3.console.aws.amazon.com/s3/buckets/${bucket}?region=${region}&prefix=${encodeURIComponent(tablesPath)}`}
+            href={`https://s3.console.aws.amazon.com/s3/buckets/${bucket}?region=${region}&prefix=${encodeURIComponent(dataLakePath)}`}
             target="_blank"
             className="inline-flex items-center gap-1"
           >
-            s3://{bucket}/{tablesPath}
+            s3://{bucket}/{dataLakePath}
             <ExternalLinkIcon className="shrink-0" />
           </Link>
         </dd>

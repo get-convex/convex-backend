@@ -5571,22 +5571,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "iceberg-catalog-glue"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b790f90bd24604cc7b6e88c96d1ac81082ef2790f526735f183419fdff5ee03"
-dependencies = [
- "anyhow",
- "async-trait",
- "aws-config",
- "aws-sdk-glue",
- "iceberg",
- "iceberg-storage-opendal",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "iceberg-storage-opendal"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6984,7 +6968,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arrow-array",
- "async-trait",
  "aws-credential-types",
  "aws-sdk-glue",
  "aws-sdk-s3",
@@ -6992,7 +6975,6 @@ dependencies = [
  "fastrace",
  "futures",
  "iceberg",
- "iceberg-catalog-glue",
  "iceberg-storage-opendal",
  "parquet",
  "serde",
@@ -7862,7 +7844,6 @@ dependencies = [
  "opendal-layer-logging",
  "opendal-layer-retry",
  "opendal-layer-timeout",
- "opendal-service-fs",
  "opendal-service-s3",
 ]
 
@@ -7935,20 +7916,6 @@ checksum = "1e91f731724c213af81e9d03517859c8fc47b4578e64ad61ae4f099f10fe36e3"
 dependencies = [
  "opendal-core",
  "tokio",
-]
-
-[[package]]
-name = "opendal-service-fs"
-version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22e89a665fef0e6bd249cf5ea47fc174b7ba892159bee4b9382528b1ca873a2c"
-dependencies = [
- "bytes",
- "log",
- "opendal-core",
- "serde",
- "tokio",
- "xattr",
 ]
 
 [[package]]
