@@ -2237,6 +2237,7 @@
               "cancel_all_scheduled_functions",
               "cancel_scheduled_function",
               "request_export",
+              "download_export",
               "cancel_export",
               "set_export_expiration",
               "create_integration",

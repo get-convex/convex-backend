@@ -320,6 +320,14 @@ const requestExport = auditLogEventValidator("request_export", {
   requestor: v.string(),
 });
 
+const downloadExport = auditLogEventValidator("download_export", {
+  id: v.string(),
+  component_id: v.union(v.null(), v.string()),
+  component: v.union(v.null(), v.string()),
+  format: v.string(),
+  requestor: v.string(),
+});
+
 const cancelExport = auditLogEventValidator("cancel_export", {
   id: v.string(),
 });
@@ -503,6 +511,7 @@ const deploymentAuditLogTable = defineTable(
     cancelAllScheduledFunctions,
     cancelScheduledFunction,
     requestExport,
+    downloadExport,
     cancelExport,
     setExportExpiration,
     createIntegration,

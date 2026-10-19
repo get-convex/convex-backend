@@ -1584,6 +1584,25 @@ export const CreateDataSync: Story = {
   },
 };
 
+export const DownloadExport: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "download_export",
+      metadata: {
+        id: "jd72k9x8nmgz5h3qawc4btep0n6y1fvr",
+        component_id: null,
+        component: null,
+        format: "zip",
+        requestor: "dashboard",
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
 export const CancelExport: Story = {
   args: {
     event: {

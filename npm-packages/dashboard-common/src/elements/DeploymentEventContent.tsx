@@ -148,6 +148,7 @@ export function DeploymentEventContent({
     case "cancel_all_scheduled_functions":
     case "cancel_scheduled_function":
     case "request_export":
+    case "download_export":
     case "cancel_export":
     case "set_export_expiration":
     case "add_documents":
@@ -423,6 +424,27 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
       return (
         <>
           <span>requested a </span>
+          <span className="font-mono font-semibold">
+            {event.metadata.format}
+          </span>
+          <span> </span>
+          <Tooltip
+            tip={<span className="font-mono">{event.metadata.id}</span>}
+            maxWidthClassName="max-w-md"
+          >
+            <span className="underline decoration-dotted">export</span>
+          </Tooltip>
+          <ComponentSuffix
+            component={event.metadata.component}
+            componentId={event.metadata.component_id}
+          />
+        </>
+      );
+
+    case "download_export":
+      return (
+        <>
+          <span>downloaded a </span>
           <span className="font-mono font-semibold">
             {event.metadata.format}
           </span>

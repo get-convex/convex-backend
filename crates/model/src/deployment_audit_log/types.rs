@@ -250,6 +250,13 @@ pub enum DeploymentAuditLogEvent {
         format: String,
         requestor: String,
     },
+    DownloadExport {
+        id: String,
+        component_id: Option<String>,
+        component: ComponentPath,
+        format: String,
+        requestor: String,
+    },
     CancelExport {
         id: String,
     },
@@ -568,6 +575,13 @@ impl DeploymentAuditLogEvent {
                 )
             },
             DeploymentAuditLogEvent::RequestExport {
+                id,
+                component_id,
+                component,
+                format,
+                requestor,
+            }
+            | DeploymentAuditLogEvent::DownloadExport {
                 id,
                 component_id,
                 component,
@@ -1044,6 +1058,22 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                 let format = remove_string(&mut fields, "format")?;
                 let requestor = remove_string(&mut fields, "requestor")?;
                 DeploymentAuditLogEvent::RequestExport {
+                    id,
+                    component_id,
+                    component,
+                    format,
+                    requestor,
+                }
+            },
+            "download_export" => {
+                let id = remove_string(&mut fields, "id")?;
+                let component_id = remove_nullable_string(&mut fields, "component_id")?;
+                let component = ComponentPath::deserialize(
+                    remove_nullable_string(&mut fields, "component")?.as_deref(),
+                )?;
+                let format = remove_string(&mut fields, "format")?;
+                let requestor = remove_string(&mut fields, "requestor")?;
+                DeploymentAuditLogEvent::DownloadExport {
                     id,
                     component_id,
                     component,
