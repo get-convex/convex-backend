@@ -138,6 +138,11 @@ impl FetchClient for ProxiedFetchClient {
             request_builder = request_builder.body(streaming_body(body, request_size.clone()));
         }
         for (name, value) in &request.headers {
+            // `Proxy-Authorization` is hop-by-hop and comes from the client's proxy
+            // configuration.
+            if name == http::header::PROXY_AUTHORIZATION {
+                continue;
+            }
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
         }
         let raw_request = request_builder.build()?;
