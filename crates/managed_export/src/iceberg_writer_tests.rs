@@ -291,3 +291,56 @@ async fn foreign_tables_are_checked_when_used_or_reconciled() -> Result<()> {
     assert!(error.to_string().contains("not written by"), "{error:#}");
     Ok(())
 }
+
+#[tokio::test]
+async fn a_known_retired_set_loads_only_the_tables_a_page_uses() -> Result<()> {
+    let catalog = memory_catalog().await?;
+    let mut writer = open(catalog.clone()).await?;
+    writer
+        .apply(&[source("menu"), source("orders")], vec![])
+        .await?;
+    writer
+        .retire_unselected(&[source("menu"), source("orders")])
+        .await?;
+    let locations = writer.locations().clone();
+    assert_eq!(writer.retired(), Some(&BTreeSet::new()));
+
+    // Forget the tables, as a fresh staged writer starts.
+    for name in locations.keys() {
+        catalog
+            .drop_table(&TableIdent::new(writer.namespace.clone(), name.clone()))
+            .await?;
+    }
+    let mut writer = open(catalog.clone()).await?;
+    writer.locations = locations.clone();
+    writer.unregistered = locations;
+    writer.retired = Some(BTreeSet::new());
+    let registered = async |writer: &IcebergChangeWriter| -> Result<Vec<String>> {
+        Ok(catalog
+            .list_tables(&writer.namespace)
+            .await?
+            .into_iter()
+            .map(|ident| ident.name().to_owned())
+            .collect())
+    };
+
+    writer
+        .apply(&[], vec![(source("menu"), change("burger", 1, Some("{}")))])
+        .await?;
+    writer
+        .retire_unselected(&[source("menu"), source("orders")])
+        .await?;
+    assert_eq!(registered(&writer).await?, ["app__menu"]);
+
+    writer.retire_unselected(&[source("menu")]).await?;
+    assert_eq!(registered(&writer).await?.len(), 2);
+    assert_eq!(
+        writer.retired(),
+        Some(&BTreeSet::from(["app__orders".to_owned()]))
+    );
+    assert_eq!(
+        writer.tables[&source("orders")].metadata().properties()[RETIRED_PROPERTY],
+        "true"
+    );
+    Ok(())
+}

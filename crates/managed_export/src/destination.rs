@@ -6,6 +6,7 @@
 
 use std::collections::{
     BTreeMap,
+    BTreeSet,
     HashMap,
 };
 
@@ -51,6 +52,9 @@ pub struct ExportState {
     pub cursor: Option<String>,
     /// Current metadata location of each Iceberg table, by Glue table name.
     pub tables: BTreeMap<String, String>,
+    /// Tables in `tables` marked retired. A page reloads every table only
+    /// when the selection no longer matches this set.
+    pub retired: BTreeSet<String>,
 }
 
 impl ExportState {
@@ -60,16 +64,23 @@ impl ExportState {
             page: 0,
             cursor: None,
             tables: BTreeMap::new(),
+            retired: BTreeSet::new(),
         }
     }
 
     /// The state after one more committed page.
-    pub fn next(&self, cursor: String, tables: BTreeMap<String, String>) -> Self {
+    pub fn next(
+        &self,
+        cursor: String,
+        tables: BTreeMap<String, String>,
+        retired: BTreeSet<String>,
+    ) -> Self {
         Self {
             export_id: self.export_id.clone(),
             page: self.page + 1,
             cursor: Some(cursor),
             tables,
+            retired,
         }
     }
 
@@ -185,26 +196,20 @@ impl ExportStore {
     /// alone, so a slow mirror cannot move Glue backward.
     pub async fn publish(&self, state: &ExportState) -> Result<()> {
         self.ensure_database().await?;
+        let mut published = BTreeMap::new();
+        let mut pages = self
+            .glue
+            .get_tables()
+            .database_name(&self.database)
+            .into_paginator()
+            .send();
+        while let Some(page) = pages.next().await {
+            for table in page.context("Cannot list Glue tables")?.table_list() {
+                published.insert(table.name().to_owned(), table.clone());
+            }
+        }
         for (name, location) in &state.tables {
-            let current = match self
-                .glue
-                .get_table()
-                .database_name(&self.database)
-                .name(name)
-                .send()
-                .await
-            {
-                Ok(output) => output.table,
-                Err(error)
-                    if error
-                        .as_service_error()
-                        .is_some_and(|e| e.is_entity_not_found_exception()) =>
-                {
-                    None
-                },
-                Err(error) => return Err(error).context("Cannot read a Glue table"),
-            };
-            let Some(current) = current else {
+            let Some(current) = published.remove(name) else {
                 self.glue
                     .create_table()
                     .database_name(&self.database)
@@ -215,10 +220,11 @@ impl ExportStore {
                 continue;
             };
             let parameters = current.parameters.unwrap_or_default();
-            if state.published(&parameters) {
+            let previous = parameters.get("metadata_location").map(String::as_str);
+            // Most pages change few tables.
+            if previous == Some(location) || state.published(&parameters) {
                 continue;
             }
-            let previous = parameters.get("metadata_location").map(String::as_str);
             let mut update = self
                 .glue
                 .update_table()
@@ -230,22 +236,10 @@ impl ExportStore {
             }
             update.send().await.context("Cannot update a Glue table")?;
         }
-        let mut unlisted = vec![];
-        let mut pages = self
-            .glue
-            .get_tables()
-            .database_name(&self.database)
-            .into_paginator()
-            .send();
-        while let Some(page) = pages.next().await {
-            for table in page.context("Cannot list Glue tables")?.table_list() {
-                let later_page = table.parameters().is_some_and(|p| state.published(p));
-                if !state.tables.contains_key(table.name()) && !later_page {
-                    unlisted.push(table.name().to_owned());
-                }
+        for (name, table) in published {
+            if table.parameters().is_some_and(|p| state.published(p)) {
+                continue;
             }
-        }
-        for name in unlisted {
             self.glue
                 .delete_table()
                 .database_name(&self.database)

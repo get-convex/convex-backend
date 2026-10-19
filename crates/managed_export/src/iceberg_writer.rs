@@ -1,6 +1,7 @@
 use std::{
     collections::{
         BTreeMap,
+        BTreeSet,
         HashMap,
     },
     sync::Arc,
@@ -77,20 +78,27 @@ pub struct IcebergChangeWriter {
     tables: BTreeMap<SourceTable, Table>,
     /// Metadata location of every table in the namespace, by Glue name.
     locations: BTreeMap<String, String>,
+    /// Tables in `locations` that the catalog does not hold yet. Registering
+    /// reads the table's metadata from S3, so it waits until a page uses it.
+    unregistered: BTreeMap<String, String>,
+    /// Glue names of the tables marked retired, when known. `None` makes
+    /// retirement load every table to find out.
+    retired: Option<BTreeSet<String>>,
     snapshot_properties: HashMap<String, String>,
 }
 
 impl IcebergChangeWriter {
     /// Writes Iceberg data and metadata to S3 without touching Glue. Table
     /// pointers start at `locations` and live in memory; the caller commits
-    /// [`Self::locations`] once the page succeeds. Each append records
-    /// `snapshot_properties` in its snapshot summary.
+    /// [`Self::locations`] and [`Self::retired`] once the page succeeds. Each
+    /// append records `snapshot_properties` in its snapshot summary.
     pub async fn staged(
         namespace: &str,
         warehouse_uri: &str,
         destination: S3Destination,
         selected: Vec<SourceTable>,
         locations: &BTreeMap<String, String>,
+        retired: &BTreeSet<String>,
         snapshot_properties: HashMap<String, String>,
     ) -> Result<Self> {
         ensure!(
@@ -119,20 +127,10 @@ impl IcebergChangeWriter {
             }))
             .load("porter", props)
             .await?;
-        let ident = NamespaceIdent::new(namespace.to_owned());
-        catalog.create_namespace(&ident, HashMap::new()).await?;
-        // ponytail: registering reads every table's metadata.json each page, as
-        // retirement already does; register lazily if idle polls get expensive.
-        for (name, location) in locations {
-            catalog
-                .register_table(
-                    &TableIdent::new(ident.clone(), name.clone()),
-                    location.clone(),
-                )
-                .await?;
-        }
         let mut writer = Self::open(Arc::new(catalog), namespace, warehouse_uri, selected).await?;
         writer.locations = locations.clone();
+        writer.unregistered = locations.clone();
+        writer.retired = Some(retired.clone());
         writer.snapshot_properties = snapshot_properties;
         Ok(writer)
     }
@@ -140,6 +138,23 @@ impl IcebergChangeWriter {
     /// Metadata location of every table after this page, by Glue name.
     pub fn locations(&self) -> &BTreeMap<String, String> {
         &self.locations
+    }
+
+    /// Glue names of the tables marked retired after this page, when known.
+    pub fn retired(&self) -> Option<&BTreeSet<String>> {
+        self.retired.as_ref()
+    }
+
+    async fn register(&mut self, name: &str) -> Result<()> {
+        if let Some(location) = self.unregistered.remove(name) {
+            self.catalog
+                .register_table(
+                    &TableIdent::new(self.namespace.clone(), name.to_owned()),
+                    location,
+                )
+                .await?;
+        }
+        Ok(())
     }
 
     fn record(&mut self, table: &Table) -> Result<()> {
@@ -173,6 +188,8 @@ impl IcebergChangeWriter {
             selected,
             tables: BTreeMap::new(),
             locations: BTreeMap::new(),
+            unregistered: BTreeMap::new(),
+            retired: None,
             snapshot_properties: HashMap::new(),
         };
         Ok(writer)
@@ -254,7 +271,8 @@ impl IcebergChangeWriter {
     }
 
     #[fastrace::trace]
-    async fn load_existing(&self, ident: &TableIdent) -> Result<Option<Table>> {
+    async fn load_existing(&mut self, ident: &TableIdent) -> Result<Option<Table>> {
+        self.register(ident.name()).await?;
         if !self.catalog.table_exists(ident).await? {
             return Ok(None);
         }
@@ -307,6 +325,10 @@ impl IcebergChangeWriter {
             if let Some(table) = self.load_existing(&ident).await? {
                 self.catalog.drop_table(&ident).await?;
                 self.locations.remove(ident.name());
+                // The recreated table starts unmarked.
+                if let Some(retired) = &mut self.retired {
+                    retired.remove(ident.name());
+                }
                 self.tables.remove(&source_of(&table)?);
             }
             self.create(source).await?;
@@ -347,12 +369,32 @@ impl IcebergChangeWriter {
     /// `selected` lists every source table.
     #[fastrace::trace]
     pub async fn retire_unselected(&mut self, selected: &[SourceTable]) -> Result<()> {
+        let selected_names = selected
+            .iter()
+            .map(Self::table_name)
+            .collect::<Result<BTreeSet<_>>>()?;
+        let unselected = |locations: &BTreeMap<String, String>| -> BTreeSet<String> {
+            locations
+                .keys()
+                .filter(|name| !selected_names.contains(*name))
+                .cloned()
+                .collect()
+        };
+        // `locations` is complete whenever `retired` is known.
+        if self.retired.as_ref() == Some(&unselected(&self.locations)) {
+            return Ok(());
+        }
         // Retirement needs the full catalog, including tables untouched by this page.
+        for name in self.unregistered.keys().cloned().collect::<Vec<_>>() {
+            self.register(&name).await?;
+        }
         for ident in self.catalog.list_tables(&self.namespace).await? {
             if let Some(table) = self.load_existing(&ident).await? {
+                self.record(&table)?;
                 self.tables.insert(source_of(&table)?, table);
             }
         }
+        let retired = unselected(&self.locations);
         for (source, table) in &mut self.tables {
             let retired = !selected.contains(source);
             let marked = table
@@ -373,6 +415,7 @@ impl IcebergChangeWriter {
                 );
             }
         }
+        self.retired = Some(retired);
         Ok(())
     }
 }
