@@ -611,8 +611,11 @@ impl<RT: Runtime> SyncWorker<RT> {
                 }
 
                 if let Some(ts) = client_ts {
-                    self.client_clock_skew =
-                        Some(ts as i64 - self.rt.unix_timestamp().as_ms_since_epoch()? as i64);
+                    let server_ts = self.rt.unix_timestamp().as_ms_since_epoch()?;
+                    self.client_clock_skew = i64::try_from(ts)
+                        .ok()
+                        .zip(i64::try_from(server_ts).ok())
+                        .and_then(|(client_ts, server_ts)| client_ts.checked_sub(server_ts));
                 }
 
                 self.state.set_session_id(session_id);
