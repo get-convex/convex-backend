@@ -191,7 +191,7 @@ impl<'a, RT: Runtime> LogSinksModel<'a, RT> {
 
         let existing = self.get_by_provider(sink_type.clone()).await?;
         // Check within the insert transaction so concurrent creates cannot
-        // replace an export and discard its cursor.
+        // replace an export and restart it.
         anyhow::ensure!(
             existing.is_none() || sink_type != SinkType::S3Export,
             ErrorMetadata::conflict(

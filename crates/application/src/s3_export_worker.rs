@@ -103,7 +103,6 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             .get(export.developer_id())
             .await?;
         let previous_checkpoint = state.as_ref().map(|state| &state.checkpoint);
-        let previous_cursor = previous_checkpoint.map(|checkpoint| checkpoint.cursor.as_str());
         // Keep the configuration read in the checkpoint transaction: OCC also
         // detects edits that restore the original values while the page is in flight.
         let page = {
@@ -129,27 +128,16 @@ impl<RT: Runtime> S3ExportWorker<RT> {
                     },
                     SyncFormat::Iceberg,
                     &config.selection,
-                    previous_cursor.map(str::to_owned),
+                    &export.developer_id().to_string(),
                 )
                 .in_span(span)
                 .await?;
             timer.finish();
             page
         };
-        anyhow::ensure!(
-            !page.cursor.is_empty(),
-            "Export provider returned an empty S3 export cursor"
-        );
-        if page.cursor == previous_cursor.unwrap_or_default()
-            && !matches!(&page.status, SyncStatus::UpToDate { .. })
-        {
-            anyhow::bail!(
-                "Export provider returned an unchanged cursor before the export caught up"
-            );
-        }
-
+        // The page is already committed in the destination, so losing this
+        // progress update to a concurrent configuration edit loses no data.
         let checkpoint = S3ExportCheckpoint {
-            cursor: page.cursor,
             progress: export_progress(&page.status)?,
         };
         if !S3ExportStateModel::new(&mut tx)
@@ -164,7 +152,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         }
         if previous_checkpoint != Some(&checkpoint) {
             self.database
-                .commit_with_write_source(tx, "s3_export_worker_advance_cursor")
+                .commit_with_write_source(tx, "s3_export_worker_record_progress")
                 .await?;
         } else {
             drop(tx);

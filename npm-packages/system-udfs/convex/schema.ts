@@ -545,7 +545,6 @@ export default defineSchema({
   _s3_export_state: defineTable({
     configId: v.id("_log_sinks"),
     checkpoint: v.object({
-      cursor: v.string(),
       progress: s3ExportProgress,
     }),
   }).index("by_config_id", ["configId"]),

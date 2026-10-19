@@ -34,14 +34,13 @@ codegen_convex_serialization!(S3ExportProgress, S3ExportProgress);
 #[derive(Debug, Clone, PartialEq)]
 pub struct S3ExportState {
     pub config_id: DeveloperDocumentId,
-    /// Cursor and progress describe the same completed destination write.
+    /// Progress of the last page the destination committed.
     pub checkpoint: S3ExportCheckpoint,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct S3ExportCheckpoint {
-    pub cursor: String,
     pub progress: S3ExportProgress,
 }
 
