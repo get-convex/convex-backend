@@ -13,8 +13,15 @@ use anyhow::{
 };
 use iceberg::{
     io::{
+        S3_ACCESS_KEY_ID,
         S3_ENDPOINT,
         S3_PATH_STYLE_ACCESS,
+        S3_REGION,
+        S3_SECRET_ACCESS_KEY,
+    },
+    memory::{
+        MemoryCatalogBuilder,
+        MEMORY_CATALOG_WAREHOUSE,
     },
     table::Table,
     transaction::{
@@ -35,6 +42,7 @@ use iceberg_catalog_glue::{
     GLUE_CATALOG_PROP_URI,
     GLUE_CATALOG_PROP_WAREHOUSE,
 };
+use iceberg_storage_opendal::OpenDalStorageFactory;
 
 use super::{
     append,
@@ -54,6 +62,7 @@ const MAX_NAME_BYTES: usize = 255;
 // S3 keys are at most 1024 bytes; leave room for Iceberg's file names.
 const MAX_LOCATION_BYTES: usize = 896;
 
+#[derive(Clone)]
 pub struct S3Destination {
     pub bucket: String,
     pub region: String,
@@ -74,6 +83,9 @@ pub struct IcebergChangeWriter {
     warehouse_uri: String,
     selected: Vec<SourceTable>,
     tables: BTreeMap<SourceTable, Table>,
+    /// Metadata location of every table in the namespace, by Glue name.
+    locations: BTreeMap<String, String>,
+    snapshot_properties: HashMap<String, String>,
 }
 
 impl IcebergChangeWriter {
@@ -119,6 +131,76 @@ impl IcebergChangeWriter {
         Self::open(Arc::new(catalog), namespace, warehouse_uri, selected, fresh).await
     }
 
+    /// Writes Iceberg data and metadata to S3 without touching Glue. Table
+    /// pointers start at `locations` and live in memory; the caller commits
+    /// [`Self::locations`] once the page succeeds. Each append records
+    /// `snapshot_properties` in its snapshot summary.
+    pub async fn staged(
+        namespace: &str,
+        warehouse_uri: &str,
+        destination: S3Destination,
+        selected: Vec<SourceTable>,
+        locations: &BTreeMap<String, String>,
+        snapshot_properties: HashMap<String, String>,
+    ) -> Result<Self> {
+        ensure!(
+            warehouse_uri.starts_with(&format!("s3://{}/", destination.bucket)),
+            "Warehouse does not belong to destination bucket"
+        );
+        let mut props = HashMap::from([
+            (
+                MEMORY_CATALOG_WAREHOUSE.to_owned(),
+                warehouse_uri.to_owned(),
+            ),
+            (S3_REGION.to_owned(), destination.region),
+            (S3_ACCESS_KEY_ID.to_owned(), destination.access_key_id),
+            (
+                S3_SECRET_ACCESS_KEY.to_owned(),
+                destination.secret_access_key,
+            ),
+        ]);
+        if let Some(endpoint) = destination.endpoint_url {
+            props.insert(S3_ENDPOINT.to_owned(), endpoint);
+            props.insert(S3_PATH_STYLE_ACCESS.to_owned(), "true".to_owned());
+        }
+        let catalog = MemoryCatalogBuilder::default()
+            .with_storage_factory(Arc::new(OpenDalStorageFactory::S3 {
+                customized_credential_load: None,
+            }))
+            .load("porter", props)
+            .await?;
+        let ident = NamespaceIdent::new(namespace.to_owned());
+        catalog.create_namespace(&ident, HashMap::new()).await?;
+        // ponytail: registering reads every table's metadata.json each page, as
+        // retirement already does; register lazily if idle polls get expensive.
+        for (name, location) in locations {
+            catalog
+                .register_table(
+                    &TableIdent::new(ident.clone(), name.clone()),
+                    location.clone(),
+                )
+                .await?;
+        }
+        let mut writer =
+            Self::open(Arc::new(catalog), namespace, warehouse_uri, selected, false).await?;
+        writer.locations = locations.clone();
+        writer.snapshot_properties = snapshot_properties;
+        Ok(writer)
+    }
+
+    /// Metadata location of every table after this page, by Glue name.
+    pub fn locations(&self) -> &BTreeMap<String, String> {
+        &self.locations
+    }
+
+    fn record(&mut self, table: &Table) -> Result<()> {
+        self.locations.insert(
+            table.identifier().name().to_owned(),
+            table.metadata_location_result()?.to_owned(),
+        );
+        Ok(())
+    }
+
     #[fastrace::trace]
     async fn open(
         catalog: Arc<dyn Catalog>,
@@ -148,6 +230,8 @@ impl IcebergChangeWriter {
             warehouse_uri: warehouse_uri.trim_end_matches('/').to_owned(),
             selected,
             tables: BTreeMap::new(),
+            locations: BTreeMap::new(),
+            snapshot_properties: HashMap::new(),
         };
         if fresh {
             for ident in writer.catalog.list_tables(&writer.namespace).await? {
@@ -271,6 +355,7 @@ impl IcebergChangeWriter {
             "Glue table {name} belongs to another source table"
         );
         self.validate(source, &table)?;
+        self.record(&table)?;
         self.tables.insert(source.clone(), table);
         Ok(())
     }
@@ -299,6 +384,7 @@ impl IcebergChangeWriter {
             let ident = TableIdent::new(self.namespace.clone(), name);
             if let Some(table) = self.load_existing(&ident).await? {
                 self.catalog.drop_table(&ident).await?;
+                self.locations.remove(ident.name());
                 self.tables.remove(&source_of(&table)?);
             }
             self.create(source).await?;
@@ -321,7 +407,14 @@ impl IcebergChangeWriter {
                     self.create(&source).await?;
                 }
             }
-            let table = append(&*self.catalog, &self.tables[&source], &changes).await?;
+            let table = append(
+                &*self.catalog,
+                &self.tables[&source],
+                &changes,
+                &self.snapshot_properties,
+            )
+            .await?;
+            self.record(&table)?;
             self.tables.insert(source, table);
         }
         Ok(())
@@ -352,6 +445,10 @@ impl IcebergChangeWriter {
                     .set(RETIRED_PROPERTY.to_owned(), retired.to_string())
                     .apply(tx)?;
                 *table = tx.commit(&*self.catalog).await?;
+                self.locations.insert(
+                    table.identifier().name().to_owned(),
+                    table.metadata_location_result()?.to_owned(),
+                );
             }
         }
         Ok(())

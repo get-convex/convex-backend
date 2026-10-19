@@ -10,14 +10,25 @@ doctest = false
 [dependencies]
 anyhow = { workspace = true }
 arrow_iceberg = { package = "arrow-array", version = "58" }
+aws-credential-types = { workspace = true }
+aws-sdk-glue = { version = "1.85", default-features = false, features = [
+    "default-https-client",
+    "rt-tokio",
+] }
+aws-sdk-s3 = { workspace = true }
+errors = { workspace = true }
 fastrace = { workspace = true }
 iceberg = "=0.10.1"
 iceberg-catalog-glue = "=0.10.1"
+iceberg-storage-opendal = { version = "=0.10.1", default-features = false, features = ["opendal-s3"] }
 parquet_iceberg = { package = "parquet", version = "58", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
+errors = { workspace = true, features = ["testing"] }
 futures = { workspace = true }
 iceberg-storage-opendal = { version = "=0.10.1", default-features = false, features = ["opendal-memory"] }
 tokio = { workspace = true }

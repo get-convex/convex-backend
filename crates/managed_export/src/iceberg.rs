@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
 
 use anyhow::Result;
 use arrow_iceberg::{
@@ -77,6 +80,7 @@ pub(crate) async fn append(
     catalog: &dyn Catalog,
     table: &Table,
     changes: &[Change],
+    snapshot_properties: &HashMap<String, String>,
 ) -> Result<Table> {
     let schema = table.metadata().current_schema().clone();
     let batch = RecordBatch::try_new(
@@ -120,6 +124,7 @@ pub(crate) async fn append(
     let tx = tx
         .fast_append()
         .with_check_duplicate(false)
+        .set_snapshot_properties(snapshot_properties.clone())
         .add_data_files(files)
         .apply(tx)?;
     Ok(tx.commit(catalog).await?)

@@ -219,6 +219,45 @@ async fn truncates_recreate_tables_and_changes_append() -> Result<()> {
 }
 
 #[tokio::test]
+async fn locations_track_every_commit_and_summaries_name_the_page() -> Result<()> {
+    let catalog = memory_catalog().await?;
+    let mut writer = open(catalog.clone(), false).await?;
+    writer.snapshot_properties = HashMap::from([("convex.page".to_owned(), "7".to_owned())]);
+    writer
+        .apply(
+            &[source("menu"), source("empty")],
+            vec![(source("menu"), change("burger", 10, Some("10")))],
+        )
+        .await?;
+    for name in ["app__menu", "app__empty"] {
+        let table = catalog
+            .load_table(&TableIdent::new(writer.namespace.clone(), name.to_owned()))
+            .await?;
+        assert_eq!(
+            writer.locations()[name],
+            table.metadata_location_result()?,
+            "{name}"
+        );
+    }
+    let menu = &writer.tables[&source("menu")];
+    let snapshot = menu.metadata().current_snapshot().unwrap();
+    assert_eq!(snapshot.summary().additional_properties["convex.page"], "7");
+
+    writer.apply(&[source("menu")], vec![]).await?;
+    let menu = catalog
+        .load_table(&TableIdent::new(
+            writer.namespace.clone(),
+            "app__menu".to_owned(),
+        ))
+        .await?;
+    assert_eq!(
+        writer.locations()["app__menu"],
+        menu.metadata_location_result()?
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn names_follow_components_and_keep_case_in_directories() -> Result<()> {
     let mut writer = open(memory_catalog().await?, false).await?;
     let node = component_source("aggregate/inner", "btreeNode");
