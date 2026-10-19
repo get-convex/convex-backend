@@ -324,13 +324,13 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
         part_number: u16,
         part: Bytes,
     ) -> anyhow::Result<ClientDrivenUploadPartToken> {
+        let part_number = PartNumber::try_from(part_number)
+            .map_err(|e| ErrorMetadata::bad_request("Invalid part number", e.to_string()))?;
         let ClientDrivenUpload {
             object_key,
             upload_id,
         } = token.try_into()?;
         let s3_key = self.s3_key(&object_key);
-        PartNumber::try_from(part_number + 1)
-            .map_err(|e| ErrorMetadata::bad_request("Invalid part number", e.to_string()))?;
         let mut s3_upload = S3Upload::new_client_driven(
             self.client.clone(),
             self.bucket.clone(),
@@ -339,7 +339,7 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             s3_key,
             self.runtime.clone(),
             vec![],
-            part_number.try_into()?,
+            part_number,
         )?;
         s3_upload.write(part).await?;
         let object_part = s3_upload
@@ -661,7 +661,7 @@ pub struct S3Upload<RT: Runtime> {
     key: ObjectKey,
     s3_key: S3Key,
     uploaded_parts: Vec<ObjectPart>,
-    next_part_number: PartNumber,
+    next_part_number: Option<PartNumber>,
     /// Initialized to true - set to fault if cleanly completed or cleanly
     /// aborted explicitly. Aborting helps save space by cleaning out
     /// incomplete multipart uploads.
@@ -685,7 +685,7 @@ impl<RT: Runtime> S3Upload<RT> {
             key,
             s3_key,
             uploaded_parts: vec![],
-            next_part_number: 1.try_into()?,
+            next_part_number: Some(1.try_into()?),
             needs_abort_on_drop: true,
             runtime,
         })
@@ -708,15 +708,19 @@ impl<RT: Runtime> S3Upload<RT> {
             key,
             s3_key,
             uploaded_parts,
-            next_part_number,
+            next_part_number: Some(next_part_number),
             needs_abort_on_drop: false,
             runtime,
         })
     }
 
     fn next_part_number(&mut self) -> anyhow::Result<PartNumber> {
-        let part_number = self.next_part_number;
-        self.next_part_number = (Into::<u16>::into(self.next_part_number) + 1).try_into()?;
+        let part_number = self
+            .next_part_number
+            .context("S3 multipart part limit reached")?;
+        self.next_part_number = u16::from(part_number)
+            .checked_add(1)
+            .and_then(|next| PartNumber::try_from(next).ok());
         Ok(part_number)
     }
 
