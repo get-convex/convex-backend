@@ -71,8 +71,8 @@ pub fn usage_deltas(events: &[UsageEvent]) -> Vec<(UsageLimitMetric, f64)> {
             UsageEvent::FunctionStorageCalls { count, .. } => {
                 deltas.push((UsageLimitMetric::FunctionCalls, *count as f64));
             },
-            UsageEvent::StorageCall { .. } => {
-                deltas.push((UsageLimitMetric::FunctionCalls, 1.0));
+            UsageEvent::StorageCall { count, .. } => {
+                deltas.push((UsageLimitMetric::FunctionCalls, *count as f64));
             },
             UsageEvent::DatabaseBandwidth {
                 ingress_v2,

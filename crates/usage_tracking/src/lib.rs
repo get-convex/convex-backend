@@ -31,6 +31,7 @@ use derive_more::{
 use events::usage::{
     FunctionCallUsageFields,
     InsightReadLimitCall,
+    StorageCallSample,
     UsageEvent,
     UsageEventLogger,
 };
@@ -643,7 +644,10 @@ impl StorageUsageTracker for UsageCounter {
                 id: execution_id.to_string(),
                 component_path: component_path.serialize(),
                 call: storage_api.to_string(),
-                content_type: content_type.map(|c| c.to_string()),
+                sample: StorageCallSample {
+                    content_type: content_type.map(|c| c.to_string()),
+                },
+                count: 1,
             }])
             .await;
 

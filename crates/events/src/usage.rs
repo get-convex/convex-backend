@@ -62,6 +62,14 @@ pub struct FunctionCallUsageFields {
     pub occ_retry_count: Option<u64>,
 }
 
+/// One storage call covered by a [`UsageEvent::StorageCall`]. A summary's
+/// sample is an arbitrary one of its calls, since content type is not part of
+/// the summary's grouping key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StorageCallSample {
+    pub content_type: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InsightReadLimitCall {
     pub table_name: String,
@@ -112,7 +120,13 @@ pub enum UsageEvent {
         id: String,
         component_path: Option<String>,
         call: String,
-        content_type: Option<String>,
+        /// Flattened so the payload keeps one flat schema for raw events and
+        /// summaries.
+        #[serde(flatten)]
+        sample: StorageCallSample,
+        /// Calls this event covers: one for a raw event, the minute's total for
+        /// a summary.
+        count: u64,
     },
     /// Bandwidth from a storage call outside of a user function (e.g. snapshot
     /// import/export).
