@@ -35,11 +35,8 @@ import Link from "next/link";
 import { RefreshSession } from "components/login/RefreshSession";
 import { AuthProvider } from "providers/AuthProvider";
 import { useSSOLoginRequired } from "api/api";
-import { Sheet } from "@ui/Sheet";
-import { Button } from "@ui/Button";
-import { ExitIcon, LockClosedIcon } from "@radix-ui/react-icons";
 import { useDashboardVersion } from "hooks/useDashboardVersion";
-import { logout } from "lib/logout";
+import { SSOLoginRequired } from "components/login/SSOLoginRequired";
 
 declare global {
   interface Window {
@@ -137,32 +134,7 @@ function AppInner({ Component, pageProps }: Omit<AppProps, "router">) {
                 <CreateTeamModal />
                 <JoinDirectorySyncedTeamModal />
                 {isSsoLocked ? (
-                  <div className="flex size-full items-center justify-center">
-                    <Sheet className="flex max-w-prose flex-col gap-4">
-                      <div className="flex items-center gap-2">
-                        <LockClosedIcon className="size-8" />
-                        <h3>Single Sign-On Login Required</h3>
-                      </div>
-                      <span className="flex flex-col gap-2">
-                        <p>
-                          This team requires you to log in with Single Sign-On
-                          to access it.
-                        </p>
-                        <p>
-                          You may log out and log back in through your Single
-                          Sign-On provider, or switch teams by using the
-                          selector on the top of this page.
-                        </p>
-                      </span>
-                      <Button
-                        className="ml-auto w-fit"
-                        onClick={() => logout()}
-                        icon={<ExitIcon />}
-                      >
-                        Log Out
-                      </Button>
-                    </Sheet>
-                  </div>
+                  <SSOLoginRequired />
                 ) : inDeployment ? (
                   <DeploymentInfoProvider>
                     <MaybeDeploymentApiProvider>
