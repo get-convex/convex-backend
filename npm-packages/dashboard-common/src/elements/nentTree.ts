@@ -88,6 +88,19 @@ export function ancestorPaths(path: string): string[] {
   return result;
 }
 
+/** Paths of every component with children, which "Expand all" expands. */
+export function expandableNentPaths(roots: NentTreeNode[]): string[] {
+  const paths: string[] = [];
+  const visit = (node: NentTreeNode) => {
+    if (node.children.length > 0) {
+      paths.push(node.nent.path);
+      node.children.forEach(visit);
+    }
+  };
+  roots.forEach(visit);
+  return paths;
+}
+
 /**
  * Flattens the tree into the rows currently on screen. With a query, only
  * components whose path matches stay, along with their ancestors, which are

@@ -280,8 +280,8 @@ export const NoComponents: Story = {
 };
 
 /**
- * With only top-level components, there's nothing to expand: no toggles or
- * rails, and the names stay aligned where a toggle would go.
+ * With only top-level components, there's nothing to expand: no toggles,
+ * rails, or expand-all button, and the names stay aligned where a toggle would go.
  */
 export const TopLevelOnly: Story = {
   decorators: [
@@ -306,6 +306,9 @@ export const TopLevelOnly: Story = {
     await expect(
       tree.querySelectorAll("[data-tree-toggle], [data-tree-rail]"),
     ).toHaveLength(0);
+    await expect(
+      screen.queryByRole("button", { name: "Expand all" }),
+    ).toBeNull();
   },
 };
 
@@ -600,5 +603,65 @@ export const LongNames: Story = {
     const label = labelOf("backgroundJobWorkpoolForOutgoingMessages");
     const text = label.firstElementChild!;
     await expect(text.scrollWidth).toBeGreaterThan(text.clientWidth);
+  },
+};
+
+function expandAllButton() {
+  return screen.getByRole("button", { name: /^(Expand|Collapse) all$/ });
+}
+
+/**
+ * The button at the end of the search bar expands every component, nested ones
+ * included, then collapses them all. While searching, every match is already
+ * expanded, so it's disabled.
+ */
+export const ExpandAll: Story = {
+  play: async ({ canvasElement, args }) => {
+    const tree = await openTree(canvasElement);
+    await userEvent.click(expandAllButton());
+    await expect(treeItems(tree)).toEqual([
+      "app",
+      "aggregate",
+      "resend",
+      "  callbackWorkpool",
+      "    batchWorker",
+      "  emailWorkpool",
+      "    batchWorker",
+      "  rateLimiter",
+      "legacyCrons* (unmounted)",
+      "  workpool* (unmounted)",
+    ]);
+    await expect(searchInput()).toHaveFocus();
+    await expect(args.onChange).not.toHaveBeenCalled();
+
+    await userEvent.click(expandAllButton());
+    await expect(expandAllButton()).toHaveAccessibleName("Expand all");
+    await expect(treeItems(tree)).toEqual([
+      "app",
+      "aggregate",
+      "resend",
+      "legacyCrons* (unmounted)",
+    ]);
+
+    await userEvent.type(searchInput(), "batch");
+    await expect(expandAllButton()).toBeDisabled();
+  },
+};
+
+/**
+ * With some components expanded, the button still expands the rest; it
+ * collapses only once everything is expanded.
+ */
+export const ExpandAllWhenPartlyExpanded: Story = {
+  play: async ({ canvasElement }) => {
+    await openTree(canvasElement);
+    await userEvent.click(toggleOf("resend"));
+    await expect(expandAllButton()).toHaveAccessibleName("Expand all");
+    await userEvent.click(expandAllButton());
+    await expect(expandAllButton()).toHaveAccessibleName("Collapse all");
+    await expect(treeItem("legacyCrons")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   },
 };

@@ -24,6 +24,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
   ancestorPaths,
   buildNentTree,
+  expandableNentPaths,
   isUnmounted,
   NentTreeRow,
   subtreeRowCounts,
@@ -35,7 +36,8 @@ import {
  * square with its own hover state, expands it; the highlight on the name never
  * covers the toggle, so the two click targets read as separate. Below an
  * expanded component, a rail runs alongside its children and collapses it when
- * clicked.
+ * clicked. A button at the end of the search bar expands or collapses every
+ * component at once.
  */
 export function NentSwitcherTree({
   onChange,
@@ -218,6 +220,9 @@ function TreePanel({
       return next;
     });
 
+  const expandablePaths = useMemo(() => expandableNentPaths(roots), [roots]);
+  const isAllExpanded = expandablePaths.every((p) => expanded.has(p));
+
   const onRowClick = (row: NentTreeRow, e: MouseEvent) => {
     const target = e.target instanceof Element ? e.target : null;
     if (row.hasChildren && target?.closest(`[${TOGGLE_ATTRIBUTE}]`)) {
@@ -328,13 +333,30 @@ function TreePanel({
           style={{
             height: geometry.search,
             paddingLeft: PADDING + geometry.row + LABEL_GAP + LABEL_PADDING,
+            // Clears the expand-all button.
+            paddingRight:
+              expandablePaths.length > 0
+                ? PADDING + geometry.row + LABEL_GAP
+                : 12,
           }}
           className={cn(
-            "block w-full bg-transparent pr-3 text-content-primary placeholder:text-content-tertiary focus:outline-hidden",
+            "block w-full bg-transparent text-content-primary placeholder:text-content-tertiary focus:outline-hidden",
             // iOS zooms into inputs with text smaller than 16px.
             isNarrow ? "text-base" : "text-sm",
           )}
         />
+        {expandablePaths.length > 0 && (
+          <ExpandAllButton
+            isAllExpanded={isAllExpanded}
+            // A search shows every match's ancestors expanded already.
+            disabled={isSearching}
+            size={geometry.row}
+            treeId={treeId}
+            onClick={() =>
+              setExpanded(isAllExpanded ? new Set() : new Set(expandablePaths))
+            }
+          />
+        )}
       </div>
       <div
         id={treeId}
@@ -377,6 +399,78 @@ function TreePanel({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Sits at the end of the search bar, centered vertically and as far from the
+ * edge as the toggles are, so it's in view however far the tree is scrolled.
+ */
+function ExpandAllButton({
+  isAllExpanded,
+  disabled,
+  size,
+  treeId,
+  onClick,
+}: {
+  isAllExpanded: boolean;
+  disabled: boolean;
+  /** The button is a square as tall as a row. */
+  size: number;
+  treeId: string;
+  onClick: () => void;
+}) {
+  const label = isAllExpanded ? "Collapse all" : "Expand all";
+  return (
+    <Tooltip tip={label} side="top" asChild>
+      {/* `@ui/Button` doesn't forward `onMouseDown`, which keeps focus in the
+          search input. */}
+      {/* eslint-disable-next-line react/forbid-elements */}
+      <button
+        type="button"
+        aria-label={label}
+        aria-controls={treeId}
+        disabled={disabled}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={onClick}
+        style={{ right: PADDING, width: size, height: size }}
+        className={cn(
+          "absolute top-1/2 flex -translate-y-1/2 items-center justify-center rounded-md text-content-secondary",
+          "hover:bg-border-transparent/70 hover:text-content-primary",
+          "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-content-secondary",
+        )}
+      >
+        {isAllExpanded ? <ChevronsInwardIcon /> : <ChevronsOutwardIcon />}
+      </button>
+    </Tooltip>
+  );
+}
+
+// Two chevrons pointing apart (expand) or together (collapse), drawn on the
+// 15px grid of the Radix icons elsewhere in the tree.
+function ChevronsOutwardIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden>
+      <path
+        d="M4.5 5.5L7.5 2.5L10.5 5.5M4.5 9.5L7.5 12.5L10.5 9.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronsInwardIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden>
+      <path
+        d="M4.5 2.5L7.5 5.5L10.5 2.5M4.5 12.5L7.5 9.5L10.5 12.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
