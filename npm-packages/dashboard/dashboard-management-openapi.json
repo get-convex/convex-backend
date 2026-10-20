@@ -4893,7 +4893,23 @@
               "$ref": "#/components/schemas/CurrentPlanPriceResponse"
             },
             "propertyNames": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "aiGatewayCostDollars",
+                "searchQueryGb",
+                "dataEgressGb",
+                "actionComputeCpuGbHours",
+                "databaseIoGb",
+                "actionComputeNodeJsGbHours",
+                "queryMutationComputeGbHours",
+                "actionComputeConvexGbHours",
+                "functionCalls",
+                "auditLogBandwidthGb",
+                "databaseStorageGb",
+                "activeDeployments",
+                "fileStorageGb",
+                "searchStorageGb"
+              ]
             }
           }
         }
