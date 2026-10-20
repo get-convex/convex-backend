@@ -242,7 +242,7 @@ impl DeploymentJwtKey {
             mut claims,
             expires_in,
         } = request;
-        for reserved in ["iss", "iat", "exp", "nbf"] {
+        for reserved in ["iss", "iat", "exp"] {
             if claims.contains_key(reserved) {
                 anyhow::bail!(invalid_request(format!(
                     "The '{reserved}' claim is set by Convex and can't be provided"
@@ -269,6 +269,15 @@ impl DeploymentJwtKey {
         {
             anyhow::bail!(invalid_request(
                 "The 'sub' claim must be a non-empty string"
+            ));
+        }
+
+        // The `nbf` claim is a timestamp related to `iat` and `exp` which we set
+        // internally. Rather than allowing it and validating it against the
+        // values we set, we just disallow it at this point.
+        if claims.contains_key("nbf") {
+            anyhow::bail!(invalid_request(
+                "The 'nbf' claim is reserved by Convex and can't be provided"
             ));
         }
         if expires_in.is_zero() || expires_in > *DEPLOYMENT_JWT_MAX_LIFETIME {
