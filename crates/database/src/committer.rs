@@ -595,17 +595,13 @@ impl<RT: Runtime> Committer<RT> {
                             write_source,
                             parent_trace,
                         }) => {
-                            if transaction.is_readonly() {
-                                let _ = result.send(Ok(*transaction.begin_timestamp));
-                            } else {
-                                awaiting_pre_validation.push_back(CommitRequest {
-                                    queue_timer,
-                                    transaction,
-                                    result,
-                                    write_source,
-                                    parent_trace,
-                                });
-                            }
+                            awaiting_pre_validation.push_back(CommitRequest {
+                                queue_timer,
+                                transaction,
+                                result,
+                                write_source,
+                                parent_trace,
+                            });
                         },
                         Some(CommitterMessage::FinishTextAndVectorBootstrap {
                             bootstrapped_indexes,
@@ -1558,6 +1554,13 @@ impl CommitterClient {
 
         // Finish reading everything from persistence.
         let transaction = transaction.finalize()?;
+
+        if transaction.is_readonly() {
+            // If there is nothing to write, skip the roundtrip through the
+            // committer. The transaction is serialized at the _begin_ timestamp
+            // rather than a freshly allocated one.
+            return Ok(*transaction.begin_timestamp);
+        }
 
         // Note that we do a best effort validation for memory index sizes. We
         // use the latest snapshot instead of the transaction base snapshot. This
