@@ -237,7 +237,7 @@ impl From<&TableSummary> for JsonValue {
         let mut object = serde_json::Map::new();
         object.insert(
             "totalSize".into(),
-            JsonInteger::encode(summary.count.total_size as i64).into(),
+            JsonInteger(summary.count.total_size as i64).into(),
         );
         object.insert(
             "inferredTypeWithOptionalFields".into(),
@@ -389,7 +389,7 @@ impl From<&TableSummarySnapshot> for JsonValue {
                 .collect::<serde_json::Map<String, JsonValue>>()
                 .into(),
         );
-        object.insert("ts".into(), JsonInteger::encode(snapshot.ts.into()).into());
+        object.insert("ts".into(), JsonInteger(snapshot.ts.into()).into());
         object.into()
     }
 }
