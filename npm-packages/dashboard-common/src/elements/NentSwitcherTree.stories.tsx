@@ -281,7 +281,8 @@ export const NoComponents: Story = {
 
 /**
  * With only top-level components, there's nothing to expand: no toggles,
- * rails, or expand-all button, and the names stay aligned where a toggle would go.
+ * rails, or expand-all button. Without the toggle column, the rows start with
+ * the names, like the options of `Combobox`.
  */
 export const TopLevelOnly: Story = {
   decorators: [

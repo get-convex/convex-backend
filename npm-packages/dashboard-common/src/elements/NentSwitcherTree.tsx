@@ -222,6 +222,9 @@ function TreePanel({
 
   const expandablePaths = useMemo(() => expandableNentPaths(roots), [roots]);
   const isAllExpanded = expandablePaths.every((p) => expanded.has(p));
+  // With only top-level components, rows drop the toggle column and start with
+  // the name, like the options of `Combobox`.
+  const hasToggleColumn = expandablePaths.length > 0;
 
   const onRowClick = (row: NentTreeRow, e: MouseEvent) => {
     const target = e.target instanceof Element ? e.target : null;
@@ -299,9 +302,14 @@ function TreePanel({
           icon sits on top and lets clicks through. */}
       <div className="relative border-b">
         {/* Lined up with the top-level rows: the icon over the toggles, and
-            the text with the names. */}
+            the text with the names. Without toggles, the icon lines up with
+            the names instead, as in `Combobox`. */}
         <MagnifyingGlassIcon
-          style={{ left: PADDING + geometry.row / 2 - SEARCH_ICON_SIZE / 2 }}
+          style={{
+            left: hasToggleColumn
+              ? PADDING + geometry.row / 2 - SEARCH_ICON_SIZE / 2
+              : PADDING + LABEL_PADDING,
+          }}
           className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-content-secondary"
         />
         <input
@@ -332,7 +340,9 @@ function TreePanel({
           aria-label="Search components"
           style={{
             height: geometry.search,
-            paddingLeft: PADDING + geometry.row + LABEL_GAP + LABEL_PADDING,
+            paddingLeft: hasToggleColumn
+              ? PADDING + geometry.row + LABEL_GAP + LABEL_PADDING
+              : PADDING + LABEL_PADDING + SEARCH_ICON_SIZE + SEARCH_ICON_GAP,
             // Clears the expand-all button.
             paddingRight:
               expandablePaths.length > 0
@@ -382,6 +392,7 @@ function TreePanel({
             canToggle={!isSearching}
             isSelected={row.node.nent.path === selectedPath}
             isActive={row.node.nent.path === activePath}
+            hasToggleColumn={hasToggleColumn}
             onClick={(e) => onRowClick(row, e)}
             onMouseMove={() => {
               // A key that didn't move the active row leaves the flag set.
@@ -514,6 +525,8 @@ const LABEL_GAP = 2;
 const LABEL_PADDING = 6;
 // The search icon is 15px wide.
 const SEARCH_ICON_SIZE = 15;
+// Between the search icon and the text, when the icon lines up with the names.
+const SEARCH_ICON_GAP = 8;
 
 function TreeRow({
   ref,
@@ -525,6 +538,7 @@ function TreeRow({
   canToggle,
   isSelected,
   isActive,
+  hasToggleColumn,
   onClick,
   onMouseMove,
 }: {
@@ -538,6 +552,8 @@ function TreeRow({
   canToggle: boolean;
   isSelected: boolean;
   isActive: boolean;
+  /** Without one, the row starts with the name. */
+  hasToggleColumn: boolean;
   onClick: (e: MouseEvent) => void;
   onMouseMove: () => void;
 }) {
@@ -589,13 +605,16 @@ function TreeRow({
             className={cn("transition-transform", isExpanded && "rotate-90")}
           />
         </span>
-      ) : (
+      ) : hasToggleColumn ? (
         <span style={{ width: rowHeight }} className="shrink-0" />
-      )}
+      ) : null}
       <span
         {...{ [LABEL_ATTRIBUTE]: true }}
         onMouseMove={onMouseMove}
-        style={{ marginLeft: LABEL_GAP, paddingInline: LABEL_PADDING }}
+        style={{
+          marginLeft: hasToggleColumn ? LABEL_GAP : 0,
+          paddingInline: LABEL_PADDING,
+        }}
         className={cn(
           "flex h-full min-w-0 flex-1 cursor-pointer items-center rounded-md",
           isActive && "bg-background-tertiary",
