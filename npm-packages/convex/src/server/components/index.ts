@@ -50,6 +50,17 @@ export type FunctionHandle<
 > = string & FunctionReference<Type, "internal", Args, ReturnType>;
 
 /**
+ * A {@link FunctionHandle} with the type semantics of {@link FunctionReference_future}.
+ *
+ * @public
+ */
+export type FunctionHandle_future<
+  Type extends FunctionType,
+  Args extends DefaultFunctionArgs = any,
+  ReturnType = any,
+> = string & FunctionReference_future<Type, "internal", Args, ReturnType>;
+
+/**
  * Create a serializable reference to a Convex function.
  * Passing a this reference to another component allows that component to call this
  * function during the current function execution or at any later time.

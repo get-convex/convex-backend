@@ -209,6 +209,7 @@ export type {
   ComponentDefinition,
   AnyComponents,
   FunctionHandle,
+  FunctionHandle_future,
 } from "./components/index.js";
 
 /**
