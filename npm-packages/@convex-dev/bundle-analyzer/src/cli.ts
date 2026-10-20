@@ -13,6 +13,8 @@ const program = new Command("bundle-analyzer")
   .description(
     [
       "Analyze the code bundle for the Convex project in the current directory.",
+      "",
+      "This package is in alpha. Commands and output shapes may change between releases.",
     ].join("\n"),
   )
   .version(analyzerVersion)
