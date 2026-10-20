@@ -1326,12 +1326,14 @@ impl<RT: Runtime> Database<RT> {
         min_ts: RepeatableTimestamp,
         page_size: usize,
     ) -> LatestTableIterator<RT> {
+        let database = self.clone();
         LatestTableIterator::new(
             self.runtime.clone(),
             min_ts,
             self.reader.clone(),
             self.retention_validator(),
             page_size,
+            Arc::new(move || database.now_ts_for_reads()),
         )
     }
 

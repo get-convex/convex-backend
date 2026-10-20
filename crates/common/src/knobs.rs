@@ -382,6 +382,10 @@ pub static DOCUMENTS_IN_MEMORY: LazyLock<usize> =
 pub static TABLE_ITERATOR_MAX_RETRIES: LazyLock<u32> =
     LazyLock::new(|| env_config("TABLE_ITERATOR_MAX_RETRIES", 1));
 
+/// Documents per `by_id` page when the SchemaWorker walks a table.
+pub static SCHEMA_WORKER_PAGE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("SCHEMA_WORKER_PAGE_SIZE", 1000));
+
 /// Length of the HTTP server TCP backlog.
 pub static HTTP_SERVER_TCP_BACKLOG: LazyLock<u32> =
     LazyLock::new(|| env_config("HTTP_SERVER_TCP_BACKLOG", 256));

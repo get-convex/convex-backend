@@ -11416,6 +11416,8 @@ dependencies = [
  "fastrace",
  "futures",
  "futures-async-stream",
+ "metrics",
+ "prometheus",
  "tokio",
  "tracing",
  "value",

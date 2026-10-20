@@ -61,6 +61,8 @@ use value::{
     TabletId,
 };
 
+use crate::metrics::page_timer;
+
 /// A cursor for use while scanning a table by ID.
 ///
 /// The key is the last element processed thus far.
@@ -238,7 +240,17 @@ pub struct LatestTableIterator<RT: Runtime> {
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     page_size: usize,
+    latest_ts_source: LatestTsSource,
 }
+
+/// Supplies the "recent" half of a page's read timestamp, saving the
+/// persistence round trip that reading the persisted max repeatable timestamp
+/// would cost per page. It must return timestamps that are repeatable, within
+/// retention, and weakly monotonic across calls;
+/// `Database::now_ts_for_reads` qualifies because the committer publishes a
+/// timestamp only after its writes are durable, and it is at least the
+/// persisted repeatable timestamp.
+pub type LatestTsSource = Arc<dyn Fn() -> RepeatableTimestamp + Send + Sync>;
 
 impl<RT: Runtime> LatestTableIterator<RT> {
     pub fn new(
@@ -247,6 +259,7 @@ impl<RT: Runtime> LatestTableIterator<RT> {
         persistence: Arc<dyn PersistenceReader>,
         retention_validator: Arc<dyn RetentionValidator>,
         page_size: usize,
+        latest_ts_source: LatestTsSource,
     ) -> Self {
         Self {
             runtime,
@@ -254,6 +267,7 @@ impl<RT: Runtime> LatestTableIterator<RT> {
             persistence,
             retention_validator,
             page_size,
+            latest_ts_source,
         }
     }
 
@@ -270,6 +284,7 @@ impl<RT: Runtime> LatestTableIterator<RT> {
                 &self.retention_validator,
                 self.page_size,
                 self.min_ts,
+                Some(&self.latest_ts_source),
                 by_id,
                 tablet_id,
                 &mut cursor,
@@ -636,6 +651,7 @@ impl<RT: Runtime> TableIteratorInner<RT> {
             &self.retention_validator,
             self.page_size,
             self.snapshot_ts,
+            None,
             index_id,
             tablet_id,
             cursor,
@@ -859,6 +875,9 @@ impl Deref for IterationDocuments {
 /// 3. each page is repeatable, as the max of repeatable timestamps;
 /// 4. each page is within retention, since `new_static_repeatable_recent` is.
 ///
+/// A `latest_ts_source` replaces `new_static_repeatable_recent` and must
+/// satisfy the same properties (see [`LatestTsSource`]).
+///
 /// Reads that fall out of retention or time out are retried at a fresh
 /// timestamp up to `TABLE_ITERATOR_MAX_RETRIES` times.
 #[fastrace::trace]
@@ -867,6 +886,7 @@ async fn fetch_page(
     retention_validator: &Arc<dyn RetentionValidator>,
     page_size: usize,
     min_ts: RepeatableTimestamp,
+    latest_ts_source: Option<&LatestTsSource>,
     index_id: IndexRef,
     tablet_id: TabletId,
     cursor: &mut TableScanCursor,
@@ -875,7 +895,13 @@ async fn fetch_page(
     // forever.
     anyhow::ensure!(page_size > 0, "table iterator page size must be positive");
     for attempt in 0.. {
-        let recent_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
+        let recent_ts = {
+            let _timer = page_timer("ts");
+            match latest_ts_source {
+                Some(source) => source(),
+                None => new_static_repeatable_recent(persistence.as_ref()).await?,
+            }
+        };
         let ts = cmp::max(min_ts, recent_ts);
         let repeatable_persistence =
             RepeatablePersistence::new(persistence.clone(), ts, retention_validator.clone());
@@ -887,6 +913,7 @@ async fn fetch_page(
             Order::Asc,
             page_size,
         );
+        let scan_timer = page_timer("scan");
         let documents_in_page: Vec<_> = match stream.take(page_size).try_collect().await {
             Ok(docs) => docs,
             Err(e)
@@ -898,6 +925,7 @@ async fn fetch_page(
             },
             Err(e) => return Err(e),
         };
+        drop(scan_timer);
         if documents_in_page.len() < page_size {
             cursor.advance(CursorPosition::End)?;
         } else if let Some((index_key, ..)) = documents_in_page.last() {

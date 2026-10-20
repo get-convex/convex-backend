@@ -15,6 +15,7 @@ use common::{
     bootstrap_model::schema::SchemaState,
     document::ResolvedDocument,
     errors::report_error,
+    knobs::SCHEMA_WORKER_PAGE_SIZE,
     persistence::LatestDocument,
     runtime::Runtime,
     schemas::{
@@ -54,8 +55,10 @@ use keybroker::Identity;
 use metrics::{
     log_document_bytes,
     log_document_validated,
+    log_walk_started,
     log_walk_ts_lag,
     schema_validation_timer,
+    TableWalkMetrics,
 };
 use shape_inference::{
     CountedShape,
@@ -598,12 +601,14 @@ impl<RT: Runtime> SchemaWorker<RT> {
             validation_id,
             mut total_docs,
         } = walk;
+        log_walk_started();
         let update_threshold = progress_update_threshold(total_docs);
         let stream = self
             .database
-            .latest_table_iterator(min_ts, 1000)
+            .latest_table_iterator(min_ts, *SCHEMA_WORKER_PAGE_SIZE)
             .stream_documents_in_table(tablet_id, by_id);
         pin_mut!(stream);
+        let mut walk_metrics = TableWalkMetrics::start(self.runtime.clone());
         let mut current_page_ts = None;
         let mut fresh_mapping = table_mapping.clone();
         let mut table_name = fresh_mapping.tablet_name(tablet_id)?;
@@ -624,6 +629,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             }
             log_document_validated();
             log_document_bytes(doc.size());
+            walk_metrics.docs += 1;
             if let Err(error) = check_document(&doc, table_name.clone(), &fresh_mapping) {
                 return Ok(WalkOutcome::Violation(error));
             }
