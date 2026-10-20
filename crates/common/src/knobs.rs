@@ -1508,7 +1508,7 @@ pub static FUNRUN_MAX_CPU_PRESSURE: LazyLock<f64> =
 ///
 /// You can check go/num-instances-with-lambdas
 pub static AWS_LAMBDA_DEPLOY_SPLAY: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 64800)));
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 172800)));
 
 /// How long of a window to debounce static lambda deployments. Don't allow too
 /// many static deploys in a small window to protect the infrastructure.
