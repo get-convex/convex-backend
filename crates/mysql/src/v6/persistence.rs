@@ -719,10 +719,6 @@ impl<RT: Runtime> common::persistence::Persistence for Persistence<RT> {
         })
     }
 
-    fn needs_index_retention_deletes(&self) -> bool {
-        false
-    }
-
     async fn delete(
         &self,
         mut document_ids: Vec<(Timestamp, InternalDocumentId)>,
@@ -1060,6 +1056,10 @@ impl<RT: Runtime> PersistenceReader for Reader<RT> {
 
     fn version(&self) -> PersistenceVersion {
         PersistenceVersion::V6
+    }
+
+    fn needs_index_retention_deletes(&self) -> bool {
+        false
     }
 }
 

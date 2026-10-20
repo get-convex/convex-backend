@@ -327,7 +327,7 @@ impl<RT: Runtime> LeaderRetentionWorkerSeed<RT> {
     ) -> anyhow::Result<LeaderRetentionWorkers> {
         let rt = &self.retention_manager.rt;
         let reader = self.persistence.reader();
-        let needs_index_retention_deletes = self.persistence.needs_index_retention_deletes();
+        let needs_index_retention_deletes = reader.needs_index_retention_deletes();
         let SnapshotBounds {
             min_index_snapshot_ts,
             min_document_snapshot_ts,
@@ -639,7 +639,7 @@ impl LeaderRetentionWorkers {
             snapshot_reader,
             checkpoint_reader,
             retention_type,
-            persistence.needs_index_retention_deletes(),
+            persistence.reader().needs_index_retention_deletes(),
         )
         .await?;
         let min_snapshot_ts = match retention_type {
@@ -727,7 +727,7 @@ impl LeaderRetentionWorkers {
         snapshot_reader: Reader<SnapshotManager>,
         shutdown: ShutdownSignal,
     ) {
-        let needs_index_retention_deletes = persistence.needs_index_retention_deletes();
+        let needs_index_retention_deletes = persistence.reader().needs_index_retention_deletes();
         loop {
             {
                 let _timer = retention_advance_timestamp_timer();
