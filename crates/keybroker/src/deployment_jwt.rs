@@ -262,6 +262,15 @@ impl DeploymentJwtKey {
                  'cvx' are reserved"
             )));
         }
+        // RFC 7519 §4.1.2 makes `sub` a string, and `customJwt` providers reject
+        // tokens whose `sub` isn't one.
+        if let Some(sub) = claims.get("sub")
+            && !sub.as_str().is_some_and(|sub| !sub.is_empty())
+        {
+            anyhow::bail!(invalid_request(
+                "The 'sub' claim must be a non-empty string"
+            ));
+        }
         if expires_in.is_zero() || expires_in > *DEPLOYMENT_JWT_MAX_LIFETIME {
             anyhow::bail!(invalid_request(format!(
                 "expiresIn must be between 1 second and {} seconds",
