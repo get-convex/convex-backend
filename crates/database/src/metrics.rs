@@ -332,8 +332,8 @@ register_convex_histogram!(
     "Time from enqueueing a commit to it reaching the committer thread: the committer queue wait, \
      plus the wait for a pre-validation lane and the off-thread conflict check itself"
 );
-pub fn commit_queue_timer() -> Timer<VMHistogram> {
-    Timer::new(&DATABASE_COMMIT_QUEUE_SECONDS)
+pub fn log_commit_dequeued(time_in_queue: Duration) {
+    log_distribution(&DATABASE_COMMIT_QUEUE_SECONDS, time_in_queue.as_secs_f64());
 }
 
 register_convex_histogram!(
@@ -343,6 +343,15 @@ register_convex_histogram!(
 );
 pub fn commit_timer() -> StatusTimer {
     StatusTimer::new(&DATABASE_COMMIT_SECONDS)
+}
+
+register_convex_histogram!(
+    DATABASE_COMMIT_PERSISTED_SECONDS,
+    "Time from a commit's submission until persistence acknowledges its write. Excludes time \
+     waiting for the committed timestamp to become repeatable."
+);
+pub fn log_commit_persisted(elapsed: Duration) {
+    log_distribution(&DATABASE_COMMIT_PERSISTED_SECONDS, elapsed.as_secs_f64());
 }
 
 register_convex_histogram!(
