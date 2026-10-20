@@ -1,6 +1,8 @@
 use std::{
     env,
+    path::Path,
     pin::Pin,
+    sync::Arc,
     time::{
         Duration,
         SystemTime,
@@ -65,6 +67,7 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
+use pb::searchlight::storage_type::StorageType;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -74,6 +77,7 @@ use storage::{
     ClientDrivenUploadPartToken,
     ClientDrivenUploadToken,
     InvalidGetRangeError,
+    LocalDirStorage,
     ObjectAttributes,
     ObjectListing,
     Storage,
@@ -211,6 +215,22 @@ impl<RT: Runtime> S3Storage<RT> {
         .await?;
         Ok(s3_upload)
     }
+}
+
+/// Inverse of [`Storage::storage_type_proto`].
+pub async fn storage_from_proto<RT: Runtime>(
+    rt: RT,
+    storage_type: StorageType,
+) -> anyhow::Result<Arc<dyn Storage>> {
+    Ok(match storage_type {
+        StorageType::S3(prefix) => {
+            Arc::new(S3Storage::new_with_prefix(prefix.bucket, prefix.prefix, rt).await?)
+        },
+        StorageType::Local(dir) => Arc::new(LocalDirStorage::new_at_path(
+            rt,
+            Path::new(&dir.path).to_owned(),
+        )?),
+    })
 }
 
 async fn s3_client() -> Result<Client, anyhow::Error> {
@@ -523,9 +543,10 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
         let prefix = self.key_prefix.clone();
         let bucket = self.bucket.clone();
         pb::searchlight::StorageType {
-            storage_type: Some(pb::searchlight::storage_type::StorageType::S3(
-                pb::searchlight::S3Storage { prefix, bucket },
-            )),
+            storage_type: Some(StorageType::S3(pb::searchlight::S3Storage {
+                prefix,
+                bucket,
+            })),
         }
     }
 
