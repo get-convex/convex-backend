@@ -53,6 +53,7 @@ tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 [lints.rust]
 unused_extern_crates = "warn"
 unused_features = "allow"
+unexpected_cfgs = { level = "warn", check-cfg = [ "cfg(rust_analyzer)" ] }
 
 [lints.clippy]
 await_holding_lock = "warn"

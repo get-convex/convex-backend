@@ -60,6 +60,7 @@ maplit = { workspace = true }
 metrics = { workspace = true, features = ["testing"] }
 must-let = { workspace = true }
 runtime = { workspace = true, features = ["testing"] }
+shuttle = { version = "0.9" }
 value = { workspace = true, features = ["testing"] }
 
 [[bench]]

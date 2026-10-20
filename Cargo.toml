@@ -293,6 +293,7 @@ shuttle-parking_lot = { git = "https://github.com/awslabs/shuttle", rev = "91e3c
 [workspace.lints.rust]
 unused_extern_crates = "warn"
 unused_features = "allow"
+unexpected_cfgs = { level = "warn", check-cfg = [ "cfg(rust_analyzer)" ] }
 
 [workspace.lints.clippy]
 await_holding_lock = "warn"
