@@ -1,6 +1,9 @@
 use std::{
     sync::Arc,
-    time::Duration,
+    time::{
+        Duration,
+        SystemTime,
+    },
 };
 
 use common::{
@@ -41,6 +44,7 @@ use streaming_export::{
 use crate::metrics::{
     log_s3_export_worker_failed,
     s3_export_sync_timer,
+    S3ExportGauges,
 };
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
@@ -52,6 +56,7 @@ pub struct S3ExportWorker<RT: Runtime> {
     database: Database<RT>,
     instance_name: String,
     export_provider: Arc<dyn ExportProvider<RT>>,
+    gauges: S3ExportGauges,
 }
 
 impl<RT: Runtime> S3ExportWorker<RT> {
@@ -64,6 +69,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         Self {
             runtime,
             database,
+            gauges: S3ExportGauges::new(instance_name.clone()),
             instance_name,
             export_provider,
         }
@@ -90,6 +96,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             .get_by_provider(SinkType::S3Export)
             .await?;
         let Some(export) = export else {
+            self.gauges.clear();
             let token = tx.into_token()?;
             self.database
                 .subscribe_and_wait_for_invalidation(token)
@@ -99,6 +106,8 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         let SinkConfig::S3Export(config) = &export.config else {
             anyhow::bail!("S3 export document has a different configuration type");
         };
+        // A page that hangs keeps aging past this.
+        self.gauges.start(self.runtime.system_time());
         let state = S3ExportStateModel::new(&mut tx)
             .get(export.developer_id())
             .await?;
@@ -157,6 +166,16 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         } else {
             drop(tx);
         }
+        let interval = sync_interval(config.period);
+        self.gauges.set_next_sync_due(next_sync_due(
+            &page.status,
+            interval,
+            self.runtime.system_time(),
+        ));
+        self.gauges.set_snapshot_tables_synced(match &page.status {
+            SyncStatus::Snapshotting { progress } => Some(progress.num_tables_synced),
+            SyncStatus::Stale { .. } | SyncStatus::UpToDate { .. } => None,
+        });
 
         if matches!(&page.status, SyncStatus::UpToDate { .. }) {
             let mut tx = self.database.begin(Identity::system()).await?;
@@ -176,11 +195,6 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             }
             let next_write_ts = (*self.database.now_ts_for_reads()).succ()?;
             let token = tx.into_token()?;
-            let interval = match config.period {
-                SyncPeriod::Continuous => None,
-                SyncPeriod::Hourly => Some(Duration::from_secs(60 * 60)),
-                SyncPeriod::Daily => Some(Duration::from_secs(24 * 60 * 60)),
-            };
             let invalidated = self.database.subscribe_and_wait_for_invalidation(token);
             match interval {
                 None => {
@@ -199,6 +213,25 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             }
         }
         Ok(())
+    }
+}
+
+fn sync_interval(period: SyncPeriod) -> Option<Duration> {
+    match period {
+        SyncPeriod::Continuous => None,
+        SyncPeriod::Hourly => Some(Duration::from_secs(60 * 60)),
+        SyncPeriod::Daily => Some(Duration::from_secs(24 * 60 * 60)),
+    }
+}
+
+/// A caught-up export sleeps for the sync interval; every other page is
+/// followed by another right away. Wall-clock time, because an idle
+/// deployment's snapshot timestamp only moves with the
+/// `MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY` heartbeat.
+fn next_sync_due(status: &SyncStatus, interval: Option<Duration>, now: SystemTime) -> SystemTime {
+    match status {
+        SyncStatus::UpToDate { .. } => now + interval.unwrap_or_default(),
+        SyncStatus::Snapshotting { .. } | SyncStatus::Stale { .. } => now,
     }
 }
 
