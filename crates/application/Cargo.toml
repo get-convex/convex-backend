@@ -4,9 +4,6 @@ version = "0.1.0"
 edition = "2024"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 
-[package.metadata.cargo-machete]
-ignored = ["libc", "pretty_assertions"]
-
 [lib]
 doctest = false
 
@@ -127,7 +124,6 @@ value = { workspace = true }
 vector = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-libc = { workspace = true }
 
 [dev-dependencies]
 async_zip = { workspace = true }
@@ -149,7 +145,6 @@ model = { workspace = true, features = ["testing"] }
 must-let = { workspace = true }
 node_executor = { workspace = true, features = ["testing"] }
 openidconnect = { workspace = true }
-pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 roles = { workspace = true, features = ["testing"] }
