@@ -5509,6 +5509,13 @@
         "properties": {
           "amount": {
             "type": "string"
+          },
+          "percentageDiscount": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
           }
         }
       },
@@ -5552,6 +5559,13 @@
                         "properties": {
                           "amount": {
                             "type": "string"
+                          },
+                          "percentageDiscount": {
+                            "type": [
+                              "number",
+                              "null"
+                            ],
+                            "format": "double"
                           }
                         }
                       },
@@ -6464,6 +6478,13 @@
               "properties": {
                 "amount": {
                   "type": "string"
+                },
+                "percentageDiscount": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "format": "double"
                 }
               }
             },

@@ -2463,6 +2463,8 @@ export interface components {
         };
         MetricPriceAmount: {
             amount: string;
+            /** Format: double */
+            percentageDiscount?: number | null;
         };
         MetricPriceRate: {
             rate: components["schemas"]["MetricPriceAmount"];
@@ -2472,6 +2474,8 @@ export interface components {
                     regionRate: {
                         [key: string]: {
                             amount: string;
+                            /** Format: double */
+                            percentageDiscount?: number | null;
                         };
                     };
                 };
@@ -2762,6 +2766,8 @@ export interface components {
             regionRate: {
                 [key: string]: {
                     amount: string;
+                    /** Format: double */
+                    percentageDiscount?: number | null;
                 };
             };
         };
