@@ -386,6 +386,10 @@ pub static TABLE_ITERATOR_MAX_RETRIES: LazyLock<u32> =
 pub static SCHEMA_WORKER_PAGE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("SCHEMA_WORKER_PAGE_SIZE", 1000));
 
+/// Number of schema-validation table walks allowed to run concurrently.
+pub static SCHEMA_WORKER_WALK_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("SCHEMA_WORKER_WALK_CONCURRENCY", 1));
+
 /// Length of the HTTP server TCP backlog.
 pub static HTTP_SERVER_TCP_BACKLOG: LazyLock<u32> =
     LazyLock::new(|| env_config("HTTP_SERVER_TCP_BACKLOG", 256));

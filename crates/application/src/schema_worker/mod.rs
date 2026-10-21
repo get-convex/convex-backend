@@ -15,9 +15,15 @@ use common::{
     bootstrap_model::schema::SchemaState,
     document::ResolvedDocument,
     errors::report_error,
-    knobs::SCHEMA_WORKER_PAGE_SIZE,
+    knobs::{
+        SCHEMA_WORKER_PAGE_SIZE,
+        SCHEMA_WORKER_WALK_CONCURRENCY,
+    },
     persistence::LatestDocument,
-    runtime::Runtime,
+    runtime::{
+        try_join,
+        Runtime,
+    },
     schemas::{
         DatabaseSchema,
         DocumentSchema,
@@ -47,8 +53,10 @@ use database::{
 use errors::ErrorMetadataAnyhowExt;
 use futures::{
     pin_mut,
+    stream,
     Future,
     FutureExt,
+    StreamExt,
     TryStreamExt,
 };
 use keybroker::Identity;
@@ -80,10 +88,26 @@ mod metrics;
 const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
 const MAX_BACKOFF: Duration = Duration::from_secs(5);
 const MAX_OCC_FAILURES: u32 = 3;
+const PROGRESS_UPDATE_INTERVAL: Duration = Duration::from_secs(1);
 
+#[derive(Clone, Copy)]
+struct WalkConfig {
+    concurrency: usize,
+}
+
+impl WalkConfig {
+    fn new(concurrency: usize) -> Self {
+        Self {
+            concurrency: concurrency.max(1),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct SchemaWorker<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
+    walk_config: WalkConfig,
 }
 
 pub struct PendingSchemaValidation {
@@ -111,9 +135,9 @@ pub struct StagedSchemaValidation {
     by_id_indexes: BTreeMap<TabletId, IndexRef>,
 }
 
-struct TableWalk<'a> {
+struct TableWalk {
     namespace: TableNamespace,
-    table_mapping: &'a NamespacedTableMapping,
+    table_mapping: Arc<NamespacedTableMapping>,
     /// The timestamp the validation was read at. Every page of the walk is
     /// read at or after it, so the walk observes every write that committed
     /// before the validation was read; later writes are checked against the
@@ -124,6 +148,16 @@ struct TableWalk<'a> {
     validation_id: ResolvedDocumentId,
     total_docs: Option<u64>,
 }
+
+type DocumentChecker = Arc<
+    dyn Fn(
+            &ResolvedDocument,
+            TableName,
+            &NamespacedTableMapping,
+        ) -> Result<(), SchemaValidationError>
+        + Send
+        + Sync,
+>;
 
 enum WalkOutcome {
     Complete,
@@ -139,7 +173,11 @@ pub struct SchemaValidationResult {
 
 impl<RT: Runtime> SchemaWorker<RT> {
     pub fn start(runtime: RT, database: Database<RT>) -> impl Future<Output = ()> + Send {
-        let worker = Self { runtime, database };
+        let worker = Self {
+            runtime,
+            database,
+            walk_config: WalkConfig::new(*SCHEMA_WORKER_WALK_CONCURRENCY),
+        };
         async move {
             tracing::info!("Starting SchemaWorker");
             let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
@@ -365,6 +403,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             by_id_indexes,
         } = pending_validation;
 
+        let table_mapping = Arc::new(table_mapping.clone());
         let mut tx = self.database.begin_system().await?;
         let mut progress = SchemaValidationModel::new(&mut tx, namespace);
         let mut walks = Vec::new();
@@ -378,7 +417,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 .await?;
             walks.push(TableWalk {
                 namespace,
-                table_mapping: &table_mapping,
+                table_mapping: table_mapping.clone(),
                 min_ts: ts,
                 tablet_id,
                 by_id,
@@ -389,12 +428,23 @@ impl<RT: Runtime> SchemaWorker<RT> {
         self.database
             .commit_with_write_source(tx, "schema_validation_tracker_initialized")
             .await?;
-        for walk in walks {
-            let outcome = self
-                .walk_table(walk, |doc, name, mapping| {
-                    db_schema.check_existing_document(doc, name, mapping, &virtual_system_mapping)
+        walks.sort_by_key(|walk| std::cmp::Reverse(walk.total_docs.unwrap_or(u64::MAX)));
+        let check_document: DocumentChecker = Arc::new(move |doc, name, mapping| {
+            db_schema.check_existing_document(doc, name, mapping, &virtual_system_mapping)
+        });
+        let worker = self.clone();
+        let mut outcomes = stream::iter(walks.into_iter().map(move |walk| {
+            let worker = worker.clone();
+            let check_document = check_document.clone();
+            async move {
+                try_join("schema_worker_walk_table", async move {
+                    worker.walk_table(walk, check_document).await
                 })
-                .await?;
+                .await
+            }
+        }))
+        .buffer_unordered(self.walk_config.concurrency);
+        while let Some(outcome) = outcomes.try_next().await? {
             match outcome {
                 WalkOutcome::Complete => {},
                 WalkOutcome::Canceled => return Ok(()),
@@ -515,6 +565,8 @@ impl<RT: Runtime> SchemaWorker<RT> {
             .iter()
             .map(|(table_name, ..)| table_name.clone())
             .collect();
+        let table_mapping = Arc::new(table_mapping.clone());
+        let mut walks = Vec::new();
         for (table_name, tablet_id, validation_id) in to_walk {
             let total_docs = count_total_docs(snapshot, &table_name, namespace)?;
             if !self
@@ -531,46 +583,63 @@ impl<RT: Runtime> SchemaWorker<RT> {
             let by_id = *by_id_indexes
                 .get(&tablet_id)
                 .context("Missing by_id index")?;
-            let outcome = self
-                .walk_table(
-                    TableWalk {
-                        namespace,
-                        table_mapping: &table_mapping,
-                        min_ts: ts,
-                        tablet_id,
-                        by_id,
-                        validation_id,
-                        total_docs,
-                    },
-                    |doc, name, mapping| {
-                        db_schema.check_existing_document_against_staged(
-                            doc,
-                            name,
-                            mapping,
-                            &virtual_system_mapping,
-                        )
-                    },
-                )
-                .await?;
-            match outcome {
-                WalkOutcome::Complete => {
-                    tracing::info!("Staged validator for {table_name} is valid")
+            walks.push((
+                table_name,
+                TableWalk {
+                    namespace,
+                    table_mapping: table_mapping.clone(),
+                    min_ts: ts,
+                    tablet_id,
+                    by_id,
+                    validation_id,
+                    total_docs,
                 },
-                WalkOutcome::Canceled => {},
-                WalkOutcome::Violation(error) => {
-                    tracing::info!("Staged validator for {table_name} is invalid: {error}");
-                    self.commit_progress_write(
-                        namespace,
-                        validation_id,
-                        ValidationAttemptUpdate::MarkFailed {
-                            error: error.to_string(),
-                        },
-                        "schema_worker_staged_failed",
-                    )
-                    .await?;
-                },
-            }
+            ));
         }
+        walks.sort_by_key(|(_, walk)| std::cmp::Reverse(walk.total_docs.unwrap_or(u64::MAX)));
+        let check_document: DocumentChecker = Arc::new(move |doc, name, mapping| {
+            db_schema.check_existing_document_against_staged(
+                doc,
+                name,
+                mapping,
+                &virtual_system_mapping,
+            )
+        });
+        let worker = self.clone();
+        stream::iter(walks.into_iter().map(move |(table_name, walk)| {
+            let worker = worker.clone();
+            let check_document = check_document.clone();
+            let validation_id = walk.validation_id;
+            async move {
+                try_join("schema_worker_walk_staged_table", async move {
+                    let outcome = worker.walk_table(walk, check_document).await?;
+                    match outcome {
+                        WalkOutcome::Complete => {
+                            tracing::info!("Staged validator for {table_name} is valid")
+                        },
+                        WalkOutcome::Canceled => {},
+                        WalkOutcome::Violation(error) => {
+                            tracing::info!("Staged validator for {table_name} is invalid: {error}");
+                            worker
+                                .commit_progress_write(
+                                    namespace,
+                                    validation_id,
+                                    ValidationAttemptUpdate::MarkFailed {
+                                        error: error.to_string(),
+                                    },
+                                    "schema_worker_staged_failed",
+                                )
+                                .await?;
+                        },
+                    }
+                    anyhow::Ok(())
+                })
+                .await
+            }
+        }))
+        .buffer_unordered(self.walk_config.concurrency)
+        .try_collect::<Vec<_>>()
+        .await?;
         Ok(walked)
     }
 
@@ -585,12 +654,8 @@ impl<RT: Runtime> SchemaWorker<RT> {
     /// pending-only updates fence cancellation and concurrent invalidation.
     async fn walk_table(
         &self,
-        walk: TableWalk<'_>,
-        check_document: impl Fn(
-            &ResolvedDocument,
-            TableName,
-            &NamespacedTableMapping,
-        ) -> Result<(), SchemaValidationError>,
+        walk: TableWalk,
+        check_document: DocumentChecker,
     ) -> anyhow::Result<WalkOutcome> {
         let TableWalk {
             namespace,
@@ -609,8 +674,9 @@ impl<RT: Runtime> SchemaWorker<RT> {
             .stream_documents_in_table(tablet_id, by_id);
         pin_mut!(stream);
         let mut walk_metrics = TableWalkMetrics::start(self.runtime.clone());
+        let mut last_progress_update = self.runtime.monotonic_now();
         let mut current_page_ts = None;
-        let mut fresh_mapping = table_mapping.clone();
+        let mut fresh_mapping = (*table_mapping).clone();
         let mut table_name = fresh_mapping.tablet_name(tablet_id)?;
         let mut docs_since_flush = 0;
         while let Some((LatestDocument { value: doc, .. }, page_ts)) = stream.try_next().await? {
@@ -634,7 +700,10 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 return Ok(WalkOutcome::Violation(error));
             }
             docs_since_flush += 1;
-            if docs_since_flush % update_threshold == 0 {
+            let now = self.runtime.monotonic_now();
+            if docs_since_flush >= update_threshold.get()
+                && now - last_progress_update >= PROGRESS_UPDATE_INTERVAL
+            {
                 if total_docs.is_none() {
                     total_docs = count_total_docs(
                         &self.database.latest_snapshot()?,
@@ -657,6 +726,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                     return Ok(WalkOutcome::Canceled);
                 }
                 docs_since_flush = 0;
+                last_progress_update = now;
             }
         }
         if docs_since_flush > 0
