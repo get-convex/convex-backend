@@ -761,6 +761,9 @@ importers:
       '@types/ws':
         specifier: ^8.5.13
         version: 8.18.1
+      '@vercel/detect-agent':
+        specifier: ^1.2.5
+        version: 1.2.5
       '@vitest/eslint-plugin':
         specifier: ~1.6.0
         version: 1.6.6(eslint@9.39.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@5.0.4)(vitest@4.1.11)
@@ -15964,6 +15967,10 @@ packages:
 
   '@vercel/detect-agent@1.2.3':
     resolution: {integrity: sha512-VYNCgUc0nOmC4WJmWw9GkrKdfr8Zl4/rxhC5SvgacBgxiW9W/9NRttUoHHXV8xdII3MaRgkZZVX8Ikzc/Jmjag==}
+    engines: {node: '>=14'}
+
+  '@vercel/detect-agent@1.2.5':
+    resolution: {integrity: sha512-0krENrjuitlW8s6TJu0MlqCevyCU7K7JK63jZAf7xZ6n17tx+vUEwzHT3sTxawtwZxaW21hu+oFUpoOrm49FsQ==}
     engines: {node: '>=14'}
 
   '@vercel/elysia@0.1.80':
@@ -42206,6 +42213,8 @@ snapshots:
       zod: 4.1.11
 
   '@vercel/detect-agent@1.2.3': {}
+
+  '@vercel/detect-agent@1.2.5': {}
 
   '@vercel/elysia@0.1.80(rollup@4.60.4)(supports-color@10.2.2)':
     dependencies:

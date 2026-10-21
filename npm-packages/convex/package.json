@@ -300,6 +300,7 @@
     "@types/semver": "^7.3.13",
     "@types/serve-handler": "~6.1.4",
     "@types/ws": "^8.5.13",
+    "@vercel/detect-agent": "^1.2.5",
     "@vitest/eslint-plugin": "~1.6.0",
     "adm-zip": "^0.6.1",
     "bufferutil": "^4.0.7",

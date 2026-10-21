@@ -7,6 +7,10 @@
   every value as `<redacted>`, and values of 8 or more characters are also
   redacted wherever else they appear in the logged push response and diff, such
   as auth providers that `auth.config.ts` builds from `process.env`.
+- When an AI agent runs `npx convex env list` or `npx convex env default list`,
+  they now list only names by default, so secrets stay out of the agent's
+  context. Agents are detected from the environment variables they set. Pass
+  `--include-values` to print the values.
 
 - Fixed `npx convex ai-files install` and `npx convex ai-files update` reporting
   success and exiting 0 when the guidelines download or the agent skills
