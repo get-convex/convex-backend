@@ -365,11 +365,15 @@ function constructAbortSignalStreamId(signal: AbortSignal): string {
 export const convexV8ObjectFromRequest = async (request: Request) => {
   const streamId = request.body ? constructStreamId(request.body) : null;
   const headerPairs = [...request.headers.entries()];
-  if (
-    request[_contentLength] !== null &&
-    !request.headers.has("content-length")
-  ) {
-    headerPairs.push(["content-length", String(request[_contentLength])]);
+  // Per https://fetch.spec.whatwg.org/#http-network-or-cache-fetch:
+  // If httpRequest's body is null and httpRequest's method is `POST` or `PUT`, then set contentLengthHeaderValue to `0`.
+  const contentLength =
+    request.body === null &&
+    (request.method === "POST" || request.method === "PUT")
+      ? 0
+      : request[_contentLength];
+  if (contentLength !== null && !request.headers.has("content-length")) {
+    headerPairs.push(["content-length", String(contentLength)]);
   }
   const signal = constructAbortSignalStreamId(request.signal);
   return {
