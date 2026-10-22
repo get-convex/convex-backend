@@ -1163,15 +1163,11 @@ async fn sign_deployment_jwt<RT: Runtime>(
     let signer = tx
         .get_component_path(component)
         .context("Calling component not found")?;
-    let keys =
-        provider
-            .key_broker
-            .deployment_jwt_keys
-            .as_ref()
-            .context(ErrorMetadata::bad_request(
-                "JwtNoSigningKey",
-                "Caller didn't send the deployment JWT signing key",
-            ))?;
+    let keys = provider
+        .key_broker
+        .deployment_jwt_keys
+        .as_ref()
+        .context("Function runner caller didn't send the deployment JWT signing key")?;
     let token = udf::deployment_jwt::mint(
         keys,
         &origin,
