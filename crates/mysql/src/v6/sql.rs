@@ -682,6 +682,12 @@ pub(crate) fn insert_backfill_marker_chunk(chunk_size: usize) -> String {
     )
 }
 
+/// Primary-key range scans avoid the full-table next-key locking that can
+/// deadlock with concurrent commit batches and lock other deployments' rows.
+/// Index hints require multi-table `DELETE` syntax.
+const DELETE_LATEST_BY_PRIMARY: &str =
+    "DELETE @db_name.indexes_latest FROM @db_name.indexes_latest FORCE INDEX (PRIMARY)";
+
 /// Evaluates the timestamp predicate while holding each key's record lock, so
 /// a newer live write survives either transaction order.
 pub(crate) fn delete_stale_chunk(chunk_size: usize) -> String {
@@ -691,7 +697,7 @@ pub(crate) fn delete_stale_chunk(chunk_size: usize) -> String {
         chunk_size,
     )
     .join(" OR ");
-    format!("DELETE FROM @db_name.indexes_latest WHERE {predicates}")
+    format!("{DELETE_LATEST_BY_PRIMARY} WHERE {predicates}")
 }
 
 pub(crate) fn backfill_markers_page(
@@ -742,7 +748,7 @@ pub(crate) fn delete_latest_chunk(chunk_size: usize) -> String {
         chunk_size,
     )
     .join(" OR ");
-    format!("DELETE FROM @db_name.indexes_latest WHERE {predicates}")
+    format!("{DELETE_LATEST_BY_PRIMARY} WHERE {predicates}")
 }
 
 /// `STRAIGHT_JOIN` prevents MySQL from locking an entire deployment when it
