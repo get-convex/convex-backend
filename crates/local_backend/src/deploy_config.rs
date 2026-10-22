@@ -39,7 +39,10 @@ use model::{
         },
         ConfigModel,
     },
-    source_packages::SourcePackageModel,
+    source_packages::{
+        types::NodeVersion,
+        SourcePackageModel,
+    },
 };
 use roles::RequireDeploymentOp;
 use runtime::prod::ProdRuntime;
@@ -293,7 +296,7 @@ pub async fn push_config_handler(
     let udf_server_version = Version::parse(&config.udf_server_version).context(
         ErrorMetadata::bad_request("InvalidVersion", "The function version is invalid"),
     )?;
-    let node_version = config
+    let node_version: Option<NodeVersion> = config
         .node_version
         .clone()
         .map(|v| v.parse())
@@ -305,6 +308,9 @@ pub async fn push_config_handler(
                 config.node_version.unwrap_or_default()
             ),
         ))?;
+    if let Some(node_version) = node_version {
+        node_version.check_supported_for_push()?;
+    }
 
     let (analytics, metrics) = application
         .push_config_no_components(

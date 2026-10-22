@@ -1206,17 +1206,10 @@ pub struct StartPushRequest {
 
 impl StartPushRequest {
     pub fn into_project_config(self) -> anyhow::Result<ProjectConfig> {
-        let proposed_node_version: Option<NodeVersion> =
-            self.node_version.map(|v| v.parse()).transpose()?;
-        let node_version = match proposed_node_version {
-            Some(NodeVersion::V18x) => {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "NodeVersionNotSupported",
-                    "Node 18 is no longer supported. Upgrade to a newer Node version (https://docs.convex.dev/config/convex.json#configuring-the-nodejs-version)."
-                ))
-            },
-            version => version,
-        };
+        let node_version: Option<NodeVersion> = self.node_version.map(|v| v.parse()).transpose()?;
+        if let Some(node_version) = node_version {
+            node_version.check_supported_for_push()?;
+        }
 
         Ok(ProjectConfig {
             config: ConfigMetadata {

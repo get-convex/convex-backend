@@ -27,12 +27,35 @@ use crate::external_packages::types::ExternalDepsPackageId;
 pub enum NodeVersion {
     /// Node 18 is deprecated in AWS, so customers with it set will
     /// no longer be able to update their static lambdas. This is okay because
-    /// users can update their Node version to unblock themselves. This also
-    /// means that new deployments with Node 18 will fail.
+    /// users can update their Node version to unblock themselves. New pushes
+    /// with Node 18 are rejected by [`NodeVersion::check_supported_for_push`].
     V18x,
+    /// Node 20 is end-of-life. Existing source packages keep running on it,
+    /// but new pushes with Node 20 are rejected by
+    /// [`NodeVersion::check_supported_for_push`].
     V20x,
     V22x,
     V24x,
+}
+
+impl NodeVersion {
+    /// Rejects end-of-life versions so that new code can't be pushed with
+    /// them. Versions stay parseable so existing source packages still load.
+    pub fn check_supported_for_push(self) -> anyhow::Result<()> {
+        match self {
+            NodeVersion::V18x | NodeVersion::V20x => {
+                let version = String::from(self);
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "NodeVersionNotSupported",
+                    format!(
+                        "Node {version} is no longer supported. Upgrade to a newer Node version \
+                         (https://docs.convex.dev/config/convex.json#configuring-the-nodejs-version)."
+                    )
+                ));
+            },
+            NodeVersion::V22x | NodeVersion::V24x => Ok(()),
+        }
+    }
 }
 
 impl FromStr for NodeVersion {
