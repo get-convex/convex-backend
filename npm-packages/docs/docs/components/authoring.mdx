@@ -440,16 +440,18 @@ is an example of using function handles in the
 
 ### Pagination
 
-The built-in `.paginate()` doesn't work in components, because of how Convex
-keeps track of reactive pagination. Therefore we recommend you use `paginator`
-from [`convex-helpers`](https://npmjs.com/package/convex-helpers) if you need
-pagination within your component.
+The built-in `.paginate()` works in components and supports reactive pagination
+with `usePaginatedQuery` from `convex/react`. Note: a query can only make one
+paginated call across all app and component `runQuery` calls. The second call
+will throw an exception.
 
-If you expose a pagination API that wants to be used with `usePaginatedQuery`,
-in a React context, use the `usePaginatedQuery` from `convex-helpers` instead of
-the default one from `convex/react`. It will have a fixed first page size until
-you hit “load more,” at which point the first page will grow if anything before
-the second page is added.
+If you need multiple paginated database queries within one query, use `stream`
+from [`convex-helpers`](https://npmjs.com/package/convex-helpers). If you expose
+a `stream`-based API that wants to be used with `usePaginatedQuery`, in a React
+context, use the `usePaginatedQuery` from `convex-helpers` instead of the
+default one from `convex/react`. It will have a fixed first page size until you
+hit “load more,” at which point the first page will grow if anything before the
+second page is added.
 
 [Here](https://github.com/convex/rag/blob/23fb22d593682e23d9134304e823f7532cbc7e67/src/component/chunks.ts#L437-L462)
 is an example of pagination in the [RAG](https://www.convex.dev/components/rag)
