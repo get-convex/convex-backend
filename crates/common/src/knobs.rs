@@ -266,8 +266,10 @@ pub static SNAPSHOT_LIST_TIME_LIMIT: LazyLock<Duration> =
 /// page *may* emit more than this: all of a transaction's writes are emitted on
 /// the same page, since a page boundary never splits a transaction, so a single
 /// transaction larger than this limit overflows the page.
+/// This should be an exact multiple of `MYSQL_MAX_QUERY_BATCH_SIZE` to avoid
+/// fetching a partial batch's worth of extra documents at each page boundary.
 pub static DATA_SYNC_PAGE_SIZE_LIMIT: LazyLock<usize> =
-    LazyLock::new(|| env_config("DATA_SYNC_PAGE_SIZE_LIMIT", 16384));
+    LazyLock::new(|| env_config("DATA_SYNC_PAGE_SIZE_LIMIT", 20000));
 
 /// Soft limit on the total byte size of documents emitted in a single
 /// `DataSyncIterator` page, bounding page/response size on deployments with
