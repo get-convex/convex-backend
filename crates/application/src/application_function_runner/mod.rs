@@ -307,21 +307,45 @@ impl<RT: Runtime> FunctionRouter<RT> {
 }
 
 impl<RT: Runtime> FunctionRouter<RT> {
+    pub(crate) async fn acquire_permit(
+        &self,
+        udf_type: UdfType,
+    ) -> anyhow::Result<RequestGuard<'_, RT>> {
+        self.limiter(udf_type)
+            .acquire_permit(&self.rt, PermitTimeout::Enforce)
+            .await
+    }
+
+    fn limiter(&self, udf_type: UdfType) -> &Limiter<RT> {
+        match udf_type {
+            UdfType::Query => &self.query_limiter,
+            UdfType::Mutation => &self.mutation_limiter,
+            UdfType::Action | UdfType::HttpAction => &self.action_limiter,
+        }
+    }
+
     #[fastrace::trace]
     pub(crate) async fn execute_query_or_mutation(
         &self,
         tx: Transaction<RT>,
+        permit: RequestGuard<'_, RT>,
         path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
         journal: QueryJournal,
         context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         anyhow::ensure!(udf_type == UdfType::Query || udf_type == UdfType::Mutation);
+        anyhow::ensure!(
+            permit.limiter.udf_type == udf_type,
+            "Running a {udf_type} with a {} permit",
+            permit.limiter.udf_type
+        );
         // All queries and mutations are run in the isolate environment.
         let timer = function_total_timer(ModuleEnvironment::Isolate, udf_type);
         let (tx, outcome) = self
             .function_runner_execute(
                 tx,
+                permit,
                 udf_type,
                 context,
                 None,
@@ -330,7 +354,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
                     path_and_args,
                 }),
                 None,
-                false,
             )
             .await?;
         let tx = tx.with_context(|| format!("Missing transaction in response for {udf_type}"))?;
@@ -345,11 +368,16 @@ impl<RT: Runtime> FunctionRouter<RT> {
         path_and_args: ValidatedPathAndArgs,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         context: ExecutionContext,
-        wait_for_permit: bool,
+        permit_timeout: PermitTimeout,
     ) -> anyhow::Result<ActionOutcome> {
+        let permit = self
+            .action_limiter
+            .acquire_permit(&self.rt, permit_timeout)
+            .await?;
         let (_, outcome) = self
             .function_runner_execute(
                 tx,
+                permit,
                 UdfType::Action,
                 context,
                 Some(log_line_sender),
@@ -358,7 +386,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
                     path_and_args,
                 }),
                 None,
-                wait_for_permit,
             )
             .await?;
 
@@ -378,15 +405,16 @@ impl<RT: Runtime> FunctionRouter<RT> {
     ) -> anyhow::Result<HttpActionOutcome> {
         // All http actions are run in the isolate environment.
         let timer = function_total_timer(ModuleEnvironment::Isolate, UdfType::HttpAction);
+        let permit = self.acquire_permit(UdfType::HttpAction).await?;
         let (_, outcome) = self
             .function_runner_execute(
                 tx,
+                permit,
                 UdfType::HttpAction,
                 context,
                 Some(log_line_sender),
                 None,
                 Some(http_action_metadata),
-                false,
             )
             .await?;
 
@@ -397,23 +425,18 @@ impl<RT: Runtime> FunctionRouter<RT> {
         Ok(outcome)
     }
 
-    /// Waits to acquire action permit
-    pub async fn acquire_action_permit(&self) -> anyhow::Result<RequestGuard<'_, RT>> {
-        self.action_limiter.acquire_permit().await
-    }
-
-    // Drain the v8 action concurrency permits to deterministically
+    // Drain the concurrency permits for `udf_type` to deterministically
     // exercise the concurrency limit in tests.
     #[fastrace::trace]
     async fn function_runner_execute(
         &self,
         mut tx: Transaction<RT>,
+        permit: RequestGuard<'_, RT>,
         udf_type: UdfType,
         context: ExecutionContext,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
         function_metadata: Option<FunctionMetadata>,
         http_action_metadata: Option<HttpActionMetadata>,
-        wait_for_permit: bool,
     ) -> anyhow::Result<(Option<Transaction<RT>>, FunctionOutcome)> {
         // Read in this transaction so preference changes invalidate cached queries.
         let udf_runtime = BackendInfoModel::new(&mut tx)
@@ -425,18 +448,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
             .snapshot(tx.begin_timestamp())?
             .in_memory_indexes
             .in_memory_indexes_last_modified();
-
-        let limiter = match udf_type {
-            UdfType::Query => &self.query_limiter,
-            UdfType::Mutation => &self.mutation_limiter,
-            UdfType::Action | UdfType::HttpAction => &self.action_limiter,
-        };
-
-        let permit = if wait_for_permit {
-            limiter.acquire_permit().await?
-        } else {
-            limiter.acquire_permit_with_timeout(&self.rt).await?
-        };
 
         let timer = function_run_timer(udf_type);
         let (function_tx, outcome, usage_stats) = self
@@ -491,6 +502,12 @@ impl<RT: Runtime> FunctionRouter<RT> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum PermitTimeout {
+    Enforce,
+    WaitIndefinitely,
+}
+
 // Used to limit upstream concurrency for a given function type. It also tracks
 // and log gauges for the number of waiting and currently running functions.
 struct Limiter<RT: Runtime> {
@@ -534,21 +551,27 @@ impl<RT: Runtime> Limiter<RT> {
     }
 
     #[fastrace::trace]
-    async fn acquire_permit_with_timeout<'a>(
+    async fn acquire_permit<'a>(
         &'a self,
         rt: &'a RT,
+        timeout: PermitTimeout,
     ) -> anyhow::Result<RequestGuard<'a, RT>> {
         let mut request_guard = self.start();
         select! {
             biased;
-            _ = request_guard.acquire_permit() => {},
+            result = request_guard.acquire_permit() => result?,
             x = async {
                 // Report metrics while waiting for a permit. This captures the
                 // queued state only when the semaphore is actually full.
                 self.report_metrics();
                 future::pending::<!>().await
             } => match x {},
-            _ = rt.wait(self.semaphore_timeout) => {
+            _ = async {
+                match timeout {
+                    PermitTimeout::Enforce => rt.wait(self.semaphore_timeout).await,
+                    PermitTimeout::WaitIndefinitely => future::pending().await,
+                }
+            } => {
                 log_function_wait_timeout(self.env, self.udf_type);
                 let functions = match self.udf_type {
                     UdfType::Query => "queries",
@@ -570,13 +593,6 @@ impl<RT: Runtime> Limiter<RT> {
                 ));
             },
         }
-        Ok(request_guard)
-    }
-
-    /// Waits to acquire a permit
-    async fn acquire_permit(&self) -> anyhow::Result<RequestGuard<'_, RT>> {
-        let mut request_guard = self.start();
-        request_guard.acquire_permit().await?;
         Ok(request_guard)
     }
 
@@ -835,9 +851,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let context = ExecutionContext::new(request_context, &caller);
         let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
+                // Preserve the caller's uncommitted module writes in this transaction.
+                let permit = self
+                    .isolate_functions
+                    .acquire_permit(UdfType::Query)
+                    .await?;
                 self.isolate_functions
                     .execute_query_or_mutation(
                         tx,
+                        permit,
                         path_and_args,
                         UdfType::Query,
                         QueryJournal::new(),
@@ -965,6 +987,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let context = ExecutionContext::new(request_context.clone(), &caller);
 
             let start = self.runtime.monotonic_now();
+            let permit = self.acquire_mutation_permit().await;
             let mut tx = self
                 .database
                 .begin_with_usage(identity.clone(), usage_tracker.clone())
@@ -973,7 +996,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             pause_client.wait("retry_mutation_loop_start").await;
             let identity = tx.inert_identity();
 
-            // Return the previous execution's result if the mutation was committed already.
+            // Committed mutations can be replayed even if permit acquisition failed.
             if let Some(result) = self
                 .check_mutation_status(&mut tx, &mutation_identifier)
                 .await?
@@ -984,6 +1007,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let result: Result<(Transaction<RT>, ValidatedUdfOutcome), anyhow::Error> = self
                 .run_mutation_no_udf_log(
                     tx,
+                    permit,
                     path.clone(),
                     arguments.clone(),
                     caller.allowed_visibility(),
@@ -1181,22 +1205,38 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
     }
 
+    /// Ordinary mutations acquire before beginning their transaction to keep
+    /// the snapshot fresh. Background jobs begin their transactions before
+    /// waiting and rely on OCC retries for freshness.
+    ///
+    /// Fails with `TooManyWrites` instead of waiting while the write throughput
+    /// limit is exceeded. The mutation checks the limit again after the wait.
+    pub async fn acquire_mutation_permit(&self) -> anyhow::Result<RequestGuard<'_, RT>> {
+        self.database.check_write_throughput_limit()?;
+        self.isolate_functions
+            .acquire_permit(UdfType::Mutation)
+            .await
+    }
+
     /// Attempts to run a mutation once using the given transaction.
-    /// The method is not idempotent. It is the caller responsibility to
-    /// drive retries as we as log in the UDF log.
+    /// The caller handles retries and UDF logging.
+    ///
+    /// Accepts a permit acquisition error so it can be logged with other system
+    /// errors.
     pub async fn run_mutation_no_udf_log(
         &self,
         tx: Transaction<RT>,
+        permit: anyhow::Result<RequestGuard<'_, RT>>,
         path: PublicFunctionPath,
         arguments: SerializedArgs,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
         mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<(Transaction<RT>, ValidatedUdfOutcome)> {
-        self.database.check_write_throughput_limit()?;
         let result = self
             .run_mutation_inner(
                 tx,
+                permit,
                 path,
                 arguments,
                 allowed_visibility,
@@ -1228,12 +1268,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn run_mutation_inner(
         &self,
         mut tx: Transaction<RT>,
+        permit: anyhow::Result<RequestGuard<'_, RT>>,
         path: PublicFunctionPath,
         arguments: SerializedArgs,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
         mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<(Transaction<RT>, ValidatedUdfOutcome)> {
+        let permit = permit?;
+        self.database.check_write_throughput_limit()?;
         if path.is_system() && !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
@@ -1268,6 +1311,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .isolate_functions
             .execute_query_or_mutation(
                 tx,
+                permit,
                 path_and_args,
                 UdfType::Mutation,
                 QueryJournal::new(),
@@ -1325,7 +1369,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 caller.clone(),
                 usage_tracking.clone(),
                 context.clone(),
-                false,
+                PermitTimeout::Enforce,
             )
             .await;
         let completion = match completion_result {
@@ -1373,7 +1417,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
         context: ExecutionContext,
-        wait_for_permit: bool,
+        permit_timeout: PermitTimeout,
     ) -> anyhow::Result<ActionCompletion> {
         let result = self
             .run_action_inner(
@@ -1383,7 +1427,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 caller,
                 usage_tracking,
                 context,
-                wait_for_permit,
+                permit_timeout,
             )
             .await;
         match result.as_ref() {
@@ -1415,7 +1459,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
         context: ExecutionContext,
-        wait_for_permit: bool,
+        permit_timeout: PermitTimeout,
     ) -> anyhow::Result<ActionCompletion> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
@@ -1490,7 +1534,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         path_and_args,
                         log_line_sender,
                         context.clone(),
-                        wait_for_permit,
+                        permit_timeout,
                     )
                     .boxed();
                 let (outcome_result, log_lines) = run_function_and_collect_log_lines(
@@ -1549,13 +1593,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     }
                     Ok(source_maps)
                 };
-                let _permit = if wait_for_permit {
-                    self.node_action_limiter.acquire_permit().await?
-                } else {
-                    self.node_action_limiter
-                        .acquire_permit_with_timeout(&self.runtime)
-                        .await?
-                };
+                let _permit = self
+                    .node_action_limiter
+                    .acquire_permit(&self.runtime, permit_timeout)
+                    .await?;
 
                 let mut environment_variables =
                     system_env_vars(&mut tx, self.default_system_env_vars.clone()).await?;
@@ -1712,7 +1753,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
     }
 
-    // Drain the v8 action concurrency permits so tests can
+    // Drain the isolate concurrency permits for `udf_type` so tests can
     // deterministically force `TooManyConcurrentRequests` and then recover.
     #[fastrace::trace]
     pub async fn build_deps(

@@ -118,7 +118,10 @@ use value::{
 };
 
 use crate::{
-    application_function_runner::ApplicationFunctionRunner,
+    application_function_runner::{
+        ApplicationFunctionRunner,
+        PermitTimeout,
+    },
     function_log::FunctionExecutionLog,
 };
 
@@ -656,7 +659,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.handle_action(caller, tx, job, job_id, usage_tracker)
                     .await?
             },
-            udf_type => {
+            UdfType::Query | UdfType::HttpAction => {
                 let message = format!(
                     r#"Unsupported function type. {:?} in module "{:?}"{} is defined as a {udf_type}. "
                             "Only {} and {} can be scheduled."#,
@@ -748,6 +751,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // Continue without running function since the job state has changed
                 return Ok(());
             };
+            let permit = self.runner.acquire_mutation_permit().await;
             let start = self.rt.monotonic_now();
             let context = ExecutionContext::new(
                 RequestContext::new_for_system_request(request_id.clone()),
@@ -760,7 +764,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             let pause_client = self.rt.pause_client();
 
             // Stage a write so that the mutation can observe its own
-            // `_scheduled_functions` record as `inProgress`. This is invisible to
+            // `_scheduled_functions` document as `inProgress`. This is invisible to
             // other transactions, for whom the job stays `pending` until it
             // reaches a completion state.
             let mut in_progress_job = job.clone();
@@ -779,6 +783,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.runner
                     .run_mutation_no_udf_log(
                         tx,
+                        permit,
                         PublicFunctionPath::Component(path.clone()),
                         udf_args.clone(),
                         caller.allowed_visibility(),
@@ -987,7 +992,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         caller,
                         usage_tracker.clone(),
                         context.clone(),
-                        true,
+                        PermitTimeout::WaitIndefinitely,
                     )
                     .await?;
                 let state = match &completion.outcome.result {

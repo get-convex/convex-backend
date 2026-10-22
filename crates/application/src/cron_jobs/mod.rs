@@ -88,7 +88,10 @@ use value::{
 };
 
 use crate::{
-    application_function_runner::ApplicationFunctionRunner,
+    application_function_runner::{
+        ApplicationFunctionRunner,
+        PermitTimeout,
+    },
     function_log::FunctionExecutionLog,
 };
 
@@ -324,14 +327,12 @@ impl<RT: Runtime> CronJobContext<RT> {
             .new_transaction_for_job_state(&job, usage_tracker.clone())
             .await?
         else {
-            // Continue without running function since the job state has changed
             return Ok(job.id);
         };
         let (_, component_path) = self.get_job_component(&mut tx, job.id).await?;
         tracing::debug!("Executing {:?}!", job.cron_spec.udf_path);
 
-        // Since we don't specify the function type in the cron, we have to use
-        // the analyzed result.
+        // Cron specs omit the function type; use the current module definition.
         let path = CanonicalizedComponentFunctionPath {
             component: component_path,
             udf_path: job.cron_spec.udf_path.clone(),
@@ -353,8 +354,10 @@ impl<RT: Runtime> CronJobContext<RT> {
                 self.handle_mutation(tx, job, usage_tracker, mutation_retry_count)
                     .await?
             },
-            UdfType::Action => self.handle_action(tx, job, usage_tracker).await?,
-            udf_type => {
+            UdfType::Action => {
+                self.handle_action(tx, job, usage_tracker).await?;
+            },
+            UdfType::Query | UdfType::HttpAction => {
                 anyhow::bail!(
                     "Cron trying to execute {} which is a {} function. This should have been \
                      checked during analyze.",
@@ -363,7 +366,6 @@ impl<RT: Runtime> CronJobContext<RT> {
                 );
             },
         };
-
         Ok(job_id)
     }
 
@@ -434,6 +436,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         usage_tracker: FunctionUsageTracker,
         mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
+        let permit = self.runner.acquire_mutation_permit().await;
         let start = self.rt.monotonic_now();
         let identity = tx.inert_identity();
         let caller = FunctionCaller::Cron;
@@ -460,6 +463,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 self.runner
                     .run_mutation_no_udf_log(
                         tx,
+                        permit,
                         PublicFunctionPath::Component(path.clone()),
                         job.cron_spec.udf_args.clone(),
                         caller.allowed_visibility(),
@@ -680,7 +684,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                         caller,
                         usage_tracker.clone(),
                         context.clone(),
-                        true,
+                        PermitTimeout::WaitIndefinitely,
                     )
                     .await?;
                 let execution_time_f64 = completion.execution_time.as_secs_f64();
