@@ -9,8 +9,11 @@ use std::{
 use common::{
     backoff::Backoff,
     errors::report_error,
+    execution_context::ExecutionId,
     fastrace_helpers::get_sampled_span,
     runtime::Runtime,
+    types::UdfIdentifier,
+    RequestId,
 };
 use database::Database;
 use exports::interface::ExportProvider;
@@ -40,6 +43,10 @@ use streaming_export::{
     },
     SyncStatus,
 };
+use usage_tracking::{
+    CallType,
+    UsageCounter,
+};
 
 use crate::metrics::{
     log_s3_export_worker_failed,
@@ -57,6 +64,7 @@ pub struct S3ExportWorker<RT: Runtime> {
     instance_name: String,
     export_provider: Arc<dyn ExportProvider<RT>>,
     gauges: S3ExportGauges,
+    usage_counter: UsageCounter,
 }
 
 impl<RT: Runtime> S3ExportWorker<RT> {
@@ -65,6 +73,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         database: Database<RT>,
         instance_name: String,
         export_provider: Arc<dyn ExportProvider<RT>>,
+        usage_counter: UsageCounter,
     ) -> Self {
         Self {
             runtime,
@@ -72,6 +81,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             gauges: S3ExportGauges::new(instance_name.clone()),
             instance_name,
             export_provider,
+            usage_counter,
         }
     }
 
@@ -144,6 +154,19 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             timer.finish();
             page
         };
+        // Porter commits the page in the destination before returning it, so
+        // a returned page is a billed page. The progress checkpoint below is
+        // for the dashboard and can lose an OCC race without unbilling anything.
+        self.usage_counter
+            .track_call(
+                UdfIdentifier::SystemJob("s3_export".to_string()),
+                ExecutionId::new(),
+                RequestId::new(),
+                CallType::Export,
+                true,
+                page.usage.clone(),
+            )
+            .await;
         // The page is already committed in the destination, so losing this
         // progress update to a concurrent configuration edit loses no data.
         let checkpoint = S3ExportCheckpoint {
