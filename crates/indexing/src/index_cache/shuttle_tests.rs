@@ -48,7 +48,10 @@ use common::{
     },
 };
 use shuttle::{
-    scheduler::RandomScheduler,
+    scheduler::{
+        PctScheduler,
+        RandomScheduler,
+    },
     Config,
     Runner,
 };

@@ -298,18 +298,23 @@ impl IndexCache {
                 .collect();
 
             for (index_id, intervals) in entries {
-                for (interval, order, max_size) in intervals.intervals() {
-                    self.cache.remove(CacheKey {
-                        deployment_id,
-                        index_id,
-                        interval,
-                        order,
-                        max_size,
-                    });
-                }
+                self.evict(deployment_id, index_id, &intervals);
             }
         }
         log_index_cache_size(self.cache.weighted_size());
+    }
+
+    /// The caller must release all DashMap locks before evicting cache entries.
+    fn evict(&self, deployment_id: DeploymentId, index_id: IndexId, intervals: &IndexIntervals) {
+        for (interval, order, max_size) in intervals.intervals() {
+            self.cache.remove(CacheKey {
+                deployment_id,
+                index_id,
+                interval,
+                order,
+                max_size,
+            });
+        }
     }
 
     /// Whether `(interval, order, max_size)` is currently registered for this
@@ -376,12 +381,16 @@ impl IndexCacheHandle {
     }
 
     fn remove_index(&self, index_id: &IndexId) {
-        self.shared_cache
+        // Release the DashMap locks before acquiring the cache lock in `evict`.
+        let removed = self
+            .shared_cache
             .index_to_intervals
-            .entry(self.deployment_id)
-            .and_modify(|e| {
-                e.remove(index_id);
-            });
+            .get(&self.deployment_id)
+            .and_then(|d| d.remove(index_id));
+        if let Some((index_id, intervals)) = removed {
+            self.shared_cache
+                .evict(self.deployment_id, index_id, &intervals);
+        }
     }
 
     pub(crate) fn get(
@@ -613,9 +622,10 @@ impl IndexCacheHandle {
         let _timer = cache_apply_writes_timer();
         let deployment_id = self.deployment_id;
         for (index_name, writes) in writes_by_index {
-            // When an index is modified, we remove it from the index_to_intervals map so it
-            // can't be queried again. Doesn't really matter if it is added, removed, or
-            // updated. If it's added, future populates will populate it.
+            // When an index is modified, we untrack it and evict its cached entries, so
+            // no reader at or after the modification can be served one. This covers
+            // staging, which keeps the IndexId while writes to the staged index skip
+            // apply_writes, so entries kept through a stage/unstage would be stale.
             if &TabletIndexName::by_id(self.index_tablet) == index_name {
                 for write in writes.clone() {
                     self.remove_index(&IndexId(write.document_id.internal_id()))
