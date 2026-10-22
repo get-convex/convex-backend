@@ -243,7 +243,6 @@ impl<RT: Runtime> Persistence<RT> {
         Reader {
             db_name,
             read_pool: pool,
-            db_should_be_leader: options.db_should_be_leader,
             instance_name: options.instance_name,
             multitenant: options.multitenant,
         }
@@ -415,7 +414,6 @@ impl<RT: Runtime> PersistenceTrait for Persistence<RT> {
         Arc::new(Reader {
             db_name: self.db_name.clone(),
             read_pool: self.read_pool.clone(),
-            db_should_be_leader: true,
             instance_name: self.instance_name.clone(),
             multitenant: self.multitenant,
         })
@@ -546,12 +544,6 @@ pub struct Reader<RT: Runtime> {
     db_name: String,
     instance_name: MySqlInstanceName,
     multitenant: bool,
-    /// Set `db_should_be_leader` if this PostgresReader should be connected
-    /// to the database leader. In particular, we protect against heterogenous
-    /// connection pools where one connection is to the leader and another is to
-    /// a follower.
-    #[allow(unused)]
-    db_should_be_leader: bool,
 }
 
 fn maybe_bytes_col(row: &Row, col: usize) -> anyhow::Result<Option<&[u8]>> {

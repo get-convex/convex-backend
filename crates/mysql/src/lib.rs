@@ -87,7 +87,6 @@ pub struct MySqlOptions {
 
 #[derive(Debug)]
 pub struct MySqlReaderOptions {
-    pub db_should_be_leader: bool,
     pub version: PersistenceVersion,
     pub instance_name: MySqlInstanceName,
     pub multitenant: bool,

@@ -182,7 +182,6 @@ pub async fn connect_persistence_reader<RT: Runtime>(
     db: DbDriverTag,
     db_spec: &str,
     require_ssl: bool,
-    db_should_be_leader: bool,
     deployment_name: &str,
     deployment_id: Option<DeploymentId>,
     runtime: RT,
@@ -224,7 +223,6 @@ pub async fn connect_persistence_reader<RT: Runtime>(
             options,
         } => {
             let options = MySqlReaderOptions {
-                db_should_be_leader,
                 version: options.version,
                 multitenant: options.multitenant,
                 instance_name: options.instance_name,
