@@ -72,16 +72,17 @@ pub(crate) fn change_log_schema() -> Result<Schema> {
         .build()?)
 }
 
-/// Appends `changes` to `table` as one snapshot. On a conflict the commit
-/// reloads the table and reapplies the append, so concurrent writers both land
-/// and a retried page can repeat rows; readers deduplicate on (`_id`, `ts`).
+/// Appends `changes` to `table` as one snapshot and returns the table with the
+/// bytes of Parquet written. On a conflict the commit reloads the table and
+/// reapplies the append, so concurrent writers both land and a retried page
+/// can repeat rows; readers deduplicate on (`_id`, `ts`).
 #[fastrace::trace]
 pub(crate) async fn append(
     catalog: &dyn Catalog,
     table: &Table,
     changes: &[Change],
     snapshot_properties: &HashMap<String, String>,
-) -> Result<Table> {
+) -> Result<(Table, u64)> {
     let schema = table.metadata().current_schema().clone();
     let batch = RecordBatch::try_new(
         Arc::new(schema_to_arrow_schema(&schema)?),
@@ -118,6 +119,7 @@ pub(crate) async fn append(
         .await?;
     writer.write(batch).await?;
     let files = writer.close().await?;
+    let bytes_written = files.iter().map(|file| file.file_size_in_bytes()).sum();
     let tx = Transaction::new(table);
     // File names are UUID-prefixed, so the duplicate check, which reads every
     // manifest, can never fire.
@@ -127,5 +129,5 @@ pub(crate) async fn append(
         .set_snapshot_properties(snapshot_properties.clone())
         .add_data_files(files)
         .apply(tx)?;
-    Ok(tx.commit(catalog).await?)
+    Ok((tx.commit(catalog).await?, bytes_written))
 }

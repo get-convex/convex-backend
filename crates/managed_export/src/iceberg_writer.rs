@@ -85,6 +85,9 @@ pub struct IcebergChangeWriter {
     /// retirement load every table to find out.
     retired: Option<BTreeSet<String>>,
     snapshot_properties: HashMap<String, String>,
+    /// Parquet bytes this writer has committed to the bucket. Billed to the
+    /// customer as data egress.
+    bytes_written: u64,
 }
 
 impl IcebergChangeWriter {
@@ -145,6 +148,10 @@ impl IcebergChangeWriter {
         self.retired.as_ref()
     }
 
+    pub fn bytes_written(&self) -> u64 {
+        self.bytes_written
+    }
+
     async fn register(&mut self, name: &str) -> Result<()> {
         if let Some(location) = self.unregistered.remove(name) {
             self.catalog
@@ -191,6 +198,7 @@ impl IcebergChangeWriter {
             unregistered: BTreeMap::new(),
             retired: None,
             snapshot_properties: HashMap::new(),
+            bytes_written: 0,
         };
         Ok(writer)
     }
@@ -351,13 +359,14 @@ impl IcebergChangeWriter {
                     self.create(&source).await?;
                 }
             }
-            let table = append(
+            let (table, bytes_written) = append(
                 &*self.catalog,
                 &self.tables[&source],
                 &changes,
                 &self.snapshot_properties,
             )
             .await?;
+            self.bytes_written += bytes_written;
             self.record(&table)?;
             self.tables.insert(source, table);
         }

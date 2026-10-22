@@ -119,8 +119,15 @@ async fn locations_track_every_commit_and_summaries_name_the_page() -> Result<()
     let menu = &writer.tables[&source("menu")];
     let snapshot = menu.metadata().current_snapshot().unwrap();
     assert_eq!(snapshot.summary().additional_properties["convex.page"], "7");
+    let after_one_row = writer.bytes_written();
+    assert!(after_one_row > 0, "one Parquet file was written");
 
     writer.apply(&[source("menu")], vec![]).await?;
+    assert_eq!(
+        writer.bytes_written(),
+        after_one_row,
+        "recreating a table writes metadata only"
+    );
     let menu = catalog
         .load_table(&TableIdent::new(
             writer.namespace.clone(),
