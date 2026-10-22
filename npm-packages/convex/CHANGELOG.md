@@ -2,6 +2,10 @@
 
 ## 1.48.0 (unreleased)
 
+- Convex deployments can now sign their own JWTs with an internally managed
+  key-pair. The `ctx.auth.signJwt` API is available in mutations. The JWTs
+  can be verified with the public key in the JWKS hosted at
+  `${CONVEX_CLOUD_URL}/.well-known/jwks.json`.
 - `npx convex dev --verbose` and `npx convex deploy --verbose` no longer print
   environment variable values. The logged list of environment variables shows
   every value as `<redacted>`, and values of 8 or more characters are also
