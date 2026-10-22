@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.48.0 (unreleased)
+## 1.48.0
 
 - Convex deployments can now sign their own JWTs with an internally managed
   key-pair. The `ctx.auth.signJwt` API is available in mutations. The JWTs
