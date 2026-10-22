@@ -16,6 +16,9 @@
   success and exiting 0 when the guidelines download or the agent skills
   install failed. They now exit with code 1.
 
+- `ctx.storage.store()` and `ctx.storage.get()` are now available in mutations,
+  not just actions. Files stored and read in a mutation count toward its
+  transaction limits.
 
 ## 1.47.0
 
