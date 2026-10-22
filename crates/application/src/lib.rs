@@ -209,7 +209,10 @@ use http_client::{
     ClientPurpose,
 };
 use keybroker::{
+    AdminIdentity,
+    AdminIdentityPrincipal,
     DeploymentOp,
+    ExportDownloadActor,
     Identity,
     KeyBroker,
 };
@@ -1738,19 +1741,13 @@ impl<RT: Runtime> Application<RT> {
         }?;
         let component_id = component.serialize_to_string();
         let component_path = tx.must_component_path(component)?;
-        let format_str = match &format {
-            ExportFormat::Zip { include_storage } if *include_storage => {
-                "zip_with_storage".to_string()
-            },
-            ExportFormat::Zip { .. } => "zip".to_string(),
-        };
         self.commit_with_audit_log_events(
             tx,
             vec![DeploymentAuditLogEvent::RequestExport {
                 id: DeveloperDocumentId::from(snapshot_id).encode(),
                 component_id,
                 component: component_path,
-                format: format_str,
+                format: format.audit_log_format().to_string(),
                 requestor: requestor.usage_tag().to_string(),
             }],
             request_metadata,
@@ -1760,41 +1757,77 @@ impl<RT: Runtime> Application<RT> {
         Ok(snapshot_id.into())
     }
 
+    pub async fn export_download_identity(
+        &self,
+        actor: ExportDownloadActor,
+        download_token: String,
+    ) -> anyhow::Result<Identity> {
+        let principal = match (actor.member_id, actor.token_id) {
+            (Some(member_id), _) => AdminIdentityPrincipal::Member(member_id),
+            (None, None) => return Ok(Identity::system()),
+            (None, Some(_)) => {
+                let mut tx = self.begin(Identity::system()).await?;
+                let backend_info = BackendInfoModel::new(&mut tx).get().await?.context(
+                    ErrorMetadata::forbidden(
+                        "InvalidExportDownloadToken",
+                        "Invalid export download token",
+                    ),
+                )?;
+                AdminIdentityPrincipal::Team(backend_info.team)
+            },
+        };
+        Ok(Identity::DeploymentAdmin(
+            AdminIdentity::new_for_access_token(
+                self.deployment_name(),
+                principal,
+                download_token,
+                true,
+                vec![DeploymentOp::DownloadBackups],
+                self.runtime.system_time(),
+                actor.token_id,
+                None,
+            ),
+        ))
+    }
+
     pub async fn get_zip_export(
         &self,
         identity: Identity,
+        request_metadata: RequestMetadata,
         id: Either<DeveloperDocumentId, Timestamp>,
     ) -> anyhow::Result<(StorageGetStream, String)> {
-        let (object_key, snapshot_ts) = {
-            let mut tx = self.begin(identity).await?;
-            let export = match id {
-                Either::Left(id) => ExportsModel::new(&mut tx).get(id).await?,
-                Either::Right(ts) => {
-                    ExportsModel::new(&mut tx)
-                        .completed_export_at_ts(ts)
-                        .await?
-                },
-            }
-            .context(ErrorMetadata::not_found(
-                "ExportNotFound",
-                format!("The requested export {id} was not found"),
-            ))?;
-            match export.into_value() {
-                Export::Completed {
-                    zip_object_key,
-                    start_ts,
-                    ..
-                } => (zip_object_key, start_ts),
-                Export::Failed { .. }
-                | Export::Canceled { .. }
-                | Export::InProgress { .. }
-                | Export::Requested { .. } => {
-                    anyhow::bail!(ErrorMetadata::bad_request(
-                        "ExportNotComplete",
-                        format!("The requested export {id} has not completed"),
-                    ))
-                },
-            }
+        let mut tx = self.begin(identity).await?;
+        let export = match id {
+            Either::Left(id) => ExportsModel::new(&mut tx).get(id).await?,
+            Either::Right(ts) => {
+                ExportsModel::new(&mut tx)
+                    .completed_export_at_ts(ts)
+                    .await?
+            },
+        }
+        .context(ErrorMetadata::not_found(
+            "ExportNotFound",
+            format!("The requested export {id} was not found"),
+        ))?;
+        let snapshot_id = DeveloperDocumentId::from(export.id()).encode();
+        let component = export.component();
+        let format = export.format();
+        let requestor = export.requestor();
+        let (object_key, snapshot_ts) = match export.into_value() {
+            Export::Completed {
+                zip_object_key,
+                start_ts,
+                ..
+            } => (zip_object_key, start_ts),
+            Export::Failed { .. }
+            | Export::Canceled { .. }
+            | Export::InProgress { .. }
+            | Export::Requested { .. } => {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "ExportNotComplete",
+                    format!("The requested export {id} has not completed"),
+                ))
+            },
         };
         let storage_get_stream = self
             .application_storage
@@ -1805,6 +1838,22 @@ impl<RT: Runtime> Application<RT> {
                 "ExportNotFound",
                 format!("The requested export {snapshot_ts}/{object_key:?} was not found"),
             ))?;
+
+        let component_id = component.serialize_to_string();
+        let component_path = tx.must_component_path(component)?;
+        self.commit_with_audit_log_events(
+            tx,
+            vec![DeploymentAuditLogEvent::DownloadExport {
+                id: snapshot_id,
+                component_id,
+                component: component_path,
+                format: format.audit_log_format().to_string(),
+                requestor: requestor.usage_tag().to_string(),
+            }],
+            request_metadata,
+            "download_export",
+        )
+        .await?;
 
         let filename = format!(
             // This should match the format in SnapshotExport.tsx.
