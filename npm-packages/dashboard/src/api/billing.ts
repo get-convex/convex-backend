@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import type { CreditResponse, InvoiceResponse } from "generatedApi";
 import { BILLING_RESOURCE, Permissioned } from "lib/permissions";
 import {
@@ -22,6 +23,25 @@ export function useTeamOrbSubscription(teamId?: number) {
     return { isLoading, subscription: null, hasError: true };
   }
   return { isLoading, subscription, hasError: false };
+}
+
+export function useTeamPrices(teamId: number) {
+  const { dashboardShowCashUsage } = useLaunchDarkly();
+  const canView = useHasCustomRolePermission(
+    teamId,
+    "billing:view",
+    BILLING_RESOURCE,
+    true,
+  );
+  const result = useBBQuery({
+    path: "/teams/{team_id}/get_prices",
+    pathParams: {
+      team_id:
+        dashboardShowCashUsage && canView === true ? teamId.toString() : "",
+    },
+    swrOptions: { keepPreviousData: false },
+  });
+  return { ...result, canView };
 }
 
 export function useCreateSetupIntent(teamId: number) {

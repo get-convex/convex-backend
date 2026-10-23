@@ -17,6 +17,7 @@ import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
 import { Donut } from "@ui/Donut";
 import { Loading } from "@ui/Loading";
+import { formatDistanceToNowStrict } from "date-fns";
 
 const BUSINESS_METRIC_TO_SECTION: Record<string, string> = {
   functionCalls: "functionCalls",
@@ -238,6 +239,7 @@ export function BusinessPlanSummary({
   entitlements,
   hasSubscription = false,
   showEntitlements = false,
+  pricingAvailableFromDate = null,
 }: {
   summary?: UsageSummaryRow[];
   error?: any;
@@ -247,10 +249,11 @@ export function BusinessPlanSummary({
   entitlements?: TeamEntitlementsResponse;
   hasSubscription?: boolean;
   showEntitlements?: boolean;
+  pricingAvailableFromDate?: number | null;
 }) {
   const router = useRouter();
   const { dashboardShowCashUsage } = useLaunchDarkly();
-  const showSpend = dashboardShowCashUsage;
+  const showSpend = dashboardShowCashUsage && pricingAvailableFromDate !== null;
   const gridColumns = hasSubscription
     ? showSpend
       ? "grid-cols-[4fr_3fr_2fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_2fr_auto]"
@@ -362,7 +365,9 @@ export function BusinessPlanSummary({
             </div>
           )}
           {showSpend && (
-            <Tooltip tip="Usage charges before credits and other invoice adjustments.">
+            <Tooltip
+              tip={`Spend is only available for time ranges starting after the previous change to prices (${formatDistanceToNowStrict(pricingAvailableFromDate, { addSuffix: true })}).`}
+            >
               <span className="flex items-center gap-1">
                 Spend <QuestionMarkCircledIcon />
               </span>
