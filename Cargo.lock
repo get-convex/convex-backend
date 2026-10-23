@@ -443,7 +443,7 @@ dependencies = [
  "itertools 0.14.0",
  "keybroker",
  "log_streaming",
- "lru 0.18.0",
+ "lru 0.18.5",
  "maplit",
  "metrics",
  "model",
@@ -800,7 +800,7 @@ dependencies = [
  "errors",
  "fastrace",
  "futures",
- "lru 0.18.0",
+ "lru 0.18.5",
  "metrics",
  "parking_lot",
  "rand 0.9.4",
@@ -5095,8 +5095,6 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
 dependencies = [
- "allocator-api2",
- "equivalent",
  "foldhash 0.2.0",
 ]
 
@@ -6898,9 +6896,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.18.0"
+version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a860605968fce16869fd239cf4237a82f3ac470723415db603b0e8b6c8d4fb9"
+checksum = "ef9ac18847474e638e3702b76c65d4eb93428471a74778ef0f1be711717f89b5"
 dependencies = [
  "hashbrown 0.17.0",
 ]
@@ -7401,7 +7399,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "keyed_priority_queue",
- "lru 0.18.0",
+ "lru 0.18.5",
  "mysql_common",
  "percent-encoding",
  "rand 0.10.2",
@@ -8591,7 +8589,7 @@ dependencies = [
  "futures",
  "futures-async-stream",
  "itertools 0.14.0",
- "lru 0.18.0",
+ "lru 0.18.5",
  "metrics",
  "parking_lot",
  "postgres-protocol",
