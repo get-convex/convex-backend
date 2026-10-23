@@ -45,8 +45,6 @@ const useQuery = createQueryHook(client, "big-brain");
 
 export const useMutate = createMutateHook(client, "big-brain", isMatch);
 
-export const useBBInfiniteQuery = createInfiniteHook(client, "big-brain");
-
 // Management API hooks
 const useManagementQuery = createQueryHook(
   managementApiClient,

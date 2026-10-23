@@ -5,7 +5,6 @@ import flatMap from "lodash/flatMap";
 import { useInitialData } from "hooks/useServerSideData";
 import { useAuthHeader } from "hooks/fetching";
 import type { PaginatedDeploymentsResponse } from "@convex-dev/platform/managementApi";
-import { useProfile } from "./profile";
 import { useCurrentProject } from "./projects";
 import {
   useManagementApiInfiniteQuery,
@@ -32,27 +31,6 @@ export function useDeployments(projectId?: number) {
   });
 
   return { deployments: data, isLoading };
-}
-
-export function useDefaultDevDeployment(projectId: number | undefined) {
-  const member = useProfile();
-  const { deployments } = useDeployments(projectId);
-  const cloudDev = deployments?.find(
-    (d) =>
-      d.deploymentType === "dev" &&
-      d.kind === "cloud" &&
-      d.creator === member?.id &&
-      d.isDefault,
-  );
-  const localDev = deployments?.find(
-    (d) =>
-      d.deploymentType === "dev" &&
-      d.kind === "local" &&
-      d.creator === member?.id &&
-      d.isActive,
-  );
-  // Prefer local deployments if they exist.
-  return localDev ?? cloudDev;
 }
 
 export function useCurrentDeployment() {

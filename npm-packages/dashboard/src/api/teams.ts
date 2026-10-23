@@ -170,20 +170,6 @@ export function useGetSSO(
   return { data: ssoOrganization, isLoading, error };
 }
 
-export function useEnableSSO(teamId: number) {
-  return useBBMutation({
-    path: `/teams/{team_id}/enable_sso`,
-    pathParams: {
-      team_id: teamId.toString(),
-    },
-    mutateKey: "/teams/{team_id}/get_sso",
-    mutatePathParams: {
-      team_id: teamId.toString(),
-    },
-    successToast: "SSO has been enabled for your team.",
-  });
-}
-
 export function useDisableSSO(teamId: number) {
   return useBBMutation({
     path: `/teams/{team_id}/disable_sso`,

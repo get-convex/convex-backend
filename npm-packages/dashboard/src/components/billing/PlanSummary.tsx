@@ -54,8 +54,11 @@ type BusinessMetricKey =
 
 type Section = {
   metric: BusinessMetricKey;
-  // TODO: Remove string fallback once teamMaxSearchQueries is in generated types
-  entitlement?: keyof TeamEntitlementsResponse | string;
+  entitlement?: {
+    [K in keyof TeamEntitlementsResponse]: TeamEntitlementsResponse[K] extends number
+      ? K
+      : never;
+  }[keyof TeamEntitlementsResponse];
   format: (value: number) => string;
   detail: string;
   title: string;
@@ -380,9 +383,7 @@ export function BusinessPlanSummary({
               !aiCostFailed;
             const entitlement =
               section.entitlement && entitlements
-                ? ((entitlements as Record<string, unknown>)[
-                    section.entitlement
-                  ] as number | undefined)
+                ? entitlements[section.entitlement]
                 : undefined;
 
             const includedAmount = section.allOnDemand

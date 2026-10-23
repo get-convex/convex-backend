@@ -557,8 +557,6 @@ const config = [
             "gift-paper",
             "gift-spark",
             "hover-decoration",
-            "SelectorItem-active",
-            "SelectorItem",
 
             // Classes not used for styling but only for referencing from JS code
             "js-.+",
