@@ -228,7 +228,7 @@ pub static MAX_ACTION_USER_TIMEOUT: LazyLock<Duration> =
 pub static GET_SERVICE_TOKEN_GUARANTEED_LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config(
         "GET_SERVICE_TOKEN_GUARANTEED_LIFETIME_SECONDS",
-        10 * 60,
+        2 * 60,
     ))
 });
 

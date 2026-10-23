@@ -55,7 +55,12 @@ pub const LOCAL_AI_GATEWAY_JWT_ISSUER: &str = "convex-local";
 /// A service audience keeps tokens valid across gateway hostname changes.
 pub const AI_GATEWAY_JWT_AUDIENCE: &str = "ai";
 pub const AI_GATEWAY_JWT_VERSION: u16 = 1;
-pub const AI_GATEWAY_JWT_LIFETIME: Duration = Duration::minutes(30);
+pub const AI_GATEWAY_JWT_LIFETIME: Duration = Duration::minutes(5);
+/// Longest lifetime verifiers accept. Control planes running older releases
+/// issue 30-minute tokens, which must stay valid while the shorter
+/// `AI_GATEWAY_JWT_LIFETIME` rolls out; lower this once every issuer is
+/// upgraded.
+pub const AI_GATEWAY_JWT_MAX_ACCEPTED_LIFETIME: Duration = Duration::minutes(30);
 pub const AI_GATEWAY_JWT_CLOCK_SKEW: Duration = Duration::seconds(5);
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -254,7 +259,7 @@ fn verify_claims(
         .ok_or(JwtError::InvalidToken)?
         .into();
     let token_lifetime = expires_at.signed_duration_since(issued_at);
-    if token_lifetime <= Duration::zero() || token_lifetime > AI_GATEWAY_JWT_LIFETIME {
+    if token_lifetime <= Duration::zero() || token_lifetime > AI_GATEWAY_JWT_MAX_ACCEPTED_LIFETIME {
         return Err(JwtError::InvalidToken);
     }
     Ok(claims)
