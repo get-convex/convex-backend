@@ -1,8 +1,13 @@
 import { Context } from "aws-lambda";
+import { disableBrotliDecompressionIfFlagged } from "./brotliMitigation";
 import { invoke, ogProcessExit } from "./executor";
 import { logDebug, setDebugLogging } from "./log";
 import { populatePrebuildPackages } from "./source_package";
 import { finished, Writable } from "node:stream";
+
+// Runs before any user code loads, so user modules only see the replaced
+// `node:zlib` exports.
+disableBrotliDecompressionIfFlagged(process.env);
 
 const warmupPromise = populatePrebuildPackages();
 
