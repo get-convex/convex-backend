@@ -8,6 +8,7 @@ export const flagDefaults: {
   ephemeralZipExportToken: boolean;
   directorySync: boolean;
   promos: boolean;
+  dashboardShowCashUsage: boolean;
   s3ExportIntegration: boolean;
   showFivetranSyncProgress: boolean;
   supportTicketForAllPlans: boolean;
@@ -20,6 +21,7 @@ export const flagDefaults: {
   ephemeralZipExportToken: false,
   directorySync: false,
   promos: false,
+  dashboardShowCashUsage: false,
   s3ExportIntegration: false,
   showFivetranSyncProgress: false,
   supportTicketForAllPlans: false,

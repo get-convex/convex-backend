@@ -4,6 +4,7 @@ import { Tooltip } from "@ui/Tooltip";
 import { Spinner } from "@ui/Spinner";
 import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { UsageSummaryRow } from "hooks/usageMetrics";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { formatQuantity } from "./lib/formatQuantity";
 import { ReactNode } from "react";
 import { TeamEntitlementsResponse } from "generatedApi";
@@ -248,6 +249,15 @@ export function BusinessPlanSummary({
   showEntitlements?: boolean;
 }) {
   const router = useRouter();
+  const { dashboardShowCashUsage } = useLaunchDarkly();
+  const showSpend = dashboardShowCashUsage;
+  const gridColumns = hasSubscription
+    ? showSpend
+      ? "grid-cols-[4fr_3fr_2fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_2fr_auto]"
+      : "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
+    : showSpend
+      ? "grid-cols-[5fr_4fr_2fr_auto]"
+      : "grid-cols-[5fr_4fr_auto]";
   const activeSections = isBusinessPlan ? businessSections : selfServeSections;
 
   // Deployment counts live on the summary rows but are team-wide (the gauge has
@@ -319,9 +329,7 @@ export function BusinessPlanSummary({
         <div
           className={cn(
             "grid items-center gap-2 rounded-t border-b px-4 py-2 text-sm text-content-secondary",
-            hasSubscription
-              ? "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
-              : "grid-cols-[5fr_4fr_auto]",
+            gridColumns,
           )}
         >
           <div>Resource</div>
@@ -352,6 +360,13 @@ export function BusinessPlanSummary({
                 <QuestionMarkCircledIcon />
               </Tooltip>
             </div>
+          )}
+          {showSpend && (
+            <Tooltip tip="Usage charges before credits and other invoice adjustments.">
+              <span className="flex items-center gap-1">
+                Spend <QuestionMarkCircledIcon />
+              </span>
+            </Tooltip>
           )}
           <span className="invisible flex items-center gap-1 text-xs">
             <span className="hidden whitespace-nowrap sm:inline">
@@ -412,9 +427,7 @@ export function BusinessPlanSummary({
                 }}
                 className={cn(
                   "group grid min-h-10 items-center gap-2 rounded-sm px-4 py-2 text-left transition-colors hover:bg-background-primary focus-visible:bg-background-primary focus-visible:outline-2 focus-visible:outline-border-selected",
-                  hasSubscription
-                    ? "grid-cols-[4fr_3fr_2fr_auto] sm:grid-cols-[4fr_3fr_3fr_auto]"
-                    : "grid-cols-[5fr_4fr_auto]",
+                  gridColumns,
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -497,6 +510,11 @@ export function BusinessPlanSummary({
                       onDemandAmount > 0 &&
                       `+${section.format(onDemandAmount)}${section.suffix ? ` ${section.suffix}` : ""}`
                     )}
+                  </div>
+                )}
+                {showSpend && (
+                  <div className="animate-fadeInFromLoading tabular-nums">
+                    <span className="text-content-secondary">–</span>
                   </div>
                 )}
                 <span className="flex items-center gap-1 text-xs text-content-secondary">
