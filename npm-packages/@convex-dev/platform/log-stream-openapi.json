@@ -216,6 +216,12 @@
               "type": {
                 "type": "string"
               },
+              "runtime": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
               "cached": {
                 "type": [
                   "boolean",
@@ -331,6 +337,12 @@
               },
               "type": {
                 "type": "string"
+              },
+              "runtime": {
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "cached": {
                 "type": [

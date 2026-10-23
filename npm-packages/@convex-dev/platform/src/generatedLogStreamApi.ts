@@ -54,6 +54,7 @@ export interface components {
             function: {
                 path: string;
                 type: string;
+                runtime?: string | null;
                 cached?: boolean | null;
                 request_id: string;
                 mutation_queue_length?: number | null;
@@ -82,6 +83,7 @@ export interface components {
             function: {
                 path: string;
                 type: string;
+                runtime?: string | null;
                 cached?: boolean | null;
                 request_id: string;
                 mutation_queue_length?: number | null;
