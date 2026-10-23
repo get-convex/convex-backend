@@ -8,6 +8,7 @@ use std::{
 
 use common::{
     backoff::Backoff,
+    document::ParsedDocument,
     errors::report_error,
     execution_context::ExecutionId,
     fastrace_helpers::get_sampled_span,
@@ -23,6 +24,7 @@ use model::{
     log_sinks::{
         types::{
             s3_export::SyncPeriod,
+            LogSinksRow,
             SinkConfig,
             SinkType,
         },
@@ -121,9 +123,12 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         let state = S3ExportStateModel::new(&mut tx)
             .get(export.developer_id())
             .await?;
-        let previous_checkpoint = state.as_ref().map(|state| &state.checkpoint);
-        // Keep the configuration read in the checkpoint transaction: OCC also
-        // detects edits that restore the original values while the page is in flight.
+        let previous_checkpoint = state.map(|state| state.checkpoint.clone());
+        // A page can outlast the write log's retention (30 s on a busy
+        // deployment), and a transaction that old can no longer commit. So
+        // this one ends here, and the progress transaction below re-reads the
+        // export instead.
+        drop(tx);
         let page = {
             let database_snapshot = self.database.latest_database_snapshot()?;
             let timer = s3_export_sync_timer();
@@ -172,17 +177,26 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         let checkpoint = S3ExportCheckpoint {
             progress: export_progress(&page.status)?,
         };
+        let mut tx = self.database.begin(Identity::system()).await?;
+        // A page synced under a configuration that has since changed does not
+        // describe the current export.
+        let current = LogSinksModel::new(&mut tx)
+            .get_by_provider(SinkType::S3Export)
+            .await?;
+        if !is_same_export(current.as_ref(), &export) {
+            return Ok(());
+        }
         if !S3ExportStateModel::new(&mut tx)
             .advance(
                 export.developer_id(),
-                previous_checkpoint,
+                previous_checkpoint.as_ref(),
                 checkpoint.clone(),
             )
             .await?
         {
             return Ok(());
         }
-        if previous_checkpoint != Some(&checkpoint) {
+        if previous_checkpoint.as_ref() != Some(&checkpoint) {
             self.database
                 .commit_with_write_source(tx, "s3_export_worker_record_progress")
                 .await?;
@@ -205,9 +219,7 @@ impl<RT: Runtime> S3ExportWorker<RT> {
             let current = LogSinksModel::new(&mut tx)
                 .get_by_provider(SinkType::S3Export)
                 .await?;
-            if current.is_none_or(|current| {
-                current.developer_id() != export.developer_id() || current.config != export.config
-            }) {
+            if !is_same_export(current.as_ref(), &export) {
                 return Ok(());
             }
             let current_state = S3ExportStateModel::new(&mut tx)
@@ -237,6 +249,16 @@ impl<RT: Runtime> S3ExportWorker<RT> {
         }
         Ok(())
     }
+}
+
+/// Whether `current` is still the export a page was synced for.
+fn is_same_export(
+    current: Option<&ParsedDocument<LogSinksRow>>,
+    export: &ParsedDocument<LogSinksRow>,
+) -> bool {
+    current.is_some_and(|current| {
+        current.developer_id() == export.developer_id() && current.config == export.config
+    })
 }
 
 fn sync_interval(period: SyncPeriod) -> Option<Duration> {
