@@ -7,8 +7,8 @@
   "scripts": {
     "build": "npm run build:generated && tsc --noEmit",
     "build:generated": "python3 scripts/build-convexServerTypes.py",
-    "lint": "bash ../dashboard-common/scripts/checkNode22.sh && npx --prefix ../lint eslint . --config ../lint/eslint.config.mjs --cache",
-    "lint:fix": "bash ../dashboard-common/scripts/checkNode22.sh && npx --prefix ../lint eslint --fix . --config ../lint/eslint.config.mjs --cache"
+    "lint": "bash ../dashboard-common/scripts/checkNode24.sh && npx --prefix ../lint eslint . --config ../lint/eslint.config.mjs --cache",
+    "lint:fix": "bash ../dashboard-common/scripts/checkNode24.sh && npx --prefix ../lint eslint --fix . --config ../lint/eslint.config.mjs --cache"
   },
   "peerDependencies": {
     "@radix-ui/react-icons": "~1.3.0",
