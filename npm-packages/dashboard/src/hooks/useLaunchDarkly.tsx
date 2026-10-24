@@ -14,6 +14,8 @@ export const flagDefaults: {
   supportTicketForAllPlans: boolean;
   healthDeployProgress: boolean;
   componentSwitcherTreeEnabled: boolean;
+  preAuthorizeStarterPlan: boolean;
+  preAuthorizePaymentMethodChange: boolean;
 } = {
   commandPaletteDeleteProjects: false,
   enableNewDashboardVersionNotification: false,
@@ -27,6 +29,8 @@ export const flagDefaults: {
   supportTicketForAllPlans: false,
   healthDeployProgress: false,
   componentSwitcherTreeEnabled: false,
+  preAuthorizeStarterPlan: false,
+  preAuthorizePaymentMethodChange: false,
 };
 
 export const flagDefaultsKebabCase = Object.entries(flagDefaults).reduce(
