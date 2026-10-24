@@ -1504,6 +1504,7 @@ dependencies = [
  "aws-credential-types",
  "aws-sdk-firehose",
  "aws-sdk-s3",
+ "aws-smithy-runtime",
  "aws-smithy-types-convert",
  "aws-types",
  "cmd_util",

@@ -27,6 +27,7 @@ aws-lc-rs = { version = "1.18.1", default-features = false, features = [ "aws-lc
 aws-sdk-firehose = { version = "1.72", default-features = false, features = [ "default-https-client", "rt-tokio" ] }
 aws-sdk-s3 = { version = "1.83", default-features = false, features = [ "default-https-client", "rt-tokio", "sigv4a" ] }
 aws-smithy-http = "0.62.0"
+aws-smithy-runtime = "1.14"
 aws-smithy-types-convert = { version = "0.60", features = [ "convert-streams" ] }
 aws-types = "1"
 aws_s3 = { path = "crates/aws_s3" }
